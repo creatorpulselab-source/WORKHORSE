@@ -253,7 +253,7 @@ Respond ONLY with valid JSON.
             creator_articles.extend(self.search_live_trends(q, max_results=3))
 
         # 3. Build synthesis prompt
-        prompt = f"""You are SYNAPSE [100 Fm] & CIPHER [24 Cr], Market Scout for Creator Media Lab.
+        prompt = f"""You are SYNAPSE [100 Fm] & RADAR [47 Ag], Market Scout for Creator Media Lab.
 Today is {today_str}. Here are breaking articles discovered in our daily radar:
 
 PHOTOGRAPHY & STUDIO NEWS:

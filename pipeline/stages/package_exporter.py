@@ -27,7 +27,7 @@ class PackageExporter:
         pkg_dir.mkdir(parents=True, exist_ok=True)
 
         if progress_cb:
-            progress_cb("Forge Agent: Organizing bundle deliverables...", 20)
+            progress_cb("Apex Agent: Organizing bundle deliverables...", 20)
 
         # 1. Poses folder
         poses_folder = pkg_dir / "01_pose_screenshots"
@@ -105,7 +105,7 @@ class PackageExporter:
 
         # 6. Build ZIP bundle
         if progress_cb:
-            progress_cb("Forge Agent: Compressing into release ZIP package...", 80)
+            progress_cb("Apex Agent: Compressing into release ZIP package...", 80)
 
         zip_path = self.output_base / f"{stem}_PROMO_PACKAGE.zip"
         with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
@@ -116,7 +116,7 @@ class PackageExporter:
                     zipf.write(file_path, arcname=str(arcname))
 
         if progress_cb:
-            progress_cb("Forge Agent: Release package finalized!", 100)
+            progress_cb("Apex Agent: Release package finalized!", 100)
 
         return {
             "package_dir": str(pkg_dir),
@@ -129,4 +129,4 @@ class PackageExporter:
 
 if __name__ == "__main__":
     exporter = PackageExporter()
-    print("Package Exporter (Forge) initialized.")
+    print("Package Exporter (Apex) initialized.")

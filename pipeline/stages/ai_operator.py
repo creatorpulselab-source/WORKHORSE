@@ -12,6 +12,7 @@ import asyncio
 import datetime
 import shutil
 import time
+import zipfile
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple
 
@@ -618,8 +619,36 @@ class AIOperatorEngine:
         elif tool_name == "aura_retouch":
             files = tool_call.get("files", [])
             style = tool_call.get("style", "natural")
-            result["message"] = f"Aura [79 Au] frequency separation & {style} color grade triggered for {len(files)} image(s)."
-            result["files"] = files
+            try:
+                resolved_paths = []
+                for fn in files:
+                    p = Path(fn)
+                    if not p.is_absolute():
+                        p = CLIENT_INBOX_DIR / fn
+                    if p.exists():
+                        resolved_paths.append(p)
+                if not resolved_paths and not files:
+                    # No specific files named - default to everything the Commander just dropped in
+                    resolved_paths = [f for f in CLIENT_INBOX_DIR.iterdir() if f.is_file()]
+                if not resolved_paths:
+                    result["status"] = "error"
+                    result["error"] = "No matching source photo(s) found to retouch"
+                    return result
+
+                from pipeline.stages.photo_retoucher import PhotoRetoucher
+                retoucher = PhotoRetoucher()
+                retouch_res = retoucher.process_photo_batch(
+                    image_paths=resolved_paths,
+                    shoot_name=tool_call.get("shoot_name", "operator_shoot"),
+                    preset=style,
+                    smooth_strength=float(tool_call.get("smooth_strength", 0.5)),
+                    watermark_text=tool_call.get("watermark_text", "@ExclusiveDrop")
+                )
+                result["message"] = f"Aura [79 Au]: Frequency separation & '{style}' color grade complete for {len(resolved_paths)} image(s). Bundle: {retouch_res.get('zip_name')}."
+                result["details"] = retouch_res
+            except Exception as e:
+                result["status"] = "error"
+                result["error"] = str(e)
 
         elif tool_name == "create_banner":
             client = tool_call.get("client_name", "Creator")
@@ -634,8 +663,23 @@ class AIOperatorEngine:
             timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
             pkg_name = f"Delivery_{client}_{timestamp}.zip"
             pkg_path = CLIENT_OUTPUTS_DIR / pkg_name
-            result["message"] = f"Apex [78 Pt]: Master delivery archive generated: {pkg_name}"
-            result["download_path"] = str(pkg_path)
+            try:
+                deliverable_files = [f for f in CLIENT_INBOX_DIR.iterdir() if f.is_file()]
+                if not deliverable_files:
+                    result["status"] = "error"
+                    result["error"] = "No deliverable files found in the client inbox to package"
+                    return result
+
+                with zipfile.ZipFile(pkg_path, "w", zipfile.ZIP_DEFLATED) as zipf:
+                    for f in deliverable_files:
+                        zipf.write(f, arcname=f.name)
+
+                result["message"] = f"Apex [78 Pt]: Master delivery archive generated: {pkg_name} ({len(deliverable_files)} file(s))."
+                result["download_path"] = str(pkg_path)
+                result["files"] = [f.name for f in deliverable_files]
+            except Exception as e:
+                result["status"] = "error"
+                result["error"] = str(e)
 
         # REAL-TIME MARKET INTELLIGENCE & LINK INGESTION
         elif tool_name == "trend_radar_sweep":

@@ -23,7 +23,7 @@ class CopySynthesizer:
     ) -> Dict[str, Any]:
         """Generate high-converting multi-platform social media copy."""
         if progress_cb:
-            progress_cb("Aura Agent: Crafting platform-specific captions & tags...", 25)
+            progress_cb("Scribe Agent: Crafting platform-specific captions & tags...", 25)
 
         hooks_str = "\n".join([f"- {h}" for h in spoken_hooks]) if spoken_hooks else "None detected"
         audio_str = transcript_text if transcript_text else "No spoken dialogue."
@@ -113,7 +113,7 @@ Respond in STRICT, VALID JSON format with no markdown wrappers or extra commenta
             }
 
         if progress_cb:
-            progress_cb("Aura Agent: Social copy kit complete!", 100)
+            progress_cb("Scribe Agent: Social copy kit complete!", 100)
 
         return parsed_kit
 
