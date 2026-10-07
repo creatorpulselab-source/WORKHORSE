@@ -142,6 +142,10 @@ When the user asks you to inspect, check, or execute a task, you can invoke:
 - {"tool": "block_swap_model", "target_model": "..."}: Forces GPU 0 to evict current Ollama weights and preload a different model.
 - {"tool": "hardware_allocation"}: Reports the live Dual RTX 3060 GPU 0/GPU 1 partition assignment.
 - {"tool": "repair_subscribers"}: Detects and repairs a corrupted newsletter_subscribers.json file.
+- {"tool": "notify_commander", "message": "..."}: Sends a direct SMS to the Commander's phone. Use this when the Commander explicitly asks you to text/alert them, or when you've found a problem you cannot safely self-heal.
+
+SELF-HEALING & MONITORING (CRITICAL):
+Herald's scheduler autonomously re-verifies every scheduled newsletter dispatch (Dispensary Deals, Studio Wire, Creator Pulse, Creator Blueprint) every 60 seconds - a dispatch is only ever marked "sent today" after confirming real delivery (actual recipients emailed), never just because a script launched without crashing. A failed dispatch is automatically retried up to 3 times; if it still hasn't succeeded after that, Herald logs a 'needs_attention' incident via log_incident and texts the Commander directly via notify_commander - you do not need to be asked to notice this, it already happened automatically. When the Commander asks why something didn't run, ALWAYS check check_daily_schedule and incident_log first for the real cause before answering.
 
 JOB-INTAKE RULE (CRITICAL):
 Before emitting a generate_tip_menu tool-call, you MUST already have the Commander's REAL values in this conversation for: the client's own avatar/banner photos (or image references), their real tip-menu pricing tiers, their real top tipper and schedule, and any social/platform links they want included. If any of these are missing or the Commander only gave a vague request, DO NOT call the tool and DO NOT invent placeholder/stock data - instead ask the Commander directly, in plain text, exactly what specifics you still need before you can build it. Only call the tool once you actually have real values to put in it.
@@ -259,6 +263,37 @@ class AIOperatorEngine:
         except Exception:
             pass
         return []
+
+    def notify_commander(self, message: str) -> Dict[str, Any]:
+        """Sends a direct SMS alert to the Commander for failures Synapse could not
+        self-heal autonomously. Reuses the Twilio account already configured for the
+        Dispensary Deals SMS blast (F:/AI_Media_Scripts/deals_config.json) instead of
+        wiring up a second set of credentials. This is the "let me know so I can fix it"
+        escalation path - added 2026-10-07 after a newsletter dispatch bug went
+        undetected because nothing ever verified real delivery or told the Commander."""
+        try:
+            config_path = Path("F:/AI_Media_Scripts/deals_config.json")
+            with open(config_path, "r", encoding="utf-8") as f:
+                cfg = json.load(f)
+            tw = cfg.get("twilio", {})
+            if not tw.get("enabled"):
+                print(f"[SYNAPSE] Commander alert (Twilio disabled, logged only): {message}")
+                return {"status": "skipped", "reason": "twilio_disabled"}
+
+            resp = requests.post(
+                f"https://api.twilio.com/2010-04-01/Accounts/{tw['account_sid']}/Messages.json",
+                auth=(tw["account_sid"], tw["auth_token"]),
+                data={"From": tw["from_number"], "To": tw["to_number"], "Body": message[:1500]},
+                timeout=10
+            )
+            if resp.status_code in (200, 201):
+                print(f"[SYNAPSE] Commander alerted via SMS: {message}")
+                return {"status": "ok", "sid": resp.json().get("sid")}
+            print(f"[SYNAPSE] Commander SMS alert failed: {resp.status_code} {resp.text}")
+            return {"status": "error", "http_status": resp.status_code, "body": resp.text}
+        except Exception as e:
+            print(f"[SYNAPSE] Commander SMS alert exception: {e}")
+            return {"status": "error", "error": str(e)}
 
     def auto_remediate(self) -> Dict[str, Any]:
         """Periodic self-healing sweep: runs full diagnostics, then attempts a known
@@ -495,6 +530,16 @@ class AIOperatorEngine:
                 result["status"] = "error"
                 result["error"] = str(e)
                 return result
+
+        elif tool_name == "notify_commander":
+            message = tool_call.get("message", "")
+            try:
+                alert_res = self.notify_commander(message)
+                result["message"] = f"SYNAPSE [100 Fm]: Commander alert {'sent' if alert_res.get('status') == 'ok' else 'attempted'} - {alert_res.get('status')}."
+                result["details"] = alert_res
+            except Exception as e:
+                result["status"] = "error"
+                result["error"] = str(e)
 
         elif tool_name == "gpu_guardrails_status":
             try:

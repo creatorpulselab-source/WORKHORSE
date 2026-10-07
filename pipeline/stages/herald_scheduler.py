@@ -60,6 +60,14 @@ PUBLICATION_SCHEDULE = {
     "creator_blueprint": "10:00",
 }
 
+# dispensary_deals is dispatched via its own legacy flag name (newsletters_sent_today)
+# for backward compat with the dashboard, but is monitored the same way as the rest.
+ALL_MONITORED_PUBLICATIONS = {"dispensary_deals": "09:00", **PUBLICATION_SCHEDULE}
+
+# A dispatch isn't marked "done" until real delivery is verified. Failed dispatches are
+# auto-retried up to this many times before Synapse gives up and alerts the Commander.
+MAX_DISPATCH_RETRIES = 3
+
 DAILY_SLOTS = [
     {
         "slot_id": "slot_1_morning",
@@ -185,7 +193,10 @@ class HeraldScheduler:
             try:
                 with open(STATE_FILE, "r", encoding="utf-8") as f:
                     self.state = json.load(f)
-                    return self.state
+                for pub_id in ALL_MONITORED_PUBLICATIONS:
+                    self.state.setdefault(f"{pub_id}_attempts", 0)
+                    self.state.setdefault(f"{pub_id}_alerted_today", False)
+                return self.state
             except Exception:
                 pass
         self.state = {
@@ -197,6 +208,9 @@ class HeraldScheduler:
             "creator_blueprint_sent_today": False,
             "history": []
         }
+        for pub_id in ALL_MONITORED_PUBLICATIONS:
+            self.state.setdefault(f"{pub_id}_attempts", 0)
+            self.state.setdefault(f"{pub_id}_alerted_today", False)
         self._save_state()
         return self.state
 
@@ -217,6 +231,9 @@ class HeraldScheduler:
             self.state["studio_wire_sent_today"] = False
             self.state["creator_pulse_sent_today"] = False
             self.state["creator_blueprint_sent_today"] = False
+            for pub_id in ALL_MONITORED_PUBLICATIONS:
+                self.state[f"{pub_id}_attempts"] = 0
+                self.state[f"{pub_id}_alerted_today"] = False
             self._save_state()
             print(f"[Herald Scheduler] Day rollover to {today_str}. Schedule reset for 5 new slots.")
 
@@ -306,13 +323,39 @@ class HeraldScheduler:
         self._save_state()
         return results
 
+    def _verify_dispensary_dispatch(self, timeout_s: int = 180) -> Dict[str, Any]:
+        """Blocks until the dispensary_deals.py subprocess finishes, then inspects its
+        captured log output for a real '[Email] Sent to' line. A clean exit code alone
+        does NOT prove the email was actually sent - a 2026-10-07 bug had the script
+        exit 0 while silently skipping send_email() entirely, with SMS masking it."""
+        waited = 0
+        while self.newsletter.run_status == "running" and waited < timeout_s:
+            time.sleep(2)
+            waited += 2
+        status = self.newsletter.get_run_status()
+        logs = status.get("recent_logs", "")
+        email_confirmed = "[Email] Sent to" in logs
+        email_disabled = "[Email] No recipients configured" in logs
+        return {
+            "success": status.get("status") == "completed" and (email_confirmed or email_disabled),
+            "email_confirmed": email_confirmed,
+            "process_status": status.get("status"),
+            "logs_tail": logs[-800:]
+        }
+
     def dispatch_newsletters_all(self) -> Dict[str, Any]:
-        """Trigger the private Dispensary Deals dispatch (dispensary_deals.py subprocess)."""
+        """Trigger the private Dispensary Deals dispatch (dispensary_deals.py subprocess),
+        then BLOCK until it finishes and verify real email delivery before marking today's
+        dispatch successful - a launched-OK subprocess is not proof the email went out."""
         self._check_day_rollover()
-        res = self.newsletter.trigger_dispatch()
-        self.state["newsletters_sent_today"] = True
+        launch_res = self.newsletter.trigger_dispatch()
+        verify_res = self._verify_dispensary_dispatch()
+        res = {**launch_res, **verify_res}
+        if verify_res["success"]:
+            self.state["newsletters_sent_today"] = True
         self.state["history"].append({
             "type": "newsletter_dispatch",
+            "pub_id": "dispensary_deals",
             "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "result": res
         })
@@ -320,10 +363,14 @@ class HeraldScheduler:
         return res
 
     def dispatch_publication(self, pub_id: str) -> Dict[str, Any]:
-        """Sends a public newsletter (studio_wire / creator_pulse / creator_blueprint) to its real subscriber list."""
+        """Sends a public newsletter (studio_wire / creator_pulse / creator_blueprint) to its
+        real subscriber list. Only marks today's send as successful if send_publication_now()
+        confirms recipients were actually emailed - success=False or sent=0 must NOT be
+        silently treated as 'done for today' (see 2026-10-07 dispatch-gap incident)."""
         self._check_day_rollover()
         res = self.newsletter.send_publication_now(pub_id)
-        self.state[f"{pub_id}_sent_today"] = True
+        if bool(res.get("success")) and res.get("sent", 0) > 0:
+            self.state[f"{pub_id}_sent_today"] = True
         self.state["history"].append({
             "type": "newsletter_dispatch",
             "pub_id": pub_id,
@@ -332,6 +379,55 @@ class HeraldScheduler:
         })
         self._save_state()
         return res
+
+    def _monitor_and_remediate_publications(self):
+        """Autonomous watchdog - called every 60s from run_loop(). For any publication
+        whose target time has passed and hasn't been VERIFIED sent today, retries the
+        dispatch (up to MAX_DISPATCH_RETRIES). Once retries are exhausted, logs a
+        'needs_attention' incident and texts the Commander directly via Synapse's
+        notify_commander - added 2026-10-07 so a dispatch failure can never again go
+        unnoticed just because nothing checked back on it."""
+        current_time = datetime.now().strftime("%H:%M")
+        for pub_id, target in ALL_MONITORED_PUBLICATIONS.items():
+            if current_time < target:
+                continue
+
+            sent_key = "newsletters_sent_today" if pub_id == "dispensary_deals" else f"{pub_id}_sent_today"
+            if self.state.get(sent_key):
+                continue
+
+            attempts_key = f"{pub_id}_attempts"
+            alerted_key = f"{pub_id}_alerted_today"
+            attempts = self.state.get(attempts_key, 0)
+
+            if attempts >= MAX_DISPATCH_RETRIES:
+                if not self.state.get(alerted_key):
+                    msg = (f"WORKHORSE ALERT: '{pub_id}' newsletter failed to send after "
+                           f"{MAX_DISPATCH_RETRIES} automatic retries today. Manual check needed.")
+                    print(f"[Herald Scheduler] {msg}")
+                    try:
+                        from pipeline.stages.ai_operator import ai_operator
+                        ai_operator.log_incident(
+                            f"newsletter_{pub_id}",
+                            f"Failed to dispatch after {MAX_DISPATCH_RETRIES} attempts",
+                            "Auto-retry exhausted - Commander notified via SMS.",
+                            status="needs_attention"
+                        )
+                        ai_operator.notify_commander(msg)
+                    except Exception as e:
+                        print(f"[Herald Scheduler] Failed to notify commander: {e}")
+                    self.state[alerted_key] = True
+                    self._save_state()
+                continue
+
+            print(f"[Herald Scheduler] '{pub_id}' not yet confirmed sent today "
+                  f"(attempt {attempts + 1}/{MAX_DISPATCH_RETRIES}). Dispatching...")
+            self.state[attempts_key] = attempts + 1
+            self._save_state()
+            if pub_id == "dispensary_deals":
+                self.dispatch_newsletters_all()
+            else:
+                self.dispatch_publication(pub_id)
 
     def dispatch_today_all_now(self) -> Dict[str, Any]:
         """
@@ -374,11 +470,11 @@ class HeraldScheduler:
                     except Exception as e:
                         print(f"[Herald Scheduler] Radar sweep error: {e}")
 
-                # Check each slot
+                # Check each Twitter slot
                 for s in DAILY_SLOTS:
                     slot_id = s["slot_id"]
                     target = s["target_time"]
-                    
+
                     # If target time reached and not yet executed today
                     if current_time >= target and slot_id not in self.state.get("executed_slots", []):
                         print(f"[Herald Scheduler] Target time {target} reached for {slot_id}. Triggering automated dispatch...")
@@ -386,17 +482,11 @@ class HeraldScheduler:
                         loop = asyncio.get_event_loop()
                         await loop.run_in_executor(None, lambda s_id=slot_id: self.dispatch_slot(s_id))
 
-                        # If morning slot, also dispatch the private Dispensary Deals newsletter
-                        if slot_id == "slot_1_morning" and not self.state.get("newsletters_sent_today"):
-                            await loop.run_in_executor(None, self.dispatch_newsletters_all)
-
-                # Public newsletters (Studio Wire / Creator Pulse / Creator Blueprint) each have
-                # their own target time and subscriber list - dispatch independently of the Twitter slots.
-                for pub_id, target in PUBLICATION_SCHEDULE.items():
-                    if current_time >= target and not self.state.get(f"{pub_id}_sent_today"):
-                        print(f"[Herald Scheduler] Target time {target} reached for publication '{pub_id}'. Dispatching to subscribers...")
-                        loop = asyncio.get_event_loop()
-                        await loop.run_in_executor(None, lambda p=pub_id: self.dispatch_publication(p))
+                # Autonomous newsletter dispatch, retry, and Commander alerting (Dispensary
+                # Deals, Studio Wire, Creator Pulse, Creator Blueprint) - verifies ACTUAL
+                # delivery every pass instead of trusting a one-shot "launched" flag.
+                loop = asyncio.get_event_loop()
+                await loop.run_in_executor(None, self._monitor_and_remediate_publications)
 
             except asyncio.CancelledError:
                 self.is_running = False
