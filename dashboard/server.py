@@ -15,6 +15,7 @@ if sys.platform == "win32":
 
 import json
 import asyncio
+import time
 import shutil
 import subprocess
 from pathlib import Path
@@ -86,6 +87,30 @@ def ws_event_dispatcher(job_data: Dict[str, Any]):
 
 orchestrator.subscribe(ws_event_dispatcher)
 
+# Cached ComfyUI (RTX 5070 Ti Main PC) health status, refreshed by a background
+# monitor task so the telemetry websocket can report online/offline state
+# cheaply (without blocking on a network call every 3s). This is the fix for
+# "ComfyUI going offline with no alerting anywhere in the dashboard" - the
+# only prior check was the on-demand /api/comfy/status route, which nobody
+# polled periodically.
+comfy_health_cache: Dict[str, Any] = {"online": None, "last_checked": None, "error": None}
+
+async def comfy_health_monitor_loop():
+    from pipeline.stages.comfyui_bridge import comfy_bridge
+    loop = asyncio.get_event_loop()
+    while True:
+        try:
+            status = await loop.run_in_executor(None, comfy_bridge.check_connection)
+            comfy_health_cache["online"] = status.get("online", False)
+            comfy_health_cache["host"] = status.get("host")
+            comfy_health_cache["error"] = status.get("error")
+            comfy_health_cache["last_checked"] = time.strftime("%Y-%m-%d %H:%M:%S")
+        except Exception as e:
+            comfy_health_cache["online"] = False
+            comfy_health_cache["error"] = str(e)
+            comfy_health_cache["last_checked"] = time.strftime("%Y-%m-%d %H:%M:%S")
+        await asyncio.sleep(45)
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global main_loop
@@ -93,11 +118,13 @@ async def lifespan(app: FastAPI):
     print("[WORKHORSE] Command Center Server running on http://0.0.0.0:8800 (Tailscale: http://100.66.45.48:8800 or http://secondary-pc:8800)")
     watchdog_task = asyncio.create_task(vram_manager.run_watchdog_loop())
     herald_task = asyncio.create_task(herald_scheduler.run_loop())
+    comfy_health_task = asyncio.create_task(comfy_health_monitor_loop())
     try:
         yield
     finally:
         watchdog_task.cancel()
         herald_task.cancel()
+        comfy_health_task.cancel()
 
 app = FastAPI(title="WORKHORSE AI Command Center", version="1.2.0", lifespan=lifespan)
 
@@ -297,6 +324,7 @@ async def get_telemetry():
     stats = get_system_stats()
     stats["ollama"] = get_ollama_models()
     stats["vram_watchdog"] = vram_manager.get_status()
+    stats["comfy_health"] = comfy_health_cache
     return stats
 
 @app.get("/api/system/models")
@@ -993,6 +1021,7 @@ async def websocket_telemetry(websocket: WebSocket):
             stats = get_system_stats()
             stats["ollama"] = get_ollama_models()
             stats["vram_watchdog"] = vram_manager.get_status()
+            stats["comfy_health"] = comfy_health_cache
             await websocket.send_text(json.dumps({"type": "telemetry", "stats": stats}))
             await asyncio.sleep(3)
     except WebSocketDisconnect:

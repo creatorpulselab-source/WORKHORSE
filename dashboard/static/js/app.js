@@ -73,6 +73,28 @@ class AppController {
     if (ollamaEl && ollama) {
       ollamaEl.textContent = ollama.online ? `Ollama: Online (${ollama.models?.length || 0} models)` : "Ollama: Offline";
     }
+
+    // ComfyUI (RTX 5070 Ti Main PC) health - alert banner if it goes offline.
+    // Backed by a 45s-interval background monitor on the server; see
+    // comfy_health_monitor_loop() in dashboard/server.py.
+    this.updateComfyHealthBanner(data.comfy_health);
+  }
+
+  updateComfyHealthBanner(comfyHealth) {
+    if (!comfyHealth || comfyHealth.online === null || comfyHealth.online === undefined) return;
+
+    let banner = document.getElementById("comfy-offline-banner");
+    if (comfyHealth.online === false) {
+      if (!banner) {
+        banner = document.createElement("div");
+        banner.id = "comfy-offline-banner";
+        banner.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:9999;background:#ff2d55;color:#fff;text-align:center;padding:8px 12px;font-family:monospace;font-size:13px;font-weight:bold;letter-spacing:0.5px;box-shadow:0 2px 8px rgba(0,0,0,0.4);";
+        document.body.prepend(banner);
+      }
+      banner.textContent = `⚠ COMFYUI OFFLINE (Main PC ${comfyHealth.host || ""}) - image/video generation unavailable. Last checked ${comfyHealth.last_checked || "unknown"}.`;
+    } else if (banner) {
+      banner.remove();
+    }
   }
 
   async loadSystemModels() {
