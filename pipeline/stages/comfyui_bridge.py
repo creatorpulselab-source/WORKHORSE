@@ -414,13 +414,23 @@ class ComfyUIBridge:
                                          filename_prefix: Optional[str] = None) -> Dict[str, Any]:
         """
         Builds a ComfyUI API graph that automatically segments the subject out of an
-        uploaded photo (LayerMask: PersonMaskUltra V2 - no manual mask painting required),
+        uploaded photo (SAM3 text-prompted grounding - "LayerMask: PersonMaskUltra V2"
+        was confirmed broken on this install, crashes in its mask-merge step regardless
+        of settings; SAM3 has no such bug and no numpy/numba dependency conflict),
         then inpaints a brand-new background around them from a text prompt while the
         subject region itself is protected from the noise mask.
         """
         ckpt_resolved = self.resolve_checkpoint_name(checkpoint)
         seed_val = seed if seed is not None else int(time.time() * 1000) % (2**31 - 1)
         neg = negative_prompt or "blurry, low quality, artifacts, seams, mismatched lighting, warped perspective"
+
+        keep_parts = []
+        if keep_face: keep_parts.append("face")
+        if keep_hair: keep_parts.append("hair")
+        if keep_body: keep_parts.append("body")
+        if keep_clothes: keep_parts.append("clothes")
+        if keep_accessories: keep_parts.append("accessories")
+        sam3_text_prompt = "person" if len(keep_parts) >= 5 or not keep_parts else ", ".join(keep_parts)
 
         workflow: Dict[str, Any] = {
             "1": {
@@ -431,30 +441,25 @@ class ComfyUIBridge:
                 "inputs": {"ckpt_name": ckpt_resolved},
                 "class_type": "CheckpointLoaderSimple"
             },
-            "3": {
+            "20": {
                 "inputs": {
-                    "images": ["1", 0],
-                    "face": keep_face,
-                    "hair": keep_hair,
-                    "body": keep_body,
-                    "clothes": keep_clothes,
-                    "accessories": keep_accessories,
-                    "background": False,
-                    "confidence": 0.4,
-                    "detail_method": "VITMatte",
-                    "detail_erode": 6,
-                    "detail_dilate": 6,
-                    "black_point": 0.01,
-                    "white_point": 0.99,
-                    "process_detail": True,
-                    "device": "cuda",
-                    "max_megapixels": 2.0
+                    "precision": "auto",
+                    "compile": False
                 },
-                "class_type": "LayerMask: PersonMaskUltra V2"
+                "class_type": "LoadSAM3Model"
+            },
+            "21": {
+                "inputs": {
+                    "sam3_model_config": ["20", 0],
+                    "image": ["1", 0],
+                    "confidence_threshold": 0.2,
+                    "text_prompt": sam3_text_prompt
+                },
+                "class_type": "SAM3Grounding"
             },
             "4": {
                 "inputs": {
-                    "mask": ["3", 1],
+                    "mask": ["21", 0],
                     "expand": mask_expand,
                     "incremental_expandrate": 0.0,
                     "tapered_corners": True,

@@ -117,6 +117,7 @@ When the user asks you to inspect, check, or execute a task, you can invoke:
 - {"tool": "iris_qc_audit", "file": "..."}: Runs Iris [77 Ir] forensic anatomy and aesthetic quality check on any image.
 - {"tool": "gpu_guardrails_status"}: Live check of Dual RTX 3060 utilization, VRAM, and all hardware circuit breakers.
 - {"tool": "comfy_generate_glb", "agent": "synapse|iris|aura|echo|forge|cipher|herald|mercury"}: Renders an interactive 3D GLB model on RTX 5070 Ti for the dashboard card.
+- {"tool": "comfy_background_change", "image": "...", "prompt": "...", "negative_prompt": "..."}: Auto-segments the subject (SAM3) out of an uploaded photo and swaps in a brand-new background from a text prompt.
 - {"tool": "comfy_image_to_video", "image": "...", "prompt": "...", "negative_prompt": "...", "width": 720, "height": 1280, "num_frames": 300, "fps": 30}: Animates a still photo into a short video clip on RTX 5070 Ti using the local LTX 2.3 image-to-video pipeline (SageAttention-optimized). Takes several minutes - warn the Commander it will take a while before calling this.
 - {"tool": "comfy_remote_purge"}: Remotely unloads models and frees 16GB VRAM on RTX 5070 Ti (Main PC).
 - {"tool": "comfy_prewarm", "checkpoint": "..."}: Pre-loads checkpoint into 5070 Ti VRAM before scheduled dispatches.
@@ -699,6 +700,42 @@ class AIOperatorEngine:
                 result["status"] = "error"
                 result["error"] = str(e)
                 return result
+
+        elif tool_name == "comfy_background_change":
+            filename = tool_call.get("image", "").strip()
+            new_background_prompt = tool_call.get("prompt", "").strip()
+            negative_prompt = tool_call.get("negative_prompt", "")
+            checkpoint = tool_call.get("checkpoint")
+            if not filename:
+                return {"status": "error", "error": "No source image provided for background change"}
+            if not new_background_prompt:
+                return {"status": "error", "error": "No new-background prompt provided"}
+            try:
+                img_path = Path(filename)
+                if not img_path.is_absolute():
+                    img_path = Path("F:/WORKHORSE/workspace/client_inbox") / filename
+                    if not img_path.exists():
+                        img_path = Path("F:/WORKHORSE/workspace/brand_assets/comfy_renders") / filename
+                if not img_path.exists():
+                    return {"status": "error", "error": f"Source image not found: {filename}"}
+
+                from pipeline.stages.comfyui_bridge import comfy_bridge
+                bg_res = comfy_bridge.generate_background_change(
+                    source_image_path=img_path,
+                    new_background_prompt=new_background_prompt,
+                    negative_prompt=negative_prompt,
+                    checkpoint=checkpoint
+                )
+                if bg_res.get("success"):
+                    result["message"] = f"SYNAPSE [100 Fm]: Background swapped on RTX 5070 Ti. Saved to: {bg_res.get('filename')}."
+                    result["details"] = bg_res
+                else:
+                    result["status"] = "warning"
+                    result["message"] = f"SYNAPSE [100 Fm]: Background change failed: {bg_res.get('error')}"
+                    result["details"] = bg_res
+            except Exception as e:
+                result["status"] = "error"
+                result["error"] = str(e)
 
         elif tool_name == "comfy_generate":
             prompt = tool_call.get("prompt", "").strip()
