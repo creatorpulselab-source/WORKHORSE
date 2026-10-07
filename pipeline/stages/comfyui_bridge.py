@@ -1047,6 +1047,7 @@ class ComfyUIBridge:
                     "negative": ["10", 0],
                     "control_net": ["8", 0],
                     "image": ["6", 0],
+                    "vae": ["5", 0],
                     "strength": controlnet_strength,
                     "start_percent": 0.0,
                     "end_percent": 1.0
@@ -1076,7 +1077,10 @@ class ComfyUIBridge:
                     "start_at": 0.0,
                     "end_at": 1.0,
                     "fusion": "mean",
-                    "fusion_weight_max": 1.0
+                    "fusion_weight_max": 1.0,
+                    "fusion_weight_min": 0.0,
+                    "train_step": 1000,
+                    "use_gray": True
                 },
                 "class_type": "ApplyPulidFlux"
             },
