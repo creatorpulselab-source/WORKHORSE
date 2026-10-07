@@ -86,7 +86,7 @@ class AIProviderService:
         except Exception as e:
             return f"Ollama connection error: {str(e)}"
 
-    def call_ollama_vision(self, prompt: str, image_paths: List[Path], system_prompt: str = "", model: Optional[str] = None) -> str:
+    def call_ollama_vision(self, prompt: str, image_paths: List[Path], system_prompt: str = "", model: Optional[str] = None, num_predict: int = 180) -> str:
         url = f"{self.get_ollama_url()}/api/generate"
         active_model = model or self.get_vision_model()
 
@@ -107,7 +107,7 @@ class AIProviderService:
             "keep_alive": "2m",
             "options": {
                 "temperature": 0.1,
-                "num_predict": 180
+                "num_predict": num_predict
             }
         }
         try:

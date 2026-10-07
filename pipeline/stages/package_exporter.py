@@ -19,6 +19,7 @@ class PackageExporter:
         audio_data: Dict[str, Any],
         vision_data: Dict[str, Any],
         copy_kit: Dict[str, Any],
+        prompt_kit: Optional[Dict[str, Any]] = None,
         progress_cb: Optional[Callable[[str, int], None]] = None
     ) -> Dict[str, Any]:
         """Bundle all generated assets into a structured release directory and zip package."""
@@ -72,6 +73,14 @@ class PackageExporter:
         with open(copy_json_file, "w", encoding="utf-8") as f:
             json.dump(copy_kit, f, indent=2)
 
+        # 4b. AI Image/Video Prompt Kit (Muse)
+        prompt_kit = prompt_kit or {}
+        prompts_folder = pkg_dir / "05_ai_prompts"
+        prompts_folder.mkdir(parents=True, exist_ok=True)
+        prompt_json_file = prompts_folder / "ai_prompt_kit.json"
+        with open(prompt_json_file, "w", encoding="utf-8") as f:
+            json.dump(prompt_kit, f, indent=2)
+
         # 5. Master Markdown summary
         md_file = pkg_dir / "PROMO_MEDIA_PACKAGE.md"
         with open(md_file, "w", encoding="utf-8") as f:
@@ -86,11 +95,25 @@ class PackageExporter:
             f.write("\n## 🎨 Visual & Aesthetic Analysis\n")
             f.write(f"{vision_data.get('visual_summary', 'No vision analysis available.')}\n\n")
             f.write(f"**Recommended Cover Pose:** {vision_data.get('cover_recommendation', 'Pose 1')}\n\n")
+            f.write("\n## 🧠 AI Generation Prompt Kit (Muse)\n")
+            f.write(f"Full prompt kit saved in `05_ai_prompts/ai_prompt_kit.json`\n\n")
+            f.write("### Flux Image Prompt\n")
+            f.write(f"{prompt_kit.get('flux_image_prompt', 'Not generated.')}\n\n")
+            f.write("### WAN Video Prompt\n")
+            f.write(f"{prompt_kit.get('wan_video_prompt', 'Not generated.')}\n\n")
+            f.write("### Pose Series Variations\n")
+            for pose in prompt_kit.get("pose_series", []):
+                f.write(f"**Pose {pose.get('pose_number')}:** {pose.get('prompt', '')}\n\n")
             f.write("\n## 📱 Platform Copy Release Kit\n\n")
             f.write("### Instagram\n")
             ig = copy_kit.get("instagram", {})
             f.write(f"{ig.get('caption', '')}\n\n")
             f.write(" ".join(ig.get("hashtags", [])) + "\n\n")
+            if ig.get("caption_variants"):
+                f.write("**Caption Style Variants:**\n\n")
+                for variant in ig.get("caption_variants", []):
+                    f.write(f"- *{variant.get('style', 'Variant')}:* {variant.get('text', '')}\n")
+                f.write("\n")
             f.write("### Twitter / X\n")
             tw = copy_kit.get("twitter_x", {})
             f.write(f"{tw.get('tweet', '')}\n\n")

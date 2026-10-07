@@ -12,6 +12,7 @@ from pipeline.stages.scene_extractor import get_video_info, extract_6_poses, cut
 from pipeline.stages.audio_agent import AudioAgent
 from pipeline.stages.vision_agent import VisionAgent
 from pipeline.stages.copy_synthesizer import CopySynthesizer
+from pipeline.stages.prompt_synthesizer import PromptSynthesizer
 from pipeline.stages.package_exporter import PackageExporter
 
 class PipelineJob:
@@ -22,7 +23,7 @@ class PipelineJob:
         self.status = "queued"
         self.progress = 0
         self.current_stage = 0
-        self.total_stages = 7
+        self.total_stages = 8
         self.active_agent = "vanguard"
         self.agent_message = "Vanguard: Job initialized and standing by in queue."
         self.logs: List[str] = []
@@ -63,6 +64,7 @@ class WorkhorseOrchestrator:
         self.audio_agent = AudioAgent()
         self.vision_agent = VisionAgent(str(config_path))
         self.copy_agent = CopySynthesizer(str(config_path))
+        self.prompt_agent = PromptSynthesizer(str(config_path))
         self.exporter = PackageExporter()
 
     def load_latest_config(self) -> Dict[str, Any]:
@@ -127,7 +129,7 @@ class WorkhorseOrchestrator:
             job.current_stage = 1
             job.active_agent = "vanguard"
             job.agent_message = "Vanguard: Inspecting stream specs and configuring Dual RTX 3060 allocation..."
-            job.add_log("Stage 1/7: Vanguard verifying stream integrity...")
+            job.add_log("Stage 1/8: Vanguard verifying stream integrity...")
             self.notify_event(job)
 
             v_info = get_video_info(job.video_path)
@@ -141,7 +143,7 @@ class WorkhorseOrchestrator:
             job.active_agent = "iris"
             pose_target = int(iris_cfg.get("pose_count", 6))
             job.agent_message = f"Iris: Extracting {pose_target} high-res pose screenshots..."
-            job.add_log(f"Stage 2/7: Iris sampling {pose_target} frames...")
+            job.add_log(f"Stage 2/8: Iris sampling {pose_target} frames...")
             self.notify_event(job)
 
             poses = extract_6_poses(
@@ -159,7 +161,7 @@ class WorkhorseOrchestrator:
             job.active_agent = "forge"
             teaser_duration = int(forge_cfg.get("preview_duration_sec", 60))
             job.agent_message = f"Forge: Cutting {teaser_duration}s teaser trailer & rendering social crops..."
-            job.add_log(f"Stage 3/7: Forge encoding {teaser_duration}s teaser with NVENC...")
+            job.add_log(f"Stage 3/8: Forge encoding {teaser_duration}s teaser with NVENC...")
             self.notify_event(job)
 
             preview_cut = cut_preview_video(
@@ -185,7 +187,7 @@ class WorkhorseOrchestrator:
             job.active_agent = "echo"
             whisper_model = echo_cfg.get("whisper_model", "base")
             job.agent_message = f"Echo: Extracting audio and running Faster-Whisper ({whisper_model})..."
-            job.add_log("Stage 4/7: Echo isolating vocal audio and detecting hooks...")
+            job.add_log("Stage 4/8: Echo isolating vocal audio and detecting hooks...")
             self.notify_event(job)
 
             audio_data = self.audio_agent.transcribe(
@@ -198,50 +200,82 @@ class WorkhorseOrchestrator:
             job.add_log(f"Audio processed: {len(audio_data.get('segments', []))} speech segments, {len(audio_data.get('hooks', []))} spoken hooks.")
             self.notify_event(job)
 
-            # STAGE 5: IRIS (Aesthetic Analysis)
+            # STAGE 5: IRIS (Aesthetic Analysis + Forensic Scene Extraction)
             job.current_stage = 5
             job.active_agent = "iris"
             vision_model = iris_cfg.get("vision_model", "huihui_ai/qwen3-vl-abliterated:8b-instruct")
             job.agent_message = f"Iris: Analyzing poses locally with {vision_model.split(':')[0]}..."
-            job.add_log("Stage 5/7: Iris inspecting lighting, setting, and wardrobe aesthetics...")
+            job.add_log("Stage 5/8: Iris inspecting lighting, setting, and wardrobe aesthetics...")
             self.notify_event(job)
 
             vision_data = self.vision_agent.analyze_poses(
                 poses,
-                progress_cb=lambda msg, pct: self._update_subprogress(job, msg, 65, 78, pct)
+                progress_cb=lambda msg, pct: self._update_subprogress(job, msg, 65, 70, pct)
             )
-            job.results["vision"] = vision_data
-            job.progress = 78
-            job.add_log("Vision analysis complete.")
+
+            job.agent_message = "Iris: Running forensic scene extraction for grounded prompts & copy..."
+            job.add_log("Stage 5/8: Iris extracting literal hair/outfit/pose/lighting detail...")
             self.notify_event(job)
 
-            # STAGE 6: SCRIBE (Copy Synthesizer)
+            forensic_data = self.vision_agent.extract_forensic_scene(
+                poses,
+                preset=job.preset,
+                progress_cb=lambda msg, pct: self._update_subprogress(job, msg, 70, 75, pct)
+            )
+            vision_data["scene_description"] = forensic_data.get("scene_description", "")
+            vision_data["content_type"] = forensic_data.get("content_type", "general")
+
+            job.results["vision"] = vision_data
+            job.progress = 75
+            job.add_log("Vision analysis and forensic scene extraction complete.")
+            self.notify_event(job)
+
+            # STAGE 6: MUSE (AI Prompt Synthesizer)
             job.current_stage = 6
+            job.active_agent = "muse"
+            job.agent_message = "Muse: Crafting Flux image, WAN video, and pose-series prompts..."
+            job.add_log("Stage 6/8: Muse engineering reusable AI generation prompts from the real shoot...")
+            self.notify_event(job)
+
+            prompt_kit = self.prompt_agent.generate_prompt_kit(
+                scene_description=vision_data.get("scene_description", ""),
+                preset=job.preset,
+                content_type=vision_data.get("content_type", "auto"),
+                progress_cb=lambda msg, pct: self._update_subprogress(job, msg, 75, 85, pct)
+            )
+            job.results["prompt_kit"] = prompt_kit
+            job.progress = 85
+            job.add_log("AI prompt kit (Flux / WAN / pose series) synthesized.")
+            self.notify_event(job)
+
+            # STAGE 7: SCRIBE (Copy Synthesizer)
+            job.current_stage = 7
             job.active_agent = "scribe"
             text_model = aura_cfg.get("text_model", "huihui_ai/qwen3-abliterated:14b")
             tone = aura_cfg.get("tone_preset", "seductive_teasing")
             job.agent_message = f"Scribe: Generating release kit with {text_model.split(':')[0]} (Tone: {tone})..."
-            job.add_log("Stage 6/7: Scribe crafting OnlyFans, Fansly, IG, Twitter, and TikTok copy...")
+            job.add_log("Stage 7/8: Scribe crafting OnlyFans, Fansly, IG, Twitter, and TikTok copy...")
             self.notify_event(job)
 
+            visual_analysis = f"{vision_data.get('visual_summary', '')}\n\nFORENSIC DETAIL:\n{vision_data.get('scene_description', '')}"
             copy_kit = self.copy_agent.generate_release_kit(
                 video_name=job.video_path.name,
-                visual_analysis=vision_data.get("visual_summary", ""),
+                visual_analysis=visual_analysis,
                 transcript_text=audio_data.get("full_text", ""),
                 spoken_hooks=audio_data.get("hooks", []),
                 preset=job.preset,
-                progress_cb=lambda msg, pct: self._update_subprogress(job, msg, 78, 90, pct)
+                progress_cb=lambda msg, pct: self._update_subprogress(job, msg, 85, 93, pct)
             )
             job.results["copy_kit"] = copy_kit
-            job.progress = 90
+            job.progress = 93
             job.add_log("Social media release kit synthesized.")
             self.notify_event(job)
 
-            # STAGE 7: APEX (Package Export)
-            job.current_stage = 7
+            # STAGE 8: APEX (Package Export)
+            job.current_stage = 8
             job.active_agent = "apex"
             job.agent_message = "Apex: Bundling all deliverables and building final ZIP package..."
-            job.add_log("Stage 7/7: Apex saving deliverables to output directory...")
+            job.add_log("Stage 8/8: Apex saving deliverables to output directory...")
             self.notify_event(job)
 
             bundle_res = self.exporter.export_bundle(
@@ -252,7 +286,8 @@ class WorkhorseOrchestrator:
                 audio_data=audio_data,
                 vision_data=vision_data,
                 copy_kit=copy_kit,
-                progress_cb=lambda msg, pct: self._update_subprogress(job, msg, 90, 100, pct)
+                prompt_kit=prompt_kit,
+                progress_cb=lambda msg, pct: self._update_subprogress(job, msg, 93, 100, pct)
             )
             job.results["bundle"] = bundle_res
             job.progress = 100

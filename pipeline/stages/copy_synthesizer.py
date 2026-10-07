@@ -13,6 +13,17 @@ ADULT_CONTENT_KEYWORDS = [
     "nude", "intimate", "sensual", "fetish", "cam", "fiverr_service_bot_adult"
 ]
 
+# Prism-style caption "style pills" - gives Scribe variety instead of one fixed caption tone
+CAPTION_STYLE_GUIDE = {
+    "Hook": "Open with a bold, scroll-stopping first line that creates curiosity or tension.",
+    "Story": "Frame it as a short narrative moment - what was happening, how it felt.",
+    "Question": "Lead with a direct question to the audience designed to drive comments.",
+    "Hot-Take": "A bold, slightly provocative opinion or statement related to the content.",
+    "BTS": "Behind-the-scenes, process-focused framing - the making-of angle.",
+    "Soft-Sell": "Low-pressure, relationship-building tone with a minimal, casual call to action.",
+    "Relatable": "Casual, meme-adjacent, relatable everyday tone."
+}
+
 class CopySynthesizer:
     def __init__(self, config_path: str = "F:/WORKHORSE/config.json"):
         self.ai = AIProviderService(config_path)
@@ -31,15 +42,19 @@ class CopySynthesizer:
         spoken_hooks: List[str],
         preset: str = "Adult Creator Shoot",
         content_type: str = "auto",
+        caption_styles: Optional[List[str]] = None,
         progress_cb: Optional[Callable[[str, int], None]] = None
     ) -> Dict[str, Any]:
         """Generate high-converting multi-platform social media copy for adult creators
         AND non-adult creators/brands alike, with tone and platform framing adapted to
-        the detected (or explicitly passed) content_type."""
+        the detected (or explicitly passed) content_type. Also produces several labeled
+        Instagram caption style variants (Prism-style "style pills") instead of one fixed tone."""
         if progress_cb:
             progress_cb("Scribe Agent: Crafting platform-specific captions & tags...", 25)
 
         resolved_type = self._detect_content_type(preset) if content_type == "auto" else content_type
+        resolved_styles = caption_styles or ["Hook", "Story", "Question"]
+        style_guide_str = "\n".join([f"- {s}: {CAPTION_STYLE_GUIDE.get(s, 'A distinct caption tone/angle.')}" for s in resolved_styles])
 
         hooks_str = "\n".join([f"- {h}" for h in spoken_hooks]) if spoken_hooks else "None detected"
         audio_str = transcript_text if transcript_text else "No spoken dialogue."
@@ -52,7 +67,10 @@ class CopySynthesizer:
             schema_block = """{
   "instagram": {
     "caption": "Aesthetic, engaging caption with hook and clear call to action.",
-    "hashtags": ["#tag1", "#tag2", "#tag3"]
+    "hashtags": ["#tag1", "#tag2", "#tag3"],
+    "caption_variants": [
+      {"style": "StyleNameFromGuide", "text": "Full caption written in that style."}
+    ]
   },
   "twitter_x": {
     "tweet": "Punchy teaser tweet under 250 characters with emojis and suspense.",
@@ -84,7 +102,10 @@ class CopySynthesizer:
             schema_block = """{
   "instagram": {
     "caption": "Aesthetic, engaging caption with hook and clear call to action.",
-    "hashtags": ["#tag1", "#tag2", "#tag3"]
+    "hashtags": ["#tag1", "#tag2", "#tag3"],
+    "caption_variants": [
+      {"style": "StyleNameFromGuide", "text": "Full caption written in that style."}
+    ]
   },
   "twitter_x": {
     "tweet": "Punchy teaser tweet under 250 characters with emojis and suspense.",
@@ -122,6 +143,9 @@ MEDIA INFO:
 - Extracted Spoken Hooks:
 {hooks_str}
 
+For the Instagram "caption_variants" array, write exactly {len(resolved_styles)} DIFFERENT caption variants, one per style below, each tagged with its exact style name:
+{style_guide_str}
+
 Respond in STRICT, VALID JSON format with no markdown wrappers or extra commentary. Follow this JSON schema:
 {schema_block}"""
 
@@ -153,7 +177,8 @@ Respond in STRICT, VALID JSON format with no markdown wrappers or extra commenta
                 parsed_kit = {
                     "instagram": {
                         "caption": f"Unveiling the new drop. What do you think of this mood? ✨ Link in bio for the complete set.\n\n{video_name}",
-                        "hashtags": ["#photography", "#creator", "#moodyvisuals", "#exclusiveset", "#modelshoot", "#visualart", "#behindthescenes"]
+                        "hashtags": ["#photography", "#creator", "#moodyvisuals", "#exclusiveset", "#modelshoot", "#visualart", "#behindthescenes"],
+                        "caption_variants": [{"style": s, "text": f"Unveiling the new drop. What do you think of this mood? ✨ Link in bio for the complete set.\n\n{video_name}"} for s in resolved_styles]
                     },
                     "twitter_x": {
                         "tweet": f"Can't get over this shoot... wait until you see the full scene 🖤✨",
@@ -179,7 +204,8 @@ Respond in STRICT, VALID JSON format with no markdown wrappers or extra commenta
                 parsed_kit = {
                     "instagram": {
                         "caption": f"Behind the scenes of our latest shoot ✨ What do you think of this one?\n\n{video_name}",
-                        "hashtags": ["#behindthescenes", "#brand", "#creator", "#contentcreation", "#smallbusiness"]
+                        "hashtags": ["#behindthescenes", "#brand", "#creator", "#contentcreation", "#smallbusiness"],
+                        "caption_variants": [{"style": s, "text": f"Behind the scenes of our latest shoot ✨ What do you think of this one?\n\n{video_name}"} for s in resolved_styles]
                     },
                     "twitter_x": {
                         "tweet": "New drop just went live - full video is up now 👇",
@@ -204,6 +230,12 @@ Respond in STRICT, VALID JSON format with no markdown wrappers or extra commenta
 
         if progress_cb:
             progress_cb("Scribe Agent: Social copy kit complete!", 100)
+
+        # Safety net: guarantee caption_variants always exists even if the model's JSON omitted it
+        ig_block = parsed_kit.setdefault("instagram", {})
+        if not ig_block.get("caption_variants"):
+            base_caption = ig_block.get("caption", video_name)
+            ig_block["caption_variants"] = [{"style": s, "text": base_caption} for s in resolved_styles]
 
         return parsed_kit
 

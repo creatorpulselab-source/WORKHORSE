@@ -95,6 +95,8 @@ THE WORKHORSE AGENT ROSTER (PERIODIC TABLE OF AGENTS):
 10. Mercury [80 Hg] (Mercury): Social Media API Broadcaster.
    - Publishes threads and media to Twitter/X, Reddit, and community portals.
 11. Prism [94 Pu] (Plutonium): Live RAW/PNG Color Previewer.
+12. Muse [34 Se] (Selenium): AI Image/Video Prompt Engineer.
+    - Converts Iris's forensic scene description into reusable FLUX.1/SDXL image prompts, WAN2.1/2.2 video motion prompts, and a 6-variation pose-series prompt set - grounded in the real shoot, not invented.
 
 YOUR LIVE FULFILLMENT CHANNELS:
 - Fiverr Gig 1 (Retouching): https://www.fiverr.com/s/GPz71VL ($20 / $45 / $85)
