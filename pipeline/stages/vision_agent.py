@@ -46,7 +46,7 @@ Respond in clean format."""
             return {
                 "visual_summary": response,
                 "pose_count": len(pose_images),
-                "cover_recommendation": "Pose 2 or Pose 3",
+                "cover_recommendation": self._extract_cover_recommendation(response),
                 "sample_poses_inspected": [p.name for p in sample_poses]
             }
         except Exception as e:
@@ -55,6 +55,14 @@ Respond in clean format."""
                 "pose_count": len(pose_images),
                 "cover_recommendation": "Pose 1"
             }
+
+    def _extract_cover_recommendation(self, response_text: str) -> str:
+        """Parse the model's actual named cover-pose pick out of its free-text response."""
+        import re
+        match = re.search(r"pose\s*#?\s*(\d)", response_text, re.IGNORECASE)
+        if match:
+            return f"Pose {match.group(1)}"
+        return "Pose 1"
 
 if __name__ == "__main__":
     v_agent = VisionAgent()

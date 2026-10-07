@@ -215,13 +215,13 @@ class WorkhorseOrchestrator:
             job.add_log("Vision analysis complete.")
             self.notify_event(job)
 
-            # STAGE 6: AURA (Copy Synthesizer)
+            # STAGE 6: SCRIBE (Copy Synthesizer)
             job.current_stage = 6
-            job.active_agent = "aura"
+            job.active_agent = "scribe"
             text_model = aura_cfg.get("text_model", "huihui_ai/qwen3-abliterated:14b")
             tone = aura_cfg.get("tone_preset", "seductive_teasing")
-            job.agent_message = f"Aura: Generating release kit with {text_model.split(':')[0]} (Tone: {tone})..."
-            job.add_log("Stage 6/7: Aura crafting OnlyFans, Fansly, IG, Twitter, and TikTok copy...")
+            job.agent_message = f"Scribe: Generating release kit with {text_model.split(':')[0]} (Tone: {tone})..."
+            job.add_log("Stage 6/7: Scribe crafting OnlyFans, Fansly, IG, Twitter, and TikTok copy...")
             self.notify_event(job)
 
             copy_kit = self.copy_agent.generate_release_kit(
@@ -237,11 +237,11 @@ class WorkhorseOrchestrator:
             job.add_log("Social media release kit synthesized.")
             self.notify_event(job)
 
-            # STAGE 7: FORGE (Package Export)
+            # STAGE 7: APEX (Package Export)
             job.current_stage = 7
-            job.active_agent = "forge"
-            job.agent_message = "Forge: Bundling all deliverables and building final ZIP package..."
-            job.add_log("Stage 7/7: Forge saving deliverables to output directory...")
+            job.active_agent = "apex"
+            job.agent_message = "Apex: Bundling all deliverables and building final ZIP package..."
+            job.add_log("Stage 7/7: Apex saving deliverables to output directory...")
             self.notify_event(job)
 
             bundle_res = self.exporter.export_bundle(

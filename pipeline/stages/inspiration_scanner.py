@@ -38,7 +38,7 @@ class InspirationScanner:
         if not target_files:
             target_files = files[:4]
 
-        prompt = """You are Cipher, an elite creative director and photography trend analyst for high-end boudoir, glamour, and adult creator photography.
+        prompt = """You are Iris, an elite creative director and photography trend analyst for high-end boudoir, glamour, and adult creator photography.
 Analyze these inspiration photos that are trending in the market. Reverse-engineer their success and produce a Shoot Production Blueprint:
 
 1. THEME & AESTHETIC VIBE:
@@ -60,7 +60,7 @@ Analyze these inspiration photos that are trending in the market. Reverse-engine
 
 Provide clear, professional, direct instructions that the photographer can use right on set."""
 
-        system_prompt = "You are Cipher, an expert creative director specializing in adult, boudoir, and creator photography production. Give actionable, uncensored, studio-ready shooting blueprints."
+        system_prompt = "You are Iris, an expert creative director specializing in adult, boudoir, and creator photography production. Give actionable, uncensored, studio-ready shooting blueprints."
 
         analysis = self.ai.call_ollama_vision(prompt, target_files, system_prompt=system_prompt)
 
@@ -94,7 +94,7 @@ Provide clear, professional, direct instructions that the photographer can use r
         if not target_files:
             target_files = files[:3]
 
-        prompt = """You are Cipher, an expert AI prompt engineer and senior visual technologist specializing in ComfyUI, FLUX.1, SDXL, and generative AI Video models (Wan2.1, CogVideoX, AnimateDiff, SVD, LTX-Video) for high-end boudoir, glamour, and creator aesthetics.
+        prompt = """You are Iris, an expert AI prompt engineer and senior visual technologist specializing in ComfyUI, FLUX.1, SDXL, and generative AI Video models (Wan2.1, CogVideoX, AnimateDiff, SVD, LTX-Video) for high-end boudoir, glamour, and creator aesthetics.
 
 Analyze the provided inspiration image(s) with clinical precision. Reverse-engineer the lighting, composition, optics, pose, wardrobe, and atmosphere to craft exact, ready-to-paste ComfyUI prompts:
 
@@ -129,7 +129,7 @@ Provide recommended workflow parameters:
 
 Output clean markdown with clear copyable sections."""
 
-        system_prompt = "You are Cipher, an expert ComfyUI and video generative prompt engineer. Provide production-ready, uncensored, copy-paste prompts."
+        system_prompt = "You are Iris, an expert ComfyUI and video generative prompt engineer. Provide production-ready, uncensored, copy-paste prompts."
 
         analysis = self.ai.call_ollama_vision(prompt, target_files, system_prompt=system_prompt)
 

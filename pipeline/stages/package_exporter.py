@@ -83,6 +83,9 @@ class PackageExporter:
             f.write("## 🎬 Video Previews\n")
             for k, v in rel_previews.items():
                 f.write(f"- **{k}**: `{Path(v).name}`\n")
+            f.write("\n## 🎨 Visual & Aesthetic Analysis\n")
+            f.write(f"{vision_data.get('visual_summary', 'No vision analysis available.')}\n\n")
+            f.write(f"**Recommended Cover Pose:** {vision_data.get('cover_recommendation', 'Pose 1')}\n\n")
             f.write("\n## 📱 Platform Copy Release Kit\n\n")
             f.write("### Instagram\n")
             ig = copy_kit.get("instagram", {})
