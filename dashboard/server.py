@@ -22,7 +22,7 @@ from typing import Dict, Any, List, Optional
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, WebSocket, WebSocketDisconnect
-from fastapi.responses import HTMLResponse, FileResponse, JSONResponse
+from fastapi.responses import HTMLResponse, FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
@@ -32,6 +32,7 @@ sys.path.insert(0, str(BASE_DIR))
 
 from shared.system_monitor import get_system_stats, get_ollama_models
 from shared.ai_providers import AIProviderService
+from shared.auth import verify_password, hash_password, make_session_token, verify_session_token
 from shared.vram_manager import vram_manager, VramManager
 from pipeline.orchestrator import WorkhorseOrchestrator
 from pipeline.stages.photo_retoucher import PhotoRetoucher
@@ -107,6 +108,156 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+SECRETS_FILE = BASE_DIR / "secrets.json"
+SESSION_COOKIE = "workhorse_session"
+# Routes reachable without login: the newsletter signup portal is meant for external subscribers.
+PUBLIC_PATHS = {"/login", "/api/login", "/setup", "/api/setup", "/favicon.ico", "/subscribe", "/api/newsletter/subscribe", "/api/newsletter/unsubscribe"}
+PUBLIC_PREFIXES = ("/static/",)
+
+
+def _load_secrets() -> Dict[str, Any]:
+    if not SECRETS_FILE.exists():
+        return {}
+    try:
+        with open(SECRETS_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+def _get_session_secret() -> str:
+    data = _load_secrets()
+    auth = data.setdefault("dashboard_auth", {})
+    secret = auth.get("session_secret")
+    if not secret:
+        secret = os.urandom(32).hex()
+        auth["session_secret"] = secret
+        with open(SECRETS_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2)
+    return secret
+
+
+def _is_authenticated(request) -> bool:
+    token = request.cookies.get(SESSION_COOKIE)
+    return bool(token) and verify_session_token(token, _get_session_secret())
+
+
+@app.middleware("http")
+async def auth_gate_middleware(request, call_next):
+    path = request.url.path
+    if path in PUBLIC_PATHS or any(path.startswith(p) for p in PUBLIC_PREFIXES):
+        return await call_next(request)
+    if not _is_authenticated(request):
+        if path.startswith("/api/"):
+            return JSONResponse({"status": "error", "detail": "Not authenticated"}, status_code=401)
+        return RedirectResponse(url="/login")
+    return await call_next(request)
+
+
+@app.get("/login", response_class=HTMLResponse)
+async def login_page():
+    return """<!doctype html><html><head><title>WORKHORSE Login</title>
+<style>
+body{background:#0b0e14;color:#e6e6e6;font-family:system-ui,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0}
+.box{background:#131722;padding:32px 40px;border-radius:10px;border:1px solid #232a3b;min-width:300px}
+h1{font-size:18px;margin:0 0 18px}
+input{width:100%;box-sizing:border-box;padding:10px;margin:8px 0;border-radius:6px;border:1px solid #2b3245;background:#0b0e14;color:#e6e6e6}
+button{width:100%;padding:10px;margin-top:10px;border-radius:6px;border:none;background:#4f7cff;color:#fff;font-weight:600;cursor:pointer}
+#err{color:#ff6b6b;font-size:13px;min-height:16px;margin-top:6px}
+</style></head><body>
+<form class="box" id="f">
+<h1>WORKHORSE Command Center</h1>
+<input id="pw" type="password" placeholder="Password" autofocus required>
+<button type="submit">Sign in</button>
+<div id="err"></div>
+</form>
+<script>
+document.getElementById('f').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const pw = document.getElementById('pw').value;
+  const r = await fetch('/api/login', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({password: pw})});
+  if (r.ok) { window.location.href = '/'; }
+  else { document.getElementById('err').textContent = 'Invalid password.'; }
+});
+</script></body></html>"""
+
+
+@app.post("/api/login")
+async def login(payload: Dict[str, Any]):
+    data = _load_secrets()
+    auth = data.get("dashboard_auth", {})
+    pw_hash = auth.get("password_hash")
+    salt = auth.get("salt")
+    if not pw_hash or not salt:
+        raise HTTPException(status_code=503, detail="No dashboard password set. Run set_dashboard_password.py first.")
+    if not verify_password(payload.get("password", ""), salt, pw_hash):
+        raise HTTPException(status_code=401, detail="Invalid password")
+    resp = JSONResponse({"status": "ok"})
+    resp.set_cookie(SESSION_COOKIE, make_session_token(_get_session_secret()), httponly=True, samesite="lax", max_age=7 * 24 * 3600)
+    return resp
+
+
+@app.post("/api/logout")
+async def logout():
+    resp = JSONResponse({"status": "ok"})
+    resp.delete_cookie(SESSION_COOKIE)
+    return resp
+
+
+@app.get("/setup", response_class=HTMLResponse)
+async def setup_page():
+    data = _load_secrets()
+    if data.get("dashboard_auth", {}).get("password_hash"):
+        return RedirectResponse(url="/login")
+    return """<!doctype html><html><head><title>WORKHORSE Setup</title>
+<style>
+body{background:#0b0e14;color:#e6e6e6;font-family:system-ui,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0}
+.box{background:#131722;padding:32px 40px;border-radius:10px;border:1px solid #232a3b;min-width:320px}
+h1{font-size:18px;margin:0 0 18px}
+input{width:100%;box-sizing:border-box;padding:10px;margin:8px 0;border-radius:6px;border:1px solid #2b3245;background:#0b0e14;color:#e6e6e6}
+button{width:100%;padding:10px;margin-top:10px;border-radius:6px;border:none;background:#4f7cff;color:#fff;font-weight:600;cursor:pointer}
+#err{color:#ff6b6b;font-size:13px;min-height:16px;margin-top:6px}
+</style></head><body>
+<form class="box" id="f">
+<h1>Set WORKHORSE dashboard password</h1>
+<input id="pw" type="password" placeholder="New password (min 8 chars)" autofocus required>
+<input id="pw2" type="password" placeholder="Confirm password" required>
+<button type="submit">Set password</button>
+<div id="err"></div>
+</form>
+<script>
+document.getElementById('f').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const pw = document.getElementById('pw').value;
+  const pw2 = document.getElementById('pw2').value;
+  if (pw !== pw2) { document.getElementById('err').textContent = 'Passwords do not match.'; return; }
+  if (pw.length < 8) { document.getElementById('err').textContent = 'Password must be at least 8 characters.'; return; }
+  const r = await fetch('/api/setup', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({password: pw})});
+  if (r.ok) { window.location.href = '/login'; }
+  else { const body = await r.json().catch(() => ({})); document.getElementById('err').textContent = body.detail || 'Setup failed.'; }
+});
+</script></body></html>"""
+
+
+@app.post("/api/setup")
+async def setup(payload: Dict[str, Any]):
+    data = _load_secrets()
+    auth = data.setdefault("dashboard_auth", {})
+    if auth.get("password_hash"):
+        raise HTTPException(status_code=403, detail="Password already configured. Use /login.")
+    password = payload.get("password", "")
+    if len(password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters.")
+    creds = hash_password(password)
+    auth["salt"] = creds["salt"]
+    auth["password_hash"] = creds["hash"]
+    if not auth.get("session_secret"):
+        auth["session_secret"] = os.urandom(32).hex()
+    with open(SECRETS_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)
+    return JSONResponse({"status": "ok"})
+
 
 @app.middleware("http")
 async def activity_tracker_middleware(request, call_next):
@@ -824,6 +975,10 @@ async def publish_twitter_thread(payload: Dict[str, Any]):
 
 @app.websocket("/ws/telemetry")
 async def websocket_telemetry(websocket: WebSocket):
+    token = websocket.cookies.get(SESSION_COOKIE)
+    if not token or not verify_session_token(token, _get_session_secret()):
+        await websocket.close(code=4401)
+        return
     await websocket.accept()
     connected_websockets.append(websocket)
     try:
