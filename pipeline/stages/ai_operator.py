@@ -128,6 +128,9 @@ When the user asks you to inspect, check, or execute a task, you can invoke:
 JOB-INTAKE RULE (CRITICAL):
 Before emitting a generate_tip_menu tool-call, you MUST already have the Commander's REAL values in this conversation for: the client's own avatar/banner photos (or image references), their real tip-menu pricing tiers, their real top tipper and schedule, and any social/platform links they want included. If any of these are missing or the Commander only gave a vague request, DO NOT call the tool and DO NOT invent placeholder/stock data - instead ask the Commander directly, in plain text, exactly what specifics you still need before you can build it. Only call the tool once you actually have real values to put in it.
 
+QUICK-OPTIONS RULE:
+When you ask the Commander a clarifying question that has a short, natural, enumerable set of likely answers (e.g. picking a theme, a layout style, yes/no, a small number of named choices), end your reply with exactly one line containing ONLY this JSON (no code fence): {"quick_options": ["Option A", "Option B", "Option C"]} - at most 5 options, each under 40 characters, in the Commander's own words/values (e.g. real theme names like "neon_cyber", "velvet_boudoir"). Omit this entirely for open-ended questions that need free text (a URL, a price, a name) - do not force-fit options onto those.
+
 COMMUNICATION:
 - Address the user as Commander.
 - Be sharp, technical, confident, and proactive.
@@ -1193,6 +1196,21 @@ class AIOperatorEngine:
                 except Exception:
                     pass
 
+            # Structured quick-pick suggestions for clarifying questions (backlog item 3) -
+            # lets the frontend render clickable chips instead of forcing free-text guessing.
+            quick_options = []
+            qopt_blocks = re.findall(r'\{"quick_options":\s*\[.*?\]\s*\}', reply_text, re.DOTALL)
+            for block in qopt_blocks:
+                try:
+                    qdata = json.loads(block)
+                    opts = qdata.get("quick_options", [])
+                    if isinstance(opts, list):
+                        quick_options = [str(o).strip() for o in opts if str(o).strip()][:5]
+                except Exception:
+                    pass
+            if qopt_blocks:
+                reply_text = re.sub(r'\{"quick_options":\s*\[.*?\]\s*\}', '', reply_text, flags=re.DOTALL).strip()
+
             self.history.append({"role": "user", "content": message})
             self.history.append({"role": "assistant", "content": reply_text})
 
@@ -1208,7 +1226,8 @@ class AIOperatorEngine:
                 "vision_reason": reason,
                 "images_processed": len(images_base64),
                 "article_urls_detected": article_urls,
-                "link_ingestion_results": link_ingestion_results
+                "link_ingestion_results": link_ingestion_results,
+                "quick_options": quick_options
             }
 
         except Exception as e:

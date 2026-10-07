@@ -263,6 +263,12 @@ class AIOperatorUI {
     }
   }
 
+  sendQuickOption(optionText) {
+    if (this.isGenerating) return;
+    this.chatInput.value = optionText;
+    this.sendMessage();
+  }
+
   async sendMessage() {
     const text = this.chatInput.value.trim();
     if (!text && this.attachedFiles.length === 0) return;
@@ -314,6 +320,7 @@ class AIOperatorUI {
           model: data.model,
           webSources: data.web_sources,
           actions: data.executed_actions,
+          quickOptions: data.quick_options,
           visionAutoDetected: data.vision_auto_detected || (data.model && data.model.includes('vl')),
           linkIngested: (data.link_ingestion_results && data.link_ingestion_results.length > 0)
         });
@@ -409,6 +416,23 @@ class AIOperatorUI {
           `).join('')}
         </div>
       `;
+    }
+
+    if (msg.quickOptions && msg.quickOptions.length > 0) {
+      const msgId = 'qopt-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
+      bodyHtml += `
+        <div class="operator-chips-bar" id="${msgId}" style="margin-top: 8px;">
+          ${msg.quickOptions.map(opt => `<span class="operator-prompt-chip">${opt}</span>`).join('')}
+        </div>
+      `;
+      setTimeout(() => {
+        const bar = document.getElementById(msgId);
+        if (bar) {
+          bar.querySelectorAll('.operator-prompt-chip').forEach(chip => {
+            chip.addEventListener('click', () => this.sendQuickOption(chip.innerText));
+          });
+        }
+      }, 0);
     }
 
     if (msg.hasError) {
