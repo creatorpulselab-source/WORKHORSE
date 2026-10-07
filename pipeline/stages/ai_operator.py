@@ -128,6 +128,18 @@ When the user asks you to inspect, check, or execute a task, you can invoke:
 - {"tool": "trend_radar_sweep"}: Runs morning web search across Google News RSS for fresh trends.
 - {"tool": "incident_log"}: Retrieves the recent self-healing incident history (auto-detected issues and what was done about them).
 - {"tool": "generate_tip_menu", "title": "...", "theme": "...", "layout_style": "vip_showcase|table|cards|obs_overlay", "items": [{"tokens": "...", "action": "..."}], "avatar_url": "...", "banner_url": "...", "top_tipper": "...", "schedule": "...", "goal_text": "..."}: Builds and bundles a client's custom tip menu / cam profile.
+- {"tool": "aura_retouch", "files": ["..."], "style": "moody_boudoir|natural|...", "shoot_name": "...", "smooth_strength": 0.5, "watermark_text": "..."}: Aura [79 Au] runs real skin-smoothing, color grading, aspect crops, and watermarking on the named photo(s) (filenames from the client inbox) and bundles a finished ZIP. If "files" is omitted, retouches everything currently in the client inbox.
+- {"tool": "create_banner", "client_name": "...", "headline": "...", "style": "neon_cyber|velvet_boudoir|pastel_dream|gothic_noir|emerald_luxe|neon_pink", "platform": "onlyfans|fansly|twitter|..."}: Renders a brand-new finished profile/header banner image on RTX 5070 Ti (Iris QC-gated), then burns in the headline and client handle text. Produces a real PNG file, not a mockup.
+- {"tool": "apex_package", "client_name": "..."}: Apex [78 Pt] zips every file currently in the client inbox into a real finished delivery archive ready to send to the client.
+- {"tool": "newsletter_add", "email": "...", "publication": "creator_pulse|studio_wire|creator_blueprint|dispensary_deals", "send_welcome": true}: Subscribes a real email address to a publication and queues its welcome email.
+- {"tool": "newsletter_remove", "email": "...", "publication": "..."}: Unsubscribes an email from one publication (omit publication to unsubscribe from all).
+- {"tool": "newsletter_stats"}: Reports total active subscriber count across all publications.
+- {"tool": "ingest_link", "url": "...", "notes": "..."}: Fetches and summarizes a web article into tactical takeaways and ready-to-post tweet threads/newsletter blurb.
+- {"tool": "get_daily_trends"}: Retrieves today's already-synthesized trend vault (themes, scheduled tweets, newsletter topics) without re-running the sweep.
+- {"tool": "comfy_search_models", "query": "...", "category": "checkpoints|loras|all"}: Searches the 18 checkpoints / 361 LoRAs on the Main PC diffusion node for a name/keyword match.
+- {"tool": "block_swap_model", "target_model": "..."}: Forces GPU 0 to evict current Ollama weights and preload a different model.
+- {"tool": "hardware_allocation"}: Reports the live Dual RTX 3060 GPU 0/GPU 1 partition assignment.
+- {"tool": "repair_subscribers"}: Detects and repairs a corrupted newsletter_subscribers.json file.
 
 JOB-INTAKE RULE (CRITICAL):
 Before emitting a generate_tip_menu tool-call, you MUST already have the Commander's REAL values in this conversation for: the client's own avatar/banner photos (or image references), their real tip-menu pricing tiers, their real top tipper and schedule, and any social/platform links they want included. If any of these are missing or the Commander only gave a vague request, DO NOT call the tool and DO NOT invent placeholder/stock data - instead ask the Commander directly, in plain text, exactly what specifics you still need before you can build it. Only call the tool once you actually have real values to put in it.
@@ -582,8 +594,12 @@ class AIOperatorEngine:
             try:
                 from pipeline.stages.newsletter_manager import NewsletterManager
                 nm = NewsletterManager()
-                add_res = nm.add_subscriber(email=email, name="", publications=[pub], send_welcome=send_welcome)
-                result["message"] = f"SYNAPSE [100 Fm]: Successfully registered {email} to {pub}."
+                add_res = nm.subscribe_multi(email=email, publications=[pub], name="", send_welcome=send_welcome)
+                if add_res.get("success"):
+                    result["message"] = f"SYNAPSE [100 Fm]: Successfully registered {email} to {pub}."
+                else:
+                    result["status"] = "error"
+                    result["message"] = f"SYNAPSE [100 Fm]: Registration failed: {add_res.get('error')}"
                 result["details"] = add_res
             except Exception as e:
                 result["status"] = "error"
@@ -655,8 +671,80 @@ class AIOperatorEngine:
             headline = tool_call.get("headline", "VIP Lounge")
             style = tool_call.get("style", "neon_pink")
             platform = tool_call.get("platform", "onlyfans")
-            result["message"] = f"SYNAPSE [100 Fm]: Graphic design blueprint generated for {client} ({platform.upper()} - {style})."
-            result["specs"] = tool_call
+            try:
+                import cv2
+                import numpy as np
+
+                style_prompts = {
+                    "neon_cyber": "cyberpunk neon cityscape backdrop, electric blue and magenta neon glow, futuristic holographic atmosphere, glossy reflective surfaces",
+                    "velvet_boudoir": "luxury velvet boudoir backdrop, warm gold and deep red tones, intimate candlelit glow, soft silk drapery",
+                    "pastel_dream": "dreamy pastel gradient backdrop, soft pink and lavender neon glow, ethereal glamour atmosphere, soft bokeh lighting",
+                    "gothic_noir": "gothic noir backdrop, dark moody crimson and black tones, dramatic chiaroscuro lighting, elegant dark romance atmosphere",
+                    "emerald_luxe": "opulent emerald green and gold backdrop, luxury jewel-toned atmosphere, glowing ambient light, high-end editorial glamour",
+                    "neon_pink": "vibrant neon pink and magenta glow backdrop, glossy futuristic atmosphere, glamorous nightclub lighting"
+                }
+                style_desc = style_prompts.get(style, style_prompts["neon_cyber"])
+                prompt = (
+                    f"Premium wide panoramic {platform.upper()} profile header banner background, {style_desc}, "
+                    f"professional graphic design composition, cinematic lighting, high production value, ultra high resolution, "
+                    f"balanced negative space for text overlay, no text, no watermark, no logos"
+                )
+                negative_prompt = "text, watermark, logo, signature, blurry, low quality, deformed, extra limbs, amateur, grainy"
+
+                from pipeline.stages.comfyui_bridge import comfy_bridge
+                gen_res = comfy_bridge.generate_and_audit(
+                    positive_prompt=prompt,
+                    negative_prompt=negative_prompt,
+                    width=1600,
+                    height=512,
+                    style_preset="graphic_design",
+                    auto_qc=True
+                )
+                if not gen_res.get("success"):
+                    result["status"] = "warning"
+                    result["message"] = f"SYNAPSE [100 Fm]: Banner background render failed: {gen_res.get('error')}"
+                    result["details"] = gen_res
+                    return result
+
+                # Composite the finished banner: render + headline/client text burned in
+                banner_dir = WORKSPACE_DIR / "brand_assets" / "banners"
+                banner_dir.mkdir(parents=True, exist_ok=True)
+                img = cv2.imread(gen_res["file_path"])
+                h, w = img.shape[:2]
+
+                font = cv2.FONT_HERSHEY_DUPLEX
+                headline_scale = max(1.2, w / 650.0)
+                headline_thickness = max(2, int(headline_scale * 2))
+                head_size = cv2.getTextSize(headline, font, headline_scale, headline_thickness)[0]
+                hx, hy = (w - head_size[0]) // 2, int(h * 0.45)
+                cv2.putText(img, headline, (hx + 3, hy + 3), font, headline_scale, (0, 0, 0), headline_thickness + 3, cv2.LINE_AA)
+                cv2.putText(img, headline, (hx, hy), font, headline_scale, (255, 255, 255), headline_thickness, cv2.LINE_AA)
+
+                sub_scale = headline_scale * 0.4
+                sub_thickness = max(1, int(sub_scale * 2))
+                sub_text = f"@{client}" if not client.startswith("@") else client
+                sub_size = cv2.getTextSize(sub_text, font, sub_scale, sub_thickness)[0]
+                sx, sy = (w - sub_size[0]) // 2, hy + int(head_size[1] * 1.8)
+                cv2.putText(img, sub_text, (sx + 2, sy + 2), font, sub_scale, (0, 0, 0), sub_thickness + 2, cv2.LINE_AA)
+                cv2.putText(img, sub_text, (sx, sy), font, sub_scale, (255, 255, 255), sub_thickness, cv2.LINE_AA)
+
+                timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+                banner_name = f"{platform}_{client}_banner_{timestamp}.png"
+                banner_path = banner_dir / banner_name
+                cv2.imwrite(str(banner_path), img)
+
+                qc_audit = gen_res.get("qc_audit", {})
+                result["file_path"] = str(banner_path)
+                result["background_render"] = gen_res.get("file_path")
+                result["qc_audit"] = qc_audit
+                if qc_audit.get("passed"):
+                    result["message"] = f"SYNAPSE [100 Fm]: Finished {platform.upper()} banner generated & QC-approved by Iris [77 Ir] for {client}: {banner_name}."
+                else:
+                    result["status"] = "warning"
+                    result["message"] = f"SYNAPSE [100 Fm]: Finished {platform.upper()} banner generated for {client} but Iris [77 Ir] QC was inconclusive/failed after max retries - recommend manual review: {banner_name}."
+            except Exception as e:
+                result["status"] = "error"
+                result["error"] = str(e)
 
         elif tool_name == "apex_package":
             client = tool_call.get("client_name", "Client")
@@ -862,7 +950,11 @@ class AIOperatorEngine:
                     audit = gen_res.get("qc_audit", {})
                     score = audit.get("aesthetic_score", "N/A")
                     notes = audit.get("defects_summary", "Passed")
-                    result["message"] = f"SYNAPSE [100 Fm]: Image rendered on RTX 5070 Ti & APPROVED by Iris [77 Ir] (QC Score: {score}/10). Saved to: {gen_res.get('filename')}."
+                    if audit.get("passed"):
+                        result["message"] = f"SYNAPSE [100 Fm]: Image rendered on RTX 5070 Ti & APPROVED by Iris [77 Ir] (QC Score: {score}/10). Saved to: {gen_res.get('filename')}."
+                    else:
+                        result["status"] = "warning"
+                        result["message"] = f"SYNAPSE [100 Fm]: Image rendered on RTX 5070 Ti but NOT approved by Iris [77 Ir] after max retries (QC Score: {score}/10, Notes: {notes}). Saved for manual review only: {gen_res.get('filename')}."
                     result["details"] = gen_res
                 else:
                     result["status"] = "warning"
