@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#4F46E5" id="meta-theme-color">
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<title>Terms of Service — Prism</title>
+<meta name="description" content="Prism Terms of Service — the rules for using the Prism AI content studio.">
+<script>
+  (function () {
+    try {
+      var saved = localStorage.getItem('que_theme');
+      var wantsDark = saved === 'dark' || (!saved && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      if (wantsDark) {
+        document.documentElement.setAttribute('data-theme', 'dark');
+        var meta = document.getElementById('meta-theme-color');
+        if (meta) meta.setAttribute('content', '#1A1D23');
+      }
+    } catch (e) {}
+  })();
+</script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:           #F0F2F5;
+    --surface:      #FFFFFF;
+    --border:       rgba(0,0,0,0.08);
+    --accent:       #4F46E5;
+    --accent2:      #7C3AED;
+    --text:         #1F2937;
+    --text-muted:   #6B7280;
+    --shadow:       rgba(0,0,0,0.08);
+  }
+  [data-theme="dark"] {
+    --bg:           #101216;
+    --surface:      #1A1D23;
+    --border:       rgba(255,255,255,0.09);
+    --accent:       #6C7CF0;
+    --accent2:      #9061F2;
+    --text:         #E8EAED;
+    --text-muted:   #9CA3AF;
+    --shadow:       rgba(0,0,0,0.3);
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    padding: 40px 20px 80px;
+  }
+  .wrap { max-width: 760px; margin: 0 auto; }
+  .top { display: flex; align-items: center; gap: 12px; margin-bottom: 28px; }
+  .top img { width: 40px; height: 40px; border-radius: 10px; }
+  .top .name { font-size: 1.2rem; font-weight: 900; letter-spacing: -0.02em;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 36px 40px;
+    box-shadow: 0 4px 24px var(--shadow);
+  }
+  h1 { font-size: 1.6rem; margin-bottom: 6px; }
+  .updated { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 28px; }
+  h2 { font-size: 1.05rem; margin: 28px 0 10px; color: var(--accent); }
+  p, li { font-size: 0.93rem; line-height: 1.65; color: var(--text); margin-bottom: 10px; }
+  ul { padding-left: 22px; margin-bottom: 10px; }
+  a { color: var(--accent); }
+  .back { display: inline-block; margin-top: 28px; font-size: 0.85rem; color: var(--text-muted); text-decoration: none; }
+  .back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <img src="/icon-192.png" alt="Prism">
+      <div class="name">Prism</div>
+    </div>
+    <div class="card">
+      <h1>Terms of Service</h1>
+      <div class="updated">Effective date: August 20, 2026</div>
+
+      <p>These Terms of Service ("Terms") govern your use of Prism, an AI-powered social media content studio
+      ("Prism", "we", "us", "the Service"). By creating an account or using Prism, you agree to these Terms.</p>
+
+      <h2>1. Description of Service</h2>
+      <p>Prism lets you upload photos and videos and uses third-party AI providers (Google Gemini, OpenAI, xAI Grok,
+      or a self-hosted Ollama instance) to generate captions, hashtags, and images intended for you to review and
+      post to your own social media accounts.</p>
+
+      <h2>2. Account Registration &amp; Security</h2>
+      <p>You are responsible for maintaining the confidentiality of your login credentials and for all activity
+      under your account. Notify us immediately at
+      <a href="mailto:info@prismaicreator.com">info@prismaicreator.com</a> if you suspect unauthorized access.</p>
+
+      <h2>3. Acceptable Use</h2>
+      <ul>
+        <li>You will not upload content that is illegal, infringing, or that you do not have the right to use.</li>
+        <li>You will not use Prism to generate content that is intended to deceive, defame, harass, or violate the
+        rights of others.</li>
+        <li>You will not attempt to circumvent rate limits, security controls, or reverse-engineer the Service.</li>
+        <li>You are solely responsible for complying with each social media platform's own terms and content
+        policies (e.g. Meta, TikTok) when you publish AI-generated content there.</li>
+      </ul>
+
+      <h2>4. AI-Generated Content Disclaimer</h2>
+      <p>Captions, hashtags, and images produced by Prism are generated by third-party AI models and may be
+      inaccurate, unexpected, or unsuitable for a given context. You are responsible for reviewing all AI-generated
+      output before publishing it anywhere. Prism does not currently auto-publish to any social platform without
+      your review; when direct publishing is introduced, it will always require an explicit confirmation step from
+      you before anything is posted.</p>
+
+      <h2>5. Ownership of Your Content</h2>
+      <p>You retain all ownership rights to the photos, videos, and other content you upload. By uploading content,
+      you grant Prism a limited license to process that content solely to generate the AI output you requested and
+      to store your generation history for your own account access.</p>
+
+      <h2>6. Intellectual Property</h2>
+      <p>Prism, including its underlying technology, features, and branding, is the proprietary property of its
+      operators. Patent protection is pending on certain features of the Service. "Prism" and its logo are
+      trademarks of its operators. Nothing in these Terms grants you any license to Prism's underlying software,
+      technology, or intellectual property beyond your right to use the Service as intended.</p>
+
+      <h2>7. Third-Party Services</h2>
+      <p>Prism relies on third-party AI providers to function. Your use of Prism is also subject to the applicable
+      terms of those providers to the extent your content is processed by them. We are not responsible for the
+      availability, output, or acts/omissions of these third-party providers.</p>
+
+      <h2>8. Termination</h2>
+      <p>You may stop using Prism and request deletion of your account and data at any time by emailing
+      <a href="mailto:info@prismaicreator.com">info@prismaicreator.com</a>. We may suspend or terminate accounts
+      that violate these Terms.</p>
+
+      <h2>9. Disclaimer of Warranties; Limitation of Liability</h2>
+      <p>Prism is provided "as is" without warranties of any kind. To the maximum extent permitted by law, Prism and
+      its operators are not liable for indirect, incidental, or consequential damages arising from your use of the
+      Service, including reliance on AI-generated content.</p>
+
+      <h2>10. Changes to These Terms</h2>
+      <p>We may update these Terms from time to time. Continued use of Prism after changes take effect constitutes
+      acceptance of the revised Terms.</p>
+
+      <h2>11. Contact</h2>
+      <p>Questions about these Terms can be sent to
+      <a href="mailto:info@prismaicreator.com">info@prismaicreator.com</a>.</p>
+
+      <a class="back" href="/login">&larr; Back to Prism</a>
+    </div>
+  </div>
+</body>
+</html>

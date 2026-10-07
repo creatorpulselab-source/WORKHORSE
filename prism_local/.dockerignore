@@ -1,0 +1,22 @@
+# flyctl launch added from .gitignore
+# config.json and database excluded (use env vars for config)
+**/config.json
+**/history.db
+**/*.db
+
+# Python
+**/__pycache__
+**/*.pyc
+**/*.pyo
+**/.venv
+**/venv
+**/*.egg-info
+
+# Environment
+**/.env
+**/.env.local
+
+# OS
+**/.DS_Store
+**/Thumbs.db
+fly.toml

@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#4F46E5" id="meta-theme-color">
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<title>Privacy Policy — Prism</title>
+<meta name="description" content="Prism Privacy Policy — how the Prism AI content studio collects, uses, and protects your data.">
+<script>
+  (function () {
+    try {
+      var saved = localStorage.getItem('que_theme');
+      var wantsDark = saved === 'dark' || (!saved && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      if (wantsDark) {
+        document.documentElement.setAttribute('data-theme', 'dark');
+        var meta = document.getElementById('meta-theme-color');
+        if (meta) meta.setAttribute('content', '#1A1D23');
+      }
+    } catch (e) {}
+  })();
+</script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:           #F0F2F5;
+    --surface:      #FFFFFF;
+    --border:       rgba(0,0,0,0.08);
+    --accent:       #4F46E5;
+    --accent2:      #7C3AED;
+    --text:         #1F2937;
+    --text-muted:   #6B7280;
+    --shadow:       rgba(0,0,0,0.08);
+  }
+  [data-theme="dark"] {
+    --bg:           #101216;
+    --surface:      #1A1D23;
+    --border:       rgba(255,255,255,0.09);
+    --accent:       #6C7CF0;
+    --accent2:      #9061F2;
+    --text:         #E8EAED;
+    --text-muted:   #9CA3AF;
+    --shadow:       rgba(0,0,0,0.3);
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    padding: 40px 20px 80px;
+  }
+  .wrap { max-width: 760px; margin: 0 auto; }
+  .top { display: flex; align-items: center; gap: 12px; margin-bottom: 28px; }
+  .top img { width: 40px; height: 40px; border-radius: 10px; }
+  .top .name { font-size: 1.2rem; font-weight: 900; letter-spacing: -0.02em;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 36px 40px;
+    box-shadow: 0 4px 24px var(--shadow);
+  }
+  h1 { font-size: 1.6rem; margin-bottom: 6px; }
+  .updated { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 28px; }
+  h2 { font-size: 1.05rem; margin: 28px 0 10px; color: var(--accent); }
+  p, li { font-size: 0.93rem; line-height: 1.65; color: var(--text); margin-bottom: 10px; }
+  ul { padding-left: 22px; margin-bottom: 10px; }
+  a { color: var(--accent); }
+  .back { display: inline-block; margin-top: 28px; font-size: 0.85rem; color: var(--text-muted); text-decoration: none; }
+  .back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <img src="/icon-192.png" alt="Prism">
+      <div class="name">Prism</div>
+    </div>
+    <div class="card">
+      <h1>Privacy Policy</h1>
+      <div class="updated">Effective date: August 18, 2026</div>
+
+      <p>Prism ("Prism", "we", "us") is an AI-powered social media content studio. This policy explains what
+      information we collect when you use the Prism app, how we use it, and the choices you have.</p>
+
+      <h2>1. Information We Collect</h2>
+      <ul>
+        <li><strong>Account information:</strong> the username and password you choose to sign in (passwords are
+        stored as salted hashes, never in plain text).</li>
+        <li><strong>Content you upload:</strong> photos and videos you submit for AI caption/image generation.</li>
+        <li><strong>Generated content history:</strong> the captions, hashtags, and images Prism generates for you,
+        stored in your account so you can revisit past results.</li>
+        <li><strong>App settings:</strong> preferences such as your AI provider choice, niche, and notification
+        settings.</li>
+        <li><strong>Session data:</strong> a single essential login cookie that keeps you signed in. Prism does not
+        use third-party advertising or analytics trackers.</li>
+        <li><strong>Push notification subscription:</strong> only if you opt in to browser push notifications, we
+        store the subscription endpoint needed to deliver them.</li>
+      </ul>
+
+      <h2>2. How We Use Information</h2>
+      <p>We use this information solely to operate Prism: authenticating your account, generating AI captions/images
+      from your uploaded media, keeping a history you can browse, and sending optional reminders you've opted into.
+      We do not sell your data, and we do not use your content to train our own AI models.</p>
+
+      <h2>3. Third-Party AI Providers</h2>
+      <p>To generate captions and images, the content you upload is sent to the AI provider you (or your account)
+      has selected — Google Gemini, OpenAI, or xAI (Grok) — or, if you run Prism locally, a self-hosted Ollama
+      instance you control. Each cloud provider processes this content under its own privacy terms, which govern
+      that transmission. No other third parties receive your uploaded content.</p>
+
+      <h2>4. Social Media Publishing</h2>
+      <p>Prism does not currently publish content directly to Instagram, Facebook, or TikTok on your behalf. If and
+      when direct publishing is added, Prism will only ever use official OAuth access tokens issued by those
+      platforms — never your platform passwords — and this policy will be updated before that feature is enabled.</p>
+
+      <h2>5. Data Storage &amp; Security</h2>
+      <p>Your data is stored in a private database on our hosting infrastructure (Fly.io), accessible only over
+      HTTPS. Session cookies are marked HttpOnly and Secure. Passwords are hashed, never stored or logged in plain
+      text.</p>
+
+      <h2>6. Data Retention &amp; Your Rights</h2>
+      <p>We retain your account data for as long as your account is active. You may request a copy of your data, or
+      request that your account and all associated data be permanently deleted, at any time by emailing
+      <a href="mailto:info@prismaicreator.com">info@prismaicreator.com</a>. We will complete deletion requests
+      within 30 days.</p>
+
+      <h2>7. Children's Privacy</h2>
+      <p>Prism is not directed at, and is not knowingly used by, children under 13 years of age.</p>
+
+      <h2>8. Cookies</h2>
+      <p>Prism uses a single essential session cookie required for you to stay signed in. We do not use third-party
+      advertising, tracking, or analytics cookies.</p>
+
+      <h2>9. Changes to This Policy</h2>
+      <p>If we make material changes to this policy, we will update the effective date above and, where
+      appropriate, notify you in-app.</p>
+
+      <h2>10. Contact Us</h2>
+      <p>Questions about this policy or your data can be sent to
+      <a href="mailto:info@prismaicreator.com">info@prismaicreator.com</a>.</p>
+
+      <a class="back" href="/login">&larr; Back to Prism</a>
+    </div>
+  </div>
+</body>
+</html>

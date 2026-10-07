@@ -1,0 +1,25 @@
+# Sensitive files - never commit these
+users.json
+config.json
+history.db
+*.db
+vapid_private_key.pem
+vapid_public_key.txt
+prism-vertex-key.json
+*-key.json
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+
+# Environment
+.env
+.env.local
+
+# OS
+.DS_Store
+Thumbs.db

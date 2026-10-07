@@ -1,0 +1,198 @@
+{
+  "system": {
+    "app_name": "WORKHORSE AI Command Center",
+    "version": "1.1.0",
+    "host": "127.0.0.1",
+    "port": 8800,
+    "cuda_devices": "0,1",
+    "dual_gpu_enabled": true,
+    "cuda_optimization": {
+      "sage_attention_installed": true,
+      "triton_installed": true,
+      "expandable_segments": true,
+      "lazy_module_loading": true,
+      "gpu_architecture": "Ampere (sm_86)",
+      "devices": [
+        "NVIDIA GeForce RTX 3060 (12GB)",
+        "NVIDIA GeForce RTX 3060 (12GB)"
+      ],
+      "total_vram_gb": 24,
+      "dual_gpu_partitioning": {
+        "gpu_0": {
+          "assigned_agents": [
+            "SYNAPSE [100 Fm]",
+            "IRIS [77 Ir]",
+            "AURA [79 Au]"
+          ],
+          "role": "Ollama LLM Reasoning & Vision Inspection",
+          "vram_gb": 12,
+          "block_swapping_enabled": true
+        },
+        "gpu_1": {
+          "assigned_agents": [
+            "ECHO [26 Fe]",
+            "FORGE [74 W]",
+            "VANGUARD [74 W]"
+          ],
+          "role": "Faster-Whisper Transcription & NVENC 60fps Video Cuts",
+          "vram_gb": 12,
+          "isolation": "100% Isolated from GPU 0 (Zero OOM collisions)"
+        }
+      }
+    }
+  },
+  "paths": {
+    "base_dir": "F:/WORKHORSE",
+    "input_dir": "F:/WORKHORSE/workspace/input",
+    "output_dir": "F:/WORKHORSE/workspace/output",
+    "temp_dir": "F:/WORKHORSE/workspace/temp",
+    "legacy_input_dir": "F:/VideoToolbox/process_me",
+    "legacy_output_dir": "F:/VideoToolbox/completed_previews"
+  },
+  "privacy": {
+    "strict_local_only": true,
+    "description": "100% Air-Gapped / Private Local GPU Execution for Adult Creator Media"
+  },
+  "ai_engine": {
+    "default_mode": "local_only",
+    "ollama_url": "http://localhost:11434",
+    "ollama_vision_model": "huihui_ai/qwen3-vl-abliterated:8b-instruct",
+    "ollama_text_model": "huihui_ai/qwen3-abliterated:14b",
+    "whisper_model": "base",
+    "whisper_device": "cuda",
+    "whisper_compute_type": "float16",
+    "cloud_provider": "none",
+    "api_keys": {
+      "gemini_api_key": "",
+      "openai_api_key": ""
+    }
+  },
+  "agents": {
+    "vanguard": {
+      "name": "Vanguard",
+      "gpu_assignment": "0,1",
+      "auto_archive": false,
+      "output_dir": "F:/WORKHORSE/workspace/output"
+    },
+    "iris": {
+      "name": "Iris",
+      "pose_count": 6,
+      "sampling_mode": "uniform",
+      "vision_model": "huihui_ai/qwen3-vl-abliterated:8b-instruct",
+      "custom_focus": "boudoir mood, provocative pose, studio lighting, lingerie attire, aesthetic tags"
+    },
+    "echo": {
+      "name": "Echo",
+      "whisper_model": "base",
+      "compute_type": "float16",
+      "vad_filter": true,
+      "min_hook_words": 3,
+      "max_hook_words": 12,
+      "device_index": 1,
+      "auto_unload": true
+    },
+    "aura": {
+      "name": "Aura",
+      "text_model": "huihui_ai/qwen3-abliterated:14b",
+      "tone_preset": "seductive_teasing",
+      "default_ppv_price": "$18.00",
+      "hashtag_count": 25,
+      "creator_handle": "@ExclusiveDrop",
+      "custom_cta": "Unlock full uncensored set in DMs or wall \ud83d\udc47",
+      "custom_system_prompt": "You are Aura, an uncensored, highly creative copywriting AI expert specializing in social media marketing, creator monetization, and adult/glamour content strategy. All media and captions are handled 100% locally and privately.",
+      "creator_pulse_handle": "@creatorpulselab",
+      "main_brand_handle": "@TheCreatorAsset",
+      "linktree_url": "https://linktr.ee/CreatorMediaLab",
+      "portal_pulse_url": "https://digitalcreatorassets-source.github.io/creatormedialab/?pub=creator_pulse"
+    },
+    "forge": {
+      "name": "Forge",
+      "preview_duration_sec": 60,
+      "video_codec": "h264_nvenc",
+      "generate_vertical_9x16": true,
+      "generate_square_1x1": true,
+      "generate_portrait_4x5": false,
+      "watermark_enabled": false,
+      "watermark_text": "",
+      "nvenc_gpu_index": 1
+    },
+    "cipher": {
+      "name": "Cipher",
+      "role": "Market Scout & Creator Trend Intelligence Agent",
+      "research_domains": [
+        "Photo Retouching & Color Grade Trends",
+        "Studio Lighting & Performer Posing Cues",
+        "Chaturbate & MyFreeCams Tip Menu Analytics",
+        "Etsy Digital Product Keywords & Presets",
+        "Fiverr High-Demand Creator Gigs"
+      ],
+      "target_platforms": [
+        "OnlyFans",
+        "Fansly",
+        "Chaturbate",
+        "MyFreeCams",
+        "Etsy",
+        "Fiverr",
+        "Twitter/X Adult",
+        "Reddit Creator Subs"
+      ],
+      "focus_niches": "boudoir, glamour, pov, lingerie, artistic adult, alternative model",
+      "offline_cache_only": true
+    }
+  },
+  "marketing_channels": {
+    "main_brand": {
+      "name": "CreatorMediaLab / TheCreatorAsset",
+      "focus": "Studio Photography, Lightroom Presets (.XMP), Editorial Retouching, Media Asset Flywheel",
+      "twitter_handle": "@TheCreatorAsset",
+      "twitter_url": "https://twitter.com/TheCreatorAsset",
+      "linktree_url": "https://linktr.ee/CreatorMediaLab",
+      "etsy_url": "https://www.etsy.com/shop/CreatorMediaLab",
+      "fiverr_url": "https://www.fiverr.com/s/GPz71VL",
+      "portal_url": "https://digitalcreatorassets-source.github.io/creatormedialab/",
+      "publications": [
+        "studio_wire",
+        "creator_blueprint"
+      ],
+      "fiverr_video_reels_url": "http://www.fiverr.com/s/emmRYZm",
+      "fiverr_tip_menus_url": "http://www.fiverr.com/s/GPPxKB3"
+    },
+    "adult_creator_brand": {
+      "name": "The Daily Creator Pulse",
+      "focus": "Adult Creator Monetization, PPV Vault Scripts, Cam Tip Menus, Web/Phone Lighting & Posing Rigs",
+      "twitter_handle": "@creatorpulselab",
+      "twitter_url": "https://twitter.com/creatorpulselab",
+      "portal_url": "https://digitalcreatorassets-source.github.io/creatormedialab/?pub=creator_pulse",
+      "fiverr_url": "https://www.fiverr.com/s/GPz71VL",
+      "etsy_url": "https://www.etsy.com/shop/CreatorMediaLab",
+      "linktree_url": "https://linktr.ee/CreatorMediaLab",
+      "publications": [
+        "creator_pulse"
+      ],
+      "fiverr_video_reels_url": "http://www.fiverr.com/s/emmRYZm",
+      "fiverr_tip_menus_url": "http://www.fiverr.com/s/GPPxKB3"
+    }
+  },
+  "comfyui": {
+    "enabled": true,
+    "host": "192.168.1.74",
+    "port": 8188,
+    "fallback_hosts": [
+      "100.114.140.7",
+      "127.0.0.1",
+      "localhost"
+    ],
+    "target_hardware": "NVIDIA GeForce RTX 5070 Ti (16GB VRAM) on Main PC",
+    "quality_control": {
+      "auto_qc_enabled": true,
+      "inspector_agent": "IRIS [77 Ir]",
+      "vision_model": "huihui_ai/qwen3-vl-abliterated:8b-instruct",
+      "min_quality_score": 7.5,
+      "max_retries": 2,
+      "reject_on_extra_limbs": true,
+      "reject_on_facial_distortion": true
+    },
+    "default_checkpoint": "cyberrealisticXL_v80.safetensors",
+    "flux_checkpoint": "cyberrealisticFlux_v25.safetensors"
+  }
+}

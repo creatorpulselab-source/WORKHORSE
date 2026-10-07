@@ -1,0 +1,1473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#4F46E5" id="meta-theme-color">
+  <link rel="manifest" href="/manifest.json">
+  <title>Prism — AI Social Media Content Studio</title>
+
+  <!-- SEO Meta -->
+  <meta name="description" content="AI-powered social media content studio. Upload one image or video and instantly generate platform-optimized captions, AI image prompts, video prompts, pose series, and hashtag sets for Instagram, TikTok, Facebook & X.">
+  <meta name="keywords" content="social media captions, AI caption generator, Instagram captions, TikTok captions, content creator tools, Flux prompt, image prompt generator, social media AI">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://que.fly.dev">
+
+  <!-- Open Graph -->
+  <meta property="og:title" content="Prism — AI Social Media Content Studio">
+  <meta property="og:description" content="Upload one image, get platform-optimized captions, AI prompts, pose series & hashtags. Powered by Gemini AI.">
+  <meta property="og:url" content="https://que.fly.dev">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Prism">
+
+  <!-- Twitter / X Card -->
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Prism — AI Social Media Content Studio">
+  <meta name="twitter:description" content="Upload one image, get captions for IG, TikTok, FB & X. AI-powered prompts, pose series & hashtags.">
+
+  <!-- Structured Data -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Prism — AI Social Media Content Studio",
+    "applicationCategory": "BusinessApplication",
+    "applicationSubCategory": "Content Creation Software",
+    "operatingSystem": "Web",
+    "description": "AI-powered social media content studio. Upload one image or video and generate platform-optimized captions, Flux image prompts, WAN video prompts, pose series, X threads, and hashtag sets.",
+    "url": "https://que.fly.dev",
+    "featureList": [
+      "Platform-optimized social media captions",
+      "Flux.1/Flux.2 image prompt generation",
+      "WAN2.1/WAN2.2 video prompt generation",
+      "6-pose photo series variations",
+      "X/Twitter thread generation",
+      "30-tag tiered hashtag sets",
+      "Brand voice matching",
+      "Multi-provider AI (Gemini, OpenAI, Grok, Ollama)",
+      "Video understanding with audio transcription",
+      "Dark/light mode"
+    ]
+  }
+  </script>
+
+  <script>
+    // Apply saved/preferred theme before first paint to avoid a light-mode flash.
+    (function () {
+      try {
+        var saved = localStorage.getItem('que_theme');
+        var wantsDark = saved === 'dark' || (!saved && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        if (wantsDark) document.documentElement.setAttribute('data-theme', 'dark');
+      } catch (e) {}
+    })();
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/enhancements.css">
+  <style>
+    :root {
+      --bg:           #F0F2F5;
+      --surface:      #FFFFFF;
+      --surface2:     #F7F8FA;
+      --surface3:     #EDF0F3;
+      --border:       rgba(0,0,0,0.08);
+      --border-hover: rgba(0,0,0,0.18);
+      --accent:       #4F46E5;
+      --accent2:      #7C3AED;
+      --accent-glow:  rgba(79,70,229,0.12);
+      --text:         #1F2937;
+      --text-dim:     #6B7280;
+      --text-muted:   #9CA3AF;
+      --success:      #10B981;
+      --error:        #EF4444;
+      --r:            14px;
+      --r-sm:         10px;
+      --r-xs:         7px;
+      --c-post:       #4F46E5;
+      --c-flux:       #7C3AED;
+      --c-video:      #0EA5E9;
+      --c-poses:      #F59E0B;
+      --header-bg:        rgba(255,255,255,0.92);
+      --surface-a70:      rgba(255,255,255,0.7);
+      --surface-a80:      rgba(255,255,255,0.8);
+      --surface-a90:      rgba(255,255,255,0.9);
+      --input-border:       rgba(0,0,0,0.18);
+      --input-border-hover: rgba(0,0,0,0.28);
+      --toast-bg:     #1F2937;
+      --scrollbar-thumb:       #c1c8d4;
+      --scrollbar-thumb-hover: #a0aab8;
+    }
+    [data-theme="dark"] {
+      --bg:           #101216;
+      --surface:      #1A1D23;
+      --surface2:     #21252C;
+      --surface3:     #2A2F38;
+      --border:       rgba(255,255,255,0.09);
+      --border-hover: rgba(255,255,255,0.2);
+      --accent:       #6C7CF0;
+      --accent2:      #9061F2;
+      --accent-glow:  rgba(108,124,240,0.18);
+      --text:         #E8EAED;
+      --text-dim:     #A3AAB5;
+      --text-muted:   #767F8C;
+      --success:      #34D399;
+      --error:        #F87171;
+      --header-bg:        rgba(26,29,35,0.88);
+      --surface-a70:      rgba(33,37,44,0.7);
+      --surface-a80:      rgba(33,37,44,0.8);
+      --surface-a90:      rgba(33,37,44,0.9);
+      --input-border:       rgba(255,255,255,0.16);
+      --input-border-hover: rgba(255,255,255,0.28);
+      --toast-bg:     #05060a;
+      --scrollbar-thumb:       #3A4049;
+      --scrollbar-thumb-hover: #4C525D;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      min-height: 100dvh;
+      line-height: 1.55;
+      -webkit-font-smoothing: antialiased;
+      transition: background-color 0.25s ease, color 0.25s ease;
+    }
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 99px; }
+
+    @keyframes _pulse { 0%,100%{opacity:1} 50%{opacity:.25} }
+
+    /* ---- Header ---- */
+    .header {
+      position: sticky; top: 0; z-index: 100;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 20px; height: 56px;
+      background: var(--header-bg);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+      transition: background-color 0.25s ease, border-color 0.25s ease;
+    }
+    .logo { display: flex; align-items: center; gap: 8px; font-size: 1.1rem; font-weight: 900; letter-spacing: -0.02em; text-decoration: none; color: var(--text); user-select: none; }
+    .logo-icon { color: var(--accent); font-size: 1.2rem; }
+    .logo-sub { font-size: 0.65rem; font-weight: 500; color: var(--text-muted); letter-spacing: 0.04em; text-transform: uppercase; margin-top: 1px; }
+    .header-actions { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none; }
+    .header-actions::-webkit-scrollbar { display: none; }
+    .header-actions > * { flex-shrink: 0; }
+    .btn-icon {
+      display: flex; align-items: center; justify-content: center;
+      width: 38px; height: 38px; border-radius: var(--r-xs);
+      background: var(--surface2); border: 1px solid var(--border);
+      color: var(--text-dim); cursor: pointer; transition: all 0.16s;
+    }
+    .btn-icon:hover { background: var(--surface3); border-color: var(--border-hover); color: var(--text); }
+    .btn-icon svg { width: 17px; height: 17px; }
+
+    /* ---- Main ---- */
+    .main { max-width: 1100px; margin: 0 auto; padding: 20px 16px 80px; }
+
+    /* ---- Upload zone ---- */
+    #upload-zone {
+      margin-top: 12px; border: 2px dashed rgba(79,70,229,0.25);
+      border-radius: var(--r); padding: 56px 20px; text-align: center; cursor: pointer;
+      background: var(--surface); transition: all 0.22s;
+    }
+    #upload-zone:hover, #upload-zone.drag-over {
+      border-color: var(--accent); background: rgba(79,70,229,0.04);
+    }
+    .upload-icon { width: 60px; height: 60px; margin: 0 auto 16px; border-radius: 50%; background: var(--surface2); display: flex; align-items: center; justify-content: center; border: 1px solid var(--border); }
+    .upload-icon svg { width: 26px; height: 26px; color: var(--accent); }
+    .upload-title { font-size: 1.3rem; font-weight: 700; margin-bottom: 6px; letter-spacing: -0.02em; }
+    .upload-sub { color: var(--text-muted); font-size: 0.88rem; margin-bottom: 18px; }
+    .btn-browse {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 10px 22px; background: var(--accent); color: #fff;
+      border: none; border-radius: 99px; font-size: 0.88rem; font-weight: 600;
+      cursor: pointer; transition: all 0.18s; font-family: inherit;
+    }
+    .btn-browse:hover { filter: brightness(1.08); transform: translateY(-1px); }
+    .upload-formats { display: block; margin-top: 12px; font-size: 0.75rem; color: var(--text-muted); }
+
+    /* ---- Workspace (wizard) ---- */
+    #workspace {
+      display: none;
+      flex-direction: column;
+      min-height: calc(100dvh - 56px);
+      background: var(--bg);
+      overflow: hidden;
+    }
+    #workspace.active { display: flex; }
+
+    /* ── Step screen: fills full viewport ── */
+    .wiz-screen {
+      display: none;
+      flex-direction: column;
+      flex: 1;
+      overflow: hidden;
+      background: var(--bg);
+    }
+    .wiz-screen.active { display: flex; }
+
+    /* ── Instagram-style sticky step header ── */
+    .wiz-header {
+      display: flex;
+      align-items: center;
+      height: 52px;
+      padding: 0 16px;
+      background: var(--header-bg);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      gap: 12px;
+      flex-shrink: 0;
+      position: relative;
+      z-index: 30;
+    }
+    .wiz-header-back {
+      width: 36px; height: 36px;
+      display: flex; align-items: center; justify-content: center;
+      background: none; border: none; cursor: pointer;
+      color: var(--text); border-radius: 50%;
+      transition: background 0.15s;
+    }
+    .wiz-header-back:hover { background: var(--surface2); }
+    .wiz-header-title { flex: 1; font-size: 0.95rem; font-weight: 700; color: var(--text); }
+    .wiz-header-step { font-size: 0.72rem; color: var(--text-muted); }
+    .wiz-header-thumb {
+      width: 36px; height: 36px;
+      border-radius: 8px; overflow: hidden;
+      flex-shrink: 0; background: var(--surface2);
+    }
+    .wiz-header-thumb img, .wiz-header-thumb video {
+      width: 100%; height: 100%; object-fit: cover;
+    }
+
+    /* ── Progress dots (step 1 only) ── */
+    .wiz-dots {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 12px 0 4px;
+    }
+    .wiz-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--border);
+      transition: all 0.22s;
+    }
+    .wiz-dot.active { background: var(--ct-accent, var(--accent)); width: 20px; border-radius: 4px; }
+    .wiz-dot.done { background: var(--ct-accent, var(--accent)); opacity: 0.4; }
+
+    /* ── Scrollable content area ── */
+    .wiz-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px 16px;
+      padding-bottom: calc(100px + env(safe-area-inset-bottom, 20px)) !important;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    /* ── Pinned footer button ── */
+    .wiz-footer {
+      padding: 12px 16px;
+      padding-bottom: calc(12px + env(safe-area-inset-bottom));
+      background: var(--header-bg);
+      backdrop-filter: blur(12px);
+      border-top: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .btn-wiz-primary {
+      width: 100%; height: 60px;
+      background: var(--ct-accent, var(--accent));
+      color: #fff; border: none;
+      border-radius: 14px;
+      font-size: 1rem; font-weight: 700;
+      cursor: pointer; font-family: inherit;
+      transition: all 0.18s; letter-spacing: -0.01em;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    .btn-wiz-primary:hover:not(:disabled) { filter: brightness(1.07); transform: translateY(-1px); }
+    .btn-wiz-primary:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+    .btn-wiz-secondary {
+      width: 100%; height: 54px;
+      background: none; border: none;
+      color: var(--text-muted); font-size: 0.88rem;
+      cursor: pointer; font-family: inherit;
+      transition: color 0.15s;
+    }
+    .btn-wiz-secondary:hover { color: var(--text); }
+
+    /* ── Step 1: Content type cards ── */
+    .ct-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .ct-card {
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 12px; padding: 30px 16px; min-height: 140px;
+      background: var(--surface);
+      border: 2px solid var(--border);
+      border-radius: 16px;
+      cursor: pointer; transition: all 0.18s;
+      font-family: inherit; text-align: center;
+    }
+    .ct-card:hover { border-color: var(--border-hover); background: var(--surface2); }
+    .ct-card.active {
+      border-color: var(--ct-accent, var(--accent));
+      background: rgba(79,70,229,0.07);
+      box-shadow: 0 0 0 3px rgba(79,70,229,0.12);
+    }
+    .ct-card-icon { font-size: 2rem; line-height: 1; }
+    .ct-card-label { font-size: 0.88rem; font-weight: 700; color: var(--text); }
+    .ct-card-note { font-size: 0.72rem; color: var(--text-muted); line-height: 1.3; }
+
+    /* ── Step 1 media preview ── */
+    .s1-preview { border-radius: 16px; overflow: hidden; flex-shrink: 0; background: var(--surface); }
+    .s1-preview img, .s1-preview video { width: 100%; max-height: 220px; object-fit: cover; display: block; background: var(--surface2); }
+    .s1-preview-footer { display: flex; align-items: center; padding: 8px 12px; }
+    .s1-preview-name { flex: 1; font-size: 0.78rem; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .btn-change-s1 { padding: 4px 10px; background: var(--surface2); border: 1px solid var(--border); border-radius: 99px; font-size: 0.75rem; color: var(--text-dim); cursor: pointer; font-family: inherit; }
+
+    /* ── Mode grid (step 2) ── */
+    .mode-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .mode-btn {
+      display: flex; flex-direction: column; align-items: center; gap: 4px;
+      padding: 12px 10px; min-height: 80px; justify-content: center;
+      background: var(--surface); border: 2px solid var(--border);
+      border-radius: 14px; cursor: pointer; transition: all 0.18s;
+      text-align: center; font-family: inherit; color: var(--text-dim);
+    }
+    .mode-btn:hover { border-color: var(--border-hover); color: var(--text); background: var(--surface2); }
+    .mode-btn.active { border-color: var(--mode-color, var(--accent)); background: rgba(var(--mode-color-rgb, 79,70,229), 0.07); color: var(--text); }
+    .mode-btn-icon { font-size: 1.3rem; }
+    .mode-btn-label { font-size: 0.83rem; font-weight: 700; }
+    .mode-btn-desc { font-size: 0.7rem; color: var(--text-muted); line-height: 1.3; }
+    .mode-btn-all { grid-column: 1 / -1; flex-direction: row; align-items: center; gap: 10px; }
+    .mode-btn-all .mode-btn-texts { display: flex; flex-direction: column; gap: 2px; }
+
+    /* ── Platform pills (step 2) ── */
+    .plat-row { display: flex; gap: 8px; flex-wrap: wrap; }
+    .platform-btn {
+      padding: 14px 20px; border-radius: 99px; font-size: 0.95rem;
+      background: var(--surface); border: 1.5px solid var(--border);
+      cursor: pointer; transition: all 0.16s;
+      font-size: 0.84rem; font-weight: 600; font-family: inherit;
+      color: var(--text-dim); white-space: nowrap;
+    }
+    .platform-btn:hover { border-color: var(--border-hover); color: var(--text); }
+    .platform-btn.active {
+      border-color: var(--plat-color, var(--accent));
+      background: rgba(var(--plat-rgb, 79,70,229), 0.1);
+      color: var(--plat-color, var(--accent));
+    }
+
+    /* ── Style pills (step 3) ── */
+    .style-row { display: flex; gap: 7px; flex-wrap: wrap; }
+    .style-btn { padding: 9px 14px; border-radius: 99px; background: var(--surface); border: 1.5px solid var(--border); cursor: pointer; transition: all 0.15s; font-size: 0.82rem; font-weight: 600; font-family: inherit; color: var(--text-dim); }
+    .style-btn:hover { border-color: var(--border-hover); color: var(--text); }
+    .style-btn.active { border-color: #7C3AED; background: rgba(124,58,237,0.09); color: #7C3AED; }
+
+    /* ── Setting rows (step 3 toggles) ── */
+    .setting-row {
+      display: flex; align-items: center;
+      padding: 18px 0;
+      border-bottom: 1px solid var(--border);
+      gap: 10px;
+    }
+    .setting-row:last-child { border-bottom: none; }
+    .setting-label { flex: 1; font-size: 0.88rem; font-weight: 500; color: var(--text); }
+    .setting-note { font-size: 0.75rem; color: var(--text-muted); margin-top: 1px; }
+
+    /* ── Instagram-style review rows (step 4) ── */
+    .review-list { display: flex; flex-direction: column; background: var(--surface); border-radius: 16px; overflow: hidden; border: 1px solid var(--border); }
+    .ig-row {
+      display: flex; align-items: center;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+      gap: 12px; cursor: pointer; transition: background 0.12s;
+    }
+    .ig-row:last-child { border-bottom: none; }
+    .ig-row:hover { background: var(--surface2); }
+    .ig-row-icon { font-size: 1.1rem; flex-shrink: 0; width: 28px; text-align: center; }
+    .ig-row-body { flex: 1; min-width: 0; }
+    .ig-row-label { font-size: 0.88rem; font-weight: 500; color: var(--text); }
+    .ig-row-value { font-size: 0.78rem; color: var(--text-muted); margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ig-row-value.accent { color: var(--ct-accent, var(--accent)); font-weight: 600; }
+    .ig-row-chevron { color: var(--text-muted); flex-shrink: 0; font-size: 0.9rem; }
+
+    
+    /* ── Next/Prev Footer ── */
+    .wiz-footer-nav { display: flex; gap: 12px; }
+    .wiz-footer-nav .btn-wiz-secondary { flex: 1; background: var(--surface2); border: 1px solid var(--border); border-radius: 14px; font-weight: 600; color: var(--text); }
+    .wiz-footer-nav .btn-wiz-secondary:hover { background: var(--surface3); }
+    .wiz-footer-nav .btn-wiz-primary { flex: 2; }
+    
+    /* ── Review Page Cards ── */
+    .review-category { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 16px; margin-bottom: 12px; }
+    .review-category-hdr { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; font-weight: 700; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.75rem; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+    .review-item { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.9rem; }
+    .review-item:last-child { margin-bottom: 0; }
+    .review-item-label { color: var(--text-muted); }
+    .review-item-value { font-weight: 600; color: var(--text); text-align: right; }
+    
+    /* ── Results Carousel ── */
+    .carousel-container { display: flex; overflow-x: auto; scroll-behavior: smooth; scroll-snap-type: x mandatory; flex: 1; width: 100%; min-height: 0; }
+    .carousel-slide { width: 100%; flex: 0 0 100%; min-width: 0; scroll-snap-align: start; padding: 16px; display: flex; flex-direction: column; overflow-y: auto; overflow-x: hidden; box-sizing: border-box; }
+    .carousel-nav-buttons { display: flex; justify-content: space-between; padding: 12px 16px; align-items: center; border-top: 1px solid var(--border); background: var(--header-bg); flex-shrink: 0; }
+
+    /* ── Generate button (review page) ── */
+    .generate-section { margin-top: 4px; }
+
+    /* ── Results page (step 5) ── */
+    .result-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 14px; overflow: hidden;
+      border-left: 3px solid var(--result-accent, var(--border));
+    }
+    .result-card-hdr {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 14px; background: var(--surface2);
+      border-bottom: 1px solid var(--border);
+    }
+    .result-badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      font-size: 0.78rem; font-weight: 700;
+      color: var(--badge-color, var(--text));
+    }
+    .result-card-actions { display: flex; gap: 6px; align-items: center; }
+    .result-body { padding: 12px 14px; }
+    .result-text { font-size: 0.88rem; line-height: 1.65; color: var(--text); white-space: pre-wrap; }
+    .prompt-style { font-size: 0.82rem; font-family: 'Courier New', monospace; color: var(--text-dim); }
+    .char-counter { font-size: 0.7rem; color: var(--text-muted); margin-top: 6px; }
+    .char-counter.warn { color: #F59E0B; }
+    .char-counter.over { color: var(--error); }
+
+    /* ── Pose series in results ── */
+    .poses-list { display: flex; flex-direction: column; gap: 12px; }
+    .pose-item { padding: 10px 0; border-bottom: 1px solid var(--border); }
+    .pose-item:last-child { border-bottom: none; }
+    .pose-item-hdr { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+    .pose-num { font-size: 0.78rem; font-weight: 700; }
+    .pose-text { font-size: 0.82rem; color: var(--text-dim); line-height: 1.5; font-family: 'Courier New', monospace; }
+    .pose-img-preview { margin-top: 10px; }
+    .pose-img-preview img { width: 100%; border-radius: 10px; display: block; }
+    .btn-download-img { display: inline-flex; align-items: center; gap: 4px; margin-top: 7px; padding: 5px 11px; background: var(--surface2); border: 1px solid var(--border); color: var(--text-dim); border-radius: var(--r-xs); font-size: 0.75rem; text-decoration: none; font-family: inherit; transition: all 0.14s; }
+
+    /* ── Thread ── */
+    .thread-list { display: flex; flex-direction: column; gap: 10px; }
+    .thread-tweet { padding: 10px 0; border-bottom: 1px solid var(--border); }
+    .thread-tweet:last-child { border-bottom: none; }
+    .thread-tweet-hdr { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+    .thread-tweet-num { font-size: 0.75rem; font-weight: 700; color: var(--text-muted); }
+    .thread-tweet-text { font-size: 0.88rem; line-height: 1.6; color: var(--text); }
+    .thread-tweet-chars { font-size: 0.7rem; color: var(--text-muted); margin-top: 4px; }
+
+    /* ── Variants ── */
+    .variants-list { display: flex; flex-direction: column; gap: 14px; }
+    .variant-item { padding: 10px 0; border-bottom: 1px solid var(--border); }
+    .variant-item:last-child { border-bottom: none; }
+    .variant-item-hdr { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+    .variant-num { font-size: 0.78rem; font-weight: 700; }
+    .variant-text { font-size: 0.88rem; line-height: 1.65; color: var(--text); white-space: pre-wrap; }
+
+    /* ── Hashtag tiers ── */
+    .hashtag-tier { padding: 10px 0; border-bottom: 1px solid var(--border); }
+    .hashtag-tier:last-child { border-bottom: none; padding-bottom: 0; }
+    .hashtag-tier-hdr { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+    .hashtag-tier-label { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; }
+    .hashtag-tier-tags { font-size: 0.85rem; color: var(--accent); line-height: 1.65; word-break: break-word; }
+
+    /* ── Section header ── */
+    .wiz-section-hdr { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 8px; }
+
+    /* ── Carousel (results) ── */
+    .carousel-nav { display: flex; align-items: center; justify-content: space-between; padding: 12px 0 4px; gap: 8px; }
+    .carousel-btn { width: 44px; height: 44px; border-radius: 50%; background: var(--surface); border: 1.5px solid var(--border); cursor: pointer; font-size: 1.15rem; display: flex; align-items: center; justify-content: center; transition: all 0.15s; flex-shrink: 0; }
+    .carousel-btn:hover { border-color: var(--ct-accent,var(--accent)); color: var(--ct-accent,var(--accent)); }
+    .carousel-dots { display: flex; gap: 6px; align-items: center; flex: 1; justify-content: center; flex-wrap: wrap; }
+    .carousel-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border); cursor: pointer; transition: all 0.2s; }
+    .carousel-dot.active { background: var(--ct-accent,var(--accent)); width: 20px; border-radius: 4px; }
+    .carousel-label { font-size: 0.78rem; color: var(--text-muted); flex-shrink: 0; }
+    /* ── Image lightbox ── */
+    .img-lightbox { position: fixed; inset: 0; background: rgba(0,0,0,0.88); z-index: 9999; display: flex; align-items: center; justify-content: center; cursor: zoom-out; animation: _wfade 0.15s ease; }
+    .img-lightbox img { max-width: 92vw; max-height: 88vh; border-radius: 12px; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
+    .img-lightbox-close { position: absolute; top: 16px; right: 20px; color: #fff; font-size: 1.6rem; cursor: pointer; background: none; border: none; line-height: 1; }
+    .btn-copy-result, .btn-regen-result, .btn-edit-result {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 5px 10px; border-radius: 99px;
+      font-size: 0.75rem; font-weight: 600; font-family: inherit;
+      cursor: pointer; transition: all 0.14s;
+    }
+    .btn-copy-result { background: var(--surface3); border: 1px solid var(--border); color: var(--text-dim); }
+    .btn-copy-result:hover { border-color: var(--border-hover); color: var(--text); }
+    .btn-copy-result.copied { background: var(--success); color: #fff; border-color: var(--success); }
+    .btn-regen-result, .btn-edit-result { background: none; border: none; color: var(--text-muted); font-size: 0.82rem; }
+    .btn-regen-result:hover, .btn-edit-result:hover { color: var(--text); }
+    .btn-gen-img { display: inline-flex; align-items: center; gap: 4px; padding: 5px 10px; background: rgba(79,70,229,0.08); border: 1.5px solid rgba(79,70,229,0.25); color: var(--accent); border-radius: 99px; font-size: 0.74rem; font-weight: 600; font-family: inherit; cursor: pointer; transition: all 0.14s; }
+    .btn-gen-img:hover { background: rgba(79,70,229,0.14); border-color: var(--accent); }
+    .btn-gen-img:disabled { opacity: 0.5; cursor: not-allowed; }
+    #preview-img { width: 100%; display: block; height: 260px; max-height: 420px; object-fit: contain; background: var(--surface2); }
+    .preview-footer { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border-top: 1px solid var(--border); gap: 8px; }
+    #preview-name { font-size: 0.78rem; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+    .btn-change { padding: 5px 11px; background: var(--surface2); border: 1px solid var(--border); color: var(--text-dim); border-radius: var(--r-xs); font-size: 0.78rem; font-family: inherit; cursor: pointer; transition: all 0.16s; }
+    .btn-change:hover { border-color: var(--border-hover); color: var(--text); }
+
+    .controls-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); padding: 18px; display: flex; flex-direction: column; gap: 18px; }
+    .section-label { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px; }
+
+    /* ---- Mode grid ---- */
+    .mode-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+    .mode-btn {
+      display: flex; flex-direction: column; align-items: flex-start; gap: 3px;
+      padding: 11px 12px; background: var(--surface2); border: 1.5px solid var(--border);
+      border-radius: var(--r-sm); cursor: pointer; transition: all 0.18s; text-align: left; font-family: inherit; color: var(--text-dim);
+    }
+    .mode-btn:hover { border-color: var(--border-hover); color: var(--text); background: var(--surface3); }
+    .mode-btn.active { border-color: var(--mode-color, var(--accent)); background: rgba(var(--mode-color-rgb, 79,70,229), 0.07); color: var(--text); }
+    .mode-btn-icon { font-size: 1.2rem; }
+    .mode-btn-label { font-size: 0.8rem; font-weight: 700; }
+    .mode-btn-desc { font-size: 0.7rem; color: var(--text-muted); line-height: 1.3; }
+    .mode-btn-all { grid-column: 1 / -1; flex-direction: row; align-items: center; gap: 10px; }
+    .mode-btn-all .mode-btn-texts { display: flex; flex-direction: column; gap: 2px; }
+
+    /* ---- Pose image preview ---- */
+    .btn-gen-img { display:flex; align-items:center; gap:4px; padding:4px 9px; background:rgba(79,70,229,0.08); border:1.5px solid rgba(79,70,229,0.25); color:var(--accent); border-radius:var(--r-xs); font-size:0.74rem; font-weight:600; font-family:inherit; cursor:pointer; transition:all 0.14s; }
+    .btn-gen-img:hover { background:rgba(79,70,229,0.14); border-color:var(--accent); }
+    .btn-gen-img:disabled { opacity:0.5; cursor:not-allowed; }
+    .pose-img-preview { margin-top:10px; }
+    .pose-img-preview img { width:100%; border-radius:var(--r-sm); display:block; }
+    .btn-download-img { display:inline-flex; align-items:center; gap:4px; margin-top:7px; padding:5px 11px; background:var(--surface2); border:1px solid var(--border); color:var(--text-dim); border-radius:var(--r-xs); font-size:0.75rem; text-decoration:none; font-family:inherit; transition:all 0.14s; }
+    .btn-download-img:hover { border-color:var(--border-hover); color:var(--text); }
+
+    /* ---- Hashtag tier display ---- */
+    .hashtag-tier { padding: 10px 0; border-bottom: 1px solid var(--border); }
+    .hashtag-tier:last-child { border-bottom: none; padding-bottom: 0; }
+    .hashtag-tier-hdr { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+    .hashtag-tier-label { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; }
+    .hashtag-tier-tags { font-size: 0.85rem; color: var(--accent); line-height: 1.65; word-break: break-word; }
+
+    /* ---- Content type selector ---- */
+    .content-type-row { display: flex; gap: 6px; flex-wrap: wrap; }
+    .content-type-btn {
+      flex-shrink: 0; padding: 8px 13px;
+      background: var(--surface2); border: 1.5px solid var(--border);
+      border-radius: var(--r-sm); font-size: 0.8rem; font-weight: 600;
+      font-family: inherit; cursor: pointer; transition: all 0.16s;
+      color: var(--text-dim);
+    }
+    .content-type-btn:hover { border-color: var(--border-hover); color: var(--text); background: var(--surface3); }
+    .content-type-btn.active { border-color: var(--accent2); background: rgba(124,58,237,0.09); color: var(--accent2); font-weight: 700; }
+
+    /* ---- Caption style picker ---- */
+    .style-row { display: flex; gap: 5px; flex-wrap: wrap; overflow: visible; }
+    .style-btn {
+      flex-shrink: 0; padding: 10px 16px; font-size: 0.85rem;
+      background: var(--surface2); border: 1.5px solid var(--border);
+      border-radius: 99px; font-size: 0.75rem; font-weight: 600;
+      font-family: inherit; cursor: pointer; transition: all 0.16s;
+      color: var(--text-dim); white-space: nowrap;
+    }
+    .style-btn:hover { border-color: var(--border-hover); color: var(--text); }
+    .style-btn.active { border-color: var(--accent); background: rgba(79,70,229,0.08); color: var(--accent); font-weight: 700; }
+
+    /* ---- Platform selector ---- */
+    .platform-row { display: flex; gap: 5px; flex-wrap: wrap; overflow: visible; }
+    .platform-btn {
+      flex-shrink: 0; padding: 6px 12px;
+      background: var(--surface2); border: 1.5px solid var(--border);
+      border-radius: 99px; font-size: 0.78rem; font-weight: 600;
+      font-family: inherit; cursor: pointer; transition: all 0.16s;
+      color: var(--text-dim); scroll-snap-align: start; white-space: nowrap;
+    }
+    .platform-btn:hover { border-color: var(--border-hover); color: var(--text); }
+    .platform-btn.active { border-color: var(--plat-color, var(--accent)); background: rgba(var(--plat-rgb, 79,70,229), 0.08); color: var(--plat-color, var(--accent)); font-weight: 700; }
+
+    /* ---- Hashtag row ---- */
+    .hashtag-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; }
+    .hashtag-label { font-size: 0.82rem; font-weight: 500; color: var(--text-dim); }
+    .switch { position: relative; display: inline-block; width: 42px; height: 23px; flex-shrink: 0; }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .switch-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background: #CBD5E1; border-radius: 23px; transition: 0.2s; }
+    .switch-slider:before { position: absolute; content: ""; height: 17px; width: 17px; left: 3px; bottom: 3px; background: white; border-radius: 50%; transition: 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+    input:checked + .switch-slider { background: var(--accent); }
+    input:checked + .switch-slider:before { transform: translateX(19px); }
+
+    /* ---- Generate button ---- */
+    .btn-generate {
+      width: 100%; padding: 18px 20px; font-size: 1.1rem;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: #fff; border: none; border-radius: var(--r-sm);
+      font-family: inherit; font-size: 0.95rem; font-weight: 700;
+      cursor: pointer; transition: all 0.2s;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    .btn-generate:hover:not(:disabled) { filter: brightness(1.08); transform: translateY(-1px); box-shadow: 0 6px 20px rgba(79,70,229,0.3); }
+    .btn-generate:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+    .spinner { width: 17px; height: 17px; border: 2px solid rgba(255,255,255,0.35); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ---- Results ---- */
+    #results { margin-top: 12px; display: flex; flex-direction: column; gap: 12px; }
+    .results-hdr { display: flex; align-items: center; justify-content: space-between; }
+    .results-hdr h3 { font-size: 0.95rem; font-weight: 700; }
+    .btn-copy-all { padding: 6px 12px; background: var(--surface); border: 1px solid var(--border); color: var(--text-dim); border-radius: var(--r-xs); font-size: 0.78rem; font-family: inherit; cursor: pointer; transition: all 0.16s; }
+    .btn-copy-all:hover { border-color: var(--border-hover); color: var(--text); }
+    .result-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); overflow: hidden; }
+    .result-card-hdr { display: flex; align-items: center; justify-content: space-between; padding: 11px 14px; border-bottom: 1px solid var(--border); gap: 10px; }
+    .result-badge { display: inline-flex; align-items: center; gap: 5px; font-size: 0.78rem; font-weight: 700; padding: 3px 9px; border-radius: 99px; background: rgba(var(--badge-rgb, 79,70,229), 0.10); color: var(--badge-color, var(--accent)); }
+    .result-card-actions { display: flex; gap: 5px; }
+    .btn-copy-result { display: flex; align-items: center; gap: 4px; padding: 4px 10px; background: var(--surface2); border: 1px solid var(--border); color: var(--text-dim); border-radius: var(--r-xs); font-size: 0.76rem; font-family: inherit; cursor: pointer; transition: all 0.16s; }
+    .btn-copy-result:hover { border-color: var(--border-hover); color: var(--text); }
+    .btn-copy-result.copied { color: var(--success); border-color: var(--success); }
+    .result-body { padding: 14px; }
+    .result-text { font-size: 0.88rem; line-height: 1.7; color: var(--text); white-space: pre-wrap; word-break: break-word; max-height: 260px; overflow-y: auto; cursor: pointer; -webkit-overflow-scrolling: touch; }
+    .result-text.prompt-style { font-family: 'Consolas', monospace; font-size: 0.83rem; color: var(--text-dim); background: var(--surface2); border-radius: var(--r-xs); padding: 12px; }
+    .poses-list { display: flex; flex-direction: column; gap: 9px; }
+    .pose-item { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--r-sm); padding: 11px 12px; }
+    .pose-item-hdr { display: flex; align-items: center; justify-content: space-between; margin-bottom: 7px; }
+    .pose-num { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--c-poses); }
+    .pose-text { font-size: 0.82rem; color: var(--text-dim); line-height: 1.6; white-space: pre-wrap; word-break: break-word; font-family: 'Consolas', monospace; }
+
+    /* ---- Toast ---- */
+    #toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(16px); background: var(--toast-bg); color: #fff; padding: 9px 18px; border-radius: 99px; font-size: 0.83rem; font-weight: 500; pointer-events: none; opacity: 0; transition: all 0.2s; z-index: 9999; white-space: nowrap; max-width: calc(100vw - 40px); text-align: center; }
+    #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    #toast.success { background: var(--success); }
+    #toast.error { background: var(--error); }
+
+    /* ---- Modal ---- */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 500; display: flex; align-items: flex-end; justify-content: center; padding: 16px; backdrop-filter: blur(4px); }
+    @media (min-width: 600px) { .modal-overlay { align-items: center; } }
+    .modal { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); width: 100%; max-width: 500px; max-height: 82dvh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.15); animation: slideup 0.22s ease; }
+    .modal-wide { max-width: 660px; }
+    @keyframes slideup { from { transform:translateY(24px); opacity:0; } to { transform:translateY(0); opacity:1; } }
+    .modal-hdr { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+    .modal-hdr h3 { font-size: 0.95rem; font-weight: 700; }
+    .btn-modal-close { width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: var(--r-xs); background: var(--surface2); border: 1px solid var(--border); color: var(--text-dim); cursor: pointer; font-size: 0.95rem; font-family: inherit; transition: all 0.14s; }
+    .btn-modal-close:hover { color: var(--text); border-color: var(--border-hover); }
+    .modal-body { padding: 18px; overflow-y: auto; flex: 1; }
+    .settings-form { display: flex; flex-direction: column; gap: 16px; }
+    .field-label { display: block; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px; }
+    .field-input { width: 100%; padding: 9px 12px; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--r-xs); color: var(--text); font-family: 'Consolas', monospace; font-size: 0.86rem; outline: none; transition: border-color 0.14s; }
+    .field-input:focus { border-color: var(--accent); }
+    .field-row { display: flex; gap: 7px; }
+    .field-row .field-input { flex: 1; }
+    .btn-sm { flex-shrink: 0; padding: 9px 13px; background: var(--surface2); border: 1px solid var(--border); color: var(--text-dim); border-radius: var(--r-xs); font-size: 0.8rem; font-family: inherit; cursor: pointer; transition: all 0.14s; white-space: nowrap; }
+    .btn-sm:hover { border-color: var(--border-hover); color: var(--text); }
+    .model-list { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--r-xs); margin-top: 7px; max-height: 160px; overflow-y: auto; }
+    .model-list-item { padding: 8px 12px; font-size: 0.82rem; font-family: 'Consolas', monospace; color: var(--text-dim); cursor: pointer; border-bottom: 1px solid var(--border); transition: all 0.12s; }
+    .model-list-item:last-child { border-bottom: none; }
+    .model-list-item:hover { background: var(--surface3); color: var(--text); }
+    .btn-save { width: 100%; padding: 11px; background: var(--accent); color: #fff; border: none; border-radius: var(--r-sm); font-family: inherit; font-size: 0.92rem; font-weight: 700; cursor: pointer; transition: all 0.16s; }
+    .btn-save:hover { filter: brightness(1.08); }
+    .settings-divider { height: 1px; background: var(--border); margin: 4px 0; }
+    .settings-info { font-size: 0.76rem; color: var(--text-muted); background: var(--surface2); border-radius: var(--r-xs); padding: 9px 11px; line-height: 1.6; }
+    .intensity-note { font-size: 0.73rem; color: var(--text-muted); margin-top: 5px; }
+
+    /* ---- History ---- */
+    .history-list { display: flex; flex-direction: column; gap: 9px; }
+    .history-empty { text-align: center; color: var(--text-muted); font-size: 0.86rem; padding: 28px; }
+    .history-item { display: flex; gap: 11px; align-items: flex-start; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--r-sm); padding: 11px; cursor: pointer; transition: all 0.14s; }
+    .history-item:hover { border-color: var(--border-hover); }
+    .history-thumb { width: 50px; height: 50px; border-radius: var(--r-xs); object-fit: cover; background: var(--surface3); flex-shrink: 0; }
+    .history-thumb-placeholder { width: 50px; height: 50px; border-radius: var(--r-xs); background: var(--surface3); flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; }
+    .history-meta { flex: 1; min-width: 0; }
+    .history-mode { font-size: 0.76rem; font-weight: 700; color: var(--accent); margin-bottom: 2px; }
+    .history-date { font-size: 0.72rem; color: var(--text-muted); margin-bottom: 4px; }
+    .history-preview { font-size: 0.76rem; color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .history-item-del { flex-shrink: 0; width: 27px; height: 27px; display: flex; align-items: center; justify-content: center; background: transparent; border: 1px solid transparent; border-radius: var(--r-xs); color: var(--text-muted); cursor: pointer; font-size: 0.9rem; transition: all 0.12s; }
+    .history-item-del:hover { border-color: var(--error); color: var(--error); background: rgba(239,68,68,0.06); }
+
+    /* ---- Ideas modal ---- */
+    .ideas-section { margin-bottom: 20px; }
+    .ideas-hint { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 11px; line-height: 1.5; }
+    .ideas-controls { display: flex; gap: 8px; margin-bottom: 11px; flex-wrap: wrap; align-items: center; }
+    .ideas-type-row { display: flex; gap: 4px; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--r-sm); padding: 3px; flex-shrink: 0; }
+    .ideas-type-btn { padding: 5px 10px; border: none; border-radius: 7px; background: transparent; color: var(--text-muted); font-size: 0.76rem; font-weight: 500; font-family: inherit; cursor: pointer; transition: all 0.14s; white-space: nowrap; }
+    .ideas-type-btn.active { background: var(--surface3); color: var(--text); font-weight: 700; }
+    .intensity-row-sm { display: flex; gap: 4px; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--r-sm); padding: 3px; flex: 1; min-width: 130px; }
+    .intensity-row-sm .intensity-btn { font-size: 0.76rem; }
+    .intensity-btn { flex: 1; padding: 7px 10px; border: none; border-radius: 8px; background: transparent; color: var(--text-muted); font-family: inherit; font-size: 0.83rem; font-weight: 500; cursor: pointer; transition: all 0.16s; }
+    .intensity-btn.active { background: var(--surface3); color: var(--text); font-weight: 700; }
+    .btn-expand { width: 100%; padding: 10px; background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #fff; border: none; border-radius: var(--r-sm); font-family: inherit; font-size: 0.9rem; font-weight: 700; cursor: pointer; transition: all 0.16s; display: flex; align-items: center; justify-content: center; gap: 7px; margin-bottom: 11px; }
+    .btn-expand:hover:not(:disabled) { filter: brightness(1.08); }
+    .btn-expand:disabled { opacity: 0.5; cursor: not-allowed; }
+    .expanded-result { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--r-sm); padding: 13px; }
+    .expanded-result-hdr { display: flex; align-items: center; justify-content: space-between; margin-bottom: 9px; }
+    .expanded-result-label { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); }
+    .expanded-result-text { font-family: 'Consolas', monospace; font-size: 0.82rem; color: var(--text-dim); line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
+    .sugg-section { margin-bottom: 20px; }
+    .sugg-section-title { font-size: 0.71rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 9px; display: flex; align-items: center; gap: 5px; }
+    .sugg-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+    @media (max-width: 480px) { .sugg-grid { grid-template-columns: 1fr; } }
+    .sugg-card { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--r-sm); overflow: hidden; }
+    .sugg-card-hdr { display: flex; align-items: center; justify-content: space-between; padding: 8px 11px; border-bottom: 1px solid var(--border); gap: 7px; }
+    .sugg-name { display: flex; align-items: center; gap: 5px; font-size: 0.8rem; font-weight: 700; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+    .sugg-badge { flex-shrink: 0; font-size: 0.65rem; padding: 2px 7px; border-radius: 99px; background: rgba(79,70,229,0.10); color: var(--accent); font-weight: 700; }
+    .sugg-badge.season { background: rgba(16,185,129,0.10); color: var(--success); }
+    .sugg-ideas { padding: 3px 0; }
+    .sugg-idea-item { display: flex; align-items: flex-start; justify-content: space-between; gap: 7px; padding: 7px 11px; border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.12s; }
+    .sugg-idea-item:last-child { border-bottom: none; }
+    .sugg-idea-item:hover { background: var(--surface3); }
+    .sugg-idea-text { font-size: 0.78rem; color: var(--text-dim); line-height: 1.4; flex: 1; }
+    .btn-use { flex-shrink: 0; font-size: 0.68rem; padding: 3px 8px; background: var(--surface3); border: 1px solid var(--border); color: var(--text-muted); border-radius: var(--r-xs); font-family: inherit; cursor: pointer; transition: all 0.12s; }
+    .btn-use:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* ---- Preferences ---- */
+    .prefs-mode-list { display: flex; flex-direction: column; gap: 7px; }
+    .prefs-toggle { display: flex; align-items: center; gap: 11px; padding: 10px 13px; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--r-sm); cursor: pointer; transition: border-color 0.14s; user-select: none; }
+    .prefs-toggle:hover { border-color: var(--border-hover); }
+    .prefs-toggle input[type="checkbox"] { width: 17px; height: 17px; accent-color: var(--accent); cursor: pointer; flex-shrink: 0; }
+    .prefs-toggle-label { font-size: 0.86rem; font-weight: 500; }
+
+    /* ---- v2 features ---- */
+    .lang-select { width:100%; padding:8px 10px; background:var(--surface2); border:1px solid var(--border); border-radius:var(--r-xs); color:var(--text); font-family:inherit; font-size:0.82rem; outline:none; cursor:pointer; transition:border-color 0.14s; -webkit-appearance:none; appearance:none; }
+    .lang-select:focus { border-color:var(--accent); }
+    .result-text[contenteditable="true"] { outline:1px solid var(--accent); border-radius:var(--r-xs); padding:8px !important; cursor:text; max-height:none; }
+    .btn-edit-result,.btn-regen-result { display:flex; align-items:center; gap:3px; padding:4px 9px; background:var(--surface2); border:1px solid var(--border); color:var(--text-dim); border-radius:var(--r-xs); font-size:0.75rem; font-family:inherit; cursor:pointer; transition:all 0.14s; }
+    .btn-edit-result:hover,.btn-regen-result:hover { border-color:var(--border-hover); color:var(--text); }
+    .btn-edit-result.editing { border-color:var(--accent); color:var(--accent); }
+    .char-counter { font-size:0.7rem; color:var(--text-muted); text-align:right; margin-top:4px; }
+    .char-counter.warn { color:#f59e0b; } .char-counter.over { color:var(--error); }
+    .variants-list,.thread-list { display:flex; flex-direction:column; gap:10px; }
+    .variant-item,.thread-tweet { background:var(--surface2); border:1px solid var(--border); border-radius:var(--r-sm); padding:12px 14px; }
+    .variant-item-hdr,.thread-tweet-hdr { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+    .variant-num { font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:var(--accent); }
+    .thread-tweet-num { font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:#1DA1F2; }
+    .variant-text,.thread-tweet-text { font-size:0.88rem; line-height:1.7; color:var(--text); white-space:pre-wrap; word-break:break-word; max-height:220px; overflow-y:auto; cursor:pointer; -webkit-overflow-scrolling:touch; }
+    .thread-tweet-chars { font-size:0.7rem; text-align:right; margin-top:4px; }
+    .signature-textarea { width:100%; padding:8px 11px; background:var(--surface2); border:1px solid var(--border); border-radius:var(--r-sm); color:var(--text); font-family:inherit; font-size:0.81rem; line-height:1.5; resize:none; outline:none; transition:border-color 0.14s; min-height:52px; }
+    .signature-textarea:focus { border-color:var(--accent); } .signature-textarea::placeholder { color:var(--text-muted); }
+    .usage-badge { display:inline-flex; align-items:center; font-size:0.7rem; color:var(--text-muted); padding:2px 8px; background:var(--surface2); border:1px solid var(--border); border-radius:99px; white-space:nowrap; }
+    .usage-badge.near-limit { border-color:#f59e0b; color:#f59e0b; } .usage-badge.at-limit { border-color:var(--error); color:var(--error); }
+    .btn-export { padding:5px 11px; background:var(--surface2); border:1px solid var(--border); color:var(--text-dim); border-radius:var(--r-xs); font-size:0.76rem; font-family:inherit; cursor:pointer; transition:all 0.14s; }
+    .btn-export:hover { border-color:var(--border-hover); color:var(--text); }
+
+    /* Guidance textarea */
+    .guidance-textarea {
+      width: 100%; padding: 9px 12px; background: var(--surface2); border: 1px solid var(--border);
+      border-radius: var(--r-sm); color: var(--text); font-family: inherit; font-size: 0.82rem;
+      line-height: 1.5; resize: none; outline: none; transition: border-color 0.16s; min-height: 60px;
+    }
+    .guidance-textarea:focus { border-color: var(--accent); }
+    .guidance-textarea::placeholder { color: var(--text-muted); font-size: 0.79rem; }
+    .guidance-optional { font-weight: 400; font-style: italic; text-transform: none; letter-spacing: 0; color: var(--text-muted); font-size: 0.67rem; margin-left: 4px; }
+
+    /* ---- Loading bar ---- */
+    .loading-bar { position: fixed; top: 0; left: 0; height: 3px; background: linear-gradient(90deg, var(--accent), var(--accent2)); z-index: 999; transition: width 0.4s ease; }
+
+    /* ---- Narrow-phone header fix: prevent icon buttons (esp. Sign Out) from
+       overflowing off-screen / being clipped once the usage badge text
+       ("0 today" / "N/limit") pushes the header-actions row too wide ---- */
+    @media (max-width: 400px) {
+      .header { padding: 0 12px; }
+      .logo-sub { display: none; }
+      .header-actions { gap: 4px; }
+      .btn-icon { width: 34px; height: 34px; }
+      .btn-icon svg { width: 15px; height: 15px; }
+      .usage-badge { font-size: 0.62rem; padding: 2px 6px; }
+    }
+    @media (max-width: 340px) {
+      .header-actions { gap: 3px; }
+      .btn-icon { width: 30px; height: 30px; }
+      .btn-icon svg { width: 14px; height: 14px; }
+    }
+
+    /* ============================================================ */
+    /* Visual Enhancement — depth, color variety, better contrast   */
+    /* ============================================================ */
+
+    /* Card depth & elevation */
+    .preview-card  { box-shadow: 0 4px 18px rgba(0,0,0,0.09), 0 1px 4px rgba(0,0,0,0.05); }
+    .controls-card { box-shadow: 0 4px 18px rgba(0,0,0,0.09), 0 1px 4px rgba(0,0,0,0.05); }
+    .result-card   {
+      box-shadow: 0 2px 10px rgba(0,0,0,0.07), 0 1px 3px rgba(0,0,0,0.04);
+      border-left: 3px solid var(--result-accent, var(--border));
+      transition: box-shadow 0.18s ease;
+    }
+    .result-card:hover { box-shadow: 0 4px 18px rgba(0,0,0,0.10), 0 1px 4px rgba(0,0,0,0.06); }
+
+    /* Header shadow */
+    .header {
+      border-bottom: 1px solid rgba(79,70,229,0.15);
+      box-shadow: 0 2px 10px rgba(0,0,0,0.07);
+    }
+
+    /* Result card header shaded for visual separation */
+    .result-card-hdr { background: var(--surface2); }
+
+    /* Input fields — clearly visible borders */
+    .field-input {
+      border: 1.5px solid rgba(0,0,0,0.18);
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .field-input:hover:not(:focus) { border-color: rgba(0,0,0,0.28); }
+    .field-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(79,70,229,0.12); }
+
+    .guidance-textarea {
+      border: 1.5px solid rgba(0,0,0,0.15) !important;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .guidance-textarea:hover:not(:focus) { border-color: rgba(0,0,0,0.25) !important; }
+    .guidance-textarea:focus { border-color: var(--accent) !important; box-shadow: 0 0 0 3px rgba(79,70,229,0.12); }
+
+    .signature-textarea { border: 1.5px solid rgba(0,0,0,0.15) !important; }
+    .signature-textarea:focus { box-shadow: 0 0 0 3px rgba(79,70,229,0.12); }
+
+    .lang-select { border: 1.5px solid rgba(0,0,0,0.15) !important; }
+    .lang-select:focus { box-shadow: 0 0 0 3px rgba(79,70,229,0.12); }
+
+    /* Section labels — left accent bar for grouping */
+    .section-label { border-left: 2.5px solid var(--accent); padding-left: 8px; }
+
+    /* Content type — each type gets its own distinct color */
+    .content-type-btn[data-ctype="creator"].active { border-color:#4F46E5; background:rgba(79,70,229,0.09);  color:#4F46E5; }
+    .content-type-btn[data-ctype="ugc"].active     { border-color:#059669; background:rgba(5,150,105,0.09);  color:#059669; }
+    .content-type-btn[data-ctype="product"].active { border-color:#D97706; background:rgba(217,119,6,0.09);  color:#D97706; }
+    .content-type-btn[data-ctype="general"].active { border-color:#0284C7; background:rgba(2,132,199,0.09);  color:#0284C7; }
+
+    /* Content type note text — match active type color */
+    #content-type-note { transition: color 0.2s; }
+
+    /* Platform buttons — inner ring on active */
+    .platform-btn.active { box-shadow: inset 0 0 0 1px rgba(var(--plat-rgb,79,70,229),0.3); }
+
+    /* Mode buttons — inner ring on active */
+    .mode-btn.active { box-shadow: inset 0 0 0 1px rgba(var(--mode-color-rgb,79,70,229),0.25); }
+
+    /* Style buttons — warm violet when active */
+    .style-btn.active { border-color:#7C3AED; background:rgba(124,58,237,0.09); color:#7C3AED; }
+
+    /* Generate button — lift effect */
+    .btn-generate { box-shadow: 0 4px 16px rgba(79,70,229,0.25); }
+    .btn-generate:hover:not(:disabled) { box-shadow: 0 8px 24px rgba(79,70,229,0.38); transform: translateY(-2px); }
+
+    /* Upload zone — slightly more visible dashed border */
+    #upload-zone { border: 2px dashed rgba(79,70,229,0.3); }
+
+    /* Pose item — colored left edge */
+    .pose-item { border-left: 3px solid var(--c-poses); padding-left: 11px; }
+
+    /* Scrollbar polish */
+    ::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); }
+    ::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-thumb-hover); }
+
+    /* Switch track */
+    input:checked + .switch-slider { background: var(--accent); }
+  </style>
+</head>
+<body>
+
+<div id="loading-bar" class="loading-bar" style="width:0"></div>
+<div id="toast"></div>
+
+<!-- Header -->
+<header class="header">
+  <div class="logo">
+    <span class="logo-icon">⚡</span>
+    <div>
+      <div>Prism</div>
+      <div class="logo-sub">AI Content Studio</div>
+    </div>
+  </div>
+  <div class="header-actions">
+    <span id="usage-badge" class="usage-badge" style="display:none"></span>
+    <button class="btn-icon" onclick="openIdeas()" title="Prompt Ideas">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="9" y1="18" x2="15" y2="18"/><line x1="10" y1="22" x2="14" y2="22"/>
+        <path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14"/>
+      </svg>
+    </button>
+    <button class="btn-icon" onclick="openDistribution()" title="Distribution &amp; Tags">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>
+      </svg>
+    </button>
+    <button class="btn-icon" id="btn-prefs" onclick="openPrefs()" title="My Preferences">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+      </svg>
+    </button>
+    <button class="btn-icon" onclick="openHistory()" title="History">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+        <path d="M3 3v5h5"/><path d="M12 7v5l4 2"/>
+      </svg>
+    </button>
+    <button class="btn-icon" onclick="openSettings()" title="Settings" id="btn-settings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
+        <circle cx="12" cy="12" r="3"/>
+      </svg>
+    </button>
+    <button class="btn-icon" onclick="toggleDarkMode()" title="Dark Mode" id="btn-dark-mode">
+      <svg id="dark-mode-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+      </svg>
+    </button>
+    <button class="btn-icon" onclick="logout()" title="Sign Out">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+        <polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+      </svg>
+    </button>
+  </div>
+</header>
+
+<!-- Main -->
+<main class="main">
+
+  <!-- Upload zone -->
+  <div id="upload-zone">
+    <input type="file" id="file-input" accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/quicktime,video/webm,video/avi" style="display:none">
+
+    <!-- Hero text -->
+    <div class="upload-hero">
+      <h1 class="upload-hero-title">One image.<br>Every piece of content.</h1>
+      <p class="upload-hero-sub">Captions · AI prompts · Pose series · Threads · Hashtags — all from a single upload.</p>
+    </div>
+
+    <!-- Drop area -->
+    <div class="upload-drop-area">
+      <div class="upload-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="17 8 12 3 7 8"/>
+          <line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>
+      </div>
+      <h2 class="upload-title">Drop image or video here</h2>
+      <p class="upload-sub">or click anywhere to browse</p>
+      <button class="btn-browse" onclick="document.getElementById('file-input').click()">
+        Browse Files
+      </button>
+      <span class="upload-formats">JPEG · PNG · WEBP · GIF · MP4 · MOV · WEBM</span>
+    </div>
+
+    <!-- What gets generated -->
+    <div class="upload-features">
+      <span class="feat-pill">✍️ Social Caption</span>
+      <span class="feat-pill">🎨 Flux Prompt</span>
+      <span class="feat-pill">🎬 WAN Video</span>
+      <span class="feat-pill">📸 Pose Series</span>
+      <span class="feat-pill">🧵 X Thread</span>
+      <span class="feat-pill">🏷️ Hashtags</span>
+    </div>
+
+    <!-- Content type hint -->
+    <p class="upload-ct-hint">Choose a content type below after uploading to tailor every output</p>
+  </div>
+
+  <!-- Workspace (4-step wizard) -->
+  <div id="workspace" style="display:none; flex-direction:column; position:fixed; top:56px; left:0; right:0; bottom:0; background:var(--bg); z-index:20;">
+<div id="wiz-preview-card" class="preview-card" style="border-radius: 0; overflow: hidden; background: var(--surface2); border-bottom: 1px solid var(--border); flex-shrink: 0; position: relative;">
+          <img id="preview-img" src="" alt="Preview" style="width: 100%; height: 25vh; max-height: 250px; object-fit: contain;">
+          <video id="preview-video" controls playsinline style="display:none;width:100%;height:25vh;max-height:250px;object-fit:contain;background:#111"></video>
+          <span id="preview-name" style="display:none;"></span>
+          <button class="btn-change-mini" onclick="clearImage()" style="position:absolute; top:8px; right:8px; background:rgba(0,0,0,0.6); color:white; border:none; border-radius:50%; width:32px; height:32px; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:16px;">✕</button>
+        </div>
+
+    <!-- Progress bar + Step dots -->
+    <div class="wiz-progress-bar"><div class="wiz-progress-fill" id="wiz-progress" style="width:25%"></div></div>
+    <div class="wiz-step-dots" id="wiz-step-dots">
+      <div class="wiz-step-dot active" onclick="wizToStep(1)"></div>
+      <div class="wiz-step-dot" onclick="wizToStep(2)"></div>
+      <div class="wiz-step-dot" onclick="wizToStep(3)"></div>
+      <div class="wiz-step-dot" onclick="wizToStep(4)"></div>
+    </div>
+
+
+        <!-- ===== STEP 1: Content Type ===== -->
+    <div class="wiz-screen" id="wiz-page-1">
+      <div class="wiz-header">
+        <span class="wiz-header-title">Prism Setup</span>
+        <div class="wiz-header-step">Step 1 of 4</div>
+      </div>
+      <div class="wiz-body">
+        
+        
+        <div class="section-label" style="margin-top:12px; font-size: 0.85rem; color: var(--text);">What type of content is this?</div>
+        <div class="ct-grid">
+          <button class="ct-card active" data-ctype="creator"  onclick="setContentType('creator',this)"><span class="ct-card-icon">👤</span><span class="ct-card-label">Creator</span></button>
+          <button class="ct-card"         data-ctype="ugc"     onclick="setContentType('ugc',this)"><span class="ct-card-icon">🤝</span><span class="ct-card-label">UGC</span></button>
+          <button class="ct-card"         data-ctype="product" onclick="setContentType('product',this)"><span class="ct-card-icon">🛍️</span><span class="ct-card-label">Product</span></button>
+          <button class="ct-card"         data-ctype="general" onclick="setContentType('general',this)"><span class="ct-card-icon">📸</span><span class="ct-card-label">General</span></button>
+        </div>
+        <p class="intensity-note" id="content-type-note" style="margin-top:12px; font-size: 0.85rem; text-align: center;">Person-focused captions and pose series</p>
+        
+        <div id="brand-search-row" class="hashtag-row" style="display:none;margin-top:16px; background: var(--surface); padding: 16px; border-radius: 12px; border: 1px solid var(--border);">
+          <span class="hashtag-label" style="font-size: 0.9rem;">🔍 Web search brand info</span>
+          <label class="switch"><input type="checkbox" id="brand-search-toggle" checked onchange="state.searchBrand=this.checked"><span class="switch-slider"></span></label>
+        </div>
+        <div id="brand-url-row" style="display:none;margin-top:8px">
+          <input id="brand-url-input" class="field-input" type="url" placeholder="Brand website URL (optional)" style="width:100%;font-size:0.95rem; padding: 14px;" oninput="state.brandUrl=this.value.trim()">
+        </div>
+      </div>
+      <div class="wiz-footer">
+        <button class="btn-wiz-primary" onclick="wizNext()">Next Step &rarr;</button>
+      </div>
+    </div>
+
+    <!-- ===== STEP 2: Mode + Platform ===== -->
+    <div class="wiz-screen" id="wiz-page-2" style="display:none">
+      <div class="wiz-header">
+        <button class="wiz-header-back" onclick="wizBack()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
+        <span class="wiz-header-title">Generation Options</span>
+        <div class="wiz-header-step">Step 2 of 4</div>
+        
+      </div>
+      <div class="wiz-body">
+        <div class="section-label" style="font-size: 0.85rem; color: var(--text);">Generation Mode</div>
+        <div class="mode-grid" id="mode-grid"></div>
+        <div class="section-label" style="margin-top:12px; font-size: 0.85rem; color: var(--text);">Platform Focus</div>
+        <div class="platform-row" id="platform-row" style="flex-wrap: wrap;">
+          <button class="platform-btn active" data-platform="general"   style="--plat-color:#4F46E5;--plat-rgb:79,70,229"   onclick="setPlatform('general',this)">🌐 General</button>
+          <button class="platform-btn"         data-platform="instagram" style="--plat-color:#E1306C;--plat-rgb:225,48,108"  onclick="setPlatform('instagram',this)">📷 Instagram</button>
+          <button class="platform-btn"         data-platform="tiktok"    style="--plat-color:#333333;--plat-rgb:51,51,51"    onclick="setPlatform('tiktok',this)">🎵 TikTok</button>
+          <button class="platform-btn"         data-platform="facebook"  style="--plat-color:#1877F2;--plat-rgb:24,119,242"  onclick="setPlatform('facebook',this)">👥 Facebook</button>
+          <button class="platform-btn"         data-platform="twitter"   style="--plat-color:#1DA1F2;--plat-rgb:29,161,242"  onclick="setPlatform('twitter',this)">𝕏 Twitter</button>
+        </div>
+      </div>
+      <div class="wiz-footer">
+        <div class="wiz-footer-nav">
+          <button class="btn-wiz-secondary" onclick="wizBack()">&larr; Back</button>
+          <button class="btn-wiz-primary" onclick="wizNext()">Next Step &rarr;</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== STEP 3: Caption Options ===== -->
+    <div class="wiz-screen" id="wiz-page-3" style="display:none">
+      <div class="wiz-header">
+        <button class="wiz-header-back" onclick="wizBack()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
+        <span class="wiz-header-title">Refine Output</span>
+        <div class="wiz-header-step">Step 3 of 4</div>
+        
+      </div>
+      <div class="wiz-body">
+        <div class="section-label" style="font-size: 0.85rem; color: var(--text);">Caption Style</div>
+        <div class="style-row" id="style-row" style="flex-wrap: wrap; gap: 10px;">
+          <button class="style-btn active" data-style="" onclick="setStyle('',this)">✨ Auto</button>
+          <button class="style-btn" data-style="hook"      onclick="setStyle('hook',this)">🎣 Hook</button>
+          <button class="style-btn" data-style="story"     onclick="setStyle('story',this)">📖 Story</button>
+          <button class="style-btn" data-style="question"  onclick="setStyle('question',this)">❓ Question</button>
+          <button class="style-btn" data-style="hot_take"  onclick="setStyle('hot_take',this)">🔥 Hot Take</button>
+          <button class="style-btn" data-style="tips"      onclick="setStyle('tips',this)">💡 Tips</button>
+          <button class="style-btn" data-style="bts"       onclick="setStyle('bts',this)">🎬 BTS</button>
+          <button class="style-btn" data-style="soft_sell" onclick="setStyle('soft_sell',this)">🛍️ Soft Sell</button>
+          <button class="style-btn" data-style="relatable" onclick="setStyle('relatable',this)">🫂 Relatable</button>
+        </div>
+
+        <div class="section-label" style="margin-top:12px; font-size: 0.85rem; color: var(--text);">Caption Language</div>
+        <select id="lang-select" class="lang-select" onchange="setLanguage(this.value)" style="padding: 14px; font-size: 0.95rem;">
+          <option value="en">English</option>
+          <option value="es">Español</option>
+          <option value="fr">Français</option>
+          <option value="de">Deutsch</option>
+          <option value="pt">Português</option>
+          <option value="it">Italiano</option>
+          <option value="ja">日本語</option>
+        </select>
+
+        <div style="margin-top:12px; background: var(--surface); padding: 0 16px; border-radius: 16px; border: 1px solid var(--border);">
+          <div class="hashtag-row" style="border-bottom: 1px solid var(--border);">
+            <span class="hashtag-label" style="font-size:0.9rem;">📌 Include 5 hashtags</span>
+            <label class="switch"><input type="checkbox" id="hashtag-toggle" checked onchange="state.hashtags=this.checked"><span class="switch-slider"></span></label>
+          </div>
+          <div class="hashtag-row" style="border-bottom: 1px solid var(--border);">
+            <span class="hashtag-label" style="font-size:0.9rem;">🏷️ Generate 30-tag set</span>
+            <label class="switch"><input type="checkbox" id="hashtag-set-toggle" onchange="state.hashtagSet=this.checked"><span class="switch-slider"></span></label>
+          </div>
+          <div class="hashtag-row" style="border-bottom: 1px solid var(--border);">
+            <span class="hashtag-label" style="font-size:0.9rem;">✨ Generate 3 Variants</span>
+            <label class="switch"><input type="checkbox" id="variants-toggle" onchange="state.variants=this.checked"><span class="switch-slider"></span></label>
+          </div>
+          <div id="video-audio-section" class="hashtag-row" style="display:none">
+            <span class="hashtag-label" style="font-size:0.9rem;">🎤 Include audio transcript</span>
+            <label class="switch"><input type="checkbox" id="transcribe-toggle" checked onchange="state.transcribeAudio=this.checked"><span class="switch-slider"></span></label>
+          </div>
+        </div>
+
+        <div style="margin-top:24px">
+          <div class="section-label" style="font-size: 0.85rem; color: var(--text);">Caption Context <span class="guidance-optional">optional</span></div>
+          <textarea id="caption-context" class="guidance-textarea" rows="3"
+            placeholder="e.g. Going live tonight at 9pm · New album out now" style="padding: 14px; font-size: 0.95rem;"></textarea>
+        </div>
+      </div>
+      <div class="wiz-footer">
+        <div class="wiz-footer-nav">
+          <button class="btn-wiz-secondary" onclick="wizBack()">&larr; Back</button>
+          <button class="btn-wiz-primary" onclick="openReviewModal()">Review &rarr;</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 4 is now a pop-out modal — placeholder for wizToStep compat -->
+    <div class="wiz-screen" id="wiz-page-4" style="display:none"></div>
+
+    <!-- ===== STEP 5: Results ===== -->
+    <div class="wiz-screen" id="wiz-page-5" style="display:none">
+      <div class="wiz-header">
+        <button class="wiz-header-back" onclick="wizToStep(4)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
+        <span class="wiz-header-title">Results</span>
+        
+      </div>
+      <div class="carousel-container" id="results-carousel">
+         <!-- Results will be injected as full-screen cards here -->
+      </div>
+      <div class="carousel-nav-buttons">
+        <button class="carousel-btn" id="carousel-prev" onclick="carouselGo(-1)" style="visibility:hidden;width:50px;height:50px;border-radius:12px">&larr;</button>
+        <div class="carousel-dots" id="carousel-dots"></div>
+        <button class="carousel-btn" id="carousel-next" onclick="carouselGo(1)" style="visibility:hidden;width:50px;height:50px;border-radius:12px">&rarr;</button>
+      </div>
+      <div class="wiz-footer">
+        <div class="wiz-footer-nav">
+          <button class="btn-wiz-secondary" onclick="wizToStep(1);clearImage()">New Post</button>
+          <button class="btn-wiz-primary" onclick="copyAll()">Copy All</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- Preferences Modal -->
+<div id="prefs-modal" class="modal-overlay" style="display:none" onclick="overlayClose(event,'prefs-modal')">
+  <div class="modal">
+    <div class="modal-hdr"><h3>My Preferences</h3><button class="btn-modal-close" onclick="closePrefs()">✕</button></div>
+    <div class="modal-body">
+      <div class="settings-form">
+        <div>
+          <label class="field-label">Subject Gender</label>
+          <div class="ideas-type-row" style="width:100%">
+            <button class="ideas-type-btn active" id="pref-neutral" onclick="setPrefGender('neutral')">⊘ Neutral</button>
+            <button class="ideas-type-btn" id="pref-female" onclick="setPrefGender('female')">♀ Female</button>
+            <button class="ideas-type-btn" id="pref-male"   onclick="setPrefGender('male')">♂ Male</button>
+          </div>
+          <p class="intensity-note" style="margin-top:6px">Adjusts prompt style for subject gender. Neutral = no assumption.</p>
+        </div>
+        <div class="settings-divider"></div>
+        <div>
+          <label class="field-label">Generation Modes</label>
+          <p class="intensity-note" style="margin-bottom:10px">Social Caption is always on. Turn off any outputs you don't need:</p>
+          <div class="prefs-mode-list">
+            <label class="prefs-toggle"><input type="checkbox" id="pref-flux"  onchange="savePrefModes()"><span class="prefs-toggle-label">🎨 Flux Image Prompt</span></label>
+            <label class="prefs-toggle"><input type="checkbox" id="pref-wan"   onchange="savePrefModes()"><span class="prefs-toggle-label">🎬 WAN Video Prompt</span></label>
+            <label class="prefs-toggle"><input type="checkbox" id="pref-poses" onchange="savePrefModes()"><span class="prefs-toggle-label">📸 Pose Series</span></label>
+          </div>
+        </div>
+        <div class="settings-divider"></div>
+        <div class="brand-voice-section">
+          <label class="field-label">🎙️ Brand Voice <span class="guidance-optional">optional</span></label>
+          <p class="intensity-note" style="margin-bottom:8px">Paste 1-2 example captions you love. The AI will match your tone and writing style.</p>
+          <textarea id="pref-brand-voice" class="signature-textarea" rows="4"
+            placeholder="e.g. honestly the golden hour hit different today... wasn't even gonna post but here we are 🥹 you know those moments where everything just feels right? yeah. that."></textarea>
+        </div>
+        <div class="settings-divider"></div>
+        <div>
+          <label class="field-label">✍️ Signature <span class="guidance-optional">optional</span></label>
+          <p class="intensity-note" style="margin-bottom:8px">This text is automatically appended to every generated caption. Great for handles, links, or catchphrases.</p>
+          <textarea id="pref-signature" class="signature-textarea" rows="2" maxlength="300"
+            placeholder="e.g. 📍 NYC · @yourhandle · linktr.ee/you"></textarea>
+          <p class="intensity-note" style="margin-top:5px;text-align:right"><span id="sig-char-count">0</span>/300</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- History Modal -->
+<div id="history-modal" class="modal-overlay" style="display:none" onclick="overlayClose(event,'history-modal')">
+  <div class="modal">
+    <div class="modal-hdr"><h3>History <span id="streak-badge" class="streak-badge" style="display:none"></span></h3>
+      <div style="display:flex;gap:6px;align-items:center">
+        <button class="btn-export" onclick="exportHistory()">↓ Export</button>
+        <button class="btn-modal-close" onclick="closeHistory()">✕</button>
+      </div>
+    </div>
+    <div class="modal-body"><div id="history-list" class="history-list"><p class="history-empty">Loading…</p></div></div>
+  </div>
+</div>
+
+<!-- Swipeable Text/Variant/Pose Modal -->
+<div id="text-modal" class="modal-overlay" style="display:none" onclick="overlayClose(event,'text-modal')">
+  <div class="modal" style="max-width:600px; width:92%; max-height:88dvh;">
+    <div class="modal-hdr">
+      <h3 id="text-modal-title">Prompt Details</h3>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span id="text-modal-counter" style="font-size:0.72rem;color:var(--text-muted);font-weight:700"></span>
+        <button class="btn-modal-close" onclick="closeTextModal()">✕</button>
+      </div>
+    </div>
+    <div style="position:relative;flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden;">
+      <div id="text-modal-carousel" style="display:flex;overflow-x:auto;scroll-snap-type:x mandatory;flex:1;min-height:0;-webkit-overflow-scrolling:touch;"></div>
+      <div id="text-modal-dots" style="display:flex;gap:6px;justify-content:center;padding:10px 0 4px;"></div>
+    </div>
+    <div style="padding:12px 16px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:space-between;align-items:center;flex-shrink:0;">
+      <div style="display:flex;gap:6px">
+        <button class="carousel-btn" id="tm-prev" onclick="textModalGo(-1)" style="width:40px;height:40px;border-radius:10px;font-size:0.9rem">←</button>
+        <button class="carousel-btn" id="tm-next" onclick="textModalGo(1)" style="width:40px;height:40px;border-radius:10px;font-size:0.9rem">→</button>
+      </div>
+      <button class="btn-wiz-primary" id="btn-copy-modal" style="flex:1;max-width:200px;height:44px;font-size:0.88rem">Copy</button>
+    </div>
+  </div>
+</div>
+
+<!-- Review Pop-Out Modal -->
+<div id="review-modal" class="modal-overlay" style="display:none" onclick="overlayClose(event,'review-modal')">
+  <div class="modal" style="max-width:520px;width:94%;max-height:90dvh;">
+    <div class="modal-hdr">
+      <h3>Review & Generate</h3>
+      <button class="btn-modal-close" onclick="closeReviewModal()">✕</button>
+    </div>
+    <div class="modal-body" id="review-modal-body" style="padding:16px;"></div>
+    <div style="padding:12px 16px;padding-bottom:calc(12px + env(safe-area-inset-bottom,0px));border-top:1px solid var(--border);flex-shrink:0;">
+      <div class="generate-ready-line"></div>
+      <button id="btn-generate" class="btn-generate" onclick="generate()" style="margin-bottom:8px;">
+        <span id="btn-txt">⚡ Generate Magic</span>
+        <div id="btn-spin" class="spinner" style="display:none"></div>
+      </button>
+      <button class="btn-wiz-secondary" onclick="closeReviewModal()" style="background:transparent;border:none;height:36px;width:100%">← Edit Options</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- Settings Modal -->
+<div id="settings-modal" class="modal-overlay" style="display:none" onclick="overlayClose(event,'settings-modal')">
+  <div class="modal">
+    <div class="modal-hdr"><h3>Settings</h3><button class="btn-modal-close" onclick="closeSettings()">✕</button></div>
+    <div class="modal-body">
+      <div class="settings-form">
+        <div>
+          <label class="field-label">AI Provider</label>
+          <select id="s-provider" class="lang-select" onchange="onProviderChange(this.value)">
+            <option value="ollama">Ollama (local — free)</option>
+            <option value="gemini">Google Gemini</option>
+            <option value="grok">xAI Grok</option>
+            <option value="openai">OpenAI GPT-4</option>
+          </select>
+        </div>
+        <div id="s-ollama-section">
+          <div style="margin-top:12px">
+            <label class="field-label">Ollama Host</label>
+            <input id="s-host" class="field-input" type="text" placeholder="http://localhost:11434">
+          </div>
+          <div style="margin-top:12px">
+            <label class="field-label">Vision Model</label>
+            <div class="field-row">
+              <input id="s-model" class="field-input" type="text" placeholder="qwen2.5vl:7b">
+              <button class="btn-sm" onclick="loadModels()">Browse</button>
+            </div>
+            <div id="model-list" class="model-list" style="display:none"></div>
+          </div>
+        </div>
+        <div id="s-cloud-section" style="display:none">
+          <div style="margin-top:12px">
+            <label class="field-label">API Key</label>
+            <input id="s-apikey" class="field-input" type="password" placeholder="Paste your API key here">
+          </div>
+          <div style="margin-top:12px">
+            <label class="field-label">Model <span class="guidance-optional">optional</span></label>
+            <input id="s-cloud-model" class="field-input" type="text" placeholder="">
+            <p class="intensity-note" id="s-cloud-hint" style="margin-top:5px"></p>
+          </div>
+        </div>
+        <div class="settings-divider"></div>
+        <div class="settings-info">Gemini: aistudio.google.com/apikey · Grok: console.x.ai · OpenAI: platform.openai.com</div>
+        <button class="btn-save" onclick="saveSettings()">Save Settings</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Ideas Modal -->
+<div id="ideas-modal" class="modal-overlay" style="display:none" onclick="overlayClose(event,'ideas-modal')">
+  <div class="modal modal-wide">
+    <div class="modal-hdr"><h3>💡 Prompt Ideas</h3><button class="btn-modal-close" onclick="closeIdeas()">✕</button></div>
+    <div class="modal-body">
+      <div class="ideas-section">
+        <div class="section-label">Expand Your Idea</div>
+        <p class="ideas-hint">Type 2–8 words and get a ready-to-use caption or Flux/WAN prompt</p>
+        <input id="idea-input" class="field-input" type="text" placeholder="e.g. coffee shop morning, beach sunset, gym workout…" maxlength="120" style="margin-bottom:10px" onkeydown="if(event.key==='Enter')expandIdea()">
+        <div class="ideas-controls">
+          <div class="ideas-type-row" id="idea-type-row">
+            <button class="ideas-type-btn active" data-type="post"       onclick="setIdeaType('post',this)">✍️ Caption</button>
+            <button class="ideas-type-btn"         data-type="flux_image" onclick="setIdeaType('flux_image',this)">🎨 Flux</button>
+            <button class="ideas-type-btn"         data-type="wan_video"  onclick="setIdeaType('wan_video',this)">🎬 WAN</button>
+          </div>
+        </div>
+        <button class="btn-expand" id="btn-expand" onclick="expandIdea()">
+          <span id="expand-txt">⚡ Expand Idea</span>
+          <div id="expand-spin" class="spinner" style="display:none"></div>
+        </button>
+        <div id="expanded-result" class="expanded-result" style="display:none"></div>
+      </div>
+      <div class="settings-divider" style="margin:4px 0 18px"></div>
+      <div id="suggestions-area"><p class="ideas-hint" style="text-align:center;padding:16px 0">Loading…</p></div>
+    </div>
+  </div>
+</div>
+
+<!-- Distribution & Tags Modal (Feature Page Discovery & Targeting Engine) -->
+<div id="distribution-modal" class="modal-overlay" style="display:none" onclick="overlayClose(event,'distribution-modal')">
+  <div class="modal modal-wide">
+    <div class="modal-hdr"><h3>🎯 Distribution &amp; Tags</h3><button class="btn-modal-close" onclick="closeDistribution()">✕</button></div>
+    <div class="modal-body">
+      <div class="ideas-section">
+        <div class="section-label">Your Niche</div>
+        <p class="ideas-hint">Matches verified feature hubs &amp; Reddit research communities to this niche.</p>
+        <input id="dist-niche-input" class="field-input" type="text" placeholder="e.g. fitness, food, streetwear, travel…" maxlength="60" style="margin-bottom:10px" oninput="onDistNicheInput()">
+      </div>
+
+      <div class="dist-tabs" id="dist-tabs">
+        <button class="ideas-type-btn active" data-tab="instagram" onclick="setDistTab('instagram',this)">📱 Feature Hubs</button>
+        <button class="ideas-type-btn" data-tab="reddit" onclick="setDistTab('reddit',this)">👽 Reddit Research</button>
+        <button class="ideas-type-btn" data-tab="vault" onclick="setDistTab('vault',this)">💾 My Vaults</button>
+        <button class="ideas-type-btn" data-tab="peers" onclick="setDistTab('peers',this)">🤝 Peer Swaps</button>
+        <button class="ideas-type-btn" data-tab="trends" onclick="setDistTab('trends',this)">📈 Trends</button>
+      </div>
+
+      <div id="dist-instagram-panel" style="margin-top:14px">
+        <div class="ideas-type-row" id="dist-platform-row" style="margin-bottom:8px">
+          <button class="ideas-type-btn active" onclick="setDistPlatform('instagram',this)">📸 Instagram</button>
+          <button class="ideas-type-btn" onclick="setDistPlatform('tiktok',this)">🎵 TikTok</button>
+        </div>
+        <div class="ideas-type-row" id="dist-tier-row" style="margin-bottom:10px">
+          <button class="ideas-type-btn active" onclick="setDistTier('',this)">All Tiers</button>
+          <button class="ideas-type-btn" onclick="setDistTier('micro',this)">Micro</button>
+          <button class="ideas-type-btn" onclick="setDistTier('mid',this)">Mid-Tier</button>
+          <button class="ideas-type-btn" onclick="setDistTier('mega',this)">Mega</button>
+        </div>
+        <div id="dist-hub-list" class="dist-hub-list"><p class="ideas-hint" style="text-align:center;padding:16px 0">Enter a niche above to find hubs…</p></div>
+
+        <div class="settings-divider" style="margin:16px 0"></div>
+        <div class="section-label">Add a Hub You Found</div>
+        <p class="ideas-hint">Search for feature pages yourself, then paste in what you find below — Prism never scrapes Instagram or TikTok directly, so nothing here automates access to either platform.</p>
+        <div class="dist-search-row" style="display:flex;gap:8px;margin:10px 0">
+          <button class="btn-wiz-secondary" type="button" onclick="openHubSearch('google')">🔎 Search Google</button>
+          <button class="btn-wiz-secondary" type="button" onclick="openHubSearch('native')">🔎 Search In-App</button>
+        </div>
+        <button class="btn-expand" id="btn-add-hub-toggle" type="button" onclick="toggleAddHubForm()">+ Add Hub Manually</button>
+        <div id="add-hub-form" style="display:none;margin-top:12px">
+          <select id="add-hub-platform" class="field-input" style="margin-bottom:8px">
+            <option value="instagram">Instagram</option>
+            <option value="tiktok">TikTok</option>
+          </select>
+          <input id="add-hub-handle" class="field-input" type="text" placeholder="Handle (without @)" style="margin-bottom:8px">
+          <input id="add-hub-niche" class="field-input" type="text" placeholder="Niche / category" style="margin-bottom:8px">
+          <select id="add-hub-tier" class="field-input" style="margin-bottom:8px">
+            <option value="micro">Micro (under 25k)</option>
+            <option value="mid">Mid-Tier (25k–250k)</option>
+            <option value="mega">Mega (250k+)</option>
+          </select>
+          <textarea id="add-hub-bio" class="field-input" rows="2" placeholder="Bio snippet (e.g. &quot;DM to feature · Tag @handle&quot;)" style="margin-bottom:8px;font-family:inherit"></textarea>
+          <textarea id="add-hub-rule" class="field-input" rows="2" placeholder="Submission rule (how to submit)" style="margin-bottom:8px;font-family:inherit"></textarea>
+          <input id="add-hub-hashtags" class="field-input" type="text" placeholder="Required hashtags, comma separated" style="margin-bottom:10px">
+          <button class="btn-wiz-primary" type="button" onclick="submitAddHub()" style="width:100%">Save Hub</button>
+        </div>
+      </div>
+
+      <div id="dist-reddit-panel" style="display:none;margin-top:14px">
+        <p class="ideas-hint" style="margin-bottom:10px">Research-only panel for finding niche angles, hooks, and trends — not an automated posting feed.</p>
+        <div id="dist-reddit-list" class="dist-hub-list"><p class="ideas-hint" style="text-align:center;padding:16px 0">Enter a niche above to find subreddits…</p></div>
+      </div>
+
+      <div id="dist-vault-panel" style="display:none;margin-top:14px">
+        <p class="ideas-hint" style="margin-bottom:10px">Save your current hub + hashtag selection as a named vault so you can reload it next time you post for this niche or campaign.</p>
+        <div style="display:flex;gap:8px;margin-bottom:14px">
+          <input id="vault-name-input" class="field-input" type="text" placeholder="Vault name (e.g. “Fitness launch week”)" maxlength="60" style="flex:1">
+          <button class="btn-wiz-primary" type="button" onclick="saveVault()" style="flex-shrink:0">Save Current</button>
+        </div>
+        <div id="dist-vault-list" class="dist-hub-list"><p class="ideas-hint" style="text-align:center;padding:16px 0">No vaults saved yet.</p></div>
+      </div>
+
+      <div id="dist-peer-panel" style="display:none;margin-top:14px">
+        <p class="ideas-hint" style="margin-bottom:10px">Opt in with your own account so similarly-sized creators in your niche can find you for reciprocal shoutout swaps. Fully optional — nothing here is shared until you save a listing.</p>
+        <div class="section-label">My Listing</div>
+        <select id="peer-my-platform" class="field-input" style="margin-bottom:8px">
+          <option value="instagram">Instagram</option>
+          <option value="tiktok">TikTok</option>
+        </select>
+        <input id="peer-my-handle" class="field-input" type="text" placeholder="Your handle (without @)" style="margin-bottom:8px">
+        <input id="peer-my-niche" class="field-input" type="text" placeholder="Your niche" style="margin-bottom:8px">
+        <select id="peer-my-tier" class="field-input" style="margin-bottom:8px">
+          <option value="micro">Micro (under 25k)</option>
+          <option value="mid">Mid-Tier (25k–250k)</option>
+          <option value="mega">Mega (250k+)</option>
+        </select>
+        <textarea id="peer-my-pitch" class="field-input" rows="2" placeholder="What are you looking for? (e.g. &quot;Fitness creators for story-for-story swaps&quot;)" style="margin-bottom:10px;font-family:inherit"></textarea>
+        <div style="display:flex;gap:8px">
+          <button class="btn-wiz-primary" type="button" onclick="saveCreatorProfile()" style="flex:1">Save My Listing</button>
+          <button class="btn-wiz-secondary" type="button" onclick="removeCreatorProfile()">Remove</button>
+        </div>
+
+        <div class="settings-divider" style="margin:16px 0"></div>
+        <div class="section-label">Browse Creators in This Niche</div>
+        <div id="dist-peer-list" class="dist-hub-list" style="margin-top:10px"><p class="ideas-hint" style="text-align:center;padding:16px 0">Enter a niche above to find swap partners…</p></div>
+      </div>
+
+      <div id="dist-trends-panel" style="display:none;margin-top:14px">
+        <p class="ideas-hint" style="margin-bottom:10px">Uses live Google Search grounding (Gemini) to pull what's trending in your niche this week, plus suggested caption angles. Requires the Gemini provider.</p>
+        <button class="btn-wiz-primary" type="button" id="btn-check-trends" onclick="checkTrends()" style="width:100%;margin-bottom:12px">📈 What's Trending Right Now?</button>
+        <div id="dist-trends-content"><p class="ideas-hint" style="text-align:center;padding:16px 0">Enter a niche above, then tap the button to check trends.</p></div>
+      </div>
+
+      <div class="settings-divider" style="margin:16px 0"></div>
+      <div id="dist-hashtag-footer" style="display:none">
+        <div class="section-label">Selected Hub Hashtags <button class="btn-wiz-secondary" type="button" onclick="clearHubHashtags()" style="float:right;padding:3px 10px;font-size:0.75rem">Clear</button></div>
+        <div id="dist-selected-hashtags" class="dist-chip-row"></div>
+        <p class="ideas-hint">These will be appended to your caption automatically when you hit Generate.</p>
+        <button class="btn-wiz-secondary" type="button" onclick="openChecklist()" style="width:100%;margin-top:8px">📋 Pre-Publish Checklist</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="checklist-modal" class="modal-overlay" style="display:none" onclick="overlayClose(event,'checklist-modal')">
+  <div class="modal">
+    <div class="modal-hdr"><h3>📋 Pre-Publish Checklist</h3><button class="btn-modal-close" onclick="closeChecklist()">✕</button></div>
+    <div class="modal-body">
+      <p class="ideas-hint" style="margin-bottom:10px">A quick reminder pass before you post — nothing here is saved or sent anywhere, it just resets each time you open it.</p>
+      <div id="checklist-content"></div>
+    </div>
+  </div>
+</div>
+
+<div id="hook-score-modal" class="modal-overlay" style="display:none" onclick="overlayClose(event,'hook-score-modal')">
+  <div class="modal">
+    <div class="modal-hdr"><h3>🪝 Hook Strength</h3><button class="btn-modal-close" onclick="closeHookScore()">✕</button></div>
+    <div class="modal-body">
+      <div id="hook-score-content"></div>
+    </div>
+  </div>
+</div>
+
+<div id="report-hub-modal" class="modal-overlay" style="display:none" onclick="overlayClose(event,'report-hub-modal')">
+  <div class="modal">
+    <div class="modal-hdr"><h3>🚩 Report <span id="report-hub-label"></span></h3><button class="btn-modal-close" onclick="closeReportModal()">✕</button></div>
+    <div class="modal-body">
+      <p class="ideas-hint" style="margin-bottom:10px">Let other users know if this hub seems inactive or no longer accepting submissions — after enough reports it gets flagged for review.</p>
+      <div class="section-label">Reason</div>
+      <select id="report-hub-reason" class="field-input" style="margin-bottom:10px">
+        <option value="inactive">No longer active / posts stopped</option>
+        <option value="not_accepting">Not accepting submissions anymore</option>
+        <option value="spam">Spam or fake account</option>
+        <option value="other">Other</option>
+      </select>
+      <div class="section-label">Notes (optional)</div>
+      <textarea id="report-hub-note" class="field-input" rows="2" placeholder="Anything else worth mentioning?" style="margin-bottom:12px;font-family:inherit"></textarea>
+      <button class="btn-wiz-primary" type="button" onclick="submitHubReport()" style="width:100%">Submit Report</button>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

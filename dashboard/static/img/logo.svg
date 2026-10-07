@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 60" width="240" height="60">
+  <defs>
+    <linearGradient id="logoGlow" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#00f2fe"/>
+      <stop offset="50%" stop-color="#4facfe"/>
+      <stop offset="100%" stop-color="#f72585"/>
+    </linearGradient>
+  </defs>
+  <!-- Cyber Pegasus / Workhorse Stallion Profile Icon -->
+  <g transform="translate(8, 6) scale(0.78)">
+    <polygon points="12,48 24,14 38,8 48,16 42,28 54,20 50,38 34,44 26,56 12,48" fill="#131b2e" stroke="#00f2fe" stroke-width="2.5"/>
+    <circle cx="36" cy="18" r="3" fill="#00f2fe"/>
+    <line x1="24" y1="28" x2="38" y2="34" stroke="#4facfe" stroke-width="2"/>
+    <circle cx="50" cy="38" r="16" fill="none" stroke="#f72585" stroke-dasharray="4 4" stroke-width="1.5" opacity="0.6"/>
+  </g>
+  <!-- Text Brand -->
+  <text x="66" y="34" font-family="'Inter', 'Montserrat', -apple-system, sans-serif" font-weight="900" font-size="22" letter-spacing="3" fill="#ffffff">WORK<tspan fill="url(#logoGlow)">HORSE</tspan></text>
+  <text x="68" y="48" font-family="'JetBrains Mono', monospace" font-weight="600" font-size="9" letter-spacing="4" fill="#00f2fe" opacity="0.85">AI COMMAND CENTER</text>
+</svg>

@@ -1,0 +1,958 @@
+================================================================
+PRISM — FULL REFERENCE & IP PROTECTION GUIDE
+Generated: August 2026
+================================================================
+App name:    Prism (formerly Q.U.E.)
+Location:    F:\QUE\
+Live URL:    https://que.fly.dev
+Local port:  7861
+================================================================
+
+
+================================================================
+PART 1 — WHAT PRISM IS & FULL FEATURE DOCUMENTATION
+================================================================
+
+Prism is a full-stack SFW (safe-for-work) AI-powered social media
+content generation studio. Upload one image or video and instantly
+generate platform-optimized captions, AI image prompts, video prompts,
+pose series, X threads, and hashtag sets — all tailored to your content
+type, platform, brand voice, and style.
+
+Built on FastAPI + Uvicorn (Python), deployed to Fly.io with persistent
+SQLite storage. Supports multiple AI providers with Gemini 2.5 Flash as
+the primary cloud provider.
+
+----------------------------------------------------------------
+GUIDED WIZARD INTERFACE (5-Step Flow)
+----------------------------------------------------------------
+
+Step 1 — Upload + Content Type
+  - Drag-drop or browse for image (JPEG, PNG, WEBP, GIF) or video
+    (MP4, MOV, WEBM)
+  - Same upload zone detects file type automatically
+  - Select Content Type via 2x2 card grid:
+      Creator  — personal posts, lifestyle, photo sets
+      UGC      — brand collaborations, product + person
+      Product  — product photography, marketing
+      General  — food, pets, landscapes, interiors, events
+  - For UGC/Product: brand search toggle auto-appears
+      Web search brand info (enabled by default)
+      Optional brand website URL field for URL context grounding
+
+Step 2 — Generation Mode + Platform
+  - Shows mini thumbnail of uploaded media in header
+  - Generation Mode grid:
+      Social Caption    — platform-specific first-person caption
+      Flux Image Prompt — detailed Flux.1/2 prompt with pose vocabulary
+      WAN Video Prompt  — cinematic WAN2.1/2.2 clip prompt
+      Pose Series       — 6 variation poses for photo sets
+      X Thread          — 5-tweet thread
+      Generate All      — runs all enabled modes simultaneously
+  - Platform selection:
+      General / Instagram / TikTok / Facebook / Twitter(X)
+
+Step 3 — Tone & Options
+  - Caption Style pills:
+      Auto / Hook / Story / Question / Hot Take /
+      Tips / BTS / Soft Sell / Relatable
+  - Caption Language: English, Spanish, French, German,
+      Portuguese, Italian, Japanese
+  - Toggles:
+      Include 5 hashtags in caption (default ON)
+      Generate 30-tag hashtag set (OFF)
+      Generate 3 Caption Variants (OFF)
+      Include audio transcript (video only, default ON)
+  - Caption Context textarea (optional extra info to weave in)
+
+Step 4 — Review (Instagram-style "Share" screen)
+  - Shows all selections as tappable rows
+  - Tap any row to jump back to that step and edit
+  - Generate button (full-width, prominent)
+
+Step 5 — Results (Carousel)
+  - One result card shown at a time
+  - Left/Right navigation buttons with dot indicators
+  - Each card shows: mode icon, generated text, character count
+  - Copy button per card + Copy All button
+  - Generate Again button returns to Review
+  - Pose Series: each pose has Image button + Copy
+
+----------------------------------------------------------------
+CONTENT TYPE SYSTEM
+----------------------------------------------------------------
+
+Each content type loads different prompt templates:
+
+CREATOR
+  Captions: First-person, written AS the person in the image.
+  "Don't describe the photo from outside." BANNED words enforced.
+  Platform-tuned hooks, CTAs, tone for each network.
+  Pose Series: 6 pose/composition variations for photo shoots.
+
+UGC (User Generated Content)
+  Captions: Authentic first-person featuring the product naturally.
+  Sounds like a real person who genuinely loves this, not a paid ad.
+  BANNED: gifted, ad, sponsored, collab (as caption words).
+  Poses: 6 UGC angles keeping product featured and visible.
+  Brand search: identifies product, uses real brand info.
+
+PRODUCT
+  Captions: Emotional benefit + lifestyle hook, NOT specs first.
+  Platform-specific: TikTok hook energy, Instagram desire-building,
+  Facebook warm recommendation, Twitter punchy product take.
+  BANNED: innovative, revolutionary, game-changing, curated.
+  Pose angles: Hero, Flat Lay, Detail, Lifestyle, Feature, Scale.
+
+GENERAL
+  Captions: Adapts to image content — food, pets, landscapes,
+  interiors, events, objects. Matches energy of the image.
+  Scene Variations: 6 composition/angle variations.
+
+----------------------------------------------------------------
+AI PROVIDER SYSTEM (Multi-Provider)
+----------------------------------------------------------------
+
+Supported Providers:
+  Gemini (Google) — Primary cloud provider
+      Model: gemini-2.5-flash (default)
+      Features: Google Search grounding, URL Context, JSON mode,
+      native video understanding, Imagen 3 image generation,
+      true token-by-token streaming
+
+  OpenAI — Alternative cloud
+      Model: gpt-4o (default), DALL-E 3 for image generation
+      DALL-E 2 edit endpoint used for pose image reference
+
+  Grok (xAI) — Alternative cloud
+      Model: grok-2-vision-1212
+
+  Ollama — Local self-hosted
+      Vision model: configurable (tested with Qwen2.5-VL)
+      Writer model: configurable
+      Token-by-token streaming via Ollama client
+
+Provider auto-detection: if GEMINI_API_KEY env var is set,
+provider automatically switches from Ollama to Gemini.
+No config.json changes needed for cloud deployment.
+
+----------------------------------------------------------------
+PERFORMANCE OPTIMIZATIONS
+----------------------------------------------------------------
+
+Context Caching (Generate All mode with Ollama):
+  - One vision call generates a comprehensive image description
+  - Cached in memory (10-minute TTL, per image SHA-256 hash)
+  - All subsequent modes (caption, flux, WAN, poses) use
+    description instead of re-sending the image
+  - Threading deduplication: if prefetch is running when Generate
+    fires, Generate waits for prefetch result (no double API calls)
+  - Cloud providers (Gemini): run all modes in parallel instead
+    (parallel threads, results appear as they complete)
+
+Background Pre-fetch:
+  - Immediately after image upload, /api/prefetch fires
+  - Pre-computes description while user configures settings
+  - By the time user clicks Generate All, cache is warm
+
+Image Resizing:
+  - All images resized to max 854x480 before AI calls
+  - Matches video pipeline resolution
+  - Dramatically reduces vision token count (approx 20x reduction
+    from 4K images), speeds up processing
+
+Streaming:
+  - Gemini: true token-by-token streaming via generate_content_stream
+  - All Generate All modes fire in parallel threads
+  - Results pop in as each mode completes (fastest first)
+  - Ollama: sequential streaming with token-by-token display
+
+----------------------------------------------------------------
+VIDEO PROCESSING PIPELINE
+----------------------------------------------------------------
+
+Upload: Same drop zone, drag-drop MP4/MOV/WEBM up to 500MB
+
+Gemini Provider (Primary):
+  - Video uploaded to Gemini Files API
+  - Gemini watches the full video natively (motion, audio, dialogue)
+  - No frame extraction needed
+  - Generates captions/prompts from complete video understanding
+
+Ollama / Fallback Pipeline:
+  1. Take-5-Skip-10 motion detection — extracts up to 30 key frames
+     at 480p (854x480) using scene change detection
+  2. Hold-and-Wait batching — groups 3 frames into side-by-side
+     grid image, sends each batch to AI for description
+  3. Audio extraction via ffmpeg (16kHz mono WAV)
+  4. Whisper transcription — faster-whisper (local, tiny model)
+     OR OpenAI Whisper API fallback
+  5. Synthesis — combines visual analysis + audio transcript
+     into caption/prompt
+
+Audio transcript toggle: ON by default, shows when video loaded
+
+----------------------------------------------------------------
+VIDEO PIPELINE — ALGORITHM DETAILS
+----------------------------------------------------------------
+
+Take-5-Skip-10 Motion Scoring:
+  - Every frame resized to 854x480 via INTER_AREA
+  - Gaussian blur (21x21) applied before grayscale diff
+  - cv2.absdiff between consecutive frames
+  - Threshold at pixel value 25 → binary mask
+  - motion_score = (nonzero pixels / total pixels) x 100
+  - Static threshold: motion_score < 2.5%
+  - Static frames: only saved once per 30 frames
+  - Motion frames: burst-capture 5, then skip 10, repeat
+  - Max 30 frames extracted per video
+
+Hold-and-Wait Grid:
+  - 3 frames stitched side-by-side (each 400x225)
+  - Single JPEG per batch (one AI call per 3 frames)
+  - Canvas background: dark fill (20,20,20)
+  - JPEG quality: 82
+
+Gemini Native Video Path:
+  - Video uploaded to Gemini Files API (mime_type video/mp4)
+  - Polled until state == ACTIVE (3s intervals, 120s max)
+  - On FAILED or timeout: file deleted, RuntimeError raised
+  - Full video understanding — motion, audio, dialogue all native
+  - No frame extraction or Whisper needed
+
+Whisper Transcription (Ollama path):
+  - Model: tiny, device=cpu, compute_type=int8
+  - Model cache: /data/whisper_cache (Fly.io volume)
+  - Lazy load: model loaded on first video processed
+  - Fallback: OpenAI Whisper API (whisper-1) if OPENAI_API_KEY set
+
+----------------------------------------------------------------
+BRAND RESEARCH (UGC + Product)
+----------------------------------------------------------------
+
+Auto-enabled when UGC or Product content type selected.
+
+Gemini: Uses Google Search grounding — model searches Google
+  in the same API call to find real brand info (tagline,
+  target audience, products, brand voice). One call, no latency.
+
+Optional URL Context: Paste brand website URL → Gemini reads
+  the actual brand website alongside Google search results.
+  Gets authoritative product claims and brand copy directly.
+
+Ollama: Injects brand awareness instruction — model uses
+  training knowledge about any visible brand/logo.
+
+----------------------------------------------------------------
+POSE SERIES — IMAGE GENERATION
+----------------------------------------------------------------
+
+Each of 6 poses has an Image generation button.
+
+When clicked:
+  1. Original uploaded image sent as reference
+  2. Vision AI extracts detailed appearance description:
+     - Face (shape, eyes, nose, lips, age, distinctive features)
+     - Hair (exact shade, length, texture, style)
+     - Skin tone (specific descriptor)
+     - TATTOOS — every visible tattoo with exact body location
+       (e.g., "full sleeve right arm", "rose inner left wrist")
+     - HELD ITEMS — items in hands, which hand, how held
+     - BACKGROUND — exact environment/setting visible
+  3. Consistency rules appended (CANNOT CHANGE):
+     - Exact face, skin tone, hair
+     - ALL tattoos at EXACT same body locations
+     - Same items in hands, visible to camera
+     - Same background/location
+     - Same outfit
+     - ONLY CHANGE: pose, body position, camera angle
+  4. For OpenAI: DALL-E 2 edit endpoint (actual image reference)
+     padded to square PNG, falls back to DALL-E 3 on failure
+  5. For Gemini: Appearance-enriched prompt to Imagen 3
+
+Generated image appears full-width with tap-to-preview lightbox
+and download button.
+
+----------------------------------------------------------------
+CAPTION STYLES
+----------------------------------------------------------------
+
+Auto:      Model decides best style for the content
+Hook:      Scroll-stopping first line, everything supports it
+Story:     Scene → tension/turning point → resolution
+Question:  Opens or closes with engaging audience question
+Hot Take:  Bold, slightly controversial, clear confident stance
+Tips:      Numbered/actionable, save-worthy, "why you need" opener
+BTS:       Candid, confessional, raw behind-the-scenes
+Soft Sell: Value/relatable moment first, then natural CTA
+Relatable: Universal feeling they instantly connect with
+
+----------------------------------------------------------------
+BRAND VOICE & SIGNATURE
+----------------------------------------------------------------
+
+In Preferences (user icon in header):
+  - Paste 1-2 example captions you love
+  - AI matches exact tone, vocabulary, line break style
+  - Injected into every caption prompt as:
+    "BRAND VOICE — match this creator's tone: [your examples]"
+  - Signature text: auto-appended to every generated caption result
+
+Both applied server-side — never exposed to end users.
+
+----------------------------------------------------------------
+HASHTAG GENERATOR
+----------------------------------------------------------------
+
+Mode: 30-tag tiered hashtag set (standalone mode)
+
+Returns 3 tiers:
+  HIGH REACH   (10 tags, 500k-5M posts): broad discovery
+  ENGAGEMENT   (10 tags, 50k-500k): strong engagement rate
+  NICHE        (10 tags, under 50k): targeted reach + ranking
+
+Each tier copyable independently. Analyzed from actual image.
+
+----------------------------------------------------------------
+IDEAS GENERATOR
+----------------------------------------------------------------
+
+Accessed via lightbulb button in header.
+  - Upcoming holidays/seasonal content ideas
+  - Season-specific vibe suggestions
+  - Evergreen themes (Golden Hour, Coffee Shop, Fitness, etc.)
+  - Type an idea keyword → Expand → generates full caption or prompt
+  - Supports: Social Caption, Flux Prompt, WAN Prompt
+
+Seasonal ideas data (GET /api/suggestions):
+  Holidays: New Year's, Valentine's, St. Patrick's, Easter,
+    Independence Day, Halloween, Thanksgiving, Christmas
+    Each has a window_days value (days before holiday to surface
+    it) and 3 content ideas
+  Seasons: Winter, Spring, Summer, Fall — 3 ideas each
+  Evergreen: 12 themes including Golden Hour, Coffee Shop,
+    Fitness, Travel, Fashion/OOTD, Nature, Food, Wellness,
+    Work/Hustle, Friends, Home Aesthetic, Creativity
+  On This Day: also resurfaces a past post — prefers a true
+    anniversary (posted + rated 4+, same month/day in a past year),
+    falls back to the single highest-rated eligible post otherwise.
+    Tapping it reopens that generation in the results view.
+
+----------------------------------------------------------------
+DISTRIBUTION & TARGETING ENGINE
+----------------------------------------------------------------
+
+Accessed via target button in header.
+
+Purpose: closes the loop from "what to post" to "where to get it
+seen." Entirely ToS-compliant — hub discovery opens Google/platform
+search in a new tab, a human reads and manually submits data.
+Prism never scrapes or queries Instagram/TikTok servers directly.
+
+Instagram + TikTok Feature Hubs:
+  - User/admin-submitted database of feature-page/shoutout accounts
+  - Per hub: platform, handle, niche, tier
+    (Micro <25k / Mid-Tier 25k-250k / Mega 250k+),
+    bio snippet, submission rule, required hashtags
+  - Niche-matched search + tier + platform filters
+  - Selecting a hub's required hashtags auto-appends them to the
+    caption at generation time
+
+Reddit Research Panel:
+  - 12 niche categories: fitness, food, travel, fashion, beauty,
+    pets, home, art, photography, business, wellness, general
+  - Per subreddit: description + posting norms
+  - No live Reddit API calls — pure reference/research aid
+
+Targeting Vault:
+  - Save current hub + hashtag selection as a named reusable vault
+  - Full snapshot stored so it works even if hub is later edited
+  - "Load This Vault" restores the selection instantly
+
+Pre-Publish Checklist:
+  - Ephemeral reminder checklist per hub's submission rules
+  - Resets each time opened, nothing persisted server-side
+
+Crowdsourced Health Reporting:
+  - Flag button on each hub (inactive / not accepting / spam / other)
+  - One report per user per hub (duplicates rejected)
+  - After 3 distinct reporters, hub auto-flags with warning badge
+  - Admin can review and hard-delete
+
+----------------------------------------------------------------
+GROWTH & FEEDBACK FEATURES
+----------------------------------------------------------------
+
+PEER SHOUTOUT MATCHING
+  - Opt-in creator directory: platform, handle, niche, tier, pitch
+  - Browse other creators filtered by niche/tier/platform
+  - Manage your own listing (create/update/delete)
+
+WHAT-WORKED FEEDBACK LOOP
+  - Each history entry can be marked "posted" and rated 1-5 stars
+  - Top-performing past captions (posted + rated 4+) are
+    automatically injected into future caption prompts as
+    style/structure reference examples
+  - App learns YOUR specific writing style over time without
+    any fine-tuning — pure few-shot prompting with your own
+    high-signal validated data
+
+POSTING CONSISTENCY STREAKS
+  - Current streak, longest streak, whether posted today
+  - Computed from existing usage table — no new table needed
+  - Shown as a badge to encourage daily use
+
+HOOK STRENGTH SCORER
+  - Score the opening line of a caption on 1-10 scale
+  - Criteria: curiosity gap, specificity, pattern interrupt
+  - Returns score + short feedback + 2 stronger alternatives
+  - Click an alternative to instantly copy it
+
+TREND-AWARE GROUNDING
+  - Uses Gemini Google Search grounding to find what's trending
+    this week for a given niche + platform
+  - Returns 3 trends + 2 suggested caption angles
+  - Gemini-only feature (requires Google Search tool access)
+
+ALT-TEXT GENERATOR
+  - One-click accessibility: generates concise screen-reader-
+    friendly alt text (under 125 chars, no "Image of..." prefix)
+  - Works with whichever AI provider is active
+
+SCHEDULE QUEUE
+  - Internal planning calendar (NOT an auto-publisher)
+  - Pick date/time for a generated caption/prompt
+  - Upcoming/Past tabs, mark items Posted or Skip
+  - Marking Posted auto-links to history row with posted=1
+    (feeds What-Worked loop and Streak with zero extra effort)
+  - Platform rate limit: 100 posts/24h per platform enforced
+    server-side (matches Meta's Instagram Publishing API cap)
+  - Visual Calendar view: List/Calendar toggle in the modal header;
+    month grid with a color-coded dot per scheduled item (pending/
+    posted/skipped/overdue), month navigation, and a day-detail panel
+    listing every item for the selected day
+  - FUTURE (not yet built): `scheduled_posts` currently stores only a
+    `platform` string, not a specific connected account/page. Once
+    real OAuth publishing is wired in, add a `social_accounts` table
+    (one row per connected page/account, supports multiple pages on
+    the same platform and multiple platforms) plus a
+    `social_account_id` FK on `scheduled_posts`, and an account
+    picker in the Schedule Queue UI whenever a user has 2+ accounts
+    on one platform. See PRISM_NEXT_STEPS.txt Step 8 for full detail.
+
+
+ANALYTICS DASHBOARD
+  - Total generations, posted count, average rating
+  - Per-platform and per-mode breakdowns
+  - Last-30-days daily activity bar chart (no chart library)
+  - Manual engagement logging: likes/views/comments/shares
+    (copied from Instagram/TikTok insights, stored in post_metrics)
+  - Best-performing post surfaced once any stats are logged
+  - Best Time to Post: buckets posted+rated history by day-of-week x
+    time-of-day (7 buckets), requires 2+ posts per bucket, surfaces
+    the single highest-average-rating bucket
+  - Caption Style Breakdown: every caption now records which Caption
+    Style pill was used (history.style column); shows count + average
+    rating per style so users see which styles perform best
+  - Architected for future live Meta/TikTok API auto-population
+    with no schema changes needed
+
+PUSH NOTIFICATIONS (Web Push / VAPID)
+  - Settings > Notifications: one master toggle ("Enable
+    notifications") plus 9 individual reminder toggles
+  - Browser/PWA push via a persistent VAPID key pair
+    (vapid_private_key.pem / vapid_public_key.txt, generated once,
+    persisted on the Fly.io /data volume so subscriptions survive
+    restarts) + a service worker at /sw.js
+  - Reminders (each self-throttled, at most once per day/event):
+      Streak at risk    — no generation logged today and it's
+                           evening (>=8pm UTC), had an active streak
+                           coming into today
+      Scheduled post due — a pending Schedule Queue item's time has
+                           arrived (checked every 15 min, once per post)
+      Daily limit reset  — told at midnight UTC if they hit their
+                           daily_limit the day before
+      Inactivity nudge   — no generations in 3+ days, re-sent at
+                           most every 3 days
+      Streak milestone   — celebrates hitting 7/30/100/365 consecutive
+                           days on the day it's reached
+      Weekly recap       — Monday 9am summary of the past 7 days'
+                           generation count + current streak
+      New personal best  — fires the moment a logged engagement metric
+                           beats every previous post's value for that metric
+      Holiday idea nudge — surfaces a content idea 10-14 days before
+                           an upcoming holiday
+      Daily trend alert  — once/day (11am), looks up one real,
+                           currently-trending topic in the user's
+                           self-set "My Niche" setting via Gemini's
+                           Google Search grounding; only fires when the
+                           instance provider is Gemini with an API key
+                           configured (silently no-ops otherwise rather
+                           than guessing a stale trend on local models)
+  - Background thread checks all opted-in users every 15 minutes
+    (`_run_notification_checks`, dedup via notification_log table)
+  - "Send test notification" button in Settings for verification
+
+----------------------------------------------------------------
+HISTORY & EXPORT
+----------------------------------------------------------------
+
+  - Last 50 generations stored in SQLite (history.db)
+  - Persistent on Fly.io via /data volume mount
+  - History panel: thumbnail, mode, platform, date
+  - Load any past generation back into results view
+  - Export all history to .txt file
+  - Mark posted + rate 1-5 stars (feeds What-Worked loop)
+
+----------------------------------------------------------------
+USER MANAGEMENT
+----------------------------------------------------------------
+
+  - Login system (PBKDF2/SHA-256 password hashing, 260,000 rounds)
+  - Sessions stored in SQLite (survive server restarts)
+  - Per-user settings: gender, enabled modes, signature, brand voice,
+    niche (used for daily trend alert push), notification toggles
+  - Admin manages users via add_user.py CLI
+  - Daily usage limit per user (configurable, 0 = unlimited)
+  - Admin panel visible only to admin accounts
+
+----------------------------------------------------------------
+STRUCTURED JSON OUTPUT (GEMINI RELIABILITY)
+----------------------------------------------------------------
+
+For modes requiring exact formats (pose_series, thread, variants,
+hashtag_set), Prism calls Gemini with:
+  response_mime_type: "application/json"
+  response_schema: typed schema (object with named array fields)
+
+Guarantees valid JSON — no regex parsing or numbered-list parsing.
+Schemas:
+  Pose Series:  { "poses": [6 strings] }
+  X Thread:     { "tweets": [5 strings] }
+  Variants:     { "captions": [3 strings] }
+  Hashtag Set:  { "high_reach":[...], "engagement":[...], "niche":[...] }
+
+For Ollama/other providers, numbered [1]...[6] parsing is fallback.
+
+----------------------------------------------------------------
+AI PROVIDER TIMEOUT PROTECTION
+----------------------------------------------------------------
+
+Every Gemini call is bounded at 30 seconds.
+Prevents a slow/overloaded cloud provider from leaving the Generate
+button spinning indefinitely with no error surfaced to the user.
+
+----------------------------------------------------------------
+DATABASE TECHNICAL DETAILS
+----------------------------------------------------------------
+
+Engine: SQLite with WAL mode
+  - journal_mode=WAL   (concurrent read while writing)
+  - synchronous=NORMAL (safe + faster than FULL)
+  - Connection timeout: 10 seconds
+
+Tables:
+  history         — id, created_at, thumb, mode, platform, results,
+                    posted, rating, posted_at, style
+  usage           — username, date, count
+  sessions        — token, username, expires
+  hubs            — feature-page/shoutout accounts database
+  hub_reports     — crowdsourced hub health reports
+  vaults          — saved targeting vault snapshots
+  creators        — peer shoutout swap directory
+  scheduled_posts — internal planning calendar queue
+  post_metrics    — manually logged engagement stats
+  push_subscriptions — Web Push subscriptions (endpoint, p256dh, auth) per user/device
+  notification_log   — dedup log so each reminder kind/ref only sends once
+  social_accounts — NOT YET BUILT: planned table for multiple
+                    connected pages/accounts per platform per user
+                    (required before real multi-page publishing works,
+                    see PRISM_NEXT_STEPS.txt Step 8)
+
+Migration: _ensure_column() adds columns without breaking old rows.
+
+Fly.io persistence: DB at /data/history.db when volume is mounted.
+users.json copied to /data/users.json on first boot.
+
+----------------------------------------------------------------
+COMPLETE API ROUTE REFERENCE
+----------------------------------------------------------------
+
+Auth / Session
+  GET  /login                     Login page (public)
+  POST /api/login                 Authenticate (public)
+  POST /api/logout                Invalidate session cookie
+  GET  /api/whoami                Current user + is_admin flag
+
+Settings
+  GET  /api/settings              Read server config
+  POST /api/settings              Save server config
+  GET  /api/models                List available Ollama models
+  GET  /api/user-settings         Per-user preferences
+  POST /api/user-settings         Save user preferences (gender,
+                                  enabled_modes, signature, brand_voice,
+                                  niche, notification toggles)
+
+Core Generation
+  POST /api/prefetch              Warm description cache
+  POST /api/generate              Single-mode generate (non-stream)
+  POST /api/generate-stream       Multi-mode generate with SSE streaming
+  POST /api/video                 Video pipeline
+  POST /api/generate-image        Pose image gen (DALL-E / Imagen 3)
+  POST /api/expand-idea           Keywords to caption/prompt expansion
+  GET  /api/suggestions           Seasonal + holiday ideas
+
+History & Analytics
+  GET    /api/history             Last 50 generations
+  GET    /api/history/export      Export all history as .txt
+  DELETE /api/history/{id}        Delete history entry
+  POST   /api/history/{id}/feedback  Mark posted + rate
+  POST   /api/history/{id}/metrics   Log engagement stats
+  GET    /api/usage               Today's generation count + limit
+  GET    /api/streak              Current + longest posting streak
+  GET    /api/analytics           Aggregated dashboard data
+
+Growth Tools
+  POST /api/hook-score            Score + improve a caption hook
+  POST /api/trends                Trend grounding (Gemini only)
+  POST /api/alt-text              Generate accessibility alt text
+
+Schedule Queue
+  POST   /api/schedule            Create scheduled post
+  GET    /api/schedule            List scheduled posts
+  PATCH  /api/schedule/{id}       Update status (posted/skip)
+  DELETE /api/schedule/{id}       Delete scheduled item
+
+Push Notifications
+  GET  /api/push/public-key       VAPID public key for pushManager.subscribe()
+  POST /api/push/subscribe        Save a browser push subscription
+  POST /api/push/unsubscribe      Remove a push subscription
+  POST /api/push/test             Send a test push to confirm setup
+
+Distribution & Targeting
+  GET    /api/hubs                List feature-page hubs
+  POST   /api/hubs                Submit new hub (admin)
+  DELETE /api/hubs/{id}           Delete hub (admin)
+  POST   /api/hubs/{id}/report    Flag hub
+  GET    /api/reddit-panel        Niche-matched subreddit data
+  GET    /api/vaults              List targeting vaults
+  POST   /api/vaults              Save vault
+  DELETE /api/vaults/{id}         Delete vault
+
+Peer Swaps
+  GET    /api/creators            Browse creator directory
+  GET    /api/creators/me         Your own listing
+  POST   /api/creators            Create/update listing
+  DELETE /api/creators/me         Remove listing
+
+Health
+  GET  /api/health                Liveness probe
+
+----------------------------------------------------------------
+TECH STACK
+----------------------------------------------------------------
+
+Backend:    Python 3.11, FastAPI, Uvicorn
+AI:         google-generativeai, google-genai, openai, ollama
+Video:      opencv-python-headless, faster-whisper, ffmpeg
+Storage:    SQLite (WAL mode), Fly.io persistent volume
+Auth:       PBKDF2 session cookies (HttpOnly, SameSite=lax)
+Frontend:   Vanilla JS, no frameworks, SSE streaming
+Deployment: Docker, Fly.io, Dockerfile + fly.toml
+
+----------------------------------------------------------------
+DEPLOYMENT
+----------------------------------------------------------------
+
+Live URL:  https://que.fly.dev
+Platform:  Fly.io (iad region, shared-cpu-1x, 1GB RAM)
+Machine:   Always on (min_machines_running = 1)
+Storage:   Fly.io volume at /data (1GB persistent)
+Secrets:   GEMINI_API_KEY, ADMIN_PASSWORD
+
+Local run: cd F:\QUE && .venv\Scripts\python.exe main.py
+Deploy:    cd F:\QUE && fly deploy
+
+
+================================================================
+PART 2 — PATENT, COPYRIGHT & IP PROTECTION
+================================================================
+
+----------------------------------------------------------------
+CAN PRISM BE PATENTED?
+----------------------------------------------------------------
+
+The short answer: parts of it are worth filing a provisional patent
+on. The overall idea of "AI caption generator" is not patentable.
+But the specific technical combinations below may qualify.
+
+STRONGEST PATENT CANDIDATES:
+
+1. Take-5-Skip-10 Motion-Adaptive Video Sampling Pipeline
+   What it is: Burst-capture 5 frames on motion (using Gaussian
+   blur + absdiff motion scoring), skip 10, repeat — then stitch
+   3 frames into a side-by-side grid for a single AI call.
+   Why it has potential: Not just "extract frames from video."
+   It is a specific, novel combination of motion thresholding,
+   burst-and-skip timing, and grid batching that reduces AI API
+   calls while preserving video content representation quality.
+
+2. Prefetch + Threading.Event Deduplication for AI Inference
+   What it is: /api/prefetch fires immediately on image upload
+   to warm a SHA-256-keyed description cache. If the user clicks
+   Generate while prefetch is still in-flight, a threading.Event
+   mutex causes Generate to wait for and reuse the prefetch result
+   instead of issuing a duplicate API call.
+   Why it has potential: Novel concurrency architecture for AI
+   inference deduplication applied to interactive web apps.
+
+3. What-Worked Feedback Loop (Self-Improving Caption Generation)
+   What it is: The system automatically injects the user's own
+   historically top-rated captions (posted=1, rating>=4) as
+   few-shot style examples into every future caption generation
+   prompt — with no model fine-tuning, just structured prompting.
+   Why it has potential: A novel "no-fine-tuning self-improvement"
+   loop using the user's own validated output as a continuous
+   training signal through prompt engineering.
+
+4. Appearance Extraction + Pose Consistency Enforcement
+   What it is: Before generating each pose image, Prism uses a
+   vision AI call to extract every tattoo (with exact body
+   location), held items (which hand), background, and outfit.
+   These are then appended as a CANNOT-CHANGE rule set to every
+   subsequent image generation prompt.
+   Why it has potential: A specific novel system for maintaining
+   subject consistency across AI-generated image series, with
+   explicit tattoo location anchoring as a defined constraint.
+
+REALITY CHECK ON SOFTWARE PATENTS:
+After the Alice Corp. v. CLS Bank Supreme Court decision (2014),
+software patents face steep judicial scrutiny. An examiner will
+ask: "Is this just an abstract idea implemented on a computer?"
+To survive, a patent must describe a specific technical process
+that improves how the computer system itself operates — not just
+what it produces. A good patent attorney can frame Prism's pipeline
+architecture this way. Filing a provisional yourself costs $320
+(USPTO micro-entity fee) and gives you 12 months of "patent pending"
+status to decide if the $8,000–15,000 full utility patent is worth
+pursuing.
+
+----------------------------------------------------------------
+HOW YOU'RE PROTECTED RIGHT NOW (BEFORE FILING ANYTHING)
+----------------------------------------------------------------
+
+COPYRIGHT — ALREADY ACTIVE, NO FILING REQUIRED
+  All original code, UI design, and prompt text (the exact wording
+  of Flux prompts, caption prompt templates, pose consistency rules,
+  etc.) are automatically protected by US copyright from the moment
+  you created them. Someone who copies your exact code or prompt
+  wording is committing copyright infringement.
+
+  What this covers:
+  - All Python source code in main.py
+  - All prompt engineering text (FLUX_PROMPT, CAPTION_PROMPTS,
+    POSE_CONSISTENCY_RULES, APPEARANCE_EXTRACT_PROMPT, etc.)
+  - The UI design, layout, and visual elements in static/
+  - Any marketing copy, screenshots, or demo videos you create
+
+  What this does NOT cover:
+  - The general idea of "AI social media caption generator"
+  - The concept of a 5-step wizard
+  - Anyone building a similar app from scratch in their own words
+
+TRADE SECRETS — YOUR MOST VALUABLE CURRENT PROTECTION
+  Your prompt engineering is a genuine trade secret. It lives
+  server-side and is NEVER exposed in API responses. A competitor
+  watching a live demo or using the app cannot see:
+  - The exact prompt templates
+  - The SCENE_DESCRIBE_PROMPT or APPEARANCE_EXTRACT_PROMPT wording
+  - The POSE_CONSISTENCY_RULES structure
+  - The brand voice injection mechanism
+  - The few-shot injection logic from the feedback loop
+
+  This protection remains active AS LONG AS YOU:
+  - Keep the repository private (do not open-source)
+  - Do not publish the source code or prompt wording publicly
+  - Do not show prompt text verbatim in screenshots or demos
+
+GIT HISTORY + FLY.IO DEPLOY LOGS = PROOF OF FIRST CREATION
+  Your git commit history and Fly.io deployment timestamps
+  establish exactly when you built each feature. This is critical
+  for proving prior art and defending against anyone claiming
+  they invented something you already had deployed. Never delete
+  this history.
+
+----------------------------------------------------------------
+THE BIGGEST RISK: SOMEONE SEES YOUR SOCIAL MEDIA DEMO
+----------------------------------------------------------------
+
+The real risk: you post a demo video on Instagram/TikTok showing
+what Prism does, a larger company sees it, and builds a similar
+product in 3 months with a full engineering team.
+
+WHAT THEY CAN LEGALLY DO:
+  - Build a similar product from scratch (ideas are not protected)
+  - Create their own AI caption tool with a wizard UI
+  - Use the same AI providers you use
+
+WHAT THEY CANNOT LEGALLY DO:
+  - Copy your source code (copyright infringement)
+  - Copy your exact prompt wording (copyright + trade secret)
+  - Use your "Prism" brand name/logo after you trademark it
+  - Patent an invention they filed after your filing date
+
+HOW TO PROTECT YOURSELF BEFORE POSTING ANY PUBLIC DEMOS:
+
+  STEP 1 — File a Provisional Patent Application (do this FIRST)
+    Cost: ~$320 USD (USPTO micro-entity fee, DIY) or
+          $1,500–3,000 (with a patent attorney)
+    What it does: Stakes your filing date TODAY.
+    You now have 12 months to decide if you want to spend the
+    money on a full utility patent. Anyone who files after your
+    provisional date cannot claim priority over you.
+    Where: https://www.uspto.gov (search "provisional patent application")
+
+  STEP 2 — Trademark "Prism" as an App Name
+    Cost: ~$250–350 per class at USPTO
+    What it does: Prevents any competitor from using the name
+    "Prism" for the same category of software product, even if
+    they build a similar app from scratch.
+    Tip: Register in International Class 42 (software as a service,
+    computer software design).
+
+  STEP 3 — Keep the repo private
+    Do not open-source the prompt engineering or core logic.
+    You can open-source a stripped demo version later if desired.
+
+  STEP 4 — Show output in demos, not implementation
+    Demo videos: show the UI, the results, the workflow.
+    Never show prompt text, architecture diagrams, or code.
+    A competitor who watches your demo sees what the app does —
+    not HOW it does it. The HOW is your real IP.
+
+  STEP 5 — Watermark/date-stamp demo videos
+    Embed the date visibly in demo content. This establishes
+    your public disclosure timeline for prior art purposes.
+
+  STEP 6 — NDA for any private beta testers
+    Before giving anyone early access, have them sign a simple
+    NDA. Templates available free at docracy.com or through
+    a lawyer for ~$200.
+
+  STEP 7 — Document everything you build
+    Keep a dated engineering log or design doc (a txt file like
+    this one with dates) as supplementary proof of invention
+    timeline alongside your git history.
+
+----------------------------------------------------------------
+WHAT IP PROTECTION DOES NOT DO
+----------------------------------------------------------------
+
+  - It does NOT stop someone from building a competing product
+    with similar features (only a patent can do that, and only
+    for the specific technical claims in the patent)
+  - Copyright does NOT protect the idea, concept, or workflow
+  - A provisional patent is NOT an issued patent — it gives you
+    a filing date and "patent pending" status only
+  - Trade secret protection ENDS the moment the secret is
+    publicly disclosed (accidentally or intentionally)
+
+The most realistic protection against a large company copying
+Prism is:
+  1. File provisional patent now (before public demos)
+  2. Move fast — ship features they don't have
+  3. Build a user base and brand loyalty before they catch up
+  4. Your prompt engineering moat (they have to reverse-engineer
+     what makes your outputs better — that takes time)
+
+----------------------------------------------------------------
+RECOMMENDED IMMEDIATE ACTIONS (PRIORITY ORDER)
+----------------------------------------------------------------
+
+  1. File a provisional patent application before any public demo
+     USPTO: https://www.uspto.gov/patents/basics/patent-process/
+             provisional-patent-applications
+     Focus claims on: Take-5-Skip-10 pipeline, description cache
+     deduplication, feedback loop prompt injection, pose consistency
+     enforcement system.
+
+  2. Trademark the name "Prism" (or "Prism AI" / "Prism Creator")
+     USPTO TESS search first to confirm availability:
+     https://tmsearch.uspto.gov/
+     International Class 42 (SaaS / computer software)
+
+  3. Add a copyright notice to the app footer and source files:
+     "Copyright 2026 [Your Name]. All rights reserved."
+     (Not required by law, but strengthens copyright claims)
+
+  4. Keep repo private on GitHub until after provisional filed
+
+  5. When demoing publicly: show the UI and output only,
+     never show code, prompts, or architecture
+
+
+================================================================
+PART 3 — NEXT STEPS (PLATFORM API INTEGRATION ROADMAP)
+================================================================
+
+Domain: prismaicreator.com
+
+STEP 1 — BRAND FOUNDATION
+  [ ] Create dedicated email under domain (e.g. hello@prismaicreator.com)
+  [ ] Use this same identity for every developer account below
+  [ ] Design a logo (512x512px minimum, works as app icon + profile pic)
+  [ ] Prepare sample content posts before requesting API review
+
+STEP 2 — HOST REQUIRED LEGAL PAGES
+  [ ] Write and publish Privacy Policy page (public URL required
+      by Meta and TikTok during app review)
+  [ ] Write and publish Terms of Service page
+
+STEP 3 — CREATE SOCIAL ACCOUNTS UNDER "PRISM"
+  [ ] Create a Facebook Page for Prism (not a personal profile)
+  [ ] Create/convert Instagram to Professional and link to Facebook Page
+  [ ] Create a TikTok account for Prism
+  [ ] Post real content before moving to developer setup
+
+STEP 4 — META (INSTAGRAM) DEVELOPER SETUP
+  [ ] Go to developers.facebook.com, sign up with Prism email
+  [ ] Create new App → type "Business"
+  [ ] Add "Instagram Graph API" product
+  [ ] Link Facebook Page + Instagram to Business Manager
+  [ ] Generate long-lived access token
+  [ ] Submit for App Review (instagram_content_publish,
+      instagram_basic, pages_show_list, business_management)
+      Needs: Privacy Policy URL, Terms URL, screen-recorded demo
+
+STEP 5 — TIKTOK DEVELOPER SETUP
+  [ ] Go to developers.tiktok.com, sign up with Prism email
+  [ ] Create app → get Client Key + Client Secret
+  [ ] Add "Content Posting API" product
+  [ ] Set OAuth redirect URI to https://prismaicreator.com/api/tiktok/callback
+  [ ] Complete OAuth flow for access token + refresh token
+  [ ] Submit for TikTok audit
+
+STEP 6 — HAND OFF CREDENTIALS FOR INTEGRATION
+  Meta:   App ID, App Secret, Page ID, Instagram Business Account ID,
+          long-lived access token
+  TikTok: Client Key, Client Secret, access token, refresh token
+
+STEP 7 — PLATFORM TOS COMPLIANCE (before enabling real publishing)
+  [x] DONE — Daily posting rate limit (100/24h per platform) built in
+  [ ] Keep "review → confirm → publish" as a real user click
+      (Meta, TikTok, X all require user consent before write actions)
+  [ ] Set is_ai_generated: true on every Instagram publish call
+      (Meta has a dedicated field for AI content disclosure)
+  [ ] Add account/data-deletion path before connecting real credentials
+  [ ] Never store platform login passwords — only OAuth tokens
+
+
+================================================================
+END OF DOCUMENT
+================================================================
+Prism — AI Social Media Content Studio
+Created by: [Your Name]
+Date of this document: August 2026
+Git history and Fly.io deploy logs serve as proof of development
+timeline. Keep this document dated and stored securely.
+================================================================

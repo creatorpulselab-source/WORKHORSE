@@ -1,0 +1,232 @@
+/* ==========================================================================
+   WORKHORSE AI CREW — INTERACTIVE CHARACTER ENGINE & ANIMATION SYSTEM
+   ========================================================================== */
+
+/* Agent Command Walkway Container */
+.crew-deck-section {
+  padding: 22px;
+  position: relative;
+  overflow: hidden;
+}
+
+.crew-deck-section::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--cyan-glow), var(--purple-neon), var(--pink-hot), transparent);
+}
+
+.crew-roster {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 16px;
+  margin-top: 14px;
+}
+
+@media (max-width: 1200px) {
+  .crew-roster { grid-template-columns: repeat(3, 1fr); }
+}
+
+@media (max-width: 680px) {
+  .crew-roster { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* Individual Agent Card & Pedestal */
+.agent-pod {
+  background: rgba(14, 20, 36, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-md);
+  padding: 16px 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  cursor: pointer;
+  transition: all 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  user-select: none;
+}
+
+.agent-pod:hover {
+  transform: translateY(-6px);
+  border-color: var(--cyan-glow);
+  background: rgba(16, 26, 48, 0.85);
+  box-shadow: 0 12px 28px rgba(0, 242, 254, 0.2);
+}
+
+/* Active State when the agent is currently executing a pipeline stage */
+.agent-pod.active-agent {
+  border-color: var(--cyan-glow);
+  background: linear-gradient(180deg, rgba(0, 242, 254, 0.15) 0%, rgba(14, 20, 36, 0.9) 100%);
+  box-shadow: 0 0 30px rgba(0, 242, 254, 0.35);
+  transform: translateY(-8px) scale(1.03);
+}
+
+.agent-pod.active-agent::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  border: 1px solid var(--cyan-glow);
+  animation: activeAuraPulse 1.8s infinite;
+}
+
+@keyframes activeAuraPulse {
+  0% { box-shadow: 0 0 0 0 rgba(0, 242, 254, 0.6); }
+  70% { box-shadow: 0 0 0 10px rgba(0, 242, 254, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(0, 242, 254, 0); }
+}
+
+/* Character Avatar Graphic Wrapper */
+.character-avatar-wrap {
+  width: 96px;
+  height: 96px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+
+.character-avatar-wrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.5));
+  transition: transform 0.3s ease;
+}
+
+.agent-pod:hover .character-avatar-wrap img {
+  transform: scale(1.08);
+}
+
+/* Holographic Pedestal Base */
+.hologram-pedestal {
+  position: absolute;
+  bottom: 0px;
+  width: 76px;
+  height: 14px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgba(0, 242, 254, 0.4) 0%, transparent 70%);
+  border: 1px solid rgba(0, 242, 254, 0.3);
+  box-shadow: 0 0 10px rgba(0, 242, 254, 0.3);
+  animation: pedestalGlow 2.5s infinite alternate;
+}
+
+@keyframes pedestalGlow {
+  0% { transform: scale(0.9); opacity: 0.5; }
+  100% { transform: scale(1.1); opacity: 1; }
+}
+
+/* Agent Information Texts */
+.agent-header {
+  text-align: center;
+  margin-bottom: 8px;
+}
+
+.agent-name {
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  color: var(--text-main);
+}
+
+.agent-role {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+
+/* Status Indicator Pill */
+.agent-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  font-size: 10px;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  text-transform: uppercase;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-dim);
+}
+
+.agent-status-pill .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-dim);
+}
+
+.agent-pod.idle .agent-status-pill { color: #38bdf8; background: rgba(56, 189, 248, 0.1); }
+.agent-pod.idle .dot { background: #38bdf8; }
+
+.agent-pod.working .agent-status-pill {
+  color: var(--cyan-glow);
+  background: rgba(0, 242, 254, 0.15);
+  border: 1px solid rgba(0, 242, 254, 0.4);
+}
+.agent-pod.working .dot {
+  background: var(--cyan-glow);
+  box-shadow: 0 0 8px var(--cyan-glow);
+  animation: workingBlink 0.8s infinite alternate;
+}
+
+@keyframes workingBlink {
+  0% { opacity: 0.4; }
+  100% { opacity: 1; }
+}
+
+/* Dynamic Live Speech Bubble */
+.agent-speech-bubble {
+  position: absolute;
+  bottom: 105%;
+  left: 50%;
+  transform: translateX(-50%) translateY(10px);
+  background: rgba(9, 14, 26, 0.95);
+  border: 1px solid var(--cyan-glow);
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  line-height: 1.4;
+  color: #e0f2fe;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.6), 0 0 15px rgba(0, 242, 254, 0.3);
+  min-width: 170px;
+  max-width: 240px;
+  text-align: center;
+  pointer-events: none;
+  opacity: 0;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 50;
+}
+
+.agent-speech-bubble::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border-width: 6px;
+  border-style: solid;
+  border-color: var(--cyan-glow) transparent transparent transparent;
+}
+
+.agent-pod:hover .agent-speech-bubble,
+.agent-pod.active-agent .agent-speech-bubble {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* Agent Stage Tracker Indicator */
+.agent-hardware-tag {
+  margin-top: 8px;
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--text-dim);
+  background: rgba(0, 0, 0, 0.3);
+  padding: 2px 6px;
+  border-radius: 4px;
+}

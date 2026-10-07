@@ -1,0 +1,310 @@
+PRISM (formerly Q.U.E.) - NEXT STEPS
+Domain: prismaicreator.com
+=======================================
+
+STEP 0 - ENGINEERING / APP-STORE READINESS (tracked separately from
+the social-API marketplace steps below)
+------------------------------------------
+[x] DONE (2026-08-18) - Finished wiring "Generate 3 Caption Variants"
+    for video uploads (was image-only before); verified both the
+    Gemini native video path and the Ollama/frame-extraction fallback
+    path correctly split into 3 takes and skip the signature/hashtag
+    suffix when variants are on.
+[x] DONE (2026-08-18) - Found and fixed a real bug: /api/health was
+    blocked by the auth middleware (401 instead of 200), which would
+    break any future uptime monitor or Fly.io health check. Added it
+    to the public-paths allowlist.
+[x] DONE (2026-08-18) - Removed unused Railway deployment config
+    (Procfile, railway.json) since Fly.io is the only real deploy
+    target; updated .env.example to reference Fly.io instead.
+[x] DONE (2026-08-18) - Added first automated test suite
+    (test_smoke.py, pytest) - now 13 tests covering auth guarding,
+    public routes, PWA manifest, both caption-variants code paths, and
+    account deletion. All AI calls are mocked (no real API cost).
+    Run with: .venv\Scripts\python.exe -m pytest test_smoke.py -v
+[x] DONE (2026-08-18) - Moved patent_drawings/Prism_Patent_Drawings_A4.pdf
+    out of the repo to F:\Prism_Patent_Drawings_A4.pdf.
+[x] DONE (2026-08-18) - Fixed GitHub remote URL (was pointing at
+    dncintoy23-op, account is actually dncintoy23-ops/Que-app) and
+    pushed all of the above to origin/main.
+[x] DONE (2026-08-18) - Fixed the "Fly Deploy" GitHub Action failing
+    on every push: the FLY_API_TOKEN repo secret was missing/empty
+    (didn't carry over from the account/repo rename). Generated a new
+    scoped deploy token via flyctl and set it as the repo secret;
+    re-ran the failed workflow and confirmed it now completes with
+    conclusion=success. Future pushes to main should auto-deploy
+    cleanly.
+[x] DONE (2026-08-18) - Wrote and published a Privacy Policy and
+    Terms of Service page (static/privacy.html, static/terms.html,
+    live at /privacy.html and /terms.html, added to the auth
+    middleware's public-paths allowlist, linked from the login page
+    footer). Content covers: what data Prism collects, the AI
+    providers content is sent to, that Prism doesn't yet auto-publish
+    to social platforms, data retention, and account deletion.
+[x] DONE (2026-08-18) - Added a real self-serve "Delete My Account"
+    button (Settings modal -> Danger Zone -> password-confirmed
+    delete modal -> POST /api/delete-account). Deletes the user's
+    login, all sessions, and every row keyed to that username
+    (usage, creators, scheduled_posts, push_subscriptions,
+    notification_log, vaults), then logs them out. Refuses to delete
+    the last remaining enabled account so the app can't be fully
+    locked out (no self-signup flow exists). Covered by 3 new pytest
+    cases (wrong password rejected, successful delete verified
+    against every table, last-account guard). NOTE: the shared
+    `history` table has no per-user owner column in the current
+    schema (all accounts share one content history), so history
+    rows are intentionally NOT purged per-account - satisfies Apple's
+    in-app deletion requirement (Guideline 5.1.1(v)) for personal/
+    account data, but full per-user content isolation is still the
+    Step 8 multi-account data model work.
+[x] DONE (2026-08-20) - Added cache-busting/versioning for static
+    assets: app.js/enhancements.css are now served with a
+    `?v=<sha256-prefix>` query string computed from their own file
+    contents at startup (ASSET_VERSION), plus a `Cache-Control:
+    no-cache` header on the HTML/JS/CSS/sw.js responses, so edited
+    frontend code is never served stale from browser HTTP caching
+    again.
+[x] DONE (2026-08-20) - Rotated the production GEMINI_API_KEY Fly
+    secret to a fresh valid key (old one had gone invalid/exhausted).
+[x] DONE (2026-08-20) - Migrated all 20+ `datetime.utcnow()` call
+    sites to a new `_utcnow()` helper (`datetime.now(UTC).replace
+    (tzinfo=None)`) - removes the DeprecationWarning without changing
+    any stored value/format.
+[x] DONE (2026-08-20) - Migrated `_call_gemini()` off the sunset
+    `google.generativeai` SDK onto `google.genai` (matching the
+    pattern already used by `_call_gemini_grounded()` and
+    `_gen_image_gemini()`); dropped the now-unused
+    `google-generativeai` line from requirements.txt. Verified with a
+    real production generation call after deploy.
+[x] DONE (2026-08-20) - Fixed `add_user.py` to detect and use the
+    Fly.io `/data/users.json` volume path (same logic main.py uses)
+    instead of always writing to its own ephemeral directory copy -
+    previously running it via SSH in production would have silently
+    edited the wrong file.
+[x] DONE (2026-08-20) - Finished real Grok (xAI) image generation:
+    implemented `_gen_image_grok()` using the `grok-imagine-image-2.0`
+    model via xAI's OpenAI-compatible endpoint, wired into
+    `generate_image_route()`. Along the way found and fixed 3 real
+    production bugs: (1) retired chat/vision model name
+    `grok-2-vision-1212` -> `grok-4.6` (was breaking all Grok
+    captions/alt-text with "Model not found"); (2) `config.json`
+    (provider + all API keys, editable via Settings) was never
+    redirected to the Fly.io `/data` persistent volume like
+    users.json/history.db were, so it was silently wiped on every
+    deploy/restart - fixed by adding it to the volume-redirect block;
+    (3) added a missing `grok` branch to the reference-image
+    appearance-extraction step used by Pose Series image gen; (4) the
+    provider image-download fallback (used when a provider returns a
+    URL instead of b64_json) used bare `urllib.request.urlopen` with
+    no User-Agent header, which xAI's image CDN rejected with a 403 -
+    fixed by adding a browser-like User-Agent header (also fixed the
+    same latent bug in the OpenAI/DALL-E-3 fallback path). Verified
+    live in production: real Grok-generated 1024x1024 image returned
+    and rendered successfully via `/api/generate-image`.
+[x] DONE (2026-08-20) - Fixed Gemini image generation, which turned
+    out to be silently broken since the earlier google.genai SDK
+    migration (that migration had only verified the text/vision path,
+    not image generation): (1) `_gen_image_gemini()` referenced a
+    nonexistent `types.GenerateImageConfig` class (correct name is
+    `GenerateImagesConfig`, plural); (2) beyond that typo, the
+    underlying `imagen-3.0-generate-002` predict-based model is no
+    longer available for this API key/version at all (confirmed via
+    `client.models.list()` - only newer `gemini-*-image` models exist
+    now) - rewrote `_gen_image_gemini()` to use
+    `client.models.generate_content(model="gemini-2.5-flash-image",
+    config=GenerateContentConfig(response_modalities=["Image"]))` and
+    extract image bytes from `candidate.content.parts[].inline_data`
+    instead of the retired `generate_images()`/predict API. NOTE: the
+    Gemini API key's plan showed `limit: 0` free-tier quota for
+    image-generation input tokens on the first live attempt (429
+    RESOURCE_EXHAUSTED) - the retry after deploy succeeded, but if
+    this recurs it's a billing/plan issue, not a code bug. Verified
+    live in production: real Gemini-generated 1024x1024 PNG returned
+    and rendered successfully via `/api/generate-image`.
+[ ] App store packaging - Prism is currently a FastAPI + PWA web app,
+    not a native app. To list it:
+      - Google Play: package the PWA as a Trusted Web Activity (TWA)
+        via Bubblewrap/PWABuilder pointing at https://que.fly.dev.
+      - Apple App Store: PWAs aren't accepted directly - wrap with
+        Capacitor (loads the existing web app in a WKWebView).
+      - Set up Apple Developer Program ($99/yr) and Google Play
+        Console ($25 one-time) accounts.
+      - Prepare store listing assets (screenshots, description,
+        keywords, support URL) and run TestFlight / Play Console
+        internal testing before public release.
+
+STEP 1 - BRAND FOUNDATION (do this first)
+------------------------------------------
+[x] DONE - Dedicated domain email(s) under prismaicreator.com already
+    exist and are in use (admin@prismaicreator.com is the Fly.io
+    account email and is now the contact address in the Privacy
+    Policy/ToS/VAPID push config).
+[ ] Confirm this SAME email/identity is used for every account below
+    (Facebook, Instagram, TikTok dev accounts) - do not mix with a
+    personal email/socials.
+[x] DONE - Logo/app icon exists (F:\QUE\Prism Media\Logo.png,
+    App_Icon.png - a holographic prism triangle) and is already wired
+    into the app (static/icon-192.png, icon-512.png,
+    apple-touch-icon.png, favicon set, manifest.json). Square format,
+    512x512 available - should already work for Meta/TikTok app icons
+    and profile pictures.
+[ ] Prepare a few pieces of real visual content (a handful of sample
+    posts/graphics) to publish before requesting API review - empty
+    "shell" accounts look like spam to reviewers. Note: 38 items
+    already exist in the app's own generation history (history.db),
+    but these haven't been posted to any live social account yet
+    since none are connected (see Step 3).
+
+STEP 2 - HOST REQUIRED LEGAL PAGES
+------------------------------------------
+[x] DONE (2026-08-18) - Published a Privacy Policy page, live at
+    https://que.fly.dev/privacy.html (also static/privacy.html in
+    the repo).
+[x] DONE (2026-08-18) - Published a Terms of Service page, live at
+    https://que.fly.dev/terms.html (also static/terms.html in the
+    repo). Both are public (no login required) so Meta/TikTok
+    reviewers and app store reviewers can reach them directly. If a
+    custom domain (prismaicreator.com) gets pointed at the Fly app
+    later, these same paths will work under that domain too.
+
+STEP 3 - CREATE SOCIAL ACCOUNTS UNDER "PRISM"
+------------------------------------------
+[x] DONE (2026-08-19) - Created a Facebook Page for Prism (not a
+    personal profile).
+[x] DONE (2026-08-19) - Created an Instagram account, switched to
+    Professional (Business), and linked it to the Prism Facebook
+    Page.
+[x] DONE (2026-08-19) - Created a TikTok account for Prism, switched
+    to Business Account, profile filled in (bio, photo). Website link
+    field not available yet (unlocks later based on follower count/
+    region), so the URL was included as plain text in the bio instead.
+[ ] Post a handful of real content pieces on each before moving to
+    Step 4.
+
+STEP 4 - META (INSTAGRAM) DEVELOPER SETUP
+------------------------------------------
+[ ] Go to developers.facebook.com, sign up with the Prism email.
+[ ] Create a new App -> type "Business".
+[ ] Add the "Instagram Graph API" product.
+[ ] In Business Settings, link the Prism Facebook Page + Instagram
+    account to the app's Business Manager.
+[ ] Generate a long-lived access token; note the Instagram Business
+    Account ID and Page ID.
+[ ] Submit for App Review for: instagram_content_publish,
+    instagram_basic, pages_show_list, business_management.
+    Needs: Privacy Policy URL, Terms URL, and a screen-recorded demo
+    of the publish flow. May also require Business Verification.
+[ ] Until review completes, test using your own account added as an
+    Admin/Tester in the app (works immediately, no review needed).
+
+STEP 5 - TIKTOK DEVELOPER SETUP
+------------------------------------------
+[ ] Go to developers.tiktok.com, sign up with the Prism email.
+[ ] Create an app -> get Client Key + Client Secret immediately.
+[ ] Add the "Content Posting API" product.
+[ ] Set OAuth redirect URI to a route on the Prism domain/app, e.g.
+    https://prismaicreator.com/api/tiktok/callback (or the Fly.io URL).
+[ ] Complete the OAuth flow once for the Prism TikTok account to get
+    an access token + refresh token (scopes: video.publish,
+    user.info.basic).
+[ ] Submit the app for TikTok's audit before using it beyond
+    whitelisted test accounts. Needs Privacy Policy URL + description
+    of the exact posting flow.
+
+STEP 6 - HAND OFF CREDENTIALS FOR INTEGRATION
+------------------------------------------
+Once you have these, send them over (through a secure channel, not
+plain chat/email if possible) so the real auto-publish + live metrics
+features can be wired in:
+  Meta:   App ID, App Secret, Page ID, Instagram Business Account ID,
+          long-lived access token
+  TikTok: Client Key, Client Secret, access token, refresh token
+
+STEP 7 - PLATFORM TOS COMPLIANCE (verified against Meta/TikTok/X's
+own current developer docs - do these BEFORE flipping on real
+publishing, not after)
+------------------------------------------
+[x] DONE - Self-enforced daily posting rate limit is now built into
+    the Schedule Queue backend (100 posts / 24h per platform, matching
+    Meta's confirmed Instagram Content Publishing API cap). Blocks the
+    action locally before Prism would ever call a real platform API,
+    so it can never trip a platform's own rate limiter.
+[ ] Keep "review -> confirm -> publish" as a real user click, not a
+    fully silent/unattended auto-poster. Meta, TikTok, and X all
+    require showing the user what will be posted and/or getting
+    explicit consent before a write action - Schedule Queue's
+    "Mark Posted" button already fits this, just don't automate past
+    that click when wiring in the real API calls.
+[ ] Set `is_ai_generated: true` on every Instagram Graph API publish
+    call once real posting is wired in - Meta has a dedicated field
+    for this exact purpose (AI content self-disclosure), so use it.
+[x] DONE (2026-08-18) - Added an in-app account/data-deletion path
+    (Settings -> Delete My Account) - see STEP 0 above for details.
+[ ] Never store a platform's own login password anywhere in Prism -
+    only ever use official OAuth tokens (Sign in with X / Facebook
+    Login for Business / TikTok Login Kit). X's terms explicitly
+    forbid asking for or storing X passwords directly.
+[ ] Whatever "intended use" description you submit to Meta/TikTok/X
+    during app review/audit, keep Prism's real behavior matching it -
+    all three platforms treat "substantive deviation" from your
+    declared use case as a violation requiring re-approval, not
+    something you can just quietly expand later.
+[ ] For TikTok specifically: posts made through an unaudited app stay
+    restricted to private/self-only visibility no matter which account
+    posts - budget for the audit step before expecting real public
+    posts to work.
+[ ] For X specifically (only relevant once/if X integration is
+    added): no bulk/aggressive automated actions, no posting identical
+    content across multiple accounts, no paying/incentivizing likes-
+    follows-reposts through the API, and any bot account must
+    self-identify as a bot in its own bio.
+
+STEP 8 - MULTI-ACCOUNT / MULTI-PAGE DATA MODEL (design BEFORE wiring
+real publishing - confirmed the current schema does NOT support this
+yet, only a bare `platform` string)
+------------------------------------------
+Goal: a user must be able to (a) connect MULTIPLE pages/accounts on
+the SAME platform (e.g. two Facebook Pages, two Instagram Business
+accounts) and (b) connect multiple DIFFERENT platforms, then choose
+exactly which connected page/account any given post/scheduled item
+goes out on.
+
+[ ] Add a `social_accounts` table:
+      id, owner, platform, account_id (the platform's own page/
+      account ID), account_name (display label, e.g. "Prism Main
+      Page" vs "Prism Second Shop"), access_token, refresh_token,
+      token_expires_at, is_default, created_at
+    One row per connected page/account - a single user can have many
+    rows per platform.
+[ ] Add `social_account_id` (FK into social_accounts) to
+    `scheduled_posts`, so a post targets a specific connected page/
+    account, not just a platform name. Keep the existing `platform`
+    column too (denormalized, still useful for analytics filters).
+[ ] Build a "Connected Accounts" settings screen: list every
+    connected page/account grouped by platform, a "Connect another
+    page" action per platform, and a way to mark one as default.
+[ ] Schedule Queue's create/edit UI needs an account picker (not just
+    today's platform picker) whenever a user has 2+ accounts
+    connected on the same platform.
+[ ] Meta note: a Facebook Login for Business token can grant access
+    to multiple Pages the user manages, and each Page can have at
+    most one linked Instagram Business account - fetch and store ALL
+    of them via /me/accounts at connect-time (not just the first),
+    so multi-page selection works immediately once review is done.
+[ ] TikTok note: the Content Posting API issues one access token per
+    single creator account per OAuth flow - supporting multiple
+    TikTok accounts means running the connect flow once per account
+    and storing each as its own social_accounts row.
+[ ] X note: same pattern, one OAuth connection/token per X account -
+    and per Step 7's ToS notes, never offer a "post the same thing to
+    all my X accounts at once" shortcut.
+
+NOTES
+------------------------------------------
+- The app's Schedule Queue and Analytics Dashboard already have basic
+  database structure to plug real publishing/metrics into, BUT it
+  currently only tracks a platform name, not a specific connected
+  account/page - see Step 8 above for the multi-account model needed
+  before real publishing across multiple pages/accounts works.
+- Rebranding the app code from "Q.U.E." to "Prism" is being done now
+  as part of this task list.

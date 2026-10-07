@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WORKHORSE Character Graphics Gallery</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #070b14;
+      --card-bg: rgba(13, 21, 39, 0.75);
+      --border: rgba(255, 255, 255, 0.08);
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --accent: #f72585;
+      --cyan: #00f2fe;
+      --gold: #ffd166;
+    }
+    * { box-sizing: border-box; margin:0; padding:0; }
+    body {
+      background: var(--bg);
+      background-image: 
+        radial-gradient(circle at 15% 10%, rgba(247, 37, 133, 0.12) 0%, transparent 40%),
+        radial-gradient(circle at 85% 20%, rgba(0, 242, 254, 0.1) 0%, transparent 45%),
+        radial-gradient(circle at 50% 80%, rgba(139, 92, 246, 0.1) 0%, transparent 50%);
+      color: var(--text);
+      font-family: 'Outfit', sans-serif;
+      padding: 36px 32px 80px 32px;
+      min-height: 100vh;
+    }
+    .header {
+      max-width: 1440px;
+      margin: 0 auto 32px auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      flex-wrap: wrap;
+      gap: 20px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 24px;
+    }
+    .title-group h1 {
+      font-size: 32px;
+      font-weight: 900;
+      letter-spacing: -0.5px;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .badge {
+      display: inline-block;
+      background: linear-gradient(135deg, #f72585 0%, #7209b7 100%);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 1px;
+      padding: 4px 12px;
+      border-radius: 20px;
+      text-transform: uppercase;
+    }
+    .stats-row {
+      display: flex;
+      gap: 16px;
+    }
+    .stat-pill {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border);
+      padding: 8px 16px;
+      border-radius: 8px;
+      text-align: center;
+    }
+    .stat-pill strong {
+      font-size: 18px;
+      color: #fff;
+      display: block;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .stat-pill span {
+      font-size: 11px;
+      color: var(--muted);
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+
+    /* Filters */
+    .controls {
+      max-width: 1440px;
+      margin: 0 auto 28px auto;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .filter-group {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .filter-label {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      min-width: 90px;
+    }
+    .btn-filter {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      padding: 7px 14px;
+      border-radius: 6px;
+      font-size: 12.5px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-family: inherit;
+    }
+    .btn-filter:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: #fff;
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+    .btn-filter.active {
+      background: #f72585;
+      color: #fff;
+      border-color: #f72585;
+      box-shadow: 0 0 15px rgba(247, 37, 133, 0.4);
+    }
+
+    /* Grid */
+    .grid {
+      max-width: 1440px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 20px;
+    }
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+      position: relative;
+    }
+    .card:hover {
+      transform: translateY(-4px);
+      border-color: rgba(247, 37, 133, 0.5);
+      box-shadow: 0 12px 30px rgba(0,0,0,0.6);
+    }
+    .card-thumb-wrap {
+      width: 100%;
+      height: 220px;
+      background: #050811;
+      background-image: 
+        linear-gradient(45deg, rgba(255,255,255,0.02) 25%, transparent 25%),
+        linear-gradient(-45deg, rgba(255,255,255,0.02) 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, rgba(255,255,255,0.02) 75%),
+        linear-gradient(-45deg, transparent 75%, rgba(255,255,255,0.02) 75%);
+      background-size: 16px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      padding: 12px;
+      cursor: pointer;
+    }
+    .card-thumb {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+      transition: transform 0.3s ease;
+    }
+    .card:hover .card-thumb {
+      transform: scale(1.05);
+    }
+    .card-body {
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      flex-grow: 1;
+      border-top: 1px solid var(--border);
+    }
+    .card-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: #fff;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .card-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11px;
+      color: var(--muted);
+    }
+    .agent-pill {
+      font-size: 10.5px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      display: inline-block;
+    }
+
+    /* Lightbox Modal */
+    .modal {
+      position: fixed;
+      top: 0; left: 0; width: 100vw; height: 100vh;
+      background: rgba(4, 7, 15, 0.92);
+      backdrop-filter: blur(10px);
+      z-index: 1000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 30px;
+    }
+    .modal-content {
+      background: #0d1527;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 14px;
+      max-width: 900px;
+      width: 100%;
+      max-height: 90vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 25px 60px rgba(0,0,0,0.8);
+    }
+    .modal-header {
+      padding: 16px 22px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .modal-title {
+      font-size: 16px;
+      font-weight: 700;
+      font-family: 'JetBrains Mono', monospace;
+      color: #fff;
+    }
+    .modal-close {
+      background: transparent;
+      border: none;
+      color: var(--muted);
+      font-size: 24px;
+      cursor: pointer;
+      line-height: 1;
+    }
+    .modal-close:hover { color: #fff; }
+    .modal-body {
+      padding: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #050811;
+      overflow: auto;
+      max-height: 60vh;
+    }
+    .modal-img {
+      max-width: 100%;
+      max-height: 55vh;
+      object-fit: contain;
+    }
+    .modal-footer {
+      padding: 16px 22px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #090d18;
+    }
+    .path-text {
+      font-size: 12px;
+      color: var(--muted);
+      font-family: 'JetBrains Mono', monospace;
+      word-break: break-all;
+    }
+    .btn-action {
+      background: #10b981;
+      color: #04172a;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-weight: bold;
+      font-size: 12px;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .btn-action:hover { opacity: 0.9; }
+  </style>
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header class="header">
+    <div class="title-group">
+      <span class="badge">WORKHORSE GRAPHICS ASSETS</span>
+      <h1>🎨 AI Agent Character Archive</h1>
+      <p style="color:var(--muted); font-size:14px; margin-top:4px;">
+        High-resolution 3D collectible cards, transparent standees, portrait busts & vector SVGs.
+      </p>
+    </div>
+    <div class="stats-row">
+      <div class="stat-pill">
+        <strong>96</strong>
+        <span>Total Files</span>
+      </div>
+      <div class="stat-pill">
+        <strong>8</strong>
+        <span>AI Agents</span>
+      </div>
+      <div class="stat-pill">
+        <strong>4</strong>
+        <span>Master Types</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- FILTERS -->
+  <section class="controls">
+    <!-- Category Filter -->
+    <div class="filter-group">
+      <span class="filter-label">Category:</span>
+      <button class="btn-filter active" onclick="filterCategory('all', this)">All Types</button>
+      <button class="btn-filter" onclick="filterCategory('card_2x', this)">⭐ Master Cards (2X)</button>
+      <button class="btn-filter" onclick="filterCategory('card', this)">Cards</button>
+      <button class="btn-filter" onclick="filterCategory('cutout', this)">Transparent Cutouts</button>
+      <button class="btn-filter" onclick="filterCategory('bust', this)">Portrait Busts</button>
+      <button class="btn-filter" onclick="filterCategory('svg', this)">Vector SVGs</button>
+      <button class="btn-filter" onclick="filterCategory('stage', this)">3D Rigs & Stages</button>
+      <button class="btn-filter" onclick="filterCategory('badge', this)">Badges</button>
+    </div>
+
+    <!-- Agent Filter -->
+    <div class="filter-group">
+      <span class="filter-label">Agent:</span>
+      <button class="btn-filter active" onclick="filterAgent('all', this)">All Agents</button>
+      <button class="btn-filter" onclick="filterAgent('aura', this)">Aura</button>
+      <button class="btn-filter" onclick="filterAgent('cipher', this)">Cipher</button>
+      <button class="btn-filter" onclick="filterAgent('echo', this)">Echo</button>
+      <button class="btn-filter" onclick="filterAgent('forge', this)">Forge</button>
+      <button class="btn-filter" onclick="filterAgent('herald', this)">Herald</button>
+      <button class="btn-filter" onclick="filterAgent('iris', this)">Iris</button>
+      <button class="btn-filter" onclick="filterAgent('mercury', this)">Mercury</button>
+      <button class="btn-filter" onclick="filterAgent('vanguard', this)">Vanguard</button>
+    </div>
+  </section>
+
+  <!-- ASSET GRID -->
+  <main class="grid" id="assetGrid">
+  </main>
+
+  <!-- MODAL -->
+  <div class="modal" id="previewModal" onclick="closeModal(event)">
+    <div class="modal-content" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <div class="modal-title" id="modalTitle">Filename</div>
+        <button class="modal-close" onclick="closeModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <img class="modal-img" id="modalImg" src="" alt="Preview">
+      </div>
+      <div class="modal-footer">
+        <span class="path-text" id="modalPath">Path</span>
+        <button class="btn-action" onclick="copyPath()">Copy Path</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const assets = [{"filename": "aura.png", "rel_path": "All_Assets_Flat/aura.png", "size_kb": 246.9, "agent_key": "aura", "agent_name": "Aura", "agent_color": "#f72585", "cat_key": "other", "cat_label": "Asset", "ext": "PNG"}, {"filename": "aura.svg", "rel_path": "All_Assets_Flat/aura.svg", "size_kb": 331.8, "agent_key": "aura", "agent_name": "Aura", "agent_color": "#f72585", "cat_key": "svg", "cat_label": "Vector SVG", "ext": "SVG"}, {"filename": "aura_bot_inspect.png", "rel_path": "All_Assets_Flat/aura_bot_inspect.png", "size_kb": 39.9, "agent_key": "aura", "agent_name": "Aura", "agent_color": "#f72585", "cat_key": "badge", "cat_label": "Status Badge", "ext": "PNG"}, {"filename": "aura_bottom_check.png", "rel_path": "All_Assets_Flat/aura_bottom_check.png", "size_kb": 62.9, "agent_key": "aura", "agent_name": "Aura", "agent_color": "#f72585", "cat_key": "badge", "cat_label": "Status Badge", "ext": "PNG"}, {"filename": "aura_bust.png", "rel_path": "All_Assets_Flat/aura_bust.png", "size_kb": 208.5, "agent_key": "aura", "agent_name": "Aura", "agent_color": "#f72585", "cat_key": "bust", "cat_label": "Portrait Bust", "ext": "PNG"}, {"filename": "aura_card.png", "rel_path": "All_Assets_Flat/aura_card.png", "size_kb": 377.0, "agent_key": "aura", "agent_name": "Aura", "agent_color": "#f72585", "cat_key": "card", "cat_label": "Card", "ext": "PNG"}, {"filename": "aura_card_2x.png", "rel_path": "All_Assets_Flat/aura_card_2x.png", "size_kb": 377.0, "agent_key": "aura", "agent_name": "Aura", "agent_color": "#f72585", "cat_key": "card_2x", "cat_label": "Master Card (2X)", "ext": "PNG"}, {"filename": "aura_card_uniform.png", "rel_path": "All_Assets_Flat/aura_card_uniform.png", "size_kb": 287.1, "agent_key": "aura", "agent_name": "Aura", "agent_color": "#f72585", "cat_key": "card", "cat_label": "Card", "ext": "PNG"}, {"filename": "aura_char_live.png", "rel_path": "All_Assets_Flat/aura_char_live.png", "size_kb": 284.5, "agent_key": "aura", "agent_name": "Aura", "agent_color": "#f72585", "cat_key": "cutout", "cat_label": "Transparent Cutout", "ext": "PNG"}, {"filename": "aura_chassis_live.png", "rel_path": "All_Assets_Flat/aura_chassis_live.png", "size_kb": 133.3, "agent_key": "aura", "agent_name": "Aura", "agent_color": "#f72585", "cat_key": "stage", "cat_label": "3D Stage / Rig", "ext": "PNG"}, {"filename": "aura_pill_clean.png", "rel_path": "All_Assets_Flat/aura_pill_clean.png", "size_kb": 40.1, "agent_key": "aura", "agent_name": "Aura", "agent_color": "#f72585", "cat_key": "badge", "cat_label": "Status Badge", "ext": "PNG"}, {"filename": "aura_rig_char.png", "rel_path": "All_Assets_Flat/aura_rig_char.png", "size_kb": 120.8, "agent_key": "aura", "agent_name": "Aura", "agent_color": "#f72585", "cat_key": "cutout", "cat_label": "Transparent Cutout", "ext": "PNG"}, {"filename": "aura_rig_depth.png", "rel_path": "All_Assets_Flat/aura_rig_depth.png", "size_kb": 23.3, "agent_key": "aura", "agent_name": "Aura", "agent_color": "#f72585", "cat_key": "stage", "cat_label": "3D Stage / Rig", "ext": "PNG"}, {"filename": "aura_rig_stage.png", "rel_path": "All_Assets_Flat/aura_rig_stage.png", "size_kb": 183.7, "agent_key": "aura", "agent_name": "Aura", "agent_color": "#f72585", "cat_key": "stage", "cat_label": "3D Stage / Rig", "ext": "PNG"}, {"filename": "cipher.png", "rel_path": "All_Assets_Flat/cipher.png", "size_kb": 214.5, "agent_key": "cipher", "agent_name": "Cipher", "agent_color": "#10b981", "cat_key": "other", "cat_label": "Asset", "ext": "PNG"}, {"filename": "cipher.svg", "rel_path": "All_Assets_Flat/cipher.svg", "size_kb": 288.4, "agent_key": "cipher", "agent_name": "Cipher", "agent_color": "#10b981", "cat_key": "svg", "cat_label": "Vector SVG", "ext": "SVG"}, {"filename": "cipher_bot_inspect.png", "rel_path": "All_Assets_Flat/cipher_bot_inspect.png", "size_kb": 41.6, "agent_key": "cipher", "agent_name": "Cipher", "agent_color": "#10b981", "cat_key": "badge", "cat_label": "Status Badge", "ext": "PNG"}, {"filename": "cipher_bottom_check.png", "rel_path": "All_Assets_Flat/cipher_bottom_check.png", "size_kb": 56.3, "agent_key": "cipher", "agent_name": "Cipher", "agent_color": "#10b981", "cat_key": "badge", "cat_label": "Status Badge", "ext": "PNG"}, {"filename": "cipher_bust.png", "rel_path": "All_Assets_Flat/cipher_bust.png", "size_kb": 177.9, "agent_key": "cipher", "agent_name": "Cipher", "agent_color": "#10b981", "cat_key": "bust", "cat_label": "Portrait Bust", "ext": "PNG"}, {"filename": "cipher_card.png", "rel_path": "All_Assets_Flat/cipher_card.png", "size_kb": 254.2, "agent_key": "cipher", "agent_name": "Cipher", "agent_color": "#10b981", "cat_key": "card", "cat_label": "Card", "ext": "PNG"}, {"filename": "cipher_card_2x.png", "rel_path": "All_Assets_Flat/cipher_card_2x.png", "size_kb": 254.2, "agent_key": "cipher", "agent_name": "Cipher", "agent_color": "#10b981", "cat_key": "card_2x", "cat_label": "Master Card (2X)", "ext": "PNG"}, {"filename": "cipher_card_uniform.png", "rel_path": "All_Assets_Flat/cipher_card_uniform.png", "size_kb": 254.2, "agent_key": "cipher", "agent_name": "Cipher", "agent_color": "#10b981", "cat_key": "card", "cat_label": "Card", "ext": "PNG"}, {"filename": "cipher_char_live.png", "rel_path": "All_Assets_Flat/cipher_char_live.png", "size_kb": 254.1, "agent_key": "cipher", "agent_name": "Cipher", "agent_color": "#10b981", "cat_key": "cutout", "cat_label": "Transparent Cutout", "ext": "PNG"}, {"filename": "cipher_chassis_live.png", "rel_path": "All_Assets_Flat/cipher_chassis_live.png", "size_kb": 132.4, "agent_key": "cipher", "agent_name": "Cipher", "agent_color": "#10b981", "cat_key": "stage", "cat_label": "3D Stage / Rig", "ext": "PNG"}, {"filename": "cipher_pill_clean.png", "rel_path": "All_Assets_Flat/cipher_pill_clean.png", "size_kb": 40.3, "agent_key": "cipher", "agent_name": "Cipher", "agent_color": "#10b981", "cat_key": "badge", "cat_label": "Status Badge", "ext": "PNG"}, {"filename": "cipher_rig_char.png", "rel_path": "All_Assets_Flat/cipher_rig_char.png", "size_kb": 277.9, "agent_key": "cipher", "agent_name": "Cipher", "agent_color": "#10b981", "cat_key": "cutout", "cat_label": "Transparent Cutout", "ext": "PNG"}, {"filename": "cipher_rig_depth.png", "rel_path": "All_Assets_Flat/cipher_rig_depth.png", "size_kb": 15.7, "agent_key": "cipher", "agent_name": "Cipher", "agent_color": "#10b981", "cat_key": "stage", "cat_label": "3D Stage / Rig", "ext": "PNG"}, {"filename": "cipher_rig_stage.png", "rel_path": "All_Assets_Flat/cipher_rig_stage.png", "size_kb": 208.4, "agent_key": "cipher", "agent_name": "Cipher", "agent_color": "#10b981", "cat_key": "stage", "cat_label": "3D Stage / Rig", "ext": "PNG"}, {"filename": "echo.png", "rel_path": "All_Assets_Flat/echo.png", "size_kb": 220.9, "agent_key": "echo", "agent_name": "Echo", "agent_color": "#00f2fe", "cat_key": "other", "cat_label": "Asset", "ext": "PNG"}, {"filename": "echo.svg", "rel_path": "All_Assets_Flat/echo.svg", "size_kb": 297.4, "agent_key": "echo", "agent_name": "Echo", "agent_color": "#00f2fe", "cat_key": "svg", "cat_label": "Vector SVG", "ext": "SVG"}, {"filename": "echo_bot_inspect.png", "rel_path": "All_Assets_Flat/echo_bot_inspect.png", "size_kb": 39.8, "agent_key": "echo", "agent_name": "Echo", "agent_color": "#00f2fe", "cat_key": "badge", "cat_label": "Status Badge", "ext": "PNG"}, {"filename": "echo_bottom_check.png", "rel_path": "All_Assets_Flat/echo_bottom_check.png", "size_kb": 53.8, "agent_key": "echo", "agent_name": "Echo", "agent_color": "#00f2fe", "cat_key": "badge", "cat_label": "Status Badge", "ext": "PNG"}, {"filename": "echo_bust.png", "rel_path": "All_Assets_Flat/echo_bust.png", "size_kb": 183.5, "agent_key": "echo", "agent_name": "Echo", "agent_color": "#00f2fe", "cat_key": "bust", "cat_label": "Portrait Bust", "ext": "PNG"}, {"filename": "echo_card.png", "rel_path": "All_Assets_Flat/echo_card.png", "size_kb": 259.7, "agent_key": "echo", "agent_name": "Echo", "agent_color": "#00f2fe", "cat_key": "card", "cat_label": "Card", "ext": "PNG"}, {"filename": "echo_card_2x.png", "rel_path": "All_Assets_Flat/echo_card_2x.png", "size_kb": 259.7, "agent_key": "echo", "agent_name": "Echo", "agent_color": "#00f2fe", "cat_key": "card_2x", "cat_label": "Master Card (2X)", "ext": "PNG"}, {"filename": "echo_card_uniform.png", "rel_path": "All_Assets_Flat/echo_card_uniform.png", "size_kb": 259.7, "agent_key": "echo", "agent_name": "Echo", "agent_color": "#00f2fe", "cat_key": "card", "cat_label": "Card", "ext": "PNG"}, {"filename": "echo_char_live.png", "rel_path": "All_Assets_Flat/echo_char_live.png", "size_kb": 259.7, "agent_key": "echo", "agent_name": "Echo", "agent_color": "#00f2fe", "cat_key": "cutout", "cat_label": "Transparent Cutout", "ext": "PNG"}, {"filename": "echo_chassis_live.png", "rel_path": "All_Assets_Flat/echo_chassis_live.png", "size_kb": 132.5, "agent_key": "echo", "agent_name": "Echo", "agent_color": "#00f2fe", "cat_key": "stage", "cat_label": "3D Stage / Rig", "ext": "PNG"}, {"filename": "echo_pill_clean.png", "rel_path": "All_Assets_Flat/echo_pill_clean.png", "size_kb": 38.4, "agent_key": "echo", "agent_name": "Echo", "agent_color": "#00f2fe", "cat_key": "badge", "cat_label": "Status Badge", "ext": "PNG"}, {"filename": "echo_rig_char.png", "rel_path": "All_Assets_Flat/echo_rig_char.png", "size_kb": 297.9, "agent_key": "echo", "agent_name": "Echo", "agent_color": "#00f2fe", "cat_key": "cutout", "cat_label": "Transparent Cutout", "ext": "PNG"}, {"filename": "echo_rig_depth.png", "rel_path": "All_Assets_Flat/echo_rig_depth.png", "size_kb": 20.0, "agent_key": "echo", "agent_name": "Echo", "agent_color": "#00f2fe", "cat_key": "stage", "cat_label": "3D Stage / Rig", "ext": "PNG"}, {"filename": "echo_rig_stage.png", "rel_path": "All_Assets_Flat/echo_rig_stage.png", "size_kb": 215.5, "agent_key": "echo", "agent_name": "Echo", "agent_color": "#00f2fe", "cat_key": "stage", "cat_label": "3D Stage / Rig", "ext": "PNG"}, {"filename": "forge.png", "rel_path": "All_Assets_Flat/forge.png", "size_kb": 296.1, "agent_key": "forge", "agent_name": "Forge", "agent_color": "#f97316", "cat_key": "other", "cat_label": "Asset", "ext": "PNG"}, {"filename": "forge.svg", "rel_path": "All_Assets_Flat/forge.svg", "size_kb": 397.6, "agent_key": "forge", "agent_name": "Forge", "agent_color": "#f97316", "cat_key": "svg", "cat_label": "Vector SVG", "ext": "SVG"}, {"filename": "forge_bot_inspect.png", "rel_path": "All_Assets_Flat/forge_bot_inspect.png", "size_kb": 46.6, "agent_key": "forge", "agent_name": "Forge", "agent_color": "#f97316", "cat_key": "badge", "cat_label": "Status Badge", "ext": "PNG"}, {"filename": "forge_bottom_check.png", "rel_path": "All_Assets_Flat/forge_bottom_check.png", "size_kb": 77.9, "agent_key": "forge", "agent_name": "Forge", "agent_color": "#f97316", "cat_key": "badge", "cat_label": "Status Badge", "ext": "PNG"}, {"filename": "forge_bust.png", "rel_path": "All_Assets_Flat/forge_bust.png", "size_kb": 245.8, "agent_key": "forge", "agent_name": "Forge", "agent_color": "#f97316", "cat_key": "bust", "cat_label": "Portrait Bust", "ext": "PNG"}, {"filename": "forge_card.png", "rel_path": "All_Assets_Flat/forge_card.png", "size_kb": 341.3, "agent_key": "forge", "agent_name": "Forge", "agent_color": "#f97316", "cat_key": "card", "cat_label": "Card", "ext": "PNG"}, {"filename": "forge_card_2x.png", "rel_path": "All_Assets_Flat/forge_card_2x.png", "size_kb": 341.3, "agent_key": "forge", "agent_name": "Forge", "agent_color": "#f97316", "cat_key": "card_2x", "cat_label": "Master Card (2X)", "ext": "PNG"}, {"filename": "forge_card_uniform.png", "rel_path": "All_Assets_Flat/forge_card_uniform.png", "size_kb": 341.3, "agent_key": "forge", "agent_name": "Forge", "agent_color": "#f97316", "cat_key": "card", "cat_label": "Card", "ext": "PNG"}, {"filename": "forge_char_live.png", "rel_path": "All_Assets_Flat/forge_char_live.png", "size_kb": 352.8, "agent_key": "forge", "agent_name": "Forge", "agent_color": "#f97316", "cat_key": "cutout", "cat_label": "Transparent Cutout", "ext": "PNG"}, {"filename": "forge_chassis_live.png", "rel_path": "All_Assets_Flat/forge_chassis_live.png", "size_kb": 181.7, "agent_key": "forge", "agent_name": "Forge", "agent_color": "#f97316", "cat_key": "stage", "cat_label": "3D Stage / Rig", "ext": "PNG"}, {"filename": "forge_gear_fg.png", "rel_path": "All_Assets_Flat/forge_gear_fg.png", "size_kb": 32.9, "agent_key": "forge", "agent_name": "Forge", "agent_color": "#f97316", "cat_key": "other", "cat_label": "Asset", "ext": "PNG"}, {"filename": "forge_pill_clean.png", "rel_path": "All_Assets_Flat/forge_pill_clean.png", "size_kb": 46.8, "agent_key": "forge", "agent_name": "Forge", "agent_color": "#f97316", "cat_key": "badge", "cat_label": "Status Badge", "ext": "PNG"}, {"filename": "forge_rembg_test.png", "rel_path": "All_Assets_Flat/forge_rembg_test.png", "size_kb": 176.8, "agent_key": "forge", "agent_name": "Forge", "agent_color": "#f97316", "cat_key": "cutout", "cat_label": "Transparent Cutout", "ext": "PNG"}, {"filename": "forge_rig_char.png", "rel_path": "All_Assets_Flat/forge_rig_char.png", "size_kb": 380.9, "agent_key": "forge", "agent_name": "Forge", "agent_color": "#f97316", "cat_key": "cutout", "cat_label": "Transparent Cutout", "ext": "PNG"}, {"filename": "forge_rig_depth.png", "rel_path": "All_Assets_Flat/forge_rig_depth.png", "size_kb": 38.9, "agent_key": "forge", "agent_name": "Forge", "agent_color": "#f97316", "cat_key": "stage", "cat_label": "3D Stage / Rig", "ext": "PNG"}, {"filename": "forge_rig_stage.png", "rel_path": "All_Assets_Flat/forge_rig_stage.png", "size_kb": 230.6, "agent_key": "forge", "agent_name": "Forge", "agent_color": "#f97316", "cat_key": "stage", "cat_label": "3D Stage / Rig", "ext": "PNG"}, {"filename": "herald_card.png", "rel_path": "All_Assets_Flat/herald_card.png", "size_kb": 421.9, "agent_key": "herald", "agent_name": "Herald", "agent_color": "#a855f7", "cat_key": "card", "cat_label": "Card", "ext": "PNG"}, {"filename": "herald_card_2x.png", "rel_path": "All_Assets_Flat/herald_card_2x.png", "size_kb": 421.9, "agent_key": "herald", "agent_name": "Herald", "agent_color": "#a855f7", "cat_key": "card_2x", "cat_label": "Master Card (2X)", "ext": "PNG"}, {"filename": "herald_rig_char.png", "rel_path": "All_Assets_Flat/herald_rig_char.png", "size_kb": 477.9, "agent_key": "herald", "agent_name": "Herald", "agent_color": "#a855f7", "cat_key": "cutout", "cat_label": "Transparent Cutout", "ext": "PNG"}, {"filename": "herald_rig_depth.png", "rel_path": "All_Assets_Flat/herald_rig_depth.png", "size_kb": 13.1, "agent_key": "herald", "agent_name": "Herald", "agent_color": "#a855f7", "cat_key": "stage", "cat_label": "3D Stage / Rig", "ext": "PNG"}, {"filename": "herald_rig_stage.png", "rel_path": "All_Assets_Flat/herald_rig_stage.png", "size_kb": 368.3, "agent_key": "herald", "agent_name": "Herald", "agent_color": "#a855f7", "cat_key": "stage", "cat_label": "3D Stage / Rig", "ext": "PNG"}, {"filename": "iris.png", "rel_path": "All_Assets_Flat/iris.png", "size_kb": 272.6, "agent_key": "iris", "agent_name": "Iris", "agent_color": "#8b5cf6", "cat_key": "other", "cat_label": "Asset", "ext": "PNG"}, {"filename": "iris.svg", "rel_path": "All_Assets_Flat/iris.svg", "size_kb": 366.4, "agent_key": "iris", "agent_name": "Iris", "agent_color": "#8b5cf6", "cat_key": "svg", "cat_label": "Vector SVG", "ext": "SVG"}, {"filename": "iris_bot_inspect.png", "rel_path": "All_Assets_Flat/iris_bot_inspect.png", "size_kb": 44.1, "agent_key": "iris", "agent_name": "Iris", "agent_color": "#8b5cf6", "cat_key": "badge", "cat_label": "Status Badge", "ext": "PNG"}, {"filename": "iris_bottom_check.png", "rel_path": "All_Assets_Flat/iris_bottom_check.png", "size_kb": 69.2, "agent_key": "iris", "agent_name": "Iris", "agent_color": "#8b5cf6", "cat_key": "badge", "cat_label": "Status Badge", "ext": "PNG"}, {"filename": "iris_bust.png", "rel_path": "All_Assets_Flat/iris_bust.png", "size_kb": 225.4, "agent_key": "iris", "agent_name": "Iris", "agent_color": "#8b5cf6", "cat_key": "bust", "cat_label": "Portrait Bust", "ext": "PNG"}, {"filename": "iris_card.png", "rel_path": "All_Assets_Flat/iris_card.png", "size_kb": 317.4, "agent_key": "iris", "agent_name": "Iris", "agent_color": "#8b5cf6", "cat_key": "card", "cat_label": "Card", "ext": "PNG"}, {"filename": "iris_card_2x.png", "rel_path": "All_Assets_Flat/iris_card_2x.png", "size_kb": 317.4, "agent_key": "iris", "agent_name": "Iris", "agent_color": "#8b5cf6", "cat_key": "card_2x", "cat_label": "Master Card (2X)", "ext": "PNG"}, {"filename": "iris_card_uniform.png", "rel_path": "All_Assets_Flat/iris_card_uniform.png", "size_kb": 317.4, "agent_key": "iris", "agent_name": "Iris", "agent_color": "#8b5cf6", "cat_key": "card", "cat_label": "Card", "ext": "PNG"}, {"filename": "iris_char_live.png", "rel_path": "All_Assets_Flat/iris_char_live.png", "size_kb": 321.0, "agent_key": "iris", "agent_name": "Iris", "agent_color": "#8b5cf6", "cat_key": "cutout", "cat_label": "Transparent Cutout", "ext": "PNG"}, {"filename": "iris_chassis_live.png", "rel_path": "All_Assets_Flat/iris_chassis_live.png", "size_kb": 173.1, "agent_key": "iris", "agent_name": "Iris", "agent_color": "#8b5cf6", "cat_key": "stage", "cat_label": "3D Stage / Rig", "ext": "PNG"}, {"filename": "iris_pill_clean.png", "rel_path": "All_Assets_Flat/iris_pill_clean.png", "size_kb": 43.4, "agent_key": "iris", "agent_name": "Iris", "agent_color": "#8b5cf6", "cat_key": "badge", "cat_label": "Status Badge", "ext": "PNG"}, {"filename": "iris_rig_char.png", "rel_path": "All_Assets_Flat/iris_rig_char.png", "size_kb": 348.4, "agent_key": "iris", "agent_name": "Iris", "agent_color": "#8b5cf6", "cat_key": "cutout", "cat_label": "Transparent Cutout", "ext": "PNG"}, {"filename": "iris_rig_depth.png", "rel_path": "All_Assets_Flat/iris_rig_depth.png", "size_kb": 27.5, "agent_key": "iris", "agent_name": "Iris", "agent_color": "#8b5cf6", "cat_key": "stage", "cat_label": "3D Stage / Rig", "ext": "PNG"}, {"filename": "iris_rig_stage.png", "rel_path": "All_Assets_Flat/iris_rig_stage.png", "size_kb": 231.8, "agent_key": "iris", "agent_name": "Iris", "agent_color": "#8b5cf6", "cat_key": "stage", "cat_label": "3D Stage / Rig", "ext": "PNG"}, {"filename": "mercury_card.png", "rel_path": "All_Assets_Flat/mercury_card.png", "size_kb": 424.2, "agent_key": "mercury", "agent_name": "Mercury", "agent_color": "#38bdf8", "cat_key": "card", "cat_label": "Card", "ext": "PNG"}, {"filename": "mercury_card_2x.png", "rel_path": "All_Assets_Flat/mercury_card_2x.png", "size_kb": 424.2, "agent_key": "mercury", "agent_name": "Mercury", "agent_color": "#38bdf8", "cat_key": "card_2x", "cat_label": "Master Card (2X)", "ext": "PNG"}, {"filename": "mercury_rig_char.png", "rel_path": "All_Assets_Flat/mercury_rig_char.png", "size_kb": 484.2, "agent_key": "mercury", "agent_name": "Mercury", "agent_color": "#38bdf8", "cat_key": "cutout", "cat_label": "Transparent Cutout", "ext": "PNG"}, {"filename": "mercury_rig_depth.png", "rel_path": "All_Assets_Flat/mercury_rig_depth.png", "size_kb": 13.7, "agent_key": "mercury", "agent_name": "Mercury", "agent_color": "#38bdf8", "cat_key": "stage", "cat_label": "3D Stage / Rig", "ext": "PNG"}, {"filename": "mercury_rig_stage.png", "rel_path": "All_Assets_Flat/mercury_rig_stage.png", "size_kb": 361.9, "agent_key": "mercury", "agent_name": "Mercury", "agent_color": "#38bdf8", "cat_key": "stage", "cat_label": "3D Stage / Rig", "ext": "PNG"}, {"filename": "vanguard.png", "rel_path": "All_Assets_Flat/vanguard.png", "size_kb": 228.7, "agent_key": "vanguard", "agent_name": "Vanguard", "agent_color": "#3b82f6", "cat_key": "other", "cat_label": "Asset", "ext": "PNG"}, {"filename": "vanguard.svg", "rel_path": "All_Assets_Flat/vanguard.svg", "size_kb": 307.9, "agent_key": "vanguard", "agent_name": "Vanguard", "agent_color": "#3b82f6", "cat_key": "svg", "cat_label": "Vector SVG", "ext": "SVG"}, {"filename": "vanguard_bot_inspect.png", "rel_path": "All_Assets_Flat/vanguard_bot_inspect.png", "size_kb": 43.3, "agent_key": "vanguard", "agent_name": "Vanguard", "agent_color": "#3b82f6", "cat_key": "badge", "cat_label": "Status Badge", "ext": "PNG"}, {"filename": "vanguard_bottom_check.png", "rel_path": "All_Assets_Flat/vanguard_bottom_check.png", "size_kb": 59.9, "agent_key": "vanguard", "agent_name": "Vanguard", "agent_color": "#3b82f6", "cat_key": "badge", "cat_label": "Status Badge", "ext": "PNG"}, {"filename": "vanguard_bust.png", "rel_path": "All_Assets_Flat/vanguard_bust.png", "size_kb": 194.1, "agent_key": "vanguard", "agent_name": "Vanguard", "agent_color": "#3b82f6", "cat_key": "bust", "cat_label": "Portrait Bust", "ext": "PNG"}, {"filename": "vanguard_card.png", "rel_path": "All_Assets_Flat/vanguard_card.png", "size_kb": 275.7, "agent_key": "vanguard", "agent_name": "Vanguard", "agent_color": "#3b82f6", "cat_key": "card", "cat_label": "Card", "ext": "PNG"}, {"filename": "vanguard_card_2x.png", "rel_path": "All_Assets_Flat/vanguard_card_2x.png", "size_kb": 275.7, "agent_key": "vanguard", "agent_name": "Vanguard", "agent_color": "#3b82f6", "cat_key": "card_2x", "cat_label": "Master Card (2X)", "ext": "PNG"}, {"filename": "vanguard_card_uniform.png", "rel_path": "All_Assets_Flat/vanguard_card_uniform.png", "size_kb": 275.7, "agent_key": "vanguard", "agent_name": "Vanguard", "agent_color": "#3b82f6", "cat_key": "card", "cat_label": "Card", "ext": "PNG"}, {"filename": "vanguard_char_live.png", "rel_path": "All_Assets_Flat/vanguard_char_live.png", "size_kb": 269.9, "agent_key": "vanguard", "agent_name": "Vanguard", "agent_color": "#3b82f6", "cat_key": "cutout", "cat_label": "Transparent Cutout", "ext": "PNG"}, {"filename": "vanguard_chassis_live.png", "rel_path": "All_Assets_Flat/vanguard_chassis_live.png", "size_kb": 136.3, "agent_key": "vanguard", "agent_name": "Vanguard", "agent_color": "#3b82f6", "cat_key": "stage", "cat_label": "3D Stage / Rig", "ext": "PNG"}, {"filename": "vanguard_pill_clean.png", "rel_path": "All_Assets_Flat/vanguard_pill_clean.png", "size_kb": 42.5, "agent_key": "vanguard", "agent_name": "Vanguard", "agent_color": "#3b82f6", "cat_key": "badge", "cat_label": "Status Badge", "ext": "PNG"}, {"filename": "vanguard_rig_char.png", "rel_path": "All_Assets_Flat/vanguard_rig_char.png", "size_kb": 306.6, "agent_key": "vanguard", "agent_name": "Vanguard", "agent_color": "#3b82f6", "cat_key": "cutout", "cat_label": "Transparent Cutout", "ext": "PNG"}, {"filename": "vanguard_rig_depth.png", "rel_path": "All_Assets_Flat/vanguard_rig_depth.png", "size_kb": 28.9, "agent_key": "vanguard", "agent_name": "Vanguard", "agent_color": "#3b82f6", "cat_key": "stage", "cat_label": "3D Stage / Rig", "ext": "PNG"}, {"filename": "vanguard_rig_stage.png", "rel_path": "All_Assets_Flat/vanguard_rig_stage.png", "size_kb": 180.1, "agent_key": "vanguard", "agent_name": "Vanguard", "agent_color": "#3b82f6", "cat_key": "stage", "cat_label": "3D Stage / Rig", "ext": "PNG"}];
+    let currentCat = 'all';
+    let currentAgent = 'all';
+    let activePath = '';
+
+    function render() {
+      const grid = document.getElementById('assetGrid');
+      grid.innerHTML = '';
+      
+      const filtered = assets.filter(a => {
+        const matchCat = (currentCat === 'all' || a.cat_key === currentCat);
+        const matchAgent = (currentAgent === 'all' || a.agent_key === currentAgent);
+        return matchCat && matchAgent;
+      });
+
+      filtered.forEach(a => {
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.innerHTML = `
+          <div class="card-thumb-wrap" onclick="openModal('${a.rel_path}', '${a.filename}')">
+            <img class="card-thumb" src="${a.rel_path}" alt="${a.filename}" loading="lazy">
+          </div>
+          <div class="card-body">
+            <div class="card-title" title="${a.filename}">${a.filename}</div>
+            <div class="card-meta">
+              <span class="agent-pill" style="background:${a.agent_color}22; color:${a.agent_color}">${a.agent_name}</span>
+              <span>${a.cat_label} &bull; ${a.size_kb} KB</span>
+            </div>
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+    }
+
+    function filterCategory(cat, btn) {
+      currentCat = cat;
+      btn.parentElement.querySelectorAll('.btn-filter').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      render();
+    }
+
+    function filterAgent(agent, btn) {
+      currentAgent = agent;
+      btn.parentElement.querySelectorAll('.btn-filter').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      render();
+    }
+
+    function openModal(relPath, filename) {
+      activePath = 'F:\\WORKHORSE\\character_graphics\\' + relPath.replace(/\//g, '\\');
+      document.getElementById('modalTitle').textContent = filename;
+      document.getElementById('modalImg').src = relPath;
+      document.getElementById('modalPath').textContent = activePath;
+      document.getElementById('previewModal').style.display = 'flex';
+    }
+
+    function closeModal(e) {
+      document.getElementById('previewModal').style.display = 'none';
+    }
+
+    function copyPath() {
+      navigator.clipboard.writeText(activePath).then(() => {
+        alert('Copied absolute path to clipboard:\n' + activePath);
+      });
+    }
+
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') closeModal();
+    });
+
+    render();
+  </script>
+</body>
+</html>

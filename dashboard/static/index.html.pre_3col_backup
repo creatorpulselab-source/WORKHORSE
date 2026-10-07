@@ -1,0 +1,2552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>WORKHORSE — AI Command Center & 3D Cyber Factory</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/style.css?v=20261003_v7">
+  <link rel="stylesheet" href="/static/css/factory.css">
+  <link rel="stylesheet" href="/static/css/operator_layout.css?v=20261005_v1">
+</head>
+<body>
+
+  <!-- ======================================================================
+       TOP HEADER / HUD TELEMETRY BAR
+       ====================================================================== -->
+  
+  <div class="studio-app-container">
+
+    <!-- TOP HEADER / HUD TELEMETRY BAR -->
+    <header class="command-header">
+      <div class="header-left">
+        <div style="display: flex; align-items: center; gap: 10px; cursor: pointer;" id="brand-logo-home" title="CreatorMediaLab Studio • Return to Master Command Center">
+          <img src="/static/img/creatormedialab_logo.jpg" alt="CreatorMediaLab" style="width: 36px; height: 36px; border-radius: 50%; border: 1.5px solid #00f2fe; box-shadow: 0 0 12px rgba(0,242,254,0.45); object-fit: cover;">
+          <div style="display: flex; flex-direction: column;">
+            <span style="font-size: 13px; font-weight: 900; letter-spacing: 0.8px; color: #fff; line-height: 1.1;">CREATOR MEDIA LAB</span>
+            <span style="font-size: 8px; font-family: var(--font-mono); color: #00f2fe; letter-spacing: 0.8px;">STUDIO WORKFLOW AI • DUAL RTX 3060</span>
+          </div>
+        </div>
+        <div class="system-status-pills">
+          <div class="hud-pill" style="border-color: rgba(6, 214, 160, 0.5); color: #06d6a0;" title="Strict 100% Local GPU Processing — No Outbound Cloud Calls">
+            <span class="hud-dot" style="background: #06d6a0; box-shadow: 0 0 10px #06d6a0;"></span>
+            <span>🔒 100% Local GPU</span>
+          </div>
+          <div class="hud-pill gpu" title="Dual RTX 3060 VRAM Telemetry">
+            <span class="hud-dot"></span>
+            <span id="hud-gpu0-val">GPU 0: Scanning...</span>
+          </div>
+          <div class="hud-pill gpu" title="Secondary RTX 3060 VRAM">
+            <span class="hud-dot"></span>
+            <span id="hud-gpu1-val">GPU 1: Scanning...</span>
+          </div>
+          <div class="hud-pill ollama" title="Local Ollama AI Server">
+            <span class="hud-dot"></span>
+            <span id="hud-ollama-val">Ollama: Checking...</span>
+          </div>
+          <div class="hud-pill vram-watchdog" id="hud-vram-pill" title="Auto VRAM Watchdog: Dual RTX 3060 memory clears after 5m of inactivity." style="cursor: pointer;">
+            <span class="hud-dot" id="hud-vram-dot"></span>
+            <span id="hud-vram-val">VRAM: Idle</span>
+            <button id="btn-quick-purge-vram" class="vram-quick-btn" title="Purge VRAM Immediately">⚡ Clean</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <button class="btn-cyber radar-btn" id="btn-open-radar" title="Active Order Radar: digitalcreatorassets@gmail.com">
+          <span class="radar-ping-dot"></span> 📡 Order Radar (<span id="radar-badge-count">0</span>)
+        </button>
+        <button class="btn-cyber brand-assets-btn" id="btn-open-brand" title="View & Download CreatorMediaLab Brand Logo & Banner" style="border-color: #ffd166; color: #ffd166;">
+          <span>🎨</span> Brand Assets
+        </button>
+        <button class="btn-cyber" id="btn-header-open-folder" title="Open output folder">
+          <span>📂</span> Output Folder
+        </button>
+        <button class="btn-cyber prism-btn" id="btn-launch-prism" title="Launch standalone Prism Studio">
+          <span>✨</span> Launch Prism
+        </button>
+        <button class="btn-cyber" id="btn-open-settings" title="Configure Local Models">
+          <span>⚙️</span> Engine Settings
+        </button>
+      </div>
+    </header>
+
+    <!-- STUDIO MAIN GRID: LEFT DOUBLE-COLUMN SIDEBAR + RIGHT WORKSPACE -->
+    <div class="studio-main-grid">
+
+      <!-- LEFT SIDEBAR: DOUBLE COLUMN SUB-CATEGORIES -->
+      <aside class="studio-sidebar">
+        
+        <div class="sidebar-header">
+          <div class="sidebar-title">
+            <span class="pulse-dot"></span>
+            <span>STUDIO OPERATIONS DOCK</span>
+          </div>
+          <span class="sidebar-tag">DUAL RTX 3060</span>
+        </div>
+
+        <!-- FEATURED MASTER AI OPERATOR TAB -->
+        <div class="sidebar-featured-tab">
+          <button class="featured-operator-btn bay-tab-btn active" data-bay="ai-operator" id="tab-ai-operator">
+            <span class="operator-icon-badge">🤖</span>
+            <div class="featured-btn-info">
+              <div class="featured-btn-title">
+                <span>AI Master Operator</span>
+                <span class="bay-pill" style="background: rgba(0, 242, 254, 0.2); color: #00f2fe; border: 1px solid rgba(0, 242, 254, 0.4);">CONCIERGE</span>
+              </div>
+              <div class="featured-btn-sub">Client Orders • Web Search • Automation</div>
+            </div>
+          </button>
+        </div>
+
+        <!-- DOUBLE COLUMN BAY NAVIGATION -->
+        <nav class="sidebar-double-col-nav">
+          <div class="nav-col-heading">WORKSPACE & CORE SUITE</div>
+
+          <!-- COLUMN 1: PRODUCTION & VISION -->
+          <button class="bay-tab-btn" data-bay="command-center">
+            <span class="bay-icon">🌐</span>
+            <div class="bay-btn-info">
+              <span class="bay-name">Command Islands</span>
+              <span class="bay-sub">World Hub</span>
+            </div>
+            <span class="bay-pill">OVERVIEW</span>
+          </button>
+
+          <!-- COLUMN 2: MONETIZATION -->
+          <button class="bay-tab-btn" data-bay="cam-templates">
+            <span class="bay-icon">🛍️</span>
+            <div class="bay-btn-info">
+              <span class="bay-name">Tip Menu Maker</span>
+              <span class="bay-sub">OF / Fansly / Cam</span>
+            </div>
+            <span class="bay-pill">GRAPHICS</span>
+          </button>
+
+          <button class="bay-tab-btn" data-bay="video-factory">
+            <span class="bay-icon">🎬</span>
+            <div class="bay-btn-info">
+              <span class="bay-name">Video Factory</span>
+              <span class="bay-sub">Vanguard [74 W]</span>
+            </div>
+            <span class="bay-pill">60 FPS</span>
+          </button>
+
+          <button class="bay-tab-btn" data-bay="etsy-empire">
+            <span class="bay-icon">📦</span>
+            <div class="bay-btn-info">
+              <span class="bay-name">Etsy Empire</span>
+              <span class="bay-sub">Digital Store</span>
+            </div>
+            <span class="bay-pill">PRODUCTS</span>
+          </button>
+
+          <button class="bay-tab-btn" data-bay="photo-bay">
+            <span class="bay-icon">📸</span>
+            <div class="bay-btn-info">
+              <span class="bay-name">Photo Retouch</span>
+              <span class="bay-sub">Aura [79 Au]</span>
+            </div>
+            <span class="bay-pill">SKIN/LUT</span>
+          </button>
+
+          <button class="bay-tab-btn" data-bay="marketing-hub">
+            <span class="bay-icon">🚀</span>
+            <div class="bay-btn-info">
+              <span class="bay-name">Omni-Marketing</span>
+              <span class="bay-sub">Mercury [80 Hg]</span>
+            </div>
+            <span class="bay-pill">CAMPAIGNS</span>
+          </button>
+
+          <button class="bay-tab-btn" data-bay="inspiration-lab">
+            <span class="bay-icon">💡</span>
+            <div class="bay-btn-info">
+              <span class="bay-name">Style & Pose Lab</span>
+              <span class="bay-sub">Iris [77 Ir]</span>
+            </div>
+            <span class="bay-pill">VISION</span>
+          </button>
+
+          <button class="bay-tab-btn" data-bay="newsletter-hub">
+            <span class="bay-icon">🌿</span>
+            <div class="bay-btn-info">
+              <span class="bay-name">Newsletters</span>
+              <span class="bay-sub">Herald [33 As]</span>
+            </div>
+            <span class="bay-pill">4 PUBS</span>
+          </button>
+
+          <div class="nav-col-heading">EXTERNAL FULFILLMENT</div>
+
+          <button class="bay-tab-btn" data-bay="fiverr-bot" style="grid-column: span 2;">
+            <span class="bay-icon">💼</span>
+            <div class="bay-btn-info">
+              <span class="bay-name">Fiverr Automation Bot & 3 Live Gigs</span>
+              <span class="bay-sub">Retouching ($20+) • Video Reels ($30+) • Tip Menus ($20+)</span>
+            </div>
+            <span class="bay-pill" style="background: rgba(6, 214, 160, 0.2); color: #06d6a0;">LIVE FLYWHEEL</span>
+          </button>
+        </nav>
+
+        <!-- SIDEBAR FOOTER QUICK LINKS -->
+        <div class="sidebar-footer-widget">
+          <div class="quick-links-row">
+            <a href="https://twitter.com/TheCreatorAsset" target="_blank" class="s-link" title="Main Studio on X">𝕏 Studio</a>
+            <a href="https://twitter.com/creatorpulselab" target="_blank" class="s-link adult" title="Adult Creator on X">𝕏 Pulse</a>
+            <a href="https://digitalcreatorassets-source.github.io/creatormedialab/" target="_blank" class="s-link portal" title="Public Portal">🌐 Portal</a>
+          </div>
+        </div>
+
+      </aside>
+
+      <!-- RIGHT VIEWPORT: WORK BAY DISPLAY -->
+      <main class="studio-content-viewport">
+
+        <!-- ======================================================================
+             BAY 0: MASTER AI OPERATOR WORKSPACE (NEW!)
+             ====================================================================== -->
+        <div class="bay-view-panel active" id="view-ai-operator">
+          <div class="operator-workspace">
+            
+            <!-- Operator Topbar -->
+            <div class="operator-topbar">
+              <div class="operator-top-title">
+                <div class="operator-badge-icon">🤖</div>
+                <div class="operator-top-text">
+                  <h2>WORKHORSE AI Master Operator</h2>
+                  <span>AUTONOMOUS CONCIERGE &bull; MULTI-MODAL CLIENT FULFILLMENT &bull; LOCAL OLLAMA</span>
+                </div>
+              </div>
+
+              <div class="operator-controls-group">
+                <div class="model-picker-wrap" title="Local Model Running on Dual RTX 3060">
+                  <span class="model-picker-label">MODEL:</span>
+                  <select id="operator-model-select" class="model-select">
+                    <option value="huihui_ai/qwen3-abliterated:14b">huihui_ai/qwen3-abliterated:14b (Default)</option>
+                    <option value="huihui_ai/qwen3-vl-abliterated:8b-instruct">huihui_ai/qwen3-vl-abliterated:8b-instruct (Vision)</option>
+                  </select>
+                </div>
+
+                <label class="web-search-toggle-label" title="Enable DuckDuckGo Real-Time Web Search Context">
+                  <input type="checkbox" id="operator-web-search" checked>
+                  <span>🌐 Live Web Search</span>
+                </label>
+
+                <button type="button" class="btn-operator-clear" id="operator-clear-btn" title="Clear Conversation History">
+                  🗑️ Clear
+                </button>
+              </div>
+            </div>
+
+            <!-- Chat Messages Feed -->
+            <div class="operator-chat-feed" id="operator-messages">
+              <div class="operator-msg-row assistant-msg">
+                <div class="msg-bubble">
+                  <div class="msg-header">
+                    <div class="msg-avatar">🤖</div>
+                    <span class="msg-author">WORKHORSE OPERATOR</span>
+                    <span class="msg-meta-pill">Dual RTX 3060 (24GB VRAM) Online</span>
+                  </div>
+                  <div class="msg-body">
+                    <strong>Welcome, Commander.</strong> I am your central AI Operations Concierge for <strong>Creator Media Lab</strong>.
+                    <br><br>
+                    I have full operational awareness of all WORKHORSE characters and live pipelines:
+                    <ul class="md-ul" style="margin-top: 8px;">
+                      <li class="md-li"><strong>Aura [79 Au]:</strong> Frequency separation skin smoothing & cinematic LUT grading.</li>
+                      <li class="md-li"><strong>Vanguard [74 W] & Echo [26 Fe]:</strong> 60fps video teaser extraction & viral animated subtitles.</li>
+                      <li class="md-li"><strong>Herald [33 As]:</strong> Subscriber management across all 4 daily publications.</li>
+                      <li class="md-li"><strong>Cam & Tip Menu Maker:</strong> Cyber neon, luxury gold, and pastel banners for OnlyFans / Fansly.</li>
+                      <li class="md-li"><strong>Apex [78 Pt]:</strong> Automated client package bundling (.ZIP) and order manifests.</li>
+                      <li class="md-li"><strong>Live Web Intelligence:</strong> Real-time trend & competitive pricing search powered by DDGS.</li>
+                    </ul>
+                    <br>
+                    Drop client photos, videos, or questions below — or tap one of the quick command chips to start!
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Operator Input & Dropzone Dock -->
+            <div class="operator-input-dock" id="operator-dropzone">
+              
+              <!-- Prompt Chips Bar -->
+              <div class="operator-chips-bar">
+                <button type="button" class="operator-prompt-chip" data-prompt="Add a new subscriber to The Daily Creator Pulse: ">✉️ Add Subscriber to Creator Pulse</button>
+                <button type="button" class="operator-prompt-chip" data-prompt="What are our 3 live Fiverr gig packages, delivery times, and pricing?">💼 Recall Fiverr Gig Specs</button>
+                <button type="button" class="operator-prompt-chip" data-prompt="Search the web for the latest 2026 OnlyFans promotion and PPV vault strategies.">🌐 2026 OF Growth Trends (Web)</button>
+                <button type="button" class="operator-prompt-chip" data-prompt="Design a custom Fansly tip menu in neon pink and obsidian with 8 items.">🛍️ Design Fansly Tip Menu</button>
+                <button type="button" class="operator-prompt-chip" data-prompt="Retouch the attached portrait with natural frequency separation and warm golden hour color grade.">📸 Retouch Portrait with Aura</button>
+                <button type="button" class="operator-prompt-chip" data-prompt="Show current subscriber statistics across all 4 publications.">📊 Subscriber Roster Stats</button>
+              </div>
+
+              <!-- Attached Files Tray (Hidden until files selected) -->
+              <div class="operator-files-tray" id="operator-files-preview"></div>
+
+              <!-- Main Input Bar -->
+              <div class="operator-input-box-wrap">
+                <input type="file" id="operator-file-input" multiple accept="image/*,video/*,.zip" style="display: none;">
+                
+                <button type="button" class="btn-operator-attach" id="operator-attach-btn" title="Attach Client Photos, Videos, or Files">
+                  📎
+                </button>
+
+                <textarea id="operator-input" class="operator-textarea" rows="1" placeholder="Instruct the Operator (e.g., 'Retouch this client photo with Aura' or 'Add email to Creator Pulse')..."></textarea>
+
+                <button type="button" class="btn-operator-send" id="operator-send-btn">
+                  <span>Send</span>
+                  <span>⚡</span>
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <div class="bay-view-panel" id="view-command-center">
+    <div class="islands-world-container">
+      
+      <!-- Central Ambient World Header -->
+      <div class="islands-hero-header">
+        <div class="islands-title-badge">
+          <span class="pulse-beacon"></span>
+          <span>AUTONOMOUS STUDIO ARCHIPELAGO &bull; DUAL RTX 3060 ACCELERATED</span>
+        </div>
+        <div class="islands-title-row" style="display: flex; align-items: center; justify-content: center; gap: 14px; margin-bottom: 8px;">
+          <img src="/static/img/workhorse_icon_3d.png" alt="WORKHORSE" style="width: 44px; height: 44px; border-radius: 10px; border: 1.5px solid #00f2fe; box-shadow: 0 0 16px rgba(0, 242, 254, 0.5); object-fit: cover;" />
+          <h1 class="islands-main-title" style="margin: 0;">WORKHORSE AI COMMAND CENTER</h1>
+        </div>
+
+
+        <!-- World Central Telemetry Bar -->
+        <div class="islands-telemetry-core">
+          <div class="core-node">
+            <span class="node-icon">🔒</span>
+            <div>
+              <div class="node-val">100% PRIVATE</div>
+              <div class="node-lbl">Local GPU Air-Gap</div>
+            </div>
+          </div>
+          <div class="core-divider"></div>
+          <div class="core-node">
+            <span class="node-icon">⚡</span>
+            <div>
+              <div class="node-val">DUAL RTX 3060</div>
+              <div class="node-lbl">Neural Hardware</div>
+            </div>
+          </div>
+          <div class="core-divider"></div>
+          <div class="core-node">
+            <span class="node-icon">📡</span>
+            <div>
+              <div class="node-val">ORDER RADAR</div>
+              <div class="node-lbl">digitalcreatorassets</div>
+            </div>
+          </div>
+          <div class="core-divider"></div>
+          <div class="core-node">
+            <span class="node-icon">👑</span>
+            <div>
+              <div class="node-val">CreatorMediaLab</div>
+              <div class="node-lbl">Brand Universal</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Conduits & Energy Lines Background (Animated SVG) -->
+      <div class="islands-svg-conduits">
+        <svg width="100%" height="100%" viewBox="0 0 1200 600" preserveAspectRatio="none">
+          <defs>
+            <linearGradient id="grad-conduit-cyan" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#00f2fe" stop-opacity="0.8"/>
+              <stop offset="100%" stop-color="#4facfe" stop-opacity="0.1"/>
+            </linearGradient>
+            <linearGradient id="grad-conduit-rose" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#f72585" stop-opacity="0.8"/>
+              <stop offset="100%" stop-color="#7209b7" stop-opacity="0.1"/>
+            </linearGradient>
+          </defs>
+          <!-- Flowing Network Lines -->
+          <path class="conduit-line line-1" d="M 600 50 Q 300 150 200 240" stroke="url(#grad-conduit-cyan)" stroke-width="2" fill="none"/>
+          <path class="conduit-line line-2" d="M 600 50 Q 600 180 600 240" stroke="url(#grad-conduit-cyan)" stroke-width="2" fill="none"/>
+          <path class="conduit-line line-3" d="M 600 50 Q 900 150 1000 240" stroke="url(#grad-conduit-cyan)" stroke-width="2" fill="none"/>
+          <path class="conduit-line line-4" d="M 200 350 Q 300 480 200 520" stroke="url(#grad-conduit-rose)" stroke-width="2" fill="none"/>
+          <path class="conduit-line line-5" d="M 600 350 Q 600 480 600 520" stroke="url(#grad-conduit-rose)" stroke-width="2" fill="none"/>
+          <path class="conduit-line line-6" d="M 1000 350 Q 900 480 1000 520" stroke="url(#grad-conduit-rose)" stroke-width="2" fill="none"/>
+        </svg>
+      </div>
+
+                        <!-- ==================================================================
+           3D MOLECULAR CHEMICAL COMPOUND ARCHIPELAGO
+           ================================================================== -->
+                  <div class="chemical-compound-container">
+
+        <!-- 3D Metallic Pipes, Neon Bonds & Draped Wires SVG Overlay -->
+        <svg class="chemical-network-svg" viewBox="0 0 1000 600" preserveAspectRatio="none">
+          <defs>
+            <filter id="neon-glow" x="-20%" y="-20%" width="140%" height="140%">
+              <feGaussianBlur stdDeviation="4" result="blur" />
+              <feMerge>
+                <feMergeNode in="blur" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+          </defs>
+
+          <!-- 1. STEEL CASING PIPELINES (Octagonal Ring) -->
+          <g>
+            <path d="M 370 70 L 630 70" class="chem-pipe-steel" />
+            <path d="M 630 70 L 880 180" class="chem-pipe-steel" />
+            <path d="M 880 180 L 880 440" class="chem-pipe-steel" />
+            <path d="M 880 440 L 630 540" class="chem-pipe-steel" />
+            <path d="M 630 540 L 370 540" class="chem-pipe-steel" />
+            <path d="M 370 540 L 120 440" class="chem-pipe-steel" />
+            <path d="M 120 440 L 120 180" class="chem-pipe-steel" />
+            <path d="M 120 180 L 370 70" class="chem-pipe-steel" />
+
+            <!-- Radial Spokes to Central Reactor -->
+            <path d="M 500 310 L 370 70" class="chem-radial-pipe" />
+            <path d="M 500 310 L 630 70" class="chem-radial-pipe" />
+            <path d="M 500 310 L 880 180" class="chem-radial-pipe" />
+            <path d="M 500 310 L 880 440" class="chem-radial-pipe" />
+            <path d="M 500 310 L 630 540" class="chem-radial-pipe" />
+            <path d="M 500 310 L 370 540" class="chem-radial-pipe" />
+            <path d="M 500 310 L 120 440" class="chem-radial-pipe" />
+            <path d="M 500 310 L 120 180" class="chem-radial-pipe" />
+          </g>
+
+          <!-- 2. HIGH-VOLTAGE NEON PLASMA CORES (Color-coded) -->
+          <g>
+            <path d="M 370 70 L 630 70" class="chem-neon-pulse cyan" />
+            <path d="M 630 70 L 880 180" class="chem-neon-pulse rose" />
+            <path d="M 880 180 L 880 440" class="chem-neon-pulse cyan" />
+            <path d="M 880 440 L 630 540" class="chem-neon-pulse gold" />
+            <path d="M 630 540 L 370 540" class="chem-neon-pulse green" />
+            <path d="M 370 540 L 120 440" class="chem-neon-pulse purple" />
+            <path d="M 120 440 L 120 180" class="chem-neon-pulse cyan" />
+            <path d="M 120 180 L 370 70" class="chem-neon-pulse cyan" />
+
+            <!-- Radial Laser Bonds -->
+            <path d="M 500 310 L 370 70" class="chem-neon-pulse cyan" />
+            <path d="M 500 310 L 630 70" class="chem-neon-pulse rose" />
+            <path d="M 500 310 L 880 180" class="chem-neon-pulse cyan" />
+            <path d="M 500 310 L 880 440" class="chem-neon-pulse cyan" />
+            <path d="M 500 310 L 630 540" class="chem-neon-pulse gold" />
+            <path d="M 500 310 L 370 540" class="chem-neon-pulse green" />
+            <path d="M 500 310 L 120 440" class="chem-neon-pulse purple" />
+            <path d="M 500 310 L 120 180" class="chem-neon-pulse cyan" />
+          </g>
+
+          <circle cx="370" cy="70" r="7" class="chem-flange" />
+          <circle cx="630" cy="70" r="7" class="chem-flange" />
+          <circle cx="880" cy="180" r="7" class="chem-flange" />
+          <circle cx="880" cy="440" r="7" class="chem-flange" />
+          <circle cx="630" cy="540" r="7" class="chem-flange" />
+          <circle cx="370" cy="540" r="7" class="chem-flange" />
+          <circle cx="120" cy="440" r="7" class="chem-flange" />
+          <circle cx="120" cy="180" r="7" class="chem-flange" />
+          <circle cx="500" cy="310" r="10" class="chem-flange core" />
+        </svg>
+
+        <!-- CENTRAL MOLECULAR NUCLEUS (Dual RTX 3060 Reactor) -->
+        <div class="molecular-nucleus-core" title="Central Neural Nucleus — Dual RTX 3060">
+          <div class="nucleus-orbital-ring ring-x"></div>
+          <div class="nucleus-orbital-ring ring-y"></div>
+          <div class="nucleus-core-orb">
+            <span class="nucleus-atom-symbol">⚛️</span>
+            <div class="nucleus-hud-text">
+              <span class="hud-core-title">DUAL RTX 3060</span>
+              <span class="hud-core-sub">AIR-GAPPED NEURAL CORE</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- THE 6 MOLECULAR CHEMICAL ATOM NODES WITH HOVER POP-OUT DOSSIERS -->
+
+        <!-- ATOM 1: Forge [26 Fe] -->
+        <div class="chemical-atom-node atom-pos-1 node-video" data-target-bay="video-factory" onclick="window.workBaysManager.switchBay('video-factory')">
+          <div class="atom-valence-aura"></div>
+          
+          <!-- Hover Pop-Out Dossier Card -->
+          <div class="atom-dossier-popout popout-right dossier-video">
+            <div class="dossier-header-bar">
+              <div class="dossier-title-box">
+                <span class="dossier-elem-tag">[26 Fe]</span>
+                <span class="dossier-agent-name">Forge</span>
+              </div>
+              <span class="dossier-status-pill">RTX 3060 NVENC</span>
+            </div>
+            <div class="dossier-role-title">Lead Production Automator</div>
+            <div class="dossier-divider"></div>
+            <ul class="dossier-specs-list">
+              <li><span>🎞️</span> Automated 60s viral video teaser cuts</li>
+              <li><span>📱</span> 9:16 vertical reels & story crops</li>
+              <li><span>🎧</span> Whisper AI spoken hook isolation</li>
+              <li><span>📸</span> 6 High-resolution pose screenshots</li>
+            </ul>
+            <div class="dossier-action-footer">
+              <span>⚡ CLICK TO DEPLOY PRODUCTION LINE &rarr;</span>
+            </div>
+          </div>
+
+          <!-- 3D Sci-Fi Card: Stable Chassis Frame + 3D Video Game Character -->
+          <div class="atom-3d-card-viewport">
+            <div class="atom-3d-card-stage">
+              <!-- Stable Card Chassis Frame & Text (Rock-Solid) -->
+              <img src="/static/img/characters_3d/forge_rig_stage.png?v=20261003_v7" alt="Forge [26 Fe] • Video Chassis" class="atom-card-chassis" />
+
+              <!-- 3D Character Movement Box with Hardware Accelerated WebGL Depth Canvas -->
+              <div class="atom-character-movement-box">
+                <canvas class="atom-character-canvas" width="418" height="540"></canvas>
+              </div>
+
+              <!-- Static Foreground Gear (Never Moves With Character) -->
+              <img src="/static/img/characters_3d/forge_gear_fg.png?v=20261003_v7" alt="Forge Static Gear" class="atom-card-foreground-gear" />
+            </div>
+          </div>
+        </div>
+
+        <!-- ATOM 2: Iris / Vesper [77 Ir] -->
+        <div class="chemical-atom-node atom-pos-2 node-photo" data-target-bay="photo-bay" onclick="window.workBaysManager.switchBay('photo-bay')">
+          <div class="atom-valence-aura"></div>
+          
+          <!-- Hover Pop-Out Dossier Card -->
+          <div class="atom-dossier-popout popout-left dossier-photo">
+            <div class="dossier-header-bar">
+              <div class="dossier-title-box">
+                <span class="dossier-elem-tag">[77 Ir]</span>
+                <span class="dossier-agent-name">Iris / Vesper</span>
+              </div>
+              <span class="dossier-status-pill">DUAL GPU BILATERAL</span>
+            </div>
+            <div class="dossier-role-title">Skin & Color Specialist</div>
+            <div class="dossier-divider"></div>
+            <ul class="dossier-specs-list">
+              <li><span>✨</span> Frequency-separation skin smoothing (100% pores)</li>
+              <li><span>🎨</span> 5 Cinematic color grades (Moody, Golden, Neon, Noir)</li>
+              <li><span>📐</span> Optimized 4:5 Instagram & 9:16 story crops</li>
+              <li><span>🏷️</span> Promotional watermarked teaser generator</li>
+            </ul>
+            <div class="dossier-action-footer">
+              <span>✨ CLICK TO DEPLOY RETOUCHING BAY &rarr;</span>
+            </div>
+          </div>
+
+          <!-- 3D Sci-Fi Card: Stable Chassis Frame + 3D Video Game Character -->
+          <div class="atom-3d-card-viewport">
+            <div class="atom-3d-card-stage">
+              <!-- Stable Card Chassis Frame & Text (Rock-Solid) -->
+              <img src="/static/img/characters_3d/iris_rig_stage.png?v=20261003_v7" alt="Iris [77 Ir] • Retouch Chassis" class="atom-card-chassis" />
+
+              <!-- 3D Character Movement Box with Hardware Accelerated WebGL Depth Canvas -->
+              <div class="atom-character-movement-box">
+                <canvas class="atom-character-canvas" width="418" height="540"></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ATOM 3: Cipher [36 Cp] -->
+        <div class="chemical-atom-node atom-pos-3 node-inspiration" data-target-bay="inspiration-lab" onclick="window.workBaysManager.switchBay('inspiration-lab')">
+          <div class="atom-valence-aura"></div>
+          
+          <!-- Hover Pop-Out Dossier Card -->
+          <div class="atom-dossier-popout popout-left dossier-inspiration">
+            <div class="dossier-header-bar">
+              <div class="dossier-title-box">
+                <span class="dossier-elem-tag">[36 Cp]</span>
+                <span class="dossier-agent-name">Cipher</span>
+              </div>
+              <span class="dossier-status-pill">QWEN-VL VISION</span>
+            </div>
+            <div class="dossier-role-title">Trend & Vision Radar</div>
+            <div class="dossier-divider"></div>
+            <ul class="dossier-specs-list">
+              <li><span>💡</span> Reverse-engineer lighting setups & camera angles</li>
+              <li><span>📐</span> Model pose geometry & silhouette breakdown</li>
+              <li><span>🔥</span> Real-time cross-platform social trend intelligence</li>
+              <li><span>📊</span> Multi-domain trend briefing generator</li>
+            </ul>
+            <div class="dossier-action-footer">
+              <span>🧠 CLICK TO DEPLOY STYLE LAB &rarr;</span>
+            </div>
+          </div>
+
+          <!-- 3D Sci-Fi Card: Stable Chassis Frame + 3D Video Game Character -->
+          <div class="atom-3d-card-viewport">
+            <div class="atom-3d-card-stage">
+              <!-- Stable Card Chassis Frame & Text (Rock-Solid) -->
+              <img src="/static/img/characters_3d/cipher_rig_stage.png?v=20261003_v7" alt="Cipher [36 Cp] • Style Chassis" class="atom-card-chassis" />
+
+              <!-- 3D Character Movement Box with Hardware Accelerated WebGL Depth Canvas -->
+              <div class="atom-character-movement-box">
+                <canvas class="atom-character-canvas" width="418" height="540"></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ATOM 4: Echo / Apex [84 Ec] -->
+        <div class="chemical-atom-node atom-pos-4 node-cam" data-target-bay="cam-templates" onclick="window.workBaysManager.switchBay('cam-templates')">
+          <div class="atom-valence-aura"></div>
+          
+          <!-- Hover Pop-Out Dossier Card -->
+          <div class="atom-dossier-popout popout-left dossier-cam">
+            <div class="dossier-header-bar">
+              <div class="dossier-title-box">
+                <span class="dossier-elem-tag">[84 Ec]</span>
+                <span class="dossier-agent-name">Echo / Apex</span>
+              </div>
+              <span class="dossier-status-pill">OBS LIVE SYNC</span>
+            </div>
+            <div class="dossier-role-title">Live Stream Architect</div>
+            <div class="dossier-divider"></div>
+            <ul class="dossier-specs-list">
+              <li><span>🛍️</span> Interactive tip menus (MFC & Chaturbate)</li>
+              <li><span>📹</span> Transparent OBS webcam stream overlays</li>
+              <li><span>🎮</span> Lovense toy vibration & dare presets</li>
+              <li><span>🤖</span> Room rules flyers & chatbot notice scripts</li>
+            </ul>
+            <div class="dossier-action-footer">
+              <span>💎 CLICK TO DEPLOY CAM STORE &rarr;</span>
+            </div>
+          </div>
+
+          <!-- 3D Sci-Fi Card: Stable Chassis Frame + 3D Video Game Character -->
+          <div class="atom-3d-card-viewport">
+            <div class="atom-3d-card-stage">
+              <!-- Stable Card Chassis Frame & Text (Rock-Solid) -->
+              <img src="/static/img/characters_3d/echo_rig_stage.png?v=20261003_v7" alt="Echo [84 Ec] • Cam Menu Chassis" class="atom-card-chassis" />
+
+              <!-- 3D Character Movement Box with Hardware Accelerated WebGL Depth Canvas -->
+              <div class="atom-character-movement-box">
+                <canvas class="atom-character-canvas" width="418" height="540"></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ATOM 5: Aura / Maven [79 Au] -->
+        <div class="chemical-atom-node atom-pos-5 node-etsy" data-target-bay="etsy-empire" onclick="window.workBaysManager.switchBay('etsy-empire')">
+          <div class="atom-valence-aura"></div>
+          
+          <!-- Hover Pop-Out Dossier Card -->
+          <div class="atom-dossier-popout popout-right dossier-etsy">
+            <div class="dossier-header-bar">
+              <div class="dossier-title-box">
+                <span class="dossier-elem-tag">[79 Au]</span>
+                <span class="dossier-agent-name">Aura / Maven</span>
+              </div>
+              <span class="dossier-status-pill">PASSIVE DIGITAL</span>
+            </div>
+            <div class="dossier-role-title">Digital Asset Vault Master</div>
+            <div class="dossier-divider"></div>
+            <ul class="dossier-specs-list">
+              <li><span>📦</span> 100% Passive instant digital download delivery</li>
+              <li><span>🎨</span> 5 Genuine Lightroom .XMP presets (desktop & mobile)</li>
+              <li><span>📖</span> 50 Boudoir Posing Guide Cards lookbook</li>
+              <li><span>📑</span> Model Release & 18 U.S.C. 2257 compliance contracts</li>
+            </ul>
+            <div class="dossier-action-footer">
+              <span>👑 CLICK TO DEPLOY ETSY EMPIRE &rarr;</span>
+            </div>
+          </div>
+
+          <!-- 3D Sci-Fi Card: Stable Chassis Frame + 3D Video Game Character -->
+          <div class="atom-3d-card-viewport">
+            <div class="atom-3d-card-stage">
+              <!-- Stable Card Chassis Frame & Text (Rock-Solid) -->
+              <img src="/static/img/characters_3d/aura_rig_stage.png?v=20261003_v7" alt="Aura [79 Au] • Etsy Vault Chassis" class="atom-card-chassis" />
+
+              <!-- 3D Character Movement Box with Hardware Accelerated WebGL Depth Canvas -->
+              <div class="atom-character-movement-box">
+                <canvas class="atom-character-canvas" width="418" height="540"></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ATOM 6: Vanguard / Blitz [23 Vg] -->
+        <div class="chemical-atom-node atom-pos-6 node-fiverr" data-target-bay="fiverr-bot" onclick="window.workBaysManager.switchBay('fiverr-bot')">
+          <div class="atom-valence-aura"></div>
+          
+          <!-- Hover Pop-Out Dossier Card -->
+          <div class="atom-dossier-popout popout-right dossier-fiverr">
+            <div class="dossier-header-bar">
+              <div class="dossier-title-box">
+                <span class="dossier-elem-tag">[23 Vg]</span>
+                <span class="dossier-agent-name">Vanguard / Blitz</span>
+              </div>
+              <span class="dossier-status-pill">ORDER RADAR LIVE</span>
+            </div>
+            <div class="dossier-role-title">Service Dispatcher</div>
+            <div class="dossier-divider"></div>
+            <ul class="dossier-specs-list">
+              <li><span>💼</span> 4 High-demand automated service gigs</li>
+              <li><span>📦</span> 1-Click client delivery package ZIP creator</li>
+              <li><span>⭐</span> Automated 5-star review request generator</li>
+              <li><span>📡</span> Live order radar on digitalcreatorassets@gmail.com</li>
+            </ul>
+            <div class="dossier-action-footer">
+              <span>🚀 CLICK TO DEPLOY AUTOMATION BOT &rarr;</span>
+            </div>
+          </div>
+
+          <!-- 3D Sci-Fi Card: Stable Chassis Frame + 3D Video Game Character -->
+          <div class="atom-3d-card-viewport">
+            <div class="atom-3d-card-stage">
+              <!-- Stable Card Chassis Frame & Text (Rock-Solid) -->
+              <img src="/static/img/characters_3d/vanguard_rig_stage.png?v=20261003_v7" alt="Vanguard [23 Vg] • Fiverr Chassis" class="atom-card-chassis" />
+
+              <!-- 3D Character Movement Box with Hardware Accelerated WebGL Depth Canvas -->
+              <div class="atom-character-movement-box">
+                <canvas class="atom-character-canvas" width="418" height="540"></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      
+        <!-- Chemical Atom Node 7: Mercury [80 Hg] • Omni-Marketing Maestro -->
+        <div class="chemical-atom-node atom-pos-7 node-marketing" data-target-bay="marketing-hub" onclick="window.workBaysManager.switchBay('marketing-hub')">
+          <div class="atom-valence-aura"></div>
+
+          <!-- Hover Pop-Out Dossier Card -->
+          <div class="atom-dossier-popout popout-left dossier-marketing">
+            <div class="dossier-header-bar">
+              <div class="dossier-title-box">
+                <span class="dossier-elem-tag">[80 Hg]</span>
+                <span class="dossier-agent-name">Mercury / Nexus</span>
+              </div>
+              <span class="dossier-status-pill" style="background: rgba(168, 85, 247, 0.2); color: #a855f7; border-color: #a855f7;">MARKETING LIVE</span>
+            </div>
+            <div class="dossier-role-title">Omni-Channel Marketing Maestro</div>
+            <div class="dossier-divider"></div>
+            <ul class="dossier-specs-list">
+              <li><span>🚀</span> Automated marketing for Fiverr gigs & Etsy store</li>
+              <li><span>📱</span> Viral social media engine (IG, TikTok, X, Pinterest)</li>
+              <li><span>🌐</span> Website & landing page ad copy, SEO & outreach</li>
+              <li><span>⚡</span> 1-Click high-converting copy, hooks & hashtags</li>
+            </ul>
+            <div class="dossier-action-footer">
+              <span>🚀 CLICK TO DEPLOY MARKETING HUB &rarr;</span>
+            </div>
+          </div>
+
+          <!-- 3D Sci-Fi Card: Stable Chassis Frame + 3D Video Game Character -->
+          <div class="atom-3d-card-viewport">
+            <div class="atom-3d-card-stage">
+              <img src="/static/img/characters_3d/mercury_rig_stage.png?v=20261003_v7" alt="Mercury [80 Hg] • Omni-Marketing Chassis" class="atom-card-chassis" />
+              <div class="atom-character-movement-box">
+                <canvas class="atom-character-canvas" width="418" height="540"></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Chemical Atom Node 8: Herald [33 As] • Newsletter & Blog Dispatcher -->
+        <div class="chemical-atom-node atom-pos-8 node-newsletter" data-target-bay="newsletter-hub" onclick="window.workBaysManager.switchBay('newsletter-hub')">
+          <div class="atom-valence-aura"></div>
+
+          <!-- Hover Pop-Out Dossier Card -->
+          <div class="atom-dossier-popout popout-left dossier-newsletter">
+            <div class="dossier-header-bar">
+              <div class="dossier-title-box">
+                <span class="dossier-elem-tag">[33 As]</span>
+                <span class="dossier-agent-name">Herald / Dispatch</span>
+              </div>
+              <span class="dossier-status-pill" style="background: rgba(16, 185, 129, 0.2); color: #10b981; border-color: #10b981;">DISPATCH RADAR LIVE</span>
+            </div>
+            <div class="dossier-role-title">Newsletter & Blog Dispatcher</div>
+            <div class="dossier-divider"></div>
+            <ul class="dossier-specs-list">
+              <li><span>🌿</span> Flagship: Morning Dispensary Deals & Blog manager</li>
+              <li><span>📬</span> Add / remove subscriber email lists on-the-fly</li>
+              <li><span>🧩</span> Modular block toggles (Intro, Banners, Deals, Articles)</li>
+              <li><span>⚡</span> 1-Click manual dispatch trigger, live logs & preview</li>
+            </ul>
+            <div class="dossier-action-footer">
+              <span>🌿 CLICK TO DEPLOY NEWSLETTER HUB &rarr;</span>
+            </div>
+          </div>
+
+          <!-- 3D Sci-Fi Card: Stable Chassis Frame + 3D Video Game Character -->
+          <div class="atom-3d-card-viewport">
+            <div class="atom-3d-card-stage">
+              <img src="/static/img/characters_3d/herald_rig_stage.png?v=20261003_v7" alt="Herald [33 As] • Newsletter & Blog Chassis" class="atom-card-chassis" />
+              <div class="atom-character-movement-box">
+                <canvas class="atom-character-canvas" width="418" height="540"></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div> <!-- Close .chemical-compound-container -->
+
+      <!-- Bottom Operational Mission Status Ticker -->
+      <div class="islands-bottom-ticker">
+        <span class="ticker-pulse-dot"></span>
+        <span class="ticker-text">
+          Six specialized operational centers operating locally and air-gapped on your private GPUs &bull; Click any node to deploy into its specialized production chamber.
+        </span>
+        <span class="ticker-brand">CreatorMediaLab Studio</span>
+      </div>
+
+    </div> <!-- Close .islands-world-container -->
+  </div> <!-- Close #view-command-center -->
+
+
+  <!-- ======================================================================
+       BAY 1: VIDEO PRODUCTION FACTORY (DUAL RTX 3060 ACCELERATED)
+       ====================================================================== -->
+  <div class="bay-view-panel" id="view-video-factory">
+    <section class="top-pipeline-bar">
+    <div class="section-title-bar">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <span style="font-size: 13px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase;">
+          Master Production Line Orchestration
+        </span>
+        <span style="font-size: 11px; color: var(--cyan-glow); font-family: var(--font-mono); font-weight: 700;" id="progress-percent-label">
+          0%
+        </span>
+      </div>
+      <span style="font-size: 11px; color: var(--cyan-glow); font-family: var(--font-mono);" id="pipeline-status-text">
+        PRODUCTION LINE READY (100% LOCAL GPU)
+      </span>
+    </div>
+
+    <div class="pipeline-stages-track">
+      <div class="stage-step" id="stage-step-1">
+        <span class="stage-num">01 / INTAKE</span>
+        <span class="stage-name">Stream Specs</span>
+        <span class="stage-agent-badge">🛡️ Vanguard</span>
+      </div>
+      <div class="stage-step" id="stage-step-2">
+        <span class="stage-num">02 / POSES</span>
+        <span class="stage-name">6 Pose Frames</span>
+        <span class="stage-agent-badge">👁️ Iris</span>
+      </div>
+      <div class="stage-step" id="stage-step-3">
+        <span class="stage-num">03 / TEASER</span>
+        <span class="stage-name">60s & Social Crops</span>
+        <span class="stage-agent-badge">⚡ Forge</span>
+      </div>
+      <div class="stage-step" id="stage-step-4">
+        <span class="stage-num">04 / AUDIO</span>
+        <span class="stage-name">Whisper Audio</span>
+        <span class="stage-agent-badge">🎧 Echo</span>
+      </div>
+      <div class="stage-step" id="stage-step-5">
+        <span class="stage-num">05 / VISION</span>
+        <span class="stage-name">Aesthetic Tags</span>
+        <span class="stage-agent-badge">👁️ Iris</span>
+      </div>
+      <div class="stage-step" id="stage-step-6">
+        <span class="stage-num">06 / COPY</span>
+        <span class="stage-name">Multi-Platform Kit</span>
+        <span class="stage-agent-badge">✨ Aura</span>
+      </div>
+      <div class="stage-step" id="stage-step-7">
+        <span class="stage-num">07 / EXPORT</span>
+        <span class="stage-name">Package & ZIP</span>
+        <span class="stage-agent-badge">⚡ Forge</span>
+      </div>
+    </div>
+
+    <div class="master-progress-bar">
+      <div class="progress-fill" id="master-progress-fill"></div>
+    </div>
+  </section>
+
+  <!-- ======================================================================
+       3-COLUMN WORKSPACE: LEFT (INGESTION+AGENTS), CENTER (3D FACTORY), RIGHT (STREAM)
+       ====================================================================== -->
+  <main class="workspace-layout-3col">
+
+    <!-- ------------------------------------------------------------------
+         COLUMN 1: RAW INGESTION (TOP) + STACKED AGENTS (BELOW)
+         ------------------------------------------------------------------ -->
+    <div class="col-left">
+
+      <!-- 1. Media Ingestion Dropzone (MOVED TO TOP) -->
+      <section class="glass-panel ingestion-card">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 2px;">
+          <span style="font-size: 12px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;">
+            Raw Shoot Ingestion
+          </span>
+          <span style="font-size: 10px; color: var(--green-neon); font-family: var(--font-mono);">
+            ● GPU Ready
+          </span>
+        </div>
+
+        <div class="drop-area-compact" id="drop-area">
+          <input type="file" id="file-input" accept="video/*" style="display: none;">
+          <div id="upload-placeholder">
+            <div style="font-size: 26px; margin-bottom: 4px;">📂</div>
+            <div style="font-size: 12px; font-weight: 700; color: #fff;">Drag & drop raw footage</div>
+            <div style="font-size: 10px; color: var(--text-muted);">MP4, MOV, MKV, AVI, WEBM</div>
+          </div>
+          <div id="upload-preview-info" style="display: none; align-items: center; gap: 8px;">
+            <div style="font-size: 22px;">🎬</div>
+            <div style="text-align: left; overflow: hidden;">
+              <div id="selected-filename" style="font-size: 12px; font-weight: 700; color: var(--cyan-glow); text-overflow: ellipsis; white-space: nowrap; overflow: hidden;">video.mp4</div>
+              <div style="font-size: 10px; color: var(--text-dim);">Ready for Dual RTX 3060</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Target Audience Preset</label>
+          <select class="form-select" id="pipeline-preset-select">
+            <option value="Adult Creator Shoot">Adult Creator Shoot (Preview + 6 Poses + PPV Kit)</option>
+            <option value="Glamour & Boudoir">Glamour & Boudoir (Editorial Lookbook)</option>
+            <option value="UGC & Brand Promo">UGC & Brand (Viral TikTok/Reel Hooks)</option>
+            <option value="Fiverr Service Gig">Fiverr Gig Fulfillment (Release ZIP + Note)</option>
+          </select>
+        </div>
+
+        <button class="btn-launch-run" id="btn-run-pipeline">
+          <i class="icon">🚀</i> Launch Production Line
+        </button>
+      </section>
+
+      <!-- 2. Stacked Agents Card (BELOW INGESTION) -->
+      <section class="glass-panel stacked-agents-card">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
+          <span style="font-size: 12px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;">
+            Autonomous Crew
+          </span>
+          <span style="font-size: 10px; color: var(--cyan-glow); font-family: var(--font-mono);">
+            Click to Tune
+          </span>
+        </div>
+
+        <div id="stacked-crew-list" style="display: flex; flex-direction: column; gap: 8px;">
+          <!-- Dynamically populated by agents.js -->
+        </div>
+      </section>
+
+    </div>
+
+    <!-- ------------------------------------------------------------------
+         COLUMN 2: 3D CYBER PRODUCTION FACTORY FLOOR (DEEP 3D ROOMS + PIPES)
+         ------------------------------------------------------------------ -->
+    <div class="col-center">
+
+      <section class="factory-stage-container">
+        <!-- 3D Layered SVG Conduits & Metallic Pipes Overlay -->
+        <svg class="factory-conduits-svg" viewBox="0 0 900 500" preserveAspectRatio="none">
+          <!-- Dropshadow underneath all pipes -->
+          <path d="M 270 120 L 330 120" class="pipe-outer-shadow" />
+          <path d="M 570 120 L 630 120" class="pipe-outer-shadow" />
+          <path d="M 770 210 L 770 250 L 150 250 L 150 290" class="pipe-outer-shadow" />
+          <path d="M 270 380 L 330 380" class="pipe-outer-shadow" />
+          <path d="M 570 380 L 630 380" class="pipe-outer-shadow" />
+
+          <!-- Heavy Metallic Casings -->
+          <path d="M 270 120 L 330 120" class="pipe-metal-casing" />
+          <path d="M 570 120 L 630 120" class="pipe-metal-casing" />
+          <path d="M 770 210 L 770 250 L 150 250 L 150 290" class="pipe-metal-casing" />
+          <path d="M 270 380 L 330 380" class="pipe-metal-casing" />
+          <path d="M 570 380 L 630 380" class="pipe-metal-casing" />
+
+          <!-- Specular Metallic Highlights -->
+          <path d="M 270 118 L 330 118" class="pipe-metallic-highlight" />
+          <path d="M 570 118 L 630 118" class="pipe-metallic-highlight" />
+          <path d="M 770 210 L 770 248 L 150 248 L 150 290" class="pipe-metallic-highlight" />
+          <path d="M 270 378 L 330 378" class="pipe-metallic-highlight" />
+          <path d="M 570 378 L 630 378" class="pipe-metallic-highlight" />
+
+          <!-- Inner Dark Core Tubes -->
+          <path d="M 270 120 L 330 120" class="pipe-core-tube" />
+          <path d="M 570 120 L 630 120" class="pipe-core-tube" />
+          <path d="M 770 210 L 770 250 L 150 250 L 150 290" class="pipe-core-tube" />
+          <path d="M 270 380 L 330 380" class="pipe-core-tube" />
+          <path d="M 570 380 L 630 380" class="pipe-core-tube" />
+
+          <!-- Animated High-Energy Plasma Laser Pulses -->
+          <path d="M 270 120 L 330 120" class="pipe-energy-pulse" id="pipe-energy-1" />
+          <path d="M 570 120 L 630 120" class="pipe-energy-pulse purple" id="pipe-energy-2" />
+          <path d="M 770 210 L 770 250 L 150 250 L 150 290" class="pipe-energy-pulse gold" id="pipe-energy-3" />
+          <path d="M 270 380 L 330 380" class="pipe-energy-pulse orange" id="pipe-energy-4" />
+          <path d="M 570 380 L 630 380" class="pipe-energy-pulse green" id="pipe-energy-5" />
+
+          <!-- Riveted Bolted Flanges -->
+          <circle cx="270" cy="120" r="8" class="pipe-flange" />
+          <circle cx="330" cy="120" r="8" class="pipe-flange" />
+          <circle cx="570" cy="120" r="8" class="pipe-flange" />
+          <circle cx="630" cy="120" r="8" class="pipe-flange" />
+          <circle cx="270" cy="380" r="8" class="pipe-flange" />
+          <circle cx="330" cy="380" r="8" class="pipe-flange" />
+          <circle cx="570" cy="380" r="8" class="pipe-flange" />
+          <circle cx="630" cy="380" r="8" class="pipe-flange" />
+        </svg>
+
+        <!-- 6 Distinct 3D Factory Chambers -->
+        <div class="factory-chambers-grid">
+
+          <!-- 3D Chamber 1: Tactical Command Bridge (Vanguard) -->
+          <!-- 3D Chamber 07: Omni-Marketing Matrix (Mercury) -->
+          <div class="factory-chamber chamber-mercury" id="chamber-mercury" onclick="window.workBaysManager.switchBay('marketing-hub')">
+            <div class="chamber-speech">Mercury: Marketing channels synced</div>
+            <div class="chamber-header-bar">
+              <span class="chamber-badge" style="color: #a855f7;">CHAMBER 07</span>
+              <span class="chamber-status-light" style="background: #a855f7; box-shadow: 0 0 8px #a855f7;"></span>
+            </div>
+            <div class="chamber-avatar-wrap">
+              <img src="/static/img/characters_3d/mercury_card_2x.png?v=20261003_v7" alt="Mercury" />
+            </div>
+            <div style="font-size: 13px; font-weight: 800; color: #fff;">Marketing Matrix</div>
+            <div class="chamber-machinery">
+              <span style="font-size: 14px; animation: spinTurbine 3s linear infinite; display: inline-block;">🚀</span>
+              <span class="chamber-activity-meter" style="color: #a855f7;">AUTO-ENGAGED</span>
+            </div>
+          </div>
+
+          <!-- 3D Chamber 08: Dispatch Transmission Hub (Herald) -->
+          <div class="factory-chamber chamber-herald" id="chamber-herald" onclick="window.workBaysManager.switchBay('newsletter-hub')">
+            <div class="chamber-speech">Herald: Morning dispatch primed</div>
+            <div class="chamber-header-bar">
+              <span class="chamber-badge" style="color: #10b981;">CHAMBER 08</span>
+              <span class="chamber-status-light" style="background: #10b981; box-shadow: 0 0 8px #10b981;"></span>
+            </div>
+            <div class="chamber-avatar-wrap">
+              <img src="/static/img/characters_3d/herald_card_2x.png?v=20261003_v7" alt="Herald" />
+            </div>
+            <div style="font-size: 13px; font-weight: 800; color: #fff;">Dispatch Hub</div>
+            <div class="chamber-machinery">
+              <span style="font-size: 14px; animation: spinTurbine 3s linear infinite; display: inline-block;">🌿</span>
+              <span class="chamber-activity-meter" style="color: #10b981;">7:00 AM QUEUED</span>
+            </div>
+          </div>
+          <div class="factory-chamber chamber-vanguard" id="chamber-vanguard" onclick="window.crewManager.openAgentDossier('vanguard')">
+            <div class="chamber-speech">Vanguard: Intake stream ready</div>
+            <div class="chamber-header-bar">
+              <span class="chamber-badge" style="color: var(--cyan-glow);">CHAMBER 01</span>
+              <span class="chamber-status-light"></span>
+            </div>
+            <div class="chamber-avatar-wrap">
+              <img src="/static/img/characters_3d/vanguard_card_2x.png?v=20261003_v7" alt="Vanguard" />
+            </div>
+            <div style="font-size: 13px; font-weight: 800; color: #fff;">Command Bridge</div>
+            <div class="chamber-machinery">
+              <span style="font-size: 14px; animation: spinTurbine 3s linear infinite; display: inline-block;">🧭</span>
+              <span class="chamber-activity-meter">STANDBY</span>
+            </div>
+          </div>
+
+          <!-- 3D Chamber 2: Optical Scanner Bay (Iris) -->
+          <div class="factory-chamber chamber-iris" id="chamber-iris" onclick="window.crewManager.openAgentDossier('iris')">
+            <div class="laser-gantry-line"></div>
+            <div class="chamber-speech">Iris: Calibrating multi-optics</div>
+            <div class="chamber-header-bar">
+              <span class="chamber-badge" style="color: var(--pink-hot);">CHAMBER 02</span>
+              <span class="chamber-status-light"></span>
+            </div>
+            <div class="chamber-avatar-wrap">
+              <img src="/static/img/characters_3d/iris_card_2x.png?v=20261003_v7" alt="Iris" />
+            </div>
+            <div style="font-size: 13px; font-weight: 800; color: #fff;">Optical Scanner Bay</div>
+            <div class="chamber-machinery">
+              <span style="font-size: 14px;">🔬</span>
+              <span class="chamber-activity-meter">STANDBY</span>
+            </div>
+          </div>
+
+          <!-- 3D Chamber 3: Acoustic Frequency Lab (Echo) -->
+          <div class="factory-chamber chamber-echo" id="chamber-echo" onclick="window.crewManager.openAgentDossier('echo')">
+            <div class="chamber-speech">Echo: Audio tracks isolated</div>
+            <div class="chamber-header-bar">
+              <span class="chamber-badge" style="color: var(--blue-bright);">CHAMBER 03</span>
+              <span class="chamber-status-light"></span>
+            </div>
+            <div class="chamber-avatar-wrap">
+              <img src="/static/img/characters_3d/echo_card_2x.png?v=20261003_v7" alt="Echo" />
+            </div>
+            <div style="font-size: 13px; font-weight: 800; color: #fff;">Frequency Audio Lab</div>
+            <div class="chamber-machinery">
+              <div class="sound-tubes-strip">
+                <span class="tube-fluid"></span>
+                <span class="tube-fluid"></span>
+                <span class="tube-fluid"></span>
+                <span class="tube-fluid"></span>
+                <span class="tube-fluid"></span>
+              </div>
+              <span class="chamber-activity-meter">STANDBY</span>
+            </div>
+          </div>
+
+          <!-- 3D Chamber 4: Copywriting Scriptorium (Aura) -->
+          <div class="factory-chamber chamber-aura" id="chamber-aura" onclick="window.crewManager.openAgentDossier('aura')">
+            <div class="chamber-speech">Aura: Weaving marketing runes</div>
+            <div class="chamber-header-bar">
+              <span class="chamber-badge" style="color: var(--amber-warm);">CHAMBER 04</span>
+              <span class="chamber-status-light"></span>
+            </div>
+            <div class="chamber-avatar-wrap">
+              <img src="/static/img/characters_3d/aura_card_2x.png?v=20261003_v7" alt="Aura" />
+            </div>
+            <div style="font-size: 13px; font-weight: 800; color: #fff;">Copy Scriptorium</div>
+            <div class="chamber-machinery">
+              <span style="font-size: 14px;">📜</span>
+              <span class="chamber-activity-meter">STANDBY</span>
+            </div>
+          </div>
+
+          <!-- 3D Chamber 5: Heavy Assembly & Cutter Plant (Forge) -->
+          <div class="factory-chamber chamber-forge" id="chamber-forge" onclick="window.crewManager.openAgentDossier('forge')">
+            <div class="chamber-speech">Forge: NVENC cutter ready</div>
+            <div class="chamber-header-bar">
+              <span class="chamber-badge" style="color: #ff5722;">CHAMBER 05</span>
+              <span class="chamber-status-light"></span>
+            </div>
+            <div class="chamber-avatar-wrap">
+              <img src="/static/img/characters_3d/forge_card_2x.png?v=20261003_v7" alt="Forge" />
+            </div>
+            <div style="font-size: 13px; font-weight: 800; color: #fff;">NVENC Cutter Plant</div>
+            <div class="chamber-machinery">
+              <span class="forge-piston-gear">⚙️</span>
+              <span class="chamber-activity-meter">STANDBY</span>
+            </div>
+          </div>
+
+          <!-- 3D Chamber 6: Cargo Delivery Vault (Release Silo) -->
+          <div class="factory-chamber chamber-vault" id="chamber-vault" onclick="document.getElementById('btn-header-open-folder').click()">
+            <div class="chamber-speech">Cargo Vault: Ready for package</div>
+            <div class="chamber-header-bar">
+              <span class="chamber-badge" style="color: var(--green-neon);">VAULT 06</span>
+              <span class="chamber-status-light"></span>
+            </div>
+            <div class="chamber-avatar-wrap">
+              <div class="vault-wheel">🔒</div>
+            </div>
+            <div style="font-size: 13px; font-weight: 800; color: #fff;">Release Vault</div>
+            <div class="chamber-machinery">
+              <span style="font-size: 14px;">📦</span>
+              <span class="chamber-activity-meter">STANDBY</span>
+            </div>
+          </div>
+
+        </div>
+
+        <div class="factory-floor-status-bar">
+          <span>⚡ FACTORY FLOOR: 100% PRIVATE LOCAL GPU POWERED</span>
+          <span>DUAL NVIDIA RTX 3060 · CUDA FLOAT16 · NVENC</span>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- ------------------------------------------------------------------
+         COLUMN 3: VERTICAL LIVE STREAM & DELIVERABLES WIDGET
+         ------------------------------------------------------------------ -->
+    <div class="col-right">
+
+      <!-- Vertical Live Telemetry Stream -->
+      <section class="glass-panel vertical-stream-card">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+          <span style="font-size: 12px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;">
+            Live Mission Stream
+          </span>
+          <button style="background: none; border: none; color: var(--text-dim); font-size: 10px; cursor: pointer;" onclick="document.getElementById('log-stream').innerHTML = ''">Clear</button>
+        </div>
+
+        <div class="log-stream-window" id="log-stream">
+          <div class="log-entry highlight">[00:00:00] WORKHORSE AI Command Center initialized.</div>
+          <div class="log-entry success">[00:00:00] 100% Local GPU Mode active. All content processed strictly offline.</div>
+          <div class="log-entry">[00:00:00] Dual RTX 3060 hardware drivers detected.</div>
+          <div class="log-entry">[00:00:00] 3D Production chambers linked with high-voltage hydraulic lines.</div>
+          <div class="log-entry success">[00:00:00] Standing by for raw shoot media.</div>
+        </div>
+      </section>
+
+      <!-- Deliverables Widget -->
+      <section class="glass-panel deliverables-widget-card" id="results-section" style="display: none;">
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+          <span style="font-size: 12px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase; color: var(--cyan-glow);">
+            Deliverables Ready
+          </span>
+          <button class="btn-cyber" id="btn-download-zip" style="padding: 4px 10px; font-size: 11px;">
+            📦 ZIP (<span id="zip-size-badge">0 MB</span>)
+          </button>
+        </div>
+
+        <div style="font-size: 10px; color: var(--text-muted); font-family: var(--font-mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+          📂 <span id="output-location-path">F:\WORKHORSE\workspace\output\</span>
+        </div>
+
+        <!-- Video Player -->
+        <div class="video-player-container">
+          <video id="preview-video-player" controls></video>
+        </div>
+
+        <!-- 6 Pose Screenshots Strip -->
+        <div class="poses-strip" id="poses-strip">
+          <!-- Injected dynamically -->
+        </div>
+
+        <!-- Copy Tabs -->
+        <div>
+          <div class="copy-tabs">
+            <button class="copy-tab active" data-platform="instagram">IG</button>
+            <button class="copy-tab" data-platform="twitter_x">X</button>
+            <button class="copy-tab" data-platform="onlyfans">OnlyFans</button>
+            <button class="copy-tab" data-platform="tiktok">TikTok</button>
+            <button class="copy-tab" data-platform="reddit">Reddit</button>
+            <button class="copy-tab" data-platform="fiverr">Fiverr</button>
+          </div>
+
+          <div class="copy-content-box" id="copy-content-box">
+            Loading social copy...
+          </div>
+
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
+            <button class="btn-cyber" id="btn-open-output-folder" style="padding: 4px 10px; font-size: 11px;">
+              📂 Open Explorer
+            </button>
+            <button class="btn-cyber" id="btn-copy-clipboard" style="padding: 4px 10px; font-size: 11px;">
+              📋 Copy
+            </button>
+          </div>
+        </div>
+      </section>
+
+    </div>
+
+  </main>
+  </div> <!-- Close #view-video-factory -->
+
+<!-- ======================================================================
+       BAY 2: PHOTO SHOOT & RETOUCHING BAY
+       ====================================================================== -->
+  <div class="bay-view-panel" id="view-photo-bay">
+    <div class="bay-2col-grid">
+
+      <!-- Left Column: Retouching Controls & Upload -->
+      <section class="glass-panel" style="padding: 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+          <div>
+            <h3 style="font-size: 15px; font-weight: 800; color: #fff; text-transform: uppercase; letter-spacing: 0.5px;">
+              📸 Photo Shoot Retouching Studio
+            </h3>
+            <div style="font-size: 11px; color: var(--green-neon); font-family: var(--font-mono); margin-top: 2px;">
+              🔒 100% Local GPU Skin Smoothing & Color Grading
+            </div>
+          </div>
+          <span class="bay-pill" id="photo-staged-count" style="color: var(--cyan-glow); border: 1px solid var(--cyan-glow);">0 photos staged</span>
+        </div>
+
+        <!-- Dropzone -->
+        <div class="photo-upload-zone" id="photo-drop-zone">
+          <input type="file" id="photo-file-input" multiple accept="image/*" style="display: none;" />
+          <div style="font-size: 32px; margin-bottom: 6px;">📥</div>
+          <div style="font-size: 13px; font-weight: 700; color: #fff;">Drop batch photo shoot images here</div>
+          <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">Supports JPG, PNG, WEBP (Multiple selection supported)</div>
+          <div id="photo-upload-status" style="font-size: 11px; color: var(--cyan-glow); margin-top: 6px; font-family: var(--font-mono);"></div>
+        </div>
+
+        <!-- Shoot Name -->
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Shoot Package Name</label>
+          <input type="text" class="form-input" id="photo-shoot-name" value="velvet_boudoir_session" style="padding: 8px 12px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; color: #fff; font-size: 12px; width: 100%; box-sizing: border-box;" />
+        </div>
+
+        <!-- Preset Selector -->
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Cinematic Color Grade Preset</label>
+          <select class="form-select" id="photo-preset-select" style="width: 100%; padding: 8px 12px; background: #0c1220; border: 1px solid rgba(0,242,254,0.3); border-radius: 6px; color: #fff; font-size: 12px;">
+            <option value="moody_boudoir">🕯️ Moody Boudoir (Rich dark tones, warm shadow roll-off)</option>
+            <option value="golden_hour">🌅 Golden Hour Glow (Warm sun-drenched radiant skin)</option>
+            <option value="cyber_neon">⚡ Cyber Neon (Cyan / Magenta nightclub contrast)</option>
+            <option value="monochrome_noir">🎞️ Monochrome Noir (High-contrast editorial B&W)</option>
+            <option value="vintage_35mm">📸 35mm Vintage Film (Analog grain & matte organic tones)</option>
+          </select>
+        </div>
+
+        <!-- Skin Smoothing Frequency Separation Slider -->
+        <div class="form-group" style="margin-bottom: 12px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+            <label style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">
+              Bilateral Skin Smoothing
+            </label>
+            <span class="slider-val-badge" id="photo-smooth-val">0.50</span>
+          </div>
+          <div class="slider-container">
+            <span style="font-size: 10px; color: var(--text-dim);">Subtle (0.1)</span>
+            <input type="range" id="photo-smooth-slider" min="0.1" max="0.9" step="0.05" value="0.5" />
+            <span style="font-size: 10px; color: var(--text-dim);">Porcelain (0.9)</span>
+          </div>
+          <div style="font-size: 10px; color: var(--text-dim); margin-top: 4px;">
+            * Uses local bilateral frequency separation: softens blemishes while preserving 100% of skin pores, eye focus, and hair texture.
+          </div>
+        </div>
+
+        <!-- Watermark -->
+        <div class="form-group" style="margin-bottom: 16px;">
+          <label style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Teaser Watermark Text</label>
+          <input type="text" class="form-input" id="photo-watermark-text" value="@ExclusiveDrop" style="padding: 8px 12px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; color: #fff; font-size: 12px; width: 100%; box-sizing: border-box;" />
+          <div style="font-size: 10px; color: var(--text-dim); margin-top: 3px;">
+            Watermark is automatically applied to promotional 4:5 teaser crops. Master high-res photos remain 100% clean.
+          </div>
+        </div>
+
+        <button class="btn-launch-run" id="btn-start-retouch" style="width: 100%; justify-content: center; padding: 12px; font-size: 13px;">
+          ⚡ Batch Retouch Photo Set on Dual RTX 3060
+        </button>
+
+        <div id="photo-retouch-status" style="font-size: 11px; color: var(--cyan-glow); font-family: var(--font-mono); margin-top: 10px; text-align: center;"></div>
+
+        <div style="display: flex; gap: 10px; margin-top: 14px;">
+          <button class="btn-cyber" id="btn-open-photos-folder" style="flex: 1; justify-content: center; font-size: 11px; padding: 8px;">
+            📂 Open Photos Folder
+          </button>
+          <button class="btn-cyber" id="btn-download-photos-zip" style="flex: 1; justify-content: center; font-size: 11px; padding: 8px; display: none; border-color: var(--green-neon); color: var(--green-neon);">
+            📦 Download ZIP
+          </button>
+        </div>
+      </section>
+
+      <!-- Right Column: Gallery & Deliverables -->
+      <section class="glass-panel" style="padding: 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 10px;">
+          <div>
+            <h3 style="font-size: 15px; font-weight: 800; color: #fff; text-transform: uppercase; letter-spacing: 0.5px;">
+              Retouched Gallery & Social Deliverables
+            </h3>
+            <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">
+              Auto-generates Master 4K, 4:5 IG Portrait, 9:16 Story Crop & Watermarked Teasers
+            </div>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button class="copy-tab active" id="toggle-view-master" style="padding: 6px 12px; font-size: 11px;">✨ Master Retouched</button>
+            <button class="copy-tab" id="toggle-view-teaser" style="padding: 6px 12px; font-size: 11px;">🔒 Watermarked Teaser (4:5)</button>
+          </div>
+        </div>
+
+        <div class="gallery-grid" id="photo-gallery-grid">
+          <div style="grid-column: 1/-1; text-align: center; color: var(--text-dim); padding: 50px 20px;">
+            <div style="font-size: 36px; margin-bottom: 8px;">📸</div>
+            <div style="font-size: 14px; font-weight: 700; color: var(--text-muted);">No photos retouched yet</div>
+            <div style="font-size: 12px; margin-top: 4px;">Drop raw photo shoot frames on the left and click "Batch Retouch Photo Set"</div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+
+  <!-- ======================================================================
+       BAY 3: SHOOT IDEAS & STYLE REVERSE-ENGINEERING LAB
+       ====================================================================== -->
+    <div class="bay-view-panel" id="view-inspiration-lab">
+    <div class="bay-2col-grid">
+
+      <!-- Left Column: Inspiration Vault & Controls -->
+      <section class="glass-panel" style="padding: 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+          <div>
+            <h3 style="font-size: 15px; font-weight: 800; color: #fff; text-transform: uppercase; letter-spacing: 0.5px;">
+              💡 Shoot Ideas & Style Vault
+            </h3>
+            <div style="font-size: 11px; color: var(--amber-warm); font-family: var(--font-mono); margin-top: 2px;">
+              👁️ Cipher AI: Reverse-Engineer High-Converting Aesthetics & ComfyUI Prompts
+            </div>
+          </div>
+          <span class="bay-pill" id="insp-count-label" style="color: var(--amber-warm); border: 1px solid var(--amber-warm);">0 photos in vault</span>
+        </div>
+
+        <div style="font-size: 12px; color: var(--text-muted); line-height: 1.5; margin-bottom: 12px; background: rgba(255,209,102,0.05); padding: 10px; border-radius: 6px; border: 1px solid rgba(255,209,102,0.15);">
+          Drop reference images of shoot styles, poses, lighting setups, or competitor posts. Cipher uses local Qwen-VL to reverse-engineer them into <strong>exact ComfyUI Image (FLUX/SDXL) & Video (Wan2.1/SVD) prompts</strong> plus director shooting blueprints!
+        </div>
+
+        <!-- Inspiration Dropzone -->
+        <div class="photo-upload-zone" id="insp-drop-zone" style="border-color: rgba(0, 242, 254, 0.3); background: rgba(0, 242, 254, 0.02);">
+          <input type="file" id="insp-file-input" multiple accept="image/*" style="display: none;" />
+          <div style="font-size: 30px; margin-bottom: 4px;">🖼️</div>
+          <div style="font-size: 13px; font-weight: 700; color: #fff;">Drop inspiration & competitor photos here</div>
+          <div style="font-size: 11px; color: var(--text-dim); margin-top: 2px;">JPG, PNG, WEBP screenshots or moodboard files</div>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; margin: 12px 0 6px 0;">
+          <span style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">
+            Vault Photos (Click thumbnail to target specific image)
+          </span>
+          <button class="btn-cyber" id="btn-open-insp-folder" style="padding: 2px 8px; font-size: 10px;">
+            📂 Open Folder
+          </button>
+        </div>
+
+        <!-- Selected Image Target Ribbon -->
+        <div id="insp-selected-banner" style="display: none; align-items: center; justify-content: space-between; background: rgba(0, 242, 254, 0.1); border: 1px solid rgba(0, 242, 254, 0.4); border-radius: 8px; padding: 6px 12px; margin-bottom: 8px; font-size: 11px;">
+          <span style="color: #00f2fe; display: flex; align-items: center; gap: 6px;">
+            <span>🎯 Target:</span> <strong id="insp-selected-filename" style="color: #fff; font-family: var(--font-mono);">None</strong>
+          </span>
+          <button id="btn-clear-insp-select" style="background: transparent; border: none; color: #f72585; font-size: 11px; font-weight: 700; cursor: pointer;">✕ Deselect (Target All)</button>
+        </div>
+
+        <!-- Inspiration Vault Grid -->
+        <div class="inspiration-vault-grid" id="insp-vault-grid">
+          <!-- Dynamically populated with clickable thumbnails -->
+        </div>
+
+        <!-- Action Generation Buttons -->
+        <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 12px;">
+          <button class="btn-launch-run" id="btn-scan-comfyui" style="width: 100%; justify-content: center; padding: 12px; font-size: 13px; background: linear-gradient(135deg, #00f2fe, #8338ec); box-shadow: 0 0 20px rgba(0,242,254,0.35); border: 1px solid #00f2fe; color: #fff;">
+            🎨 Write ComfyUI Image & Video Prompts
+          </button>
+          <button class="btn-cyber" id="btn-scan-inspiration" style="width: 100%; justify-content: center; padding: 9px; font-size: 12px; border-color: var(--amber-warm); color: var(--amber-warm);">
+            🔍 Generate Director Shoot Blueprint
+          </button>
+        </div>
+
+        <div id="insp-status" style="font-size: 11px; color: #00f2fe; font-family: var(--font-mono); margin-top: 10px; text-align: center;"></div>
+      </section>
+
+      <!-- Right Column: Results Viewer (Shoot Blueprint & ComfyUI Prompt Suite) -->
+      <section class="glass-panel" style="padding: 20px; display: flex; flex-direction: column;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 10px; flex-wrap: wrap; gap: 10px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <button class="copy-tab active" id="tab-view-comfyui" style="padding: 6px 14px; font-size: 12px; font-weight: 700; border-radius: 6px;">
+              🎨 ComfyUI Prompts
+            </button>
+            <button class="copy-tab" id="tab-view-blueprint" style="padding: 6px 14px; font-size: 12px; font-weight: 700; border-radius: 6px;">
+              📋 Shoot Blueprint
+            </button>
+          </div>
+          <div style="display: flex; gap: 6px; flex-wrap: wrap;" id="insp-quick-copy-bar">
+            <button class="btn-cyber" id="btn-copy-comfyui-image" style="padding: 5px 10px; font-size: 11px; border-color: #00f2fe; color: #00f2fe;" title="Copy Positive Image Prompt for ComfyUI CLIP Text Encode">
+              📋 Copy Image Prompt
+            </button>
+            <button class="btn-cyber" id="btn-copy-comfyui-video" style="padding: 5px 10px; font-size: 11px; border-color: #f72585; color: #f72585;" title="Copy Video Motion Prompt for Wan2.1 / SVD / AnimateDiff">
+              🎬 Copy Video Prompt
+            </button>
+            <button class="btn-cyber" id="btn-copy-blueprint" style="display: none; padding: 5px 10px; font-size: 11px; border-color: var(--amber-warm); color: var(--amber-warm);">
+              📋 Copy Blueprint
+            </button>
+          </div>
+        </div>
+
+        <!-- View 1: ComfyUI Prompts Suite -->
+        <div id="comfyui-prompts-container" style="display: flex; flex-direction: column; gap: 12px; flex: 1;">
+          <div class="blueprint-result-box" id="comfyui-content">
+            <div style="text-align: center; color: var(--text-dim); padding: 50px 20px;">
+              <div style="font-size: 40px; margin-bottom: 8px;">🎨</div>
+              <div style="font-size: 15px; font-weight: 800; color: #00f2fe;">No ComfyUI Prompts Generated Yet</div>
+              <div style="font-size: 12px; color: var(--text-muted); margin-top: 6px; max-width: 480px; margin-left: auto; margin-right: auto; line-height: 1.5;">
+                Select an image from the vault on the left (or use all photos) and click <strong style="color: #fff;">"Write ComfyUI Image & Video Prompts"</strong>.<br/>
+                Cipher will reverse-engineer the lighting, styling, and camera optics into exact prompts for FLUX, SDXL, Wan2.1, and AnimateDiff.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- View 2: Shoot Production Blueprint -->
+        <div id="blueprint-container" style="display: none; flex-direction: column; flex: 1;">
+          <div class="blueprint-result-box" id="blueprint-content">
+            <div style="text-align: center; color: var(--text-dim); padding: 50px 20px;">
+              <div style="font-size: 36px; margin-bottom: 8px;">💡</div>
+              <div style="font-size: 14px; font-weight: 700; color: var(--text-muted);">No Shoot Blueprint Generated Yet</div>
+              <div style="font-size: 12px; margin-top: 4px;">Click "Generate Director Shoot Blueprint" on the left to produce posing cues and lighting diagrams.</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+
+<!-- ======================================================================
+       BAY 4: LIVE CAM & CREATOR STORE (TIP MENU MAKER + PROFILE BIO KITS)
+       ====================================================================== -->
+  <div class="bay-view-panel" id="view-cam-templates">
+
+    <!-- Sub-Bay Nav Switcher -->
+    <div class="subbay-nav-tabs">
+      <button class="subbay-tab active" id="subtab-tip-menu" onclick="window.workBaysManager.switchCamSubMode('tip-menu')">
+        💎 Standalone Tip Menu Maker (Chaturbate / MFC / OBS)
+      </button>
+      <button class="subbay-tab" id="subtab-full-bio" onclick="window.workBaysManager.switchCamSubMode('full-bio')">
+        👑 Full Room Bio Kit (About Me + Rules + Tip Menu + Socials)
+      </button>
+    </div>
+
+    <!-- Compliance Callout -->
+    <div style="font-size: 11px; color: #a7f3d0; background: rgba(6, 214, 160, 0.08); border: 1px solid rgba(6, 214, 160, 0.3); padding: 10px 14px; border-radius: 8px; margin-bottom: 16px; line-height: 1.5; display: flex; align-items: center; justify-content: space-between;">
+      <div>
+        <strong>💡 100% Compliant Etsy & Fiverr Selling:</strong> You can legally sell HTML/CSS tip menus, OBS stream overlays, and bio templates to adult creators and cam models on <strong>Etsy</strong> and <strong>Fiverr</strong>. You are selling digital code and graphic designs, not explicit adult media!
+      </div>
+      <button class="btn-cyber" onclick="document.getElementById('btn-download-tip-pack').click()" style="padding: 4px 10px; font-size: 10px; border-color: var(--green-neon); color: var(--green-neon); flex-shrink: 0; margin-left: 12px;">
+        📦 Export Etsy/Fiverr ZIP
+      </button>
+    </div>
+
+    <!-- ==================================================================
+         MODE A: DEDICATED TIP MENU MAKER (ACTIVE DEFAULT)
+         ================================================================== -->
+    <div id="cam-mode-tip-menu" class="bay-2col-grid">
+
+      <!-- Left Column: Tip Menu Controls & Presets -->
+      <section class="glass-panel" style="padding: 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+          <div>
+            <h3 style="font-size: 15px; font-weight: 800; color: #fff; text-transform: uppercase; letter-spacing: 0.5px;">
+              💎 Tip Menu Customizer & Builder
+            </h3>
+            <div style="font-size: 11px; color: var(--pink-hot); font-family: var(--font-mono); margin-top: 2px;">
+              Lovense Toy Controls · Strip Tease · Kink & Dares
+            </div>
+          </div>
+          <span class="bay-pill" style="color: var(--pink-hot); border: 1px solid var(--pink-hot);">Live Builder</span>
+        </div>
+
+        <!-- Quick-Load Preset Menus -->
+        <div style="margin-bottom: 14px;">
+          <label style="font-size: 10px; font-weight: 700; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 6px;">
+            ⚡ Quick-Load High-Converting Presets:
+          </label>
+          <div class="preset-pills-row">
+            <button class="preset-pill-btn" onclick="window.workBaysManager.loadTipPreset('lovense')">📳 Lovense Toy Vibe</button>
+            <button class="preset-pill-btn" onclick="window.workBaysManager.loadTipPreset('sensual')">💋 Sensual Strip Tease</button>
+            <button class="preset-pill-btn" onclick="window.workBaysManager.loadTipPreset('kink')">👠 Kinky & Dominant</button>
+            <button class="preset-pill-btn" onclick="window.workBaysManager.loadTipPreset('dares')">🥂 Fun Dares & Drinks</button>
+          </div>
+        </div>
+
+        <!-- Menu Title & Subtitle -->
+        <div class="form-group" style="margin-bottom: 10px;">
+          <label style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Menu Header Title</label>
+          <input type="text" class="form-input" id="tip-menu-title" value="✨ Goddess Aura's Interactive Tip Menu ✨" style="padding: 8px 12px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; color: #fff; font-size: 12px; width: 100%; box-sizing: border-box;" />
+        </div>
+
+        <div class="form-group" style="margin-bottom: 10px;">
+          <label style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Interactive Toy / Lovense Status</label>
+          <input type="text" class="form-input" id="tip-menu-subtitle" value="⚡ Lovense Lush & Domi Active · High Vibration · Sound On ⚡" style="padding: 8px 12px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; color: var(--pink-hot); font-size: 11px; width: 100%; box-sizing: border-box;" />
+        </div>
+
+        <!-- Aesthetic Theme & Layout Selector -->
+        <div class="photo-controls-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;">
+          <div class="form-group">
+            <label style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Aesthetic Theme</label>
+            <select class="form-select" id="tip-menu-theme" style="width: 100%; padding: 7px 10px; background: #0c1220; border: 1px solid rgba(247,37,133,0.4); border-radius: 6px; color: #fff; font-size: 11px;">
+              <option value="neon_cyber">⚡ Neon Cyber (Cyan & Magenta Glow)</option>
+              <option value="velvet_boudoir">🍷 Velvet Boudoir (Gold & Burgundy)</option>
+              <option value="pastel_dream">🌸 Pastel Dream (Magenta & Purple)</option>
+              <option value="gothic_noir">🖤 Gothic Noir (Matte Carbon & Blood Red)</option>
+              <option value="emerald_luxe">💚 Emerald Luxe (Emerald & Gold)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Layout Format</label>
+            <select class="form-select" id="tip-menu-layout" style="width: 100%; padding: 7px 10px; background: #0c1220; border: 1px solid rgba(0,242,254,0.4); border-radius: 6px; color: #fff; font-size: 11px;">
+              <option value="table">📊 Table Grid (Chaturbate / MFC Bio)</option>
+              <option value="cards">🎴 Badge Cards (Modern Grid)</option>
+              <option value="obs_overlay">📺 OBS Webcam Stream Overlay</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Optional Goal Progress Banner -->
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Room Goal Progress Banner</label>
+          <input type="text" class="form-input" id="tip-menu-goal" value="Tonight's Goal: 1500 / 3000 Tokens — Hot Oil & Lap Dance Show" style="padding: 7px 10px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; color: var(--amber-warm); font-size: 11px; width: 100%; box-sizing: border-box;" />
+        </div>
+
+        <!-- Tip Menu Tiers Dynamic List -->
+        <div style="margin-bottom: 14px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <label style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">
+              Tip Menu Token Tiers & Actions
+            </label>
+            <button class="btn-cyber" id="btn-add-menu-tier" style="padding: 2px 8px; font-size: 10px;">+ Add Tier</button>
+          </div>
+          <div id="tip-menu-rows-container" style="max-height: 220px; overflow-y: auto; padding-right: 4px;">
+            <!-- Rows injected by bays.js -->
+          </div>
+        </div>
+
+        <!-- Launch Buttons -->
+        <button class="btn-launch-run" id="btn-build-tip-menu" style="width: 100%; justify-content: center; padding: 12px; font-size: 13px; background: linear-gradient(135deg, #f72585, #8338ec); box-shadow: 0 0 20px rgba(247,37,133,0.35);">
+          ⚡ Generate Tip Menu Preview & Code
+        </button>
+
+        <div id="tip-menu-build-status" style="font-size: 11px; color: var(--pink-hot); font-family: var(--font-mono); margin-top: 10px; text-align: center;"></div>
+
+        <div style="display: flex; gap: 8px; margin-top: 12px;">
+          <button class="btn-cyber" id="btn-download-tip-pack" style="flex: 1; justify-content: center; font-size: 11px; padding: 8px; border-color: var(--pink-hot); color: #fff; background: rgba(247,37,133,0.12);">
+            📦 Download Tip Pack ZIP (Etsy/Fiverr)
+          </button>
+          <button class="btn-cyber" id="btn-copy-chatbot-text" style="flex: 1; justify-content: center; font-size: 11px; padding: 8px;">
+            🤖 Copy Chatbot Text
+          </button>
+        </div>
+      </section>
+
+      <!-- Right Column: Live Tip Menu Preview & Raw Code -->
+      <section class="glass-panel" style="padding: 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 10px;">
+          <div style="display: flex; gap: 8px;">
+            <button class="copy-tab active" id="tab-tipmenu-preview" onclick="window.workBaysManager.switchTipViewTab('preview')">👁️ Live Interactive Preview</button>
+            <button class="copy-tab" id="tab-tipmenu-code" onclick="window.workBaysManager.switchTipViewTab('code')">💻 Copy-Paste HTML / CSS</button>
+            <button class="copy-tab" id="tab-tipmenu-bot" onclick="window.workBaysManager.switchTipViewTab('bot')">🤖 Chatbot Notice Text</button>
+          </div>
+          <button class="btn-cyber" id="btn-copy-active-tip-code" style="padding: 6px 12px; font-size: 11px; border-color: var(--pink-hot); color: var(--pink-hot);">
+            📋 Copy
+          </button>
+        </div>
+
+        <!-- 1. Live Sandbox Frame -->
+        <div id="tipmenu-preview-wrapper">
+          <iframe id="tipmenu-preview-frame" class="preview-sandbox-frame" sandbox="allow-same-origin"></iframe>
+        </div>
+
+        <!-- 2. Raw HTML / CSS Code Display -->
+        <div id="tipmenu-code-wrapper" style="display: none;">
+          <pre class="code-display-pre" id="tipmenu-code-pre">Click "Generate Tip Menu Preview & Code" to load code...</pre>
+        </div>
+
+        <!-- 3. Chatbot Text Display -->
+        <div id="tipmenu-bot-wrapper" style="display: none;">
+          <pre class="code-display-pre" id="tipmenu-bot-pre" style="color: var(--amber-warm);">Click "Generate Tip Menu Preview & Code" to load bot notice string...</pre>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- ==================================================================
+         MODE B: FULL ROOM BIO KIT (ABOUT ME + RULES + TIP MENU + SOCIALS)
+         ================================================================== -->
+    <div id="cam-mode-full-bio" class="bay-2col-grid" style="display: none;">
+
+      <!-- Left Column: Full Bio Customizer -->
+      <section class="glass-panel" style="padding: 20px;">
+        <h3 style="font-size: 15px; font-weight: 800; color: #fff; text-transform: uppercase; margin-bottom: 12px;">
+          👑 Full Room Bio Kit Generator
+        </h3>
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Model / Performer Stage Name</label>
+          <input type="text" class="form-input" id="cam-model-name" value="GoddessAura" style="padding: 8px 12px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; color: #fff; font-size: 12px; width: 100%; box-sizing: border-box;" />
+        </div>
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Aesthetic Theme</label>
+          <select class="form-select" id="cam-bio-theme-select" style="width: 100%; padding: 8px 12px; background: #0c1220; border: 1px solid rgba(247,37,133,0.4); border-radius: 6px; color: #fff; font-size: 12px;">
+            <option value="neon_cyber">⚡ Neon Cyber</option>
+            <option value="velvet_boudoir">🍷 Velvet Boudoir</option>
+            <option value="pastel_dream">🌸 Pastel Dream</option>
+            <option value="gothic_noir">🖤 Gothic Noir</option>
+            <option value="emerald_luxe">💚 Emerald Luxe</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin-bottom: 16px;">
+          <label style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Target Platform</label>
+          <select class="form-select" id="cam-bio-platform-select" style="width: 100%; padding: 8px 12px; background: #0c1220; border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; color: #fff; font-size: 12px;">
+            <option value="chaturbate">💬 Chaturbate Profile Bio HTML</option>
+            <option value="mfc">🎥 MyFreeCams / MFC Bio Code</option>
+          </select>
+        </div>
+        <button class="btn-launch-run" id="btn-generate-full-bio" style="width: 100%; justify-content: center; padding: 12px; font-size: 13px; background: linear-gradient(135deg, #00f2fe, #4facfe);">
+          ⚡ Generate Full Profile Bio Kit
+        </button>
+        <button class="btn-cyber" id="btn-download-bio-bundle-zip" style="width: 100%; justify-content: center; font-size: 11px; padding: 8px; margin-top: 10px; border-color: var(--cyan-glow); color: var(--cyan-glow);">
+          📦 Download Complete Bio Digital Pack (.ZIP)
+        </button>
+      </section>
+
+      <!-- Right Column: Full Bio Preview -->
+      <section class="glass-panel" style="padding: 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+          <span style="font-size: 14px; font-weight: 800; color: var(--cyan-glow);">Full Bio Live Preview</span>
+          <button class="btn-cyber" id="btn-copy-full-bio-code" style="padding: 4px 10px; font-size: 11px;">📋 Copy Bio Code</button>
+        </div>
+        <iframe id="bio-preview-frame" class="preview-sandbox-frame" sandbox="allow-same-origin"></iframe>
+      </section>
+
+    </div>
+
+  </div> <!-- Close #view-cam-templates -->
+
+  <!-- ======================================================================
+       BAY 5: ETSY DIGITAL EMPIRE (THE MULTI-THOUSAND DOLLAR WORKAROUND)
+       ====================================================================== -->
+  <div class="bay-view-panel" id="view-etsy-empire">
+    <div style="background: rgba(255, 209, 102, 0.08); border: 1px solid rgba(255, 209, 102, 0.3); border-radius: var(--radius-md); padding: 14px 20px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
+      <div>
+        <h3 style="font-size: 15px; font-weight: 800; color: var(--amber-warm); text-transform: uppercase; margin: 0 0 4px 0;">
+          👑 The Multi-Thousand Dollar Workaround: Digital Products for Creators
+        </h3>
+        <div style="font-size: 12px; color: var(--text-muted); line-height: 1.5;">
+          Etsy is a multi-million dollar marketplace for digital tools used by adult performers, glamour models, and boudoir photographers. 
+          Etsy handles 100% automated instant file delivery upon payment. WORKHORSE automatically generates the presets, contracts, 50 posing cards, promo graphics, and listing metadata!
+        </div>
+      </div>
+      <button class="btn-cyber" onclick="window.workBaysManager.openEtsyFolder()" style="padding: 6px 14px; font-size: 11px; border-color: var(--amber-warm); color: var(--amber-warm); flex-shrink: 0; margin-left: 16px;">
+        📂 Open Etsy Bundles Folder
+      </button>
+    </div>
+
+    <div class="bay-2col-grid">
+
+      <!-- Left Column: Digital Product Catalog & Bundlers -->
+      <div>
+        <div class="etsy-grid">
+
+          <!-- Product 1: Lightroom Presets -->
+          <div class="etsy-card">
+            <div>
+              <div class="etsy-card-header">
+                <div class="etsy-card-title">🎨 Boudoir & Glamour 1-Click Mobile Presets</div>
+                <span class="etsy-price-badge">$12.99</span>
+              </div>
+              <div class="etsy-card-desc">
+                5 Adobe Camera Raw / Lightroom .xmp presets (Moody Boudoir, Golden Hour Glow, Cyber Neon, B&W Noir, 35mm Film) + iOS/Android/Desktop install guide.
+              </div>
+            </div>
+            <button class="btn-cyber" onclick="window.workBaysManager.bundleEtsy('presets')" style="width: 100%; justify-content: center; font-size: 11px; padding: 8px; border-color: var(--amber-warm); color: var(--amber-warm);">
+              📦 Bundle Presets ZIP
+            </button>
+          </div>
+
+          <!-- Product 2: Legal Contracts -->
+          <div class="etsy-card">
+            <div>
+              <div class="etsy-card-header">
+                <div class="etsy-card-title">⚖️ Model Release & Shoot Legal Contract Kit</div>
+                <span class="etsy-price-badge">$19.99</span>
+              </div>
+              <div class="etsy-card-desc">
+                Adult Model Release Agreement, 18 U.S.C. 2257 Record-Keeping Compliance Form, and Property Shoot Location Release Agreement.
+              </div>
+            </div>
+            <button class="btn-cyber" onclick="window.workBaysManager.bundleEtsy('contracts')" style="width: 100%; justify-content: center; font-size: 11px; padding: 8px; border-color: var(--amber-warm); color: var(--amber-warm);">
+              📦 Bundle Legal Kit ZIP
+            </button>
+          </div>
+
+          <!-- Product 3: 50 Posing Cards -->
+          <div class="etsy-card">
+            <div>
+              <div class="etsy-card-header">
+                <div class="etsy-card-title">💃 50 Boudoir Posing Cards (Lookbook)</div>
+                <span class="etsy-price-badge">$14.99</span>
+              </div>
+              <div class="etsy-card-desc">
+                50 elite studio-tested poses across Standing, Silk/Bed, Floor, Chairs, and Macro portraits. Includes spine posture, hand placement & lighting setups.
+              </div>
+            </div>
+            <button class="btn-cyber" onclick="window.workBaysManager.bundleEtsy('posing')" style="width: 100%; justify-content: center; font-size: 11px; padding: 8px; border-color: var(--amber-warm); color: var(--amber-warm);">
+              📦 Bundle Posing Guide ZIP
+            </button>
+          </div>
+
+          <!-- Product 4: Social Promo Templates -->
+          <div class="etsy-card">
+            <div>
+              <div class="etsy-card-header">
+                <div class="etsy-card-title">🖼️ Canva / Social Media Promo Templates</div>
+                <span class="etsy-price-badge">$14.99</span>
+              </div>
+              <div class="etsy-card-desc">
+                OnlyFans/Fansly welcome banners (16:9), tip menu promo flyers (4:5), and VIP schedule cards designed to drive subscriptions.
+              </div>
+            </div>
+            <button class="btn-cyber" onclick="window.workBaysManager.bundleEtsy('templates')" style="width: 100%; justify-content: center; font-size: 11px; padding: 8px; border-color: var(--amber-warm); color: var(--amber-warm);">
+              📦 Bundle Promo Graphics ZIP
+            </button>
+          </div>
+
+        </div>
+
+        <!-- Master Empire Bundle Card -->
+        <div class="glass-panel" style="padding: 20px; border-color: var(--amber-warm); background: linear-gradient(135deg, rgba(255,209,102,0.1), rgba(14,21,38,0.9));">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <div>
+              <h4 style="font-size: 16px; font-weight: 800; color: #fff; margin: 0;">👑 Complete Creator Studio Digital Empire Bundle</h4>
+              <div style="font-size: 12px; color: var(--amber-warm); margin-top: 2px;">Includes all 4 product lines in one mega-bundle for maximum Etsy revenue</div>
+            </div>
+            <span class="etsy-price-badge" style="font-size: 13px; padding: 4px 12px;">$49.99</span>
+          </div>
+          <button class="btn-launch-run" onclick="window.workBaysManager.bundleEtsy('all')" style="width: 100%; justify-content: center; padding: 12px; font-size: 13px; background: linear-gradient(135deg, #ffd166, #f72585); box-shadow: 0 0 25px rgba(255,209,102,0.35);">
+            ⚡ Generate Complete Master Digital Empire ZIP
+          </button>
+          <div id="etsy-bundle-status" style="font-size: 11px; color: var(--amber-warm); font-family: var(--font-mono); margin-top: 10px; text-align: center;"></div>
+        </div>
+      </div>
+
+      <!-- Right Column: Etsy SEO & Listing Optimizer -->
+      <section class="glass-panel" style="padding: 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 10px;">
+          <div>
+            <h3 style="font-size: 14px; font-weight: 800; color: var(--amber-warm); text-transform: uppercase;">
+              📋 Etsy Listing Copy & SEO Kit
+            </h3>
+            <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">13 High-ranking tags, title, pricing & description</div>
+          </div>
+          <button class="btn-cyber" id="btn-copy-etsy-meta" onclick="window.workBaysManager.copyEtsyMetadata()" style="padding: 4px 10px; font-size: 11px; border-color: var(--amber-warm); color: var(--amber-warm);">
+            📋 Copy Listing Kit
+          </button>
+        </div>
+        <pre class="code-display-pre" id="etsy-metadata-pre" style="max-height: 540px; color: #fef08a;">Click any product on the left to generate its listing bundle...</pre>
+      </section>
+
+    </div>
+  </div>
+
+  <!-- ======================================================================
+       BAY 6: FIVERR SERVICE BOT (HIGH-DEMAND GIG AUTOMATION)
+       ====================================================================== -->
+  <div class="bay-view-panel" id="view-fiverr-bot">
+    <div style="background: rgba(6, 214, 160, 0.08); border: 1px solid rgba(6, 214, 160, 0.3); border-radius: var(--radius-md); padding: 14px 20px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
+      <div>
+        <h3 style="font-size: 15px; font-weight: 800; color: var(--green-neon); text-transform: uppercase; margin: 0 0 4px 0;">
+          💼 High-Demand Fiverr Gigs You CAN Automate 100%
+        </h3>
+        <div style="font-size: 12px; color: var(--text-muted); line-height: 1.5;">
+          Connect your Fiverr client orders directly to WORKHORSE's local GPU pipelines. 
+          When an order arrives, WORKHORSE retouches the shoot, cuts the 60s teaser, crafts the release copy, and packages a professional 5-star delivery bundle in 1 click!
+        </div>
+      </div>
+      <button class="btn-cyber" onclick="window.workBaysManager.openFiverrFolder()" style="padding: 6px 14px; font-size: 11px; border-color: var(--green-neon); color: var(--green-neon); flex-shrink: 0; margin-left: 16px;">
+        📂 Open Deliveries Folder
+      </button>
+    </div>
+
+    <!-- 4 High-Demand Gig Selector Cards -->
+    <div class="fiverr-gigs-grid">
+      <div class="fiverr-gig-card active" id="fiverr-card-gig_retouch" onclick="window.workBaysManager.selectFiverrGig('gig_retouch')">
+        <div style="font-size: 20px; margin-bottom: 4px;">🎨</div>
+        <div style="font-size: 12px; font-weight: 800; color: #fff; margin-bottom: 4px;">Photo Retouch & Color Grade</div>
+        <div style="font-size: 10px; color: var(--text-muted);">Skin smoothing + 5 color grades + 4:5 & 9:16 crops</div>
+        <div style="font-size: 11px; color: var(--green-neon); font-weight: bold; margin-top: 6px;">$15 - $75 / Order</div>
+      </div>
+
+      <div class="fiverr-gig-card" id="fiverr-card-gig_teaser" onclick="window.workBaysManager.selectFiverrGig('gig_teaser')">
+        <div style="font-size: 20px; margin-bottom: 4px;">🎬</div>
+        <div style="font-size: 12px; font-weight: 800; color: #fff; margin-bottom: 4px;">60s Viral Video Teaser & Reels</div>
+        <div style="font-size: 10px; color: var(--text-muted);">NVENC teaser + 9:16 vertical reel + 6 pose stills</div>
+        <div style="font-size: 11px; color: var(--green-neon); font-weight: bold; margin-top: 6px;">$20 - $85 / Order</div>
+      </div>
+
+      <div class="fiverr-gig-card" id="fiverr-card-gig_copy" onclick="window.workBaysManager.selectFiverrGig('gig_copy')">
+        <div style="font-size: 20px; margin-bottom: 4px;">✍️</div>
+        <div style="font-size: 12px; font-weight: 800; color: #fff; margin-bottom: 4px;">Social Captions & Hashtags</div>
+        <div style="font-size: 10px; color: var(--text-muted);">OnlyFans PPV hooks, IG, X, TikTok + 30 niche tags</div>
+        <div style="font-size: 11px; color: var(--green-neon); font-weight: bold; margin-top: 6px;">$15 - $90 / Order</div>
+      </div>
+
+      <div class="fiverr-gig-card" id="fiverr-card-gig_banner" onclick="window.workBaysManager.selectFiverrGig('gig_banner')">
+        <div style="font-size: 20px; margin-bottom: 4px;">🖼️</div>
+        <div style="font-size: 12px; font-weight: 800; color: #fff; margin-bottom: 4px;">Custom Banners & Tip Menus</div>
+        <div style="font-size: 10px; color: var(--text-muted);">OnlyFans/Fansly banners + OBS stream tip overlay</div>
+        <div style="font-size: 11px; color: var(--green-neon); font-weight: bold; margin-top: 6px;">$20 - $85 / Order</div>
+      </div>
+    </div>
+
+    <!-- Active Gig Workspace: Left (Order Fulfiller) & Right (Gig Blueprint) -->
+    <div class="bay-2col-grid">
+
+      <!-- Left Column: 1-Click Order Fulfillment Hub -->
+      <section class="glass-panel" style="padding: 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+          <h3 style="font-size: 14px; font-weight: 800; color: #fff; text-transform: uppercase;">
+            ⚡ 1-Click Order Fulfillment Hub
+          </h3>
+          <span class="bay-pill" style="color: var(--green-neon); border: 1px solid var(--green-neon);">Automated Delivery</span>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Client Name / Buyer Username</label>
+          <input type="text" class="form-input" id="fiverr-client-name" value="LexiGlamour" style="padding: 8px 12px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; color: #fff; font-size: 12px; width: 100%; box-sizing: border-box;" />
+        </div>
+
+        <div class="form-group" style="margin-bottom: 14px;">
+          <label style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Fiverr Order Number</label>
+          <input type="text" class="form-input" id="fiverr-order-number" value="FO_8941" style="padding: 8px 12px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; color: var(--green-neon); font-family: var(--font-mono); font-size: 12px; width: 100%; box-sizing: border-box;" />
+        </div>
+
+        <button class="btn-launch-run" onclick="window.workBaysManager.fulfillFiverrOrder()" style="width: 100%; justify-content: center; padding: 12px; font-size: 13px; background: linear-gradient(135deg, #06d6a0, #00f2fe); box-shadow: 0 0 20px rgba(6,214,160,0.3);">
+          ⚡ Fulfill Order & Generate Client Delivery Package
+        </button>
+
+        <div id="fiverr-fulfill-status" style="font-size: 11px; color: var(--green-neon); font-family: var(--font-mono); margin-top: 10px; text-align: center;"></div>
+
+        <!-- Delivery Output Box -->
+        <div id="fiverr-delivery-output" style="display: none; margin-top: 16px; background: rgba(0,0,0,0.35); border: 1px solid rgba(6,214,160,0.3); border-radius: var(--radius-sm); padding: 14px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <span style="font-size: 12px; font-weight: 800; color: var(--green-neon);">📦 Delivery ZIP Ready</span>
+            <button class="btn-cyber" id="btn-download-fiverr-zip" style="padding: 3px 8px; font-size: 10px; border-color: var(--green-neon); color: var(--green-neon);">Download ZIP</button>
+          </div>
+          <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 10px;">5-Star Review Request Message (Copy & Paste to Fiverr):</div>
+          <pre class="code-display-pre" id="fiverr-delivery-note-pre" style="max-height: 180px; font-size: 11px;"></pre>
+          <button class="btn-cyber" onclick="window.workBaysManager.copyFiverrDeliveryNote()" style="width: 100%; justify-content: center; font-size: 11px; padding: 6px; margin-top: 8px;">
+            📋 Copy 5-Star Delivery Message
+          </button>
+        </div>
+      </section>
+
+      <!-- Right Column: Gig Listing & Tiered Pricing Blueprint -->
+      <section class="glass-panel" style="padding: 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 8px;">
+          <div>
+            <h3 style="font-size: 14px; font-weight: 800; color: var(--green-neon); text-transform: uppercase;" id="fiverr-active-gig-title">
+              Gig Setup & Pricing Blueprint
+            </h3>
+            <div style="font-size: 11px; color: var(--text-muted);" id="fiverr-active-gig-category">Graphics & Design</div>
+          </div>
+          <button class="btn-cyber" onclick="window.workBaysManager.copyFiverrGigBlueprint()" style="padding: 4px 10px; font-size: 11px; border-color: var(--green-neon); color: var(--green-neon);">
+            📋 Copy Gig Listing
+          </button>
+        </div>
+
+        <!-- 3-Tier Pricing Table -->
+        <table class="fiverr-tier-table" id="fiverr-active-pricing-table">
+          <thead>
+            <tr><th>Tier</th><th>Price</th><th>Includes</th><th>Delivery</th></tr>
+          </thead>
+          <tbody id="fiverr-pricing-tbody">
+            <!-- Dynamically populated -->
+          </tbody>
+        </table>
+
+        <!-- Search Tags -->
+        <div style="margin-bottom: 12px;">
+          <label style="font-size: 10px; font-weight: 700; color: var(--text-dim); text-transform: uppercase;">Fiverr Search Tags (5 Tags):</label>
+          <div id="fiverr-active-tags-row" style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px;"></div>
+        </div>
+
+        <!-- Gig Description -->
+        <div>
+          <label style="font-size: 10px; font-weight: 700; color: var(--text-dim); text-transform: uppercase;">Gig Description (Optimized for Conversions):</label>
+          <pre class="code-display-pre" id="fiverr-active-desc-pre" style="max-height: 240px; margin-top: 4px; font-size: 11px;"></pre>
+        </div>
+      </section>
+
+    </div>
+  </div>
+
+
+    <!-- ======================================================================
+       BAY 7: OMNI-CHANNEL MARKETING HUB (MERCURY [80 Hg])
+       ====================================================================== -->
+  <div class="bay-view-panel" id="view-marketing-hub">
+    <div class="view-header-banner" style="border-bottom-color: rgba(168, 85, 247, 0.4);">
+      <div class="view-header-title">
+        <span class="view-header-icon" style="text-shadow: 0 0 15px #a855f7;">🚀</span>
+        <div>
+          <h2>Omni-Channel Marketing Maestro <span style="font-size: 14px; color: #a855f7; font-weight: 700;">[80 Hg &bull; Mercury]</span></h2>
+          <p>Automated Multi-Channel Marketing Generator for Fiverr Services, Etsy Digital Stores, Social Media Accounts & Web Platforms</p>
+        </div>
+      </div>
+      <div style="display: flex; gap: 10px; align-items: center;">
+        <span class="status-pill active" style="border-color: #a855f7; color: #a855f7; background: rgba(168, 85, 247, 0.1);">
+          <span class="pulse-dot" style="background: #a855f7;"></span> Mercury Online
+        </span>
+        <button class="btn-cyber" onclick="window.workBaysManager.switchBay('command-center')" style="font-size: 12px; padding: 6px 14px;">
+          &larr; Command Deck
+        </button>
+      </div>
+    </div>
+
+    <!-- Quick Channel Presets Bar -->
+    <div style="display: flex; gap: 8px; margin: 16px 0; overflow-x: auto; padding-bottom: 4px;">
+      <button class="btn-cyber active" onclick="window.workBaysManager.setMarketingChannel('etsy')" style="font-size: 12px; padding: 8px 14px;">
+        🛍️ Etsy Store Campaign
+      </button>
+      <button class="btn-cyber" onclick="window.workBaysManager.setMarketingChannel('fiverr')" style="font-size: 12px; padding: 8px 14px;">
+        💼 Fiverr Service Pitch
+      </button>
+      <button class="btn-cyber" onclick="window.workBaysManager.setMarketingChannel('social')" style="font-size: 12px; padding: 8px 14px;">
+        📱 Social Media Viral Engine
+      </button>
+      <button class="btn-cyber" onclick="window.workBaysManager.setMarketingChannel('website')" style="font-size: 12px; padding: 8px 14px;">
+        🌐 Website / Landing Page
+      </button>
+    </div>
+
+    <!-- Multi-Publication Selector Bar -->
+    <div style="display: flex; gap: 10px; margin-top: 14px; margin-bottom: 6px; padding: 8px 12px; background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.07); border-radius: var(--radius-sm); align-items: center; overflow-x: auto;">
+      <span style="font-size: 11px; font-weight: 800; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap;">Publication:</span>
+      <button class="pub-btn" id="pub-btn-creator_pulse" onclick="window.workBaysManager.selectPublication('creator_pulse')" style="background: rgba(247,37,133,0.3); border: 1px solid #f72585; color: #fff; font-size: 11.5px; font-weight: 700; padding: 6px 14px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 6px; white-space: nowrap; box-shadow: 0 0 12px #f72585;">
+        <span>💋 The Daily Creator Pulse</span>
+        <span style="font-size: 9px; background: #f72585; color: #fff; padding: 1px 6px; border-radius: 4px; font-weight: 800;">PUBLIC</span>
+      </button>
+      <button class="pub-btn" id="pub-btn-studio_wire" onclick="window.workBaysManager.selectPublication('studio_wire')" style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.12); color: #94a3b8; font-size: 11.5px; font-weight: 700; padding: 6px 14px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 6px; white-space: nowrap;">
+        <span>📸 The Shutter & Studio Wire</span>
+        <span style="font-size: 9px; background: #3b82f6; color: #fff; padding: 1px 6px; border-radius: 4px; font-weight: 800;">PUBLIC</span>
+      </button>
+      <button class="pub-btn" id="pub-btn-creator_blueprint" onclick="window.workBaysManager.selectPublication('creator_blueprint')" style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.12); color: #94a3b8; font-size: 11.5px; font-weight: 700; padding: 6px 14px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 6px; white-space: nowrap;">
+        <span>⚡ The Creator Blueprint</span>
+        <span style="font-size: 9px; background: #eab308; color: #000; padding: 1px 6px; border-radius: 4px; font-weight: 800;">PUBLIC</span>
+      </button>
+      <button class="pub-btn" id="pub-btn-dispensary_deals" onclick="window.workBaysManager.selectPublication('dispensary_deals')" style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.12); color: #94a3b8; font-size: 11.5px; font-weight: 700; padding: 6px 14px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 6px; white-space: nowrap;">
+        <span>🌿 Florida Dispensary Deals</span>
+        <span style="font-size: 9px; background: #10b981; color: #000; padding: 1px 6px; border-radius: 4px; font-weight: 800;">PRIVATE</span>
+      </button>
+    </div>
+
+    <!-- Main 2-Column Split Workspace -->
+    <div style="display: grid; grid-template-columns: 380px 1fr; gap: 20px; align-items: start;">
+      <!-- Left Config Card -->
+      <div class="glass-panel" style="padding: 20px; border-color: rgba(168, 85, 247, 0.25);">
+        <h3 style="font-size: 14px; font-weight: 800; color: #a855f7; text-transform: uppercase; margin-bottom: 14px; display: flex; align-items: center; gap: 8px;">
+          <span>🎯</span> Campaign Parameters
+        </h3>
+
+        <div style="margin-bottom: 14px;">
+          <label style="font-size: 11px; font-weight: 700; color: var(--text-dim); text-transform: uppercase; display: block; margin-bottom: 6px;">Target Channel:</label>
+          <select id="mkt-channel-select" class="form-input" style="width: 100%; border-color: rgba(168,85,247,0.3);">
+            <option value="etsy">🛍️ Etsy Store & Digital Products</option>
+            <option value="fiverr">💼 Fiverr Service Gigs</option>
+            <option value="social">📱 Social Media Handle / Page</option>
+            <option value="website">🌐 Custom Website / Landing Page</option>
+          </select>
+        </div>
+
+        <div style="margin-bottom: 14px;">
+          <label style="font-size: 11px; font-weight: 700; color: var(--text-dim); text-transform: uppercase; display: block; margin-bottom: 6px;">Target Product / Service Name:</label>
+          <input type="text" id="mkt-target-name" class="form-input" style="width: 100%; border-color: rgba(168,85,247,0.3);" value="Boudoir & Glamour Lightroom Presets" placeholder="e.g. Boudoir Presets, Retouching Gig, Brand Site..." />
+        </div>
+
+        <div style="margin-bottom: 14px;">
+          <label style="font-size: 11px; font-weight: 700; color: var(--text-dim); text-transform: uppercase; display: block; margin-bottom: 6px;">Target URL / Social Handle:</label>
+          <input type="text" id="mkt-target-url" class="form-input" style="width: 100%; border-color: rgba(168,85,247,0.3);" value="https://etsy.com/shop/CareyPMedia" placeholder="https://etsy.com/... or @handle" />
+        </div>
+
+        <div style="margin-bottom: 14px;">
+          <label style="font-size: 11px; font-weight: 700; color: var(--text-dim); text-transform: uppercase; display: block; margin-bottom: 6px;">Campaign Objective:</label>
+          <select id="mkt-goal-select" class="form-input" style="width: 100%; border-color: rgba(168,85,247,0.3);">
+            <option value="conversions">💰 Direct Sales & Conversions</option>
+            <option value="viral_reach">🔥 Viral Organic Traffic & Shares</option>
+            <option value="lead_gen">📥 High-Value Client Inquiries / B2B</option>
+            <option value="product_launch">🎉 New Product Launch Blitz</option>
+          </select>
+        </div>
+
+        <div style="margin-bottom: 18px;">
+          <label style="font-size: 11px; font-weight: 700; color: var(--text-dim); text-transform: uppercase; display: block; margin-bottom: 6px;">Custom Creative Angle (Optional):</label>
+          <textarea id="mkt-custom-notes" class="form-input" rows="3" style="width: 100%; border-color: rgba(168,85,247,0.3); resize: none;" placeholder="Focus on creamy skin tones, before/after contrast, or limited 40% launch discount..."></textarea>
+        </div>
+
+        <button class="btn-cyber" id="btn-generate-campaign" onclick="window.workBaysManager.generateMarketingCampaign()" style="width: 100%; background: linear-gradient(135deg, rgba(168,85,247,0.4), rgba(126,34,206,0.7)); border-color: #a855f7; box-shadow: 0 0 20px rgba(168,85,247,0.4); font-size: 14px; padding: 12px;">
+          ⚡ Generate Omni-Campaign Kit &rarr;
+        </button>
+      </div>
+
+      <!-- Right Dynamic Output Workspace -->
+      <div class="glass-panel" style="padding: 20px; border-color: rgba(168, 85, 247, 0.25); min-height: 520px; display: flex; flex-direction: column;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 12px; margin-bottom: 16px;">
+          <!-- Tabs -->
+          <div style="display: flex; gap: 8px;">
+            <button class="btn-cyber active" id="tab-mkt-social" onclick="window.workBaysManager.setMarketingTab('social')" style="font-size: 11px; padding: 6px 12px;">
+              📱 Social Scripts & Reels
+            </button>
+            <button class="btn-cyber" id="tab-mkt-ads" onclick="window.workBaysManager.setMarketingTab('ads')" style="font-size: 11px; padding: 6px 12px;">
+              📢 Ad Copy & Hooks
+            </button>
+            <button class="btn-cyber" id="tab-mkt-seo" onclick="window.workBaysManager.setMarketingTab('seo')" style="font-size: 11px; padding: 6px 12px;">
+              🔍 SEO & Tags
+            </button>
+            <button class="btn-cyber" id="tab-mkt-ai" onclick="window.workBaysManager.setMarketingTab('ai')" style="font-size: 11px; padding: 6px 12px;">
+              🎨 Forge / Iris Prompts
+            </button>
+            <button class="btn-cyber" id="tab-mkt-history" onclick="window.workBaysManager.loadMarketingHistory()" style="font-size: 11px; padding: 6px 12px;">
+              📜 Campaign Vault
+            </button>
+          </div>
+
+          <div style="display: flex; gap: 8px;">
+            <button class="btn-cyber" onclick="window.workBaysManager.copyMarketingOutput()" style="font-size: 11px; padding: 6px 12px;">
+              📋 Copy Tab Text
+            </button>
+          </div>
+        </div>
+
+        <!-- Output Dynamic Box -->
+        <div id="mkt-output-pane" style="flex: 1; background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.06); border-radius: var(--radius-sm); padding: 16px; overflow-y: auto; max-height: 480px; font-family: var(--font-mono); font-size: 12px; line-height: 1.6; color: #cbd5e1;">
+          <h4 style="color:#a855f7;margin-bottom:8px;">📱 Viral Social Scripts & Reels (Etsy Campaign)</h4>
+          <div style="background:rgba(255,255,255,0.04);padding:12px;border-radius:6px;margin-bottom:12px;">
+            <strong>🎬 TikTok & Reels Script (9:16)</strong><br>
+            <span style="color:#a855f7;">Visual Hook:</span> Finger tapping the screen in Lightroom Mobile — dull photo instantly pops with warm golden tones.<br>
+            <span style="color:#00f2fe;">Voiceover:</span> "If you struggle getting warm, creamy skin tones in dark indoor photos, this one preset fixes everything in one click."<br>
+            <span style="color:#10b981;">Caption:</span> Save 80% editing time on your next shoot! Link in bio to grab the complete preset bundle on Etsy 🛍️✨ #boudoirpresets #etsyseller #lightroompresets #photoediting
+          </div>
+          <strong>📅 7-Day Content Roadmap:</strong><br><br>
+          <div style="margin-bottom:6px;"><strong>Monday (Tool Showcase):</strong> [Reels 9:16] "Stop blurring faces. Here is how real bilateral frequency separation works." &rarr; <em>Save for your next shoot</em></div>
+          <div style="margin-bottom:6px;"><strong>Tuesday (Transformation):</strong> [Swipe Carousel 4:5] 5 Before & After edits using Moody Boudoir .XMP preset &rarr; <em>Comment PRESET for discount link</em></div>
+          <div style="margin-bottom:6px;"><strong>Wednesday (BTS Shoot):</strong> [Shorts Video] Behind-the-scenes lighting breakdown with Sony mirrorless &rarr; <em>Link in bio</em></div>
+          <br><strong>🔥 Viral Hooks Vault:</strong><br>
+          &bull; "The Lightroom slider that 90% of photographers are using completely backwards..."<br>
+          &bull; "Watch me turn flat camera RAW footage into a Vogue cover in 45 seconds."<br>
+          &bull; "Why my clients stopped booking other photographers after I started using this color grade."
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ======================================================================
+       BAY 8: NEWSLETTER & BLOG DISPATCHER (HERALD [33 As])
+       ====================================================================== -->
+  <div class="bay-view-panel" id="view-newsletter-hub">
+    <div class="view-header-banner" style="border-bottom-color: rgba(16, 185, 129, 0.4);">
+      <div class="view-header-title">
+        <span class="view-header-icon" style="text-shadow: 0 0 15px #10b981;">🌿</span>
+        <div>
+          <h2>Newsletter & Blog Dispatcher <span style="font-size: 14px; color: #10b981; font-weight: 700;">[33 As &bull; Herald]</span></h2>
+          <p id="nl-sub-header">💋 <strong>The Daily Creator Pulse</strong> &bull; Audience: Adult Creators & Models &bull; Funnel: <a href="https://www.fiverr.com/s/X00R79G" target="_blank" style="color:#f72585;">Fiverr Retouching</a> & <a href="https://www.etsy.com/shop/CreatorMediaLab" target="_blank" style="color:#f72585;">Etsy Bio Kits</a></p>
+        </div>
+      </div>
+      <div style="display: flex; gap: 10px; align-items: center;">
+        <span class="status-pill active" id="newsletter-status-pill" style="border-color: #10b981; color: #10b981; background: rgba(16, 185, 129, 0.1);">
+          <span class="pulse-dot" style="background: #10b981;"></span> Dispatch Radar Live
+        </span>
+        <button class="btn-cyber" onclick="window.workBaysManager.sendTestEmail()" style="font-size: 12px; padding: 6px 14px; background: linear-gradient(135deg, rgba(59,130,246,0.25), rgba(37,99,235,0.45)); border-color: #3b82f6; color: #fff; box-shadow: 0 0 12px rgba(59,130,246,0.3);">
+          ✉️ Send Test to Inbox
+        </button>
+        <button class="btn-cyber" onclick="window.workBaysManager.triggerNewsletterDispatch()" style="font-size: 12px; padding: 6px 16px; background: linear-gradient(135deg, rgba(16,185,129,0.3), rgba(5,150,105,0.6)); border-color: #10b981; color: #fff; box-shadow: 0 0 15px rgba(16,185,129,0.4);">
+          ⚡ Run & Dispatch Now 🚀
+        </button>
+        <button class="btn-cyber" onclick="window.workBaysManager.switchBay('command-center')" style="font-size: 12px; padding: 6px 14px;">
+          &larr; Command Deck
+        </button>
+      </div>
+    </div>
+
+    <!-- Multi-Publication Selector Bar -->
+    <div style="display: flex; gap: 10px; margin-top: 14px; margin-bottom: 6px; padding: 8px 12px; background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.07); border-radius: var(--radius-sm); align-items: center; overflow-x: auto;">
+      <span style="font-size: 11px; font-weight: 800; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap;">Publication:</span>
+      <button class="pub-btn" id="pub-btn-creator_pulse" onclick="window.workBaysManager.selectPublication('creator_pulse')" style="background: rgba(247,37,133,0.3); border: 1px solid #f72585; color: #fff; font-size: 11.5px; font-weight: 700; padding: 6px 14px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 6px; white-space: nowrap; box-shadow: 0 0 12px #f72585;">
+        <span>💋 The Daily Creator Pulse</span>
+        <span style="font-size: 9px; background: #f72585; color: #fff; padding: 1px 6px; border-radius: 4px; font-weight: 800;">PUBLIC</span>
+      </button>
+      <button class="pub-btn" id="pub-btn-studio_wire" onclick="window.workBaysManager.selectPublication('studio_wire')" style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.12); color: #94a3b8; font-size: 11.5px; font-weight: 700; padding: 6px 14px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 6px; white-space: nowrap;">
+        <span>📸 The Shutter & Studio Wire</span>
+        <span style="font-size: 9px; background: #3b82f6; color: #fff; padding: 1px 6px; border-radius: 4px; font-weight: 800;">PUBLIC</span>
+      </button>
+      <button class="pub-btn" id="pub-btn-creator_blueprint" onclick="window.workBaysManager.selectPublication('creator_blueprint')" style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.12); color: #94a3b8; font-size: 11.5px; font-weight: 700; padding: 6px 14px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 6px; white-space: nowrap;">
+        <span>⚡ The Creator Blueprint</span>
+        <span style="font-size: 9px; background: #eab308; color: #000; padding: 1px 6px; border-radius: 4px; font-weight: 800;">PUBLIC</span>
+      </button>
+      <button class="pub-btn" id="pub-btn-dispensary_deals" onclick="window.workBaysManager.selectPublication('dispensary_deals')" style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.12); color: #94a3b8; font-size: 11.5px; font-weight: 700; padding: 6px 14px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 6px; white-space: nowrap;">
+        <span>🌿 Florida Dispensary Deals</span>
+        <span style="font-size: 9px; background: #10b981; color: #000; padding: 1px 6px; border-radius: 4px; font-weight: 800;">PRIVATE</span>
+      </button>
+    </div>
+
+    <!-- Main 2-Column Split Workspace -->
+    <div style="display: grid; grid-template-columns: 390px 1fr; gap: 20px; align-items: start; margin-top: 16px;">
+      <!-- Left Column: Subscribers & Modular Blocks -->
+      <div style="display: flex; flex-direction: column; gap: 16px;">
+        <!-- Card 1: Subscriber Management -->
+        <div class="glass-panel" style="padding: 18px; border-color: rgba(16, 185, 129, 0.25);">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <h3 style="font-size: 13px; font-weight: 800; color: #10b981; text-transform: uppercase; margin: 0; display: flex; align-items: center; gap: 6px;">
+              <span>📬</span> Subscriber Audience
+            </h3>
+            <span id="subscriber-count-badge" style="font-size: 11px; background: rgba(16,185,129,0.15); color: #10b981; padding: 2px 8px; border-radius: 10px; font-family: var(--font-mono); font-weight: bold;">1 Active</span>
+          </div>
+
+          <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+            <input type="email" id="new-subscriber-email" class="form-input" style="flex: 1; border-color: rgba(16,185,129,0.3);" placeholder="Add subscriber email..." />
+            <button class="btn-cyber" onclick="window.workBaysManager.addSubscriber()" style="background: rgba(16,185,129,0.2); border-color: #10b981; color: #10b981; padding: 6px 14px; font-size: 12px;">
+              + Add
+            </button>
+          </div>
+
+          <!-- Subscriber Pills Container -->
+          <div id="subscribers-pill-list" style="display: flex; flex-direction: column; gap: 6px; max-height: 140px; overflow-y: auto; padding: 4px; background: rgba(0,0,0,0.25); border-radius: var(--radius-sm);">
+            <div class="sub-pill-item">
+              <span>✉️ careypmediagroup@gmail.com</span>
+              <button class="sub-pill-remove" onclick="window.workBaysManager.removeSubscriber('careypmediagroup@gmail.com')" title="Remove subscriber">&times;</button>
+            </div>
+          </div>
+
+          <a href="/subscribe" target="_blank" class="btn-cyber" style="display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 12px; padding: 8px 12px; font-size: 11.5px; font-weight: 800; background: linear-gradient(135deg, rgba(0, 242, 254, 0.2), rgba(247, 37, 133, 0.2)); border: 1px solid rgba(0, 242, 254, 0.4); color: #fff; text-decoration: none; border-radius: 6px;">
+            <span>🌐 Open Public Multi-Publication Portal (/subscribe) &rarr;</span>
+          </a>
+        </div>
+
+        <!-- Card 2: Modular Elements Customizer -->
+        <div class="glass-panel" style="padding: 18px; border-color: rgba(16, 185, 129, 0.25);">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <h3 style="font-size: 13px; font-weight: 800; color: #10b981; text-transform: uppercase; margin: 0; display: flex; align-items: center; gap: 6px;">
+              <span>🧩</span> Modular Content Elements
+            </h3>
+            <button class="btn-cyber" onclick="window.workBaysManager.saveNewsletterElements()" style="font-size: 11px; padding: 4px 10px; background: rgba(16,185,129,0.2); border-color: #10b981; color: #10b981;">
+              💾 Save Layout
+            </button>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 10px; font-size: 12px;">
+            <!-- Element 1: Header Title -->
+            <div style="background: rgba(0,0,0,0.2); padding: 8px 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.05);">
+              <label style="display: flex; align-items: center; gap: 8px; font-weight: 700; cursor: pointer;">
+                <input type="checkbox" id="elem-header-enabled" checked />
+                <span>Publication Title Header</span>
+              </label>
+              <input type="text" id="elem-header-title" class="form-input" style="width: 100%; margin-top: 6px; font-size: 11px; border-color: rgba(16,185,129,0.2);" value="🌿 Florida Dispensary Deals Morning Briefing" />
+            </div>
+
+            <!-- Element 2: Intro Note -->
+            <div style="background: rgba(0,0,0,0.2); padding: 8px 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.05);">
+              <label style="display: flex; align-items: center; gap: 8px; font-weight: 700; cursor: pointer;">
+                <input type="checkbox" id="elem-intro-enabled" checked />
+                <span>Morning Curator Intro Briefing</span>
+              </label>
+              <textarea id="elem-intro-text" class="form-input" rows="2" style="width: 100%; margin-top: 6px; font-size: 11px; border-color: rgba(16,185,129,0.2); resize: none;">Good morning! Here is your daily curated briefing of verified discounts, top strain promos, and flash sales across Florida dispensaries.</textarea>
+            </div>
+
+            <!-- Element 3: Sponsored Promo Banner -->
+            <div style="background: rgba(0,0,0,0.2); padding: 8px 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.05);">
+              <label style="display: flex; align-items: center; gap: 8px; font-weight: 700; cursor: pointer;">
+                <input type="checkbox" id="elem-promo-enabled" checked />
+                <span>Sponsored / Affiliate Promo Banner</span>
+              </label>
+              <input type="text" id="elem-promo-headline" class="form-input" style="width: 100%; margin-top: 6px; font-size: 11px; border-color: rgba(16,185,129,0.2);" value="🔥 25% Off Storewide with code CANNA25" placeholder="Promo banner text..." />
+              <input type="text" id="elem-promo-url" class="form-input" style="width: 100%; margin-top: 4px; font-size: 11px; border-color: rgba(16,185,129,0.2);" value="https://careypmedia.com" placeholder="Promo target link..." />
+            </div>
+
+            <!-- Element 4: Strain Spotlight -->
+            <div style="background: rgba(0,0,0,0.2); padding: 8px 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.05);">
+              <label style="display: flex; align-items: center; gap: 8px; font-weight: 700; cursor: pointer;">
+                <input type="checkbox" id="elem-tip-enabled" checked />
+                <span>Strain Spotlight & Patient Tip</span>
+              </label>
+              <input type="text" id="elem-tip-title" class="form-input" style="width: 100%; margin-top: 6px; font-size: 11px; border-color: rgba(16,185,129,0.2);" value="💡 Strain Spotlight of the Day" />
+              <textarea id="elem-tip-text" class="form-input" rows="2" style="width: 100%; margin-top: 4px; font-size: 11px; border-color: rgba(16,185,129,0.2); resize: none;">Terpene profile of the morning: Myrcene & Caryophyllene dominant profiles are showing the steepest price drops across central dispensaries today.</textarea>
+            </div>
+
+            <!-- Element 5: Filter Controls -->
+            <div style="background: rgba(0,0,0,0.2); padding: 8px 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.05);">
+              <div style="font-weight: 700; margin-bottom: 6px; color: var(--text-main);">Product Category Filters:</div>
+              <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; font-size: 11px;">
+                <label><input type="checkbox" id="cat-flower" checked /> Flower</label>
+                <label><input type="checkbox" id="cat-vape" checked /> Vape</label>
+                <label><input type="checkbox" id="cat-edible" checked /> Edible</label>
+                <label><input type="checkbox" id="cat-concentrate" checked /> Concentrate</label>
+                <label><input type="checkbox" id="cat-preroll" checked /> Pre-Roll</label>
+              </div>
+
+              <div style="margin-top: 8px; display: flex; align-items: center; justify-content: space-between;">
+                <label style="font-size: 11px; font-weight: 700; color: var(--text-dim);">Min Discount %: <span id="val-min-discount" style="color: #10b981; font-weight: bold;">20%</span></label>
+                <input type="range" id="slider-min-discount" min="0" max="50" step="5" value="20" oninput="document.getElementById('val-min-discount').innerText = this.value + '%'" style="accent-color: #10b981; width: 130px;" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Column: Tabbed Preview, Terminal Logs & Blog Post -->
+      <div class="glass-panel" style="padding: 20px; border-color: rgba(16, 185, 129, 0.25); min-height: 600px; display: flex; flex-direction: column;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 12px; margin-bottom: 16px;">
+          <!-- Tabs -->
+          <div style="display: flex; gap: 8px;">
+            <button class="btn-cyber active" id="tab-nl-preview" onclick="window.workBaysManager.setNewsletterTab('preview')" style="font-size: 11px; padding: 6px 14px;">
+              👁️ Live Newsletter Preview
+            </button>
+            <button class="btn-cyber" id="tab-nl-thread" onclick="window.workBaysManager.setNewsletterTab('thread')" style="font-size: 11px; padding: 6px 14px;">
+              🐦 Twitter/X Viral Thread (@TheCreatorAsset)
+            </button>
+            <button class="btn-cyber" id="tab-nl-blog" onclick="window.workBaysManager.setNewsletterTab('blog')" style="font-size: 11px; padding: 6px 14px;">
+              📝 Blog Post (Markdown)
+            </button>
+            <button class="btn-cyber" id="tab-nl-logs" onclick="window.workBaysManager.setNewsletterTab('logs')" style="font-size: 11px; padding: 6px 14px;">
+              💻 Terminal Logs
+            </button>
+          </div>
+
+          <div style="display: flex; gap: 8px;">
+            <button class="btn-cyber" onclick="window.workBaysManager.refreshNewsletterPreview()" style="font-size: 11px; padding: 6px 12px;">
+              🔄 Refresh Preview
+            </button>
+            <button class="btn-cyber" id="btn-copy-nl-thread" onclick="window.workBaysManager.copyTwitterThread()" style="font-size: 11px; padding: 6px 12px; display: none; background: rgba(29,161,242,0.2); border-color: #1da1f2; color: #1da1f2;">
+              📋 Copy Thread for X
+            </button>
+            <button class="btn-cyber" id="btn-copy-nl-blog" onclick="window.workBaysManager.copyNewsletterBlogMarkdown()" style="font-size: 11px; padding: 6px 12px; display: none;">
+              📋 Copy Markdown
+            </button>
+          </div>
+        </div>
+
+        <!-- Tab 1: Live Iframe Preview -->
+        <div id="nl-pane-preview" style="flex: 1; border-radius: var(--radius-sm); overflow: hidden; background: #0c121e; border: 1px solid rgba(16, 185, 129, 0.2); min-height: 480px;">
+          <iframe id="newsletter-preview-frame" src="/api/newsletter/preview" style="width: 100%; height: 500px; border: none; background: #0c121e;"></iframe>
+        </div>
+
+        <!-- Tab 4: Twitter Thread Pane -->
+        <div id="nl-pane-thread" style="display: none; flex: 1; background: #080d1a; border: 1px solid rgba(29, 161, 242, 0.3); border-radius: var(--radius-sm); padding: 18px; overflow-y: auto; max-height: 520px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.08);">
+            <div>
+              <span id="nl-thread-channel-name" style="font-size: 13px; font-weight: 800; color: #1da1f2;">🐦 Twitter/X Viral Thread &bull; Channel: @TheCreatorAsset</span>
+              <div style="font-size: 11px; color: var(--text-dim); margin-top: 2px;">Targeted hook sequence with live conversion funnels to Etsy & Fiverr.</div>
+            </div>
+            <div style="display: flex; gap: 8px;">
+              <button class="btn-cyber" onclick="window.workBaysManager.copyTwitterThread()" style="font-size: 11px; padding: 5px 12px; background: rgba(29,161,242,0.2); border-color: #1da1f2; color: #fff;">
+                📋 Copy Entire Thread
+              </button>
+              <button class="btn-cyber" id="btn-auto-publish-thread" onclick="window.workBaysManager.publishTwitterThread()" style="font-size: 11px; padding: 5px 12px; background: rgba(16,185,129,0.25); border-color: #10b981; color: #fff;">
+                ⚡ Auto-Publish Thread
+              </button>
+            </div>
+          </div>
+          <div id="nl-thread-cards-container" style="display: flex; flex-direction: column; gap: 12px;"></div>
+        </div>
+
+        <!-- Tab 2: Terminal Logs Pane -->
+        <div id="nl-pane-logs" style="display: none; flex: 1; background: #050811; border: 1px solid rgba(16,185,129,0.3); border-radius: var(--radius-sm); padding: 16px; font-family: var(--font-mono); font-size: 11.5px; line-height: 1.5; color: #10b981; overflow-y: auto; max-height: 500px; white-space: pre-wrap;">
+          [HERALD DISPATCH SYSTEM] Ready. Click 'Run & Dispatch Now' to stream live logs.
+        </div>
+
+        <!-- Tab 3: Blog Post Markdown Pane -->
+        <div id="nl-pane-blog" style="display: none; flex: 1; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.06); border-radius: var(--radius-sm); padding: 16px; font-family: var(--font-mono); font-size: 12px; line-height: 1.6; color: #e2e8f0; overflow-y: auto; max-height: 500px; white-space: pre-wrap;">
+          Loading morning blog post markdown...
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================================
+       AGENT MISSION CONTROL & TUNING MODAL
+       ====================================================================== -->
+  <div class="modal-overlay" id="agent-modal">
+    <div class="modal-card glass-panel" style="max-width: 680px; max-height: 90vh; overflow-y: auto;">
+      <div class="modal-header">
+        <div>
+          <h3 id="modal-agent-name" style="font-size: 18px; color: var(--text-main);">Agent Mission Control</h3>
+          <div id="modal-agent-privacy" style="font-size: 11px; color: #06d6a0; font-family: var(--font-mono); margin-top: 3px;">
+            🔒 100% Local GPU Offline
+          </div>
+        </div>
+        <button class="modal-close-btn" onclick="document.getElementById('agent-modal').classList.remove('open')">&times;</button>
+      </div>
+
+      <div style="display: flex; gap: 16px; align-items: center; margin-bottom: 16px; background: rgba(0,0,0,0.25); padding: 12px; border-radius: var(--radius-sm); border: 1px solid rgba(255,255,255,0.06);">
+        <div style="width: 70px; height: 70px; flex-shrink: 0;">
+          <img src="" id="modal-agent-avatar" style="width: 100%; height: 100%; object-fit: contain;">
+        </div>
+        <div>
+          <div style="font-size: 11px; color: var(--text-dim); text-transform: uppercase;">Assigned Hardware:</div>
+          <div id="modal-agent-hardware" style="font-size: 13px; font-weight: 700; color: var(--cyan-glow); margin-bottom: 4px;"></div>
+          <div style="font-size: 11px; color: var(--text-dim); text-transform: uppercase;">Active Engine Core:</div>
+          <div id="modal-agent-model" style="font-size: 11px; font-family: var(--font-mono); color: var(--text-main);"></div>
+        </div>
+      </div>
+
+      <div style="margin-bottom: 16px;">
+        <h4 style="font-size: 12px; font-weight: 800; color: var(--text-main); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;">
+          📋 What This Agent Does in the Pipeline
+        </h4>
+        <ul id="modal-agent-roadmap" style="list-style: none; padding: 10px 12px; background: rgba(0, 242, 254, 0.04); border: 1px solid rgba(0, 242, 254, 0.15); border-radius: var(--radius-sm); font-size: 12px; line-height: 1.5; color: var(--text-muted);">
+        </ul>
+      </div>
+
+      <div style="margin-bottom: 16px;">
+        <h4 style="font-size: 12px; font-weight: 800; color: var(--cyan-glow); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px;">
+          ⚙️ Customize & Tune This Agent's Settings
+        </h4>
+        <div id="modal-agent-form">
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 12px;">
+        <button class="btn-cyber" onclick="document.getElementById('agent-modal').classList.remove('open')" style="background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.2);">
+          Cancel
+        </button>
+        <button class="btn-cyber" id="btn-save-agent-dossier" onclick="window.crewManager.saveCurrentAgentConfig()" style="box-shadow: 0 0 15px rgba(0,242,254,0.3);">
+          💾 Save Agent Changes
+        </button>
+      </div>
+    </div>
+  </div>
+
+    <!-- ======================================================================
+       ORDER RADAR MODAL (Gmail, Fiverr & Etsy Live Monitoring)
+       ====================================================================== -->
+  <div class="modal-overlay" id="radar-modal">
+    <div class="modal-card glass-panel" style="max-width: 820px; border: 1px solid rgba(0, 242, 254, 0.4);">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="font-size: 24px;">📡</span>
+          <div>
+            <h3 style="margin: 0; color: #fff;">Order Radar — Live Income Dispatcher</h3>
+            <div style="font-size: 11px; color: #00f2fe; font-family: var(--font-mono);">
+              Monitoring: <strong id="radar-email-display">digitalcreatorassets@gmail.com</strong>
+            </div>
+          </div>
+        </div>
+        <button class="modal-close-btn" id="btn-close-radar">&times;</button>
+      </div>
+
+      <div class="radar-sync-grid" style="margin-top: 15px; display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+        <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 14px;">
+          <div style="font-size: 12px; font-weight: bold; color: #ffd166; margin-bottom: 8px;">🔐 Gmail Live Sync (IMAP SSL)</div>
+          <div style="font-size: 11px; color: #94a3b8; margin-bottom: 12px; line-height: 1.4;">
+            Enter your 16-character Google App Password to securely poll for incoming Fiverr and Etsy order notification emails.
+          </div>
+          <div class="form-group" style="margin-bottom: 10px;">
+            <input type="password" class="form-input" id="radar-app-password" placeholder="Enter 16-character App Password" style="font-family: monospace; font-size: 12px; width: 100%;">
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn-cyber" id="btn-radar-save-pw" style="font-size: 11px; padding: 6px 12px;">💾 Save Password</button>
+            <button class="btn-cyber cyan-btn" id="btn-radar-check-now" style="font-size: 11px; padding: 6px 12px;">🔄 Check Inbox</button>
+          </div>
+          <div id="radar-status-msg" style="margin-top: 10px; font-size: 11px; font-family: monospace; color: #00f2fe;"></div>
+        </div>
+
+        <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 14px; display: flex; flex-direction: column; justify-content: space-between;">
+          <div>
+            <div style="font-size: 12px; font-weight: bold; color: #f72585; margin-bottom: 8px;">🧪 Studio Audio & Order Simulation</div>
+            <div style="font-size: 11px; color: #94a3b8; margin-bottom: 12px; line-height: 1.4;">
+              Test the alert chime and 1-click fulfillment pipeline immediately without waiting for a real buyer order.
+            </div>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn-cyber" id="btn-sim-fiverr" style="flex: 1; justify-content: center; font-size: 11px; background: rgba(0, 242, 254, 0.1); border-color: #00f2fe;">
+              💼 Simulate Fiverr Order
+            </button>
+            <button class="btn-cyber" id="btn-sim-etsy" style="flex: 1; justify-content: center; font-size: 11px; background: rgba(247, 127, 0, 0.1); border-color: #f77f00; color: #f77f00;">
+              📦 Simulate Etsy Sale
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top: 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+          <h4 style="margin: 0; font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: #fff;">
+            Incoming Order Feed (<span id="radar-orders-count">0</span> Orders)
+          </h4>
+          <span style="font-size: 11px; color: #94a3b8; font-family: monospace;">
+            1-Click Bridges directly into WORKHORSE Fulfilment
+          </span>
+        </div>
+        <div id="radar-orders-list" style="max-height: 240px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;">
+          <div style="padding: 20px; text-align: center; color: #94a3b8; font-size: 12px;">
+            No orders in queue. Click 'Simulate' above or connect your Gmail inbox.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+    <!-- ======================================================================
+       BRAND ASSETS MODAL (CreatorMediaLab Storefront Graphics)
+       ====================================================================== -->
+  <div class="modal-overlay" id="brand-modal">
+    <div class="modal-card glass-panel" style="max-width: 860px; border: 1px solid rgba(255, 209, 102, 0.4);">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="font-size: 24px;">🎨</span>
+          <div>
+            <h3 style="margin: 0; color: #fff;">CreatorMediaLab — Official Brand Kit</h3>
+            <div style="font-size: 11px; color: #ffd166; font-family: var(--font-mono);">
+              Ready for Etsy Shop Icon, Banner & Fiverr Profile
+            </div>
+          </div>
+        </div>
+        <button class="modal-close-btn" id="btn-close-brand">&times;</button>
+      </div>
+
+      <div class="brand-modal-grid" style="margin-top: 16px; display: grid; grid-template-columns: 260px 1fr; gap: 20px;">
+        
+        <!-- 1:1 Profile Logo Box -->
+        <div style="background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.1); border-radius: 14px; padding: 14px; text-align: center; display: flex; flex-direction: column; justify-content: space-between;">
+          <div>
+            <div style="font-size: 11px; font-weight: 800; color: #00f2fe; margin-bottom: 8px; text-transform: uppercase;">
+              1:1 Square Profile Logo
+            </div>
+            <img src="/static/img/creatormedialab_logo.jpg" alt="Logo" style="width: 180px; height: 180px; border-radius: 50%; border: 2px solid #00f2fe; box-shadow: 0 0 25px rgba(0,242,254,0.4); object-fit: cover; margin: 0 auto 12px auto; display: block;">
+            <div style="font-size: 10px; color: #94a3b8; font-family: monospace; line-height: 1.4;">
+              Ideal for:<br>
+              &bull; <strong>Etsy Shop Icon</strong> (500x500)<br>
+              &bull; <strong>Fiverr Profile Photo</strong>
+            </div>
+          </div>
+          <a href="/static/img/creatormedialab_logo.jpg" download="CreatorMediaLab_Logo.jpg" class="btn-cyber cyan-btn" style="margin-top: 12px; justify-content: center; text-decoration: none; font-size: 11px; padding: 8px;">
+            ⬇️ Download Profile Logo
+          </a>
+        </div>
+
+        <!-- 16:9 Panoramic Store Banner Box -->
+        <div style="background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.1); border-radius: 14px; padding: 14px; display: flex; flex-direction: column; justify-content: space-between;">
+          <div>
+            <div style="font-size: 11px; font-weight: 800; color: #ffd166; margin-bottom: 8px; text-transform: uppercase;">
+              16:9 Panoramic Storefront Banner
+            </div>
+            <img src="/static/img/creatormedialab_banner.jpg" alt="Banner" style="width: 100%; height: 180px; border-radius: 10px; border: 2px solid rgba(255,209,102,0.4); box-shadow: 0 0 25px rgba(255,209,102,0.25); object-fit: cover; margin-bottom: 12px;">
+            <div style="font-size: 10px; color: #94a3b8; font-family: monospace; line-height: 1.4;">
+              Ideal for:<br>
+              &bull; <strong>Etsy Big Shop Banner</strong> (1200x300 or 1600x400)<br>
+              &bull; <strong>Fiverr Profile Cover & Gig Gallery Image</strong>
+            </div>
+          </div>
+          <div style="display: flex; gap: 10px; margin-top: 12px;">
+            <a href="/static/img/creatormedialab_banner.jpg" download="CreatorMediaLab_Banner.jpg" class="btn-cyber" style="flex: 1; justify-content: center; text-decoration: none; font-size: 11px; padding: 8px; border-color: #ffd166; color: #ffd166;">
+              ⬇️ Download Store Banner
+            </a>
+            <button class="btn-cyber" id="btn-open-brand-folder-disk" style="font-size: 11px; padding: 8px 14px;">
+              📂 Open in Explorer
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+      <div style="margin-top: 16px; padding: 10px 14px; background: rgba(0, 242, 254, 0.05); border: 1px solid rgba(0, 242, 254, 0.2); border-radius: 8px; display: flex; align-items: center; justify-content: space-between;">
+        <span style="font-size: 11px; color: #94a3b8; font-family: monospace;">
+          Location: <strong style="color: #fff;">F:\WORKHORSE\workspacerand_assets\</strong>
+        </span>
+        <span style="font-size: 10px; color: #06d6a0; font-family: monospace; font-weight: bold;">
+          🔒 High-Res Master JPEGs Ready
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================================
+       SETTINGS MODAL (Global Engine Settings)
+       ====================================================================== -->
+  <div class="modal-overlay" id="settings-modal">
+    <div class="modal-card glass-panel">
+      <div class="modal-header">
+        <h3>WORKHORSE Engine Configuration</h3>
+        <button class="modal-close-btn" id="btn-close-settings">&times;</button>
+      </div>
+
+      <div class="settings-grid">
+        <div class="form-group">
+          <label>Local Ollama Text Model (Captioning & Research)</label>
+          <select class="form-select" id="setting-ollama-text">
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>Local Ollama Vision Model (Pose & Aesthetic Analysis)</label>
+          <select class="form-select" id="setting-ollama-vision">
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>Privacy Mode</label>
+          <div style="font-size: 12px; color: #06d6a0; font-family: var(--font-mono); padding: 8px; background: rgba(6, 214, 160, 0.1); border: 1px solid rgba(6, 214, 160, 0.3); border-radius: 6px;">
+            🔒 100% Local GPU Offline (Air-Gapped Privacy for Adult Industry Media)
+          </div>
+        </div>
+
+        <button class="btn-cyber" id="btn-save-settings" style="margin-top: 10px; justify-content: center;">
+          💾 Save Settings
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/js/agents.js"></script>
+  <script src="/static/js/factory.js"></script>
+  <script src="/static/js/pipeline.js"></script>
+  <script src="/static/js/app.js"></script>
+  <script src="/static/js/bays.js"></script>
+  <script src="/static/js/operator.js?v=20261005_v1"></script>
+  <script src="/static/js/character3d.js?v=20261003_v7" defer></script>
+</body>
+</html>

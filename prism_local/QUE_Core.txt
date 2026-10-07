@@ -1,0 +1,830 @@
+================================================================
+Prism — AI Social Media Content Studio
+(formerly Q.U.E.; folder name F:\QUE\ unchanged on disk)
+Version: Active Development (July 2026)
+Location: F:\QUE\
+Live URL: https://que.fly.dev (Fly app rename/custom domain pending)
+Local Port: 7861
+================================================================
+
+OVERVIEW
+--------
+Prism is a full-stack SFW (safe-for-work) AI-powered social media
+content generation studio. Upload one image or video and instantly
+generate platform-optimized captions, AI image prompts, video prompts,
+pose series, X threads, and hashtag sets — all tailored to your content
+type, platform, brand voice, and style.
+
+Built on FastAPI + Uvicorn (Python), deployed to Fly.io with persistent
+SQLite storage. Supports multiple AI providers with Gemini 2.5 Flash as
+the primary cloud provider.
+
+================================================================
+GUIDED WIZARD INTERFACE (5-Step Flow)
+================================================================
+
+Step 1 — Upload + Content Type
+  - Drag-drop or browse for image (JPEG, PNG, WEBP, GIF) or video
+    (MP4, MOV, WEBM)
+  - Same upload zone detects file type automatically
+  - Select Content Type via 2×2 card grid:
+      👤 Creator  — personal posts, lifestyle, photo sets
+      🤝 UGC      — brand collaborations, product + person
+      🛍️ Product  — product photography, marketing
+      📸 General  — food, pets, landscapes, interiors, events
+  - For UGC/Product: brand search toggle auto-appears
+      🔍 Web search brand info (enabled by default)
+      Optional brand website URL field for URL context grounding
+
+Step 2 — Generation Mode + Platform
+  - Shows mini thumbnail of uploaded media in header
+  - Generation Mode grid:
+      ✍️ Social Caption    — platform-specific first-person caption
+      🎨 Flux Image Prompt — detailed Flux.1/2 prompt with pose vocabulary
+      🎬 WAN Video Prompt  — cinematic WAN2.1/2.2 clip prompt
+      📸 Pose Series       — 6 variation poses for photo sets
+      🧵 X Thread          — 5-tweet thread
+      ⚡ Generate All      — runs all enabled modes simultaneously
+  - Platform selection:
+      🌐 General · 📷 Instagram · 🎵 TikTok · 👥 Facebook · 𝕏 Twitter
+
+Step 3 — Tone & Options
+  - Caption Style pills:
+      ✨ Auto · 🎣 Hook · 📖 Story · ❓ Question · 🔥 Hot Take
+      💡 Tips · 🎬 BTS · 🛍️ Soft Sell · 🫂 Relatable
+  - Caption Language: English, Español, Français, Deutsch,
+      Português, Italiano, 日本語
+  - Toggles:
+      📌 Include 5 hashtags in caption (default ON)
+      🏷️ Generate 30-tag hashtag set (OFF)
+      ✨ Generate 3 Caption Variants (OFF)
+      🎤 Include audio transcript (video only, default ON)
+  - Caption Context textarea (optional extra info to weave in)
+
+Step 4 — Review (Instagram-style "Share" screen)
+  - Shows all selections as tappable rows:
+      Content Type · Mode · Platform · Style · Language · Options
+      Caption Context (if entered)
+  - Tap any row to jump back to that step and edit
+  - ⚡ Generate button (full-width, prominent)
+
+Step 5 — Results (Carousel)
+  - One result card shown at a time
+  - ← → navigation buttons with dot indicators
+  - Each card shows: mode icon, generated text, character count
+  - Copy button per card + Copy All button
+  - Generate Again button returns to Review
+  - Pose Series: each pose has 🎨 Image button + Copy
+
+================================================================
+CONTENT TYPE SYSTEM
+================================================================
+
+Each content type loads different prompt templates:
+
+CREATOR (👤)
+  Captions: First-person, written AS the person in the image.
+  "Don't describe the photo from outside." BANNED words enforced.
+  Platform-tuned hooks, CTAs, tone for each network.
+  Pose Series: 6 pose/composition variations for photo shoots.
+
+UGC (🤝)
+  Captions: Authentic first-person featuring the product naturally.
+  Sounds like a real person who genuinely loves this, not a paid ad.
+  BANNED: gifted, ad, sponsored, collab (as caption words).
+  Poses: 6 UGC angles keeping product featured and visible.
+  Brand search: identifies product, uses real brand info.
+
+PRODUCT (🛍️)
+  Captions: Emotional benefit + lifestyle hook, NOT specs first.
+  Platform-specific: TikTok hook energy, Instagram desire-building,
+  Facebook warm recommendation, Twitter punchy product take.
+  BANNED: innovative, revolutionary, game-changing, curated.
+  Pose angles: Hero, Flat Lay, Detail, Lifestyle, Feature, Scale.
+
+GENERAL (📸)
+  Captions: Adapts to image content — food, pets, landscapes,
+  interiors, events, objects. Matches energy of the image.
+  Scene Variations: 6 composition/angle variations.
+
+================================================================
+AI PROVIDER SYSTEM (Multi-Provider)
+================================================================
+
+Supported Providers:
+  • Gemini (Google) — Primary cloud provider
+      Model: gemini-2.5-flash (default)
+      Features: Google Search grounding, URL Context, JSON mode,
+      native video understanding, Imagen 3 image generation,
+      true token-by-token streaming
+  • OpenAI — Alternative cloud
+      Model: gpt-4o (default), DALL-E 3 for image generation
+      DALL-E 2 edit endpoint used for pose image reference
+  • Grok (xAI) — Alternative cloud
+      Model: grok-2-vision-1212
+  • Ollama — Local self-hosted
+      Vision model: configurable (tested with Qwen2.5-VL)
+      Writer model: configurable
+      Token-by-token streaming via Ollama client
+
+Provider auto-detection: if GEMINI_API_KEY env var is set,
+provider automatically switches from Ollama to Gemini.
+No config.json changes needed for cloud deployment.
+
+================================================================
+PERFORMANCE OPTIMIZATIONS
+================================================================
+
+Context Caching (Generate All mode with Ollama):
+  - One vision call generates a comprehensive image description
+  - Cached in memory (10-minute TTL, per image hash)
+  - All subsequent modes (caption, flux, WAN, poses) use
+    description instead of re-sending the image
+  - Threading deduplication: if prefetch is running when Generate
+    fires, Generate waits for prefetch result (no double API calls)
+  - Cloud providers (Gemini): run all modes in parallel instead
+    (parallel threads, results appear as they complete)
+
+Background Pre-fetch:
+  - Immediately after image upload, /api/prefetch fires
+  - Pre-computes description while user configures settings
+  - By the time user clicks Generate All, cache is warm
+
+Image Resizing:
+  - All images resized to max 854×480 before AI calls
+  - Matches video pipeline resolution
+  - Dramatically reduces vision token count (20× reduction
+    from 4K images), speeds up processing
+
+Streaming:
+  - Gemini: true token-by-token streaming via generate_content_stream
+  - All Generate All modes fire in parallel threads
+  - Results pop in as each mode completes (fastest first)
+  - Ollama: sequential streaming with token-by-token display
+
+================================================================
+VIDEO PROCESSING PIPELINE
+================================================================
+
+Upload: Same drop zone, drag-drop MP4/MOV/WEBM up to 500MB
+
+Gemini Provider (Primary):
+  - Video uploaded to Gemini Files API
+  - Gemini watches the full video natively (motion, audio, dialogue)
+  - No frame extraction needed
+  - Generates captions/prompts from complete video understanding
+
+Ollama / Fallback Pipeline:
+  1. Take-5-Skip-10 motion detection — extracts up to 30 key frames
+     at 480p (854×480) using scene change detection
+  2. Hold-and-Wait batching — groups 3 frames into side-by-side
+     grid image, sends each batch to AI for description
+  3. Audio extraction via ffmpeg (16kHz mono WAV)
+  4. Whisper transcription — faster-whisper (local, tiny model)
+     OR OpenAI Whisper API fallback
+  5. Synthesis — combines visual analysis + audio transcript
+     into caption/prompt
+
+🎤 Audio transcript toggle: ON by default, shows when video loaded
+
+================================================================
+BRAND RESEARCH (UGC + Product)
+================================================================
+
+Auto-enabled when UGC or Product content type selected.
+
+Gemini: Uses Google Search grounding — model searches Google
+  in the same API call to find real brand info (tagline,
+  target audience, products, brand voice). One call, no latency.
+
+Optional URL Context: Paste brand website URL → Gemini reads
+  the actual brand website alongside Google search results.
+  Gets authoritative product claims and brand copy directly.
+
+Ollama: Injects brand awareness instruction — model uses
+  training knowledge about any visible brand/logo.
+
+================================================================
+POSE SERIES — IMAGE GENERATION
+================================================================
+
+Each of 6 poses has a 🎨 Image button.
+
+When clicked:
+  1. Original uploaded image sent as reference
+  2. Vision AI extracts detailed appearance description:
+     - Face (shape, eyes, nose, lips, age, distinctive features)
+     - Hair (exact shade, length, texture, style)
+     - Skin tone (specific descriptor)
+     - TATTOOS — every visible tattoo with exact body location
+       (e.g., "full sleeve right arm", "rose inner left wrist")
+     - HELD ITEMS — items in hands, which hand, how held
+     - BACKGROUND — exact environment/setting visible
+  3. Consistency rules appended (CANNOT CHANGE):
+     - Exact face, skin tone, hair
+     - ALL tattoos at EXACT same body locations
+     - Same items in hands, visible to camera
+     - Same background/location
+     - Same outfit
+     - ONLY CHANGE: pose, body position, camera angle
+  4. For OpenAI: DALL-E 2 edit endpoint (actual image reference)
+  5. For Gemini: Appearance-enriched prompt to Imagen 3
+
+Generated image appears full-width with:
+  - Tap to preview (full-screen lightbox overlay, × to close)
+  - ↓ Download button
+
+================================================================
+CAPTION STYLES
+================================================================
+
+Auto: Model decides best style for the content
+Hook: Scroll-stopping first line, everything supports it
+Story: Scene → tension/turning point → resolution
+Question: Opens or closes with engaging audience question
+Hot Take: Bold, slightly controversial, clear confident stance
+Tips: Numbered/actionable, save-worthy, opens with "why you need"
+BTS: Candid, confessional, raw behind-the-scenes
+Soft Sell: Value/relatable moment first, then natural CTA
+Relatable: Universal feeling they instantly connect with
+
+================================================================
+BRAND VOICE
+================================================================
+
+In Preferences (👤 icon in header):
+  - Paste 1-2 example captions you love
+  - AI matches exact tone, vocabulary, line break style
+  - Injected into every caption prompt
+  - Also: signature text auto-appended to every caption
+
+================================================================
+HASHTAG GENERATOR
+================================================================
+
+Mode: 30-tag tiered hashtag set (standalone mode)
+
+Returns 3 tiers:
+  HIGH REACH   (10 tags, 500k-5M posts): broad discovery
+  ENGAGEMENT   (10 tags, 50k-500k): strong engagement rate
+  NICHE        (10 tags, under 50k): targeted reach + ranking
+
+Each tier copyable independently. Analyzed from actual image.
+
+================================================================
+IDEAS GENERATOR
+================================================================
+
+Accessed via 💡 button in header.
+  - Upcoming holidays/seasonal content ideas
+  - Season-specific vibe suggestions
+  - Evergreen themes (Golden Hour, Coffee Shop, Fitness, etc.)
+  - Type an idea keyword → Expand → generates full caption or prompt
+  - Supports: Social Caption, Flux Prompt, WAN Prompt
+
+================================================================
+DISTRIBUTION & TARGETING ENGINE
+================================================================
+
+Accessed via 🎯 button in header ("Distribution & Tags").
+
+Purpose: closes the loop from "what to post" to "where to get it
+seen" — discovering and organizing feature-page/shoutout accounts
+and community research spots. Entirely ToS-compliant by design:
+hub discovery is search-assisted only (client-side, opens Google/
+platform search in a new tab), a human reads the profile and
+manually submits the data — Prism never scrapes or queries
+Instagram/TikTok servers directly.
+
+Instagram + TikTok Feature Hubs:
+  - Curated, user/admin-submitted database of feature-page /
+    shoutout accounts (hubs table)
+  - Per hub: platform (instagram/tiktok), handle, niche, tier
+    (Micro <25k · Mid-Tier 25k-250k · Mega 250k+), bio snippet,
+    submission rule, required hashtags
+  - Niche-matched search + tier + platform filters
+  - "Search Google" / "Search In-App" buttons build a query and
+    open it in a new tab for manual discovery
+  - Selecting a hub's required hashtags auto-appends them to the
+    caption at generation time (hub_hashtags)
+
+Reddit Research Panel:
+  - Static curated dataset (12 niche categories) of relevant
+    subreddits with description + posting norms
+  - No live Reddit API calls — pure reference/research aid
+
+Targeting Vault:
+  - Save the current hub + hashtag selection as a named, reusable
+    vault (per-user, vaults table — stores a full snapshot so it
+    still works even if a hub is later edited/removed)
+  - "Load This Vault" instantly restores the selection for repeat
+    campaigns/niches without re-searching
+
+Pre-Publish Checklist:
+  - 📋 button on generated post captions and in the Distribution
+    modal
+  - Ephemeral reminder checklist: hashtag inclusion + per-hub
+    submission-rule reminders — resets each time it's opened,
+    nothing persisted server-side
+
+Crowdsourced Health Reporting:
+  - 🚩 Report button on each hub (reasons: inactive, not accepting
+    submissions, spam/fake, other + optional note)
+  - One report per user per hub (duplicates rejected)
+  - After 3 distinct reporters, the hub auto-flags (status
+    'flagged') with a visible warning badge — stays visible for
+    transparency rather than silently hidden; admin can review
+    and hard-delete
+
+New DB tables: hubs, hub_reports, vaults (SQLite, same DB file as
+history/usage/sessions)
+
+================================================================
+GROWTH & FEEDBACK FEATURES (Round 2 — July 2026)
+================================================================
+
+Six additions focused on making Prism a standalone growth coach,
+not just a caption generator — closing the loop between "generate
+content" and "grow the account."
+
+PEER SHOUTOUT MATCHING (Distribution modal → 🤝 Peer Swaps tab)
+  - Opt-in creator directory (creators table): platform, handle,
+    niche, tier (micro/mid/mega), one-line pitch
+  - Browse other creators filtered by niche/tier/platform to find
+    reciprocal shoutout-swap partners
+  - Manage your own listing (create/update/delete) from the same tab
+  - Routes: GET/POST/DELETE /api/creators, GET /api/creators/me
+
+WHAT-WORKED FEEDBACK LOOP (History modal)
+  - Each history entry can be marked "posted" and rated 1-5 stars
+  - history table gained posted/rating columns (migrated via a
+    generic _ensure_column() helper, existing rows default to 0)
+  - Top-performing past captions (posted=1 AND rating>=4) are
+    automatically pulled back into every future caption prompt
+    as style/structure reference — the app learns what actually
+    worked for the user over time instead of generating in a vacuum
+  - Routes: POST /api/history/{id}/feedback, updated GET /api/history
+
+POSTING CONSISTENCY STREAKS (History modal header badge)
+  - GET /api/streak computes current streak, longest streak, and
+    whether the user has posted/generated today from the existing
+    usage table (no new table needed)
+  - Shown as a badge (🔥 current / longest) to encourage daily use
+
+HOOK STRENGTH SCORER (🥋 button on post-mode results)
+  - Sends just the opening line of a caption to the AI with a
+    dedicated scoring prompt (curiosity gap, specificity, pattern
+    interrupt) → returns a 1-10 score, short feedback, and 2
+    stronger alternative hooks (click an alternative to copy it)
+  - Route: POST /api/hook-score
+  - Note: "thinking" Gemini models need a generous max_output_tokens
+    (1500) or the JSON reply gets silently truncated — learned the
+    hard way, now the standard for all short structured-JSON routes
+
+TREND-AWARE GROUNDING (Distribution modal → 📈 Trends tab)
+  - Uses Gemini's Google Search grounding to look up what's
+    currently trending this week for a given niche + platform,
+    returning a short list of trends and suggested caption angles
+  - Gemini-only feature (grounding requires Google Search tool
+    access) — clear 400 error if another provider is active,
+    telling the user to switch providers in Settings
+  - Route: POST /api/trends
+  - Parsing is resilient to verbose "thinking out loud" model output:
+    a shared _extract_last_json_object() helper scans backward from
+    the last "}" to find the last balanced JSON object in the raw
+    text, so narration/markdown-fenced examples before the real
+    answer don't break parsing (also used by the Hook Score parser)
+
+ALT-TEXT GENERATOR (🖼️ button on post-mode results)
+  - One-click accessibility helper: reuses the same uploaded image
+    already sent for caption generation, generates a concise,
+    screen-reader-friendly alt text description (under ~125 chars,
+    no "Image of..." boilerplate)
+  - Route: POST /api/alt-text — vision call via the same
+    _call_provider() abstraction used everywhere else, so it works
+    with whichever provider (Gemini/OpenAI/Grok/Ollama) is active
+  - Result shown in a copyable popover (reuses the Hook Score modal)
+
+SCHEDULE QUEUE (📅 header button + 📅 button on post-mode results)
+  - Internal planning calendar — pick a date/time for a generated
+    caption/prompt, stored in a new scheduled_posts table (owner,
+    platform, mode, content, thumb, scheduled_for, status, notes)
+  - Upcoming/Past tabs list pending, posted, and skipped items;
+    mark a pending item "Posted" or "Skip" from the list
+  - Marking an item "Posted" automatically links back to (or creates)
+    a history row with posted=1 — feeds the existing What-Worked
+    Feedback Loop and Posting Consistency Streak with zero extra
+    user effort
+  - Deliberately NOT a live auto-publisher: no Meta/TikTok API calls,
+    no OAuth. That requires the user to register + get approved for
+    Instagram Content Publishing API / TikTok Content Posting API
+    developer apps first — this queue is the foundation to wire real
+    publishing into once those credentials exist
+  - Visual Calendar view: toggle between the original List view and a
+    month-grid Calendar view (List/Calendar switch in the modal header).
+    Calendar shows a color-coded dot per scheduled item on its day
+    (purple=pending, green=posted, gray=skipped, red=overdue), month
+    navigation, and a day-detail panel that lists every item scheduled
+    for the selected day (reuses the same list-item renderer as List view)
+  - Routes: POST/GET /api/schedule, PATCH/DELETE /api/schedule/{id}
+
+ANALYTICS DASHBOARD (📊 header button)
+  - Aggregates data Prism already has: total generations, posted
+    count, average rating, per-platform and per-mode breakdowns,
+    last-30-days daily activity (simple vanilla-JS <canvas> bar
+    chart, no chart library), and the existing streak calculation
+    (shared _compute_streak() helper now used by both /api/streak
+    and /api/analytics)
+  - Manual engagement logging: each History item gets a "📊 Log
+    Stats" mini-form (likes/views/comments/shares) — new post_metrics
+    table, keyed by history_id, upserted via POST
+    /api/history/{id}/metrics. Lets users track REAL numbers (copied
+    from their own Instagram/TikTok insights) today, without needing
+    OAuth
+  - Dashboard surfaces engagement totals + single best-performing
+    post (highest logged likes) once any stats are logged
+  - Best Time to Post insight: buckets all posted+rated history by
+    day-of-week x time-of-day (7 buckets: Early morning, Morning,
+    Midday, Afternoon, Evening, Night, Late night), requires at least
+    2 posts in a bucket to avoid noise, surfaces the single highest-
+    average-rating bucket (e.g. "Thursday · Evening 17-21, avg 4.7★
+    across 3 posts")
+  - Caption Style Breakdown: every generated caption now records which
+    Caption Style pill was used (history.style column); Analytics
+    groups by style showing count + average rating per style, so users
+    can see which styles (Hook, Story, Hot Take, etc.) actually perform
+    best for their audience
+  - Architected so a future live Meta/TikTok API integration can
+    populate post_metrics automatically instead of manually, with
+    no schema changes needed
+  - Route: GET /api/analytics
+
+================================================================
+PUSH NOTIFICATIONS (Web Push / VAPID)
+================================================================
+
+Opt-in browser push notifications (Preferences → 🔔 Notifications),
+built on the standard Web Push API + a VAPID keypair generated once
+and persisted server-side (vapid_private_key.pem / vapid_public_key.txt).
+A background daemon thread (_notification_worker) checks every 15
+minutes per subscribed user; each notification type self-throttles so
+it fires at most once per its own natural cadence, and every send is
+logged in a notification_log table (owner, kind, ref, sent_at) to
+guarantee no duplicate pushes for the same event.
+
+Nine notification types, each individually toggleable:
+  🔥 Streak at risk        — haven't generated today, fires 8pm if
+                              yesterday was active and today isn't yet
+  📅 Scheduled post due     — a pending Schedule Queue item's time arrived
+  ✨ Daily limit reset      — admin-set daily generation limit rolled
+                              over at midnight after being hit
+  👋 Inactivity nudge       — 3+ days with no generations, re-nudges
+                              at most every 3 days
+  🎉 Streak milestone       — celebrates hitting 7/30/100/365 consecutive
+                              days on the day it's reached
+  📊 Weekly recap           — Monday 9am summary of the past 7 days'
+                              generation count + current streak
+  🏆 New personal best      — fires the moment a logged engagement
+                              metric (likes/views/comments/shares) beats
+                              every previous post's value for that metric
+  🎄 Holiday idea nudge     — surfaces a content idea 10-14 days before
+                              an upcoming HOLIDAY_IDEAS entry
+  🔥 Daily trend alert      — once/day (11am), looks up one real,
+                              currently-trending topic in the user's
+                              self-set "My Niche" (Preferences) via
+                              Gemini's Google Search grounding; only
+                              fires when the instance provider is Gemini
+                              with an API key configured (grounding isn't
+                              available on Ollama/local, so it silently
+                              no-ops rather than guessing a stale trend)
+
+Routes: GET /api/push/public-key, POST /api/push/subscribe,
+POST /api/push/unsubscribe, POST /api/push/test
+
+================================================================
+HISTORY & EXPORT
+================================================================
+
+- Last 50 generations stored in SQLite (history.db)
+- Persistent on Fly.io via /data volume mount
+- History panel: thumbnail, mode, platform, date
+- Load any past generation back into results view
+- Export all history to .txt file
+- Each entry can be marked posted + rated (see What-Worked Feedback
+  Loop above) — feeds future caption prompts and the streak badge
+
+================================================================
+USER MANAGEMENT
+================================================================
+
+- Login system (PBKDF2 password hashing)
+- Sessions stored in SQLite (survive server restarts)
+- Per-user settings: gender, enabled modes, signature, brand voice,
+  niche (used for daily trend alert push), notification toggles
+- Admin can manage users via add_user.py CLI
+- Daily usage limit per user (configurable)
+- Admin panel visible only to admin accounts
+
+================================================================
+DEPLOYMENT
+================================================================
+
+Live URL: https://que.fly.dev
+Platform: Fly.io (iad region, shared-cpu-1x, 1GB RAM)
+Machine: Always on (min_machines_running = 1)
+Storage: Fly.io volume at /data (1GB persistent)
+Secrets: GEMINI_API_KEY, ADMIN_PASSWORD
+
+Local: cd F:\QUE && .venv\Scripts\python.exe main.py
+Deploy: cd F:\QUE && fly deploy
+
+================================================================
+TECH STACK
+================================================================
+
+Backend:    Python 3.11, FastAPI, Uvicorn
+AI:         google-generativeai, google-genai, openai, ollama
+Video:      opencv-python-headless, faster-whisper, ffmpeg
+Storage:    SQLite (WAL mode), Fly.io persistent volume
+Auth:       PBKDF2 session cookies (HttpOnly, SameSite=lax)
+Frontend:   Vanilla JS, no frameworks, SSE streaming
+Deployment: Docker, Fly.io, Dockerfile + fly.toml
+
+================================================================
+COMPLETE API ROUTE REFERENCE
+================================================================
+
+Auth / Session
+  GET  /login                         — Login page (public)
+  POST /api/login                     — Authenticate (public)
+  POST /api/logout                    — Invalidate session cookie
+  GET  /api/whoami                    — Current user + is_admin flag
+
+Settings
+  GET  /api/settings                  — Read server config
+  POST /api/settings                  — Save server config
+  GET  /api/models                    — List available Ollama models
+  GET  /api/user-settings             — Per-user preferences
+  POST /api/user-settings             — Save user preferences (gender,
+                                        enabled_modes, signature,
+                                        brand_voice, niche, notification
+                                        toggles)
+
+Core Generation
+  POST /api/prefetch                  — Warm description cache
+  POST /api/generate                  — Single-mode generate (non-stream)
+  POST /api/generate-stream           — Multi-mode generate with SSE streaming
+  POST /api/video                     — Video pipeline (Gemini native or
+                                        frame-extraction fallback)
+  POST /api/generate-image            — Pose image gen (DALL-E / Imagen 3)
+  POST /api/expand-idea               — Keywords → caption/prompt expansion
+  GET  /api/suggestions               — Seasonal + holiday ideas
+
+History & Analytics
+  GET  /api/history                   — Last 50 generations
+  GET  /api/history/export            — Export all history as .txt
+  DELETE /api/history/{id}            — Delete history entry
+  POST /api/history/{id}/feedback     — Mark posted + rate (1-5 stars)
+  POST /api/history/{id}/metrics      — Log likes/views/comments/shares
+  GET  /api/usage                     — Today's generation count + limit
+  GET  /api/streak                    — Current + longest posting streak
+  GET  /api/analytics                 — Aggregated dashboard data
+
+Growth Tools
+  POST /api/hook-score                — Score + improve a caption hook
+  POST /api/trends                    — Trend-aware grounding (Gemini only)
+  POST /api/alt-text                  — Generate accessibility alt text
+
+Schedule Queue
+  POST /api/schedule                  — Create scheduled post
+  GET  /api/schedule                  — List upcoming/past scheduled posts
+  PATCH  /api/schedule/{id}           — Update status (posted/skip)
+  DELETE /api/schedule/{id}           — Delete scheduled item
+
+Push Notifications
+  GET  /api/push/public-key           — VAPID public key for subscribing
+  POST /api/push/subscribe            — Register a browser push subscription
+  POST /api/push/unsubscribe          — Remove a push subscription
+  POST /api/push/test                 — Send a test push to the current user
+
+Distribution & Targeting
+  GET  /api/hubs                      — List feature-page hubs
+  POST /api/hubs                      — Submit new hub (admin)
+  DELETE /api/hubs/{id}               — Delete hub (admin)
+  POST /api/hubs/{id}/report          — Flag hub as inactive/spam/etc.
+  GET  /api/reddit-panel              — Niche-matched subreddit research data
+  GET  /api/vaults                    — List user's targeting vaults
+  POST /api/vaults                    — Save vault
+  DELETE /api/vaults/{id}             — Delete vault
+
+Peer Swaps
+  GET  /api/creators                  — Browse creator directory
+  GET  /api/creators/me               — Your own listing
+  POST /api/creators                  — Create/update your listing
+  DELETE /api/creators/me             — Remove your listing
+
+Health
+  GET  /api/health                    — Liveness probe
+
+================================================================
+STRUCTURED JSON OUTPUT (GEMINI RELIABILITY)
+================================================================
+
+For modes that require exact formats (pose_series, thread, variants,
+hashtag_set), Prism calls Gemini with:
+  response_mime_type: "application/json"
+  response_schema: typed schema (object with named array fields)
+
+This guarantees valid JSON from the model — no regex parsing
+or numbered-list extraction needed. Schemas:
+  Pose Series: {"poses": [string x6]}
+  X Thread:    {"tweets": [string x5]}
+  Variants:    {"captions": [string x3]}
+  Hashtag Set: {"high_reach":[...], "engagement":[...], "niche":[...]}
+
+Implemented in _gemini_structured(). For Ollama/other providers,
+numbered [1]...[6] parsing is still used as fallback.
+
+================================================================
+AI PROVIDER TIMEOUT PROTECTION
+================================================================
+
+GEMINI_TIMEOUT_S = 30 (30 seconds per call)
+GEMINI_TIMEOUT_MS = 30000
+
+Every Gemini call sets request_options={"timeout": 30} (genai SDK)
+or http_options=HttpOptions(timeout=30000) (genai client).
+
+Prevents cloud-overload / slow provider from leaving the Generate
+button spinning silently with no error for minutes. On timeout,
+the existing HTTP error handling kicks in and surfaces a message
+to the UI immediately.
+
+================================================================
+VIDEO PIPELINE — ALGORITHM DETAILS
+================================================================
+
+Take-5-Skip-10 Motion Scoring:
+  - Every frame resized to 854×480 via INTER_AREA
+  - Gaussian blur (21×21) applied before grayscale diff
+  - cv2.absdiff between consecutive frames
+  - Threshold at pixel value 25 → binary mask
+  - motion_score = (nonzero pixels / total pixels) × 100
+  - Static threshold: motion_score < 2.5%
+  - Static frames: only saved once per 30 frames
+  - Motion frames: burst-capture 5, then skip 10, repeat
+  - Max 30 frames extracted per video
+
+Hold-and-Wait Grid:
+  - 3 frames stitched side-by-side (each 400×225)
+  - Single JPEG per batch (one AI call per 3 frames)
+  - Canvas background: (20, 20, 20) dark fill
+  - JPEG quality: 82
+
+Gemini Native Video Path:
+  - Video uploaded to Gemini Files API (mime_type video/mp4)
+  - Polled until state == ACTIVE (3s intervals, 120s max)
+  - On FAILED or timeout: file deleted, RuntimeError raised
+  - Full video understanding — motion, audio, dialogue all native
+  - No frame extraction or Whisper needed
+
+Whisper Transcription (Ollama path):
+  - Model: tiny, device=cpu, compute_type=int8
+  - Model cache: /data/whisper_cache (Fly.io volume)
+  - Lazy load: model loaded on first video processed
+  - Fallback: OpenAI Whisper API (whisper-1) if OPENAI_API_KEY set
+
+================================================================
+POSE SERIES — CONSISTENCY ENFORCEMENT DETAILS
+================================================================
+
+Appearance Extraction (APPEARANCE_EXTRACT_PROMPT):
+  Extracts per subject: face shape + eyes + nose + lips + features,
+  hair (exact shade + length + texture + style), skin tone,
+  body type, EVERY visible tattoo + exact body location (or NONE),
+  held items (which hand, how held), full outfit, background/setting.
+
+POSE_CONSISTENCY_RULES (appended to every pose generation prompt):
+  MUST NOT CHANGE:
+    • Face, facial features, skin tone
+    • ALL tattoos at EXACT same body locations
+    • Held items — same item, same hand, visible to camera
+    • Background + environment (exact match)
+    • Outfit + accessories
+  ONLY CHANGE: body pose, arm angles, head/face direction, camera
+    angle/framing, weight distribution.
+
+For Ollama/Grok providers: appearance description injected as
+"SUBJECT REFERENCE — maintain this exact appearance..." prefix.
+For Gemini: same prefix using Gemini's own appearance call.
+Gemini image generation → Imagen 3.
+OpenAI image generation → DALL-E 2 edit endpoint (image reference
+padded to square PNG) → falls back to DALL-E 3 on failure.
+
+================================================================
+DAILY USAGE RATE LIMITING
+================================================================
+
+Per-user daily generation limit (set by admin per user):
+  - Tracked in usage table (username, date, count)
+  - If daily_limit > 0 and count >= limit: HTTP 429
+  - limit=0 means unlimited (default)
+  - Resets at midnight (date key changes)
+
+Schedule Queue platform rate limit (TOS compliance):
+  - 100 posts per platform per 24-hour window
+  - Enforced server-side before any real platform API call
+  - Prevents ever exceeding Meta's confirmed Instagram
+    Content Publishing API cap (100/24h)
+
+================================================================
+DATABASE TECHNICAL DETAILS
+================================================================
+
+Engine: SQLite (WAL mode)
+  - PRAGMA journal_mode=WAL    — concurrent read while writing
+  - PRAGMA synchronous=NORMAL  — safe + faster than FULL
+  - Connection timeout: 10s on every connect()
+
+Tables:
+  history         — id, created_at, thumb, mode, platform, results,
+                    posted, rating, posted_at, style
+  usage           — username, date, count  (PK: username+date)
+  sessions        — token, username, expires
+  hubs            — feature-page/shoutout accounts database
+  hub_reports     — crowdsourced hub health reports
+  vaults          — saved targeting vault snapshots
+  creators        — peer shoutout swap directory
+  scheduled_posts — internal planning calendar queue
+  post_metrics    — manually logged engagement (likes/views/comments/shares)
+  push_subscriptions — Web Push subscriptions (owner, endpoint, p256dh, auth)
+  notification_log   — dedup log for sent pushes (owner, kind, ref, sent_at)
+
+Migration helper: _ensure_column(conn, table, column, type_default)
+  — adds columns to existing tables without breaking old rows.
+
+Persistent storage on Fly.io: /data volume (1GB).
+  - DB_PATH → /data/history.db when /data mount is writable
+  - users.json copied to /data/users.json on first boot
+
+================================================================
+WHAT-WORKED FEEDBACK LOOP — IMPLEMENTATION
+================================================================
+
+_top_performer_examples(platform, limit=2):
+  - Queries history WHERE posted=1 AND rating>=4 ORDER BY
+    created_at DESC LIMIT 20
+  - Filters to matching platform
+  - Returns up to 2 recent top-performing caption strings
+
+These are injected into every future caption prompt as:
+  "TOP-PERFORMING PAST CAPTIONS (style/structure reference,
+   don't copy):\n- <example>\n- <example>"
+
+Effect: the model learns YOUR specific style over time without
+any fine-tuning — pure few-shot prompting with real high-signal
+data the user already validated by posting it and rating it ≥4/5.
+
+================================================================
+KEYWORD EXPANSION (IDEAS GENERATOR)
+================================================================
+
+POST /api/expand-idea — accepts {keywords, prompt_type, platform, hashtags}
+
+prompt_type routing:
+  "post"       → EXPAND_CAPTIONS[platform] template
+  "flux_image" → EXPAND_PROMPTS_FLUX
+  "wan_video"  → EXPAND_PROMPTS_WAN
+
+No image upload required — pure text-to-content generation.
+Useful for: turning holiday/seasonal/evergreen ideas into
+full captions or generation prompts without needing a photo.
+
+Seasonal ideas data (GET /api/suggestions):
+  HOLIDAY_IDEAS: 8 holidays (New Year's, Valentine's, St Patrick's,
+    Easter, Independence Day, Halloween, Thanksgiving, Christmas)
+    Each: window_days (days before holiday to surface it), 3 ideas
+  SEASON_IDEAS: 4 seasons, 3 ideas each
+  EVERGREEN_IDEAS: 12 themes (Golden Hour, Coffee Shop, Fitness,
+    Travel, Fashion/OOTD, Nature, Food, Wellness, Work/Hustle,
+    Friends, Home Aesthetic, Creativity)
+  On This Day: /api/suggestions also returns a resurfaced past post —
+    prefers a true anniversary (posted=1, rating>=4, same month/day in
+    a past year), falls back to the single highest-rated eligible post
+    otherwise. Tapping the card reopens that generation in the results
+    view via the existing history-item loader.
+
+================================================================
+BRAND VOICE INJECTION — IMPLEMENTATION
+================================================================
+
+If user has brand_voice set in preferences:
+  Prepended to every caption prompt as:
+  "BRAND VOICE — match this creator's tone:\n{brand_voice}\n\n"
+
+If user has signature set:
+  Appended to every generated caption result as:
+  "\n\n{signature}"
+
+Both applied server-side in /api/generate and /api/generate-stream
+— never visible to the model as metadata, always as natural text.

@@ -1,0 +1,831 @@
+/* ==========================================================================
+   WORKHORSE RPG 3D CYBER-FACTORY & HYDRAULIC PRODUCTION LINE
+   ========================================================================== */
+
+/* 3D Perspective Stage Container */
+.factory-stage-container {
+  position: relative;
+  width: 100%;
+  min-height: 580px;
+  perspective: 1200px;
+  background: 
+    radial-gradient(ellipse at 50% 30%, rgba(20, 36, 68, 0.6) 0%, rgba(8, 12, 22, 0.98) 75%),
+    linear-gradient(rgba(0, 242, 254, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 242, 254, 0.04) 1px, transparent 1px);
+  background-size: 100% 100%, 36px 36px, 36px 36px;
+  border: 1px solid rgba(0, 242, 254, 0.25);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  overflow: hidden;
+  box-shadow: 
+    inset 0 0 60px rgba(0, 0, 0, 0.9),
+    0 20px 50px rgba(0, 0, 0, 0.7),
+    0 0 0 1px rgba(255, 255, 255, 0.05);
+  display: flex;
+  flex-direction: column;
+}
+
+/* Floor Treadplate & Hazard Ambient Ground */
+.factory-stage-container::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 60px;
+  background: linear-gradient(180deg, transparent, rgba(0, 242, 254, 0.06));
+  pointer-events: none;
+}
+
+/* 3D SVG Conduit & Pipe Layer */
+.factory-conduits-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* 3D Metallic Pipe Render */
+.pipe-outer-shadow {
+  fill: none;
+  stroke: rgba(0, 0, 0, 0.8);
+  stroke-width: 16;
+  stroke-linecap: round;
+}
+
+.pipe-metal-casing {
+  fill: none;
+  stroke: #1e293b;
+  stroke-width: 12;
+  stroke-linecap: round;
+}
+
+.pipe-metallic-highlight {
+  fill: none;
+  stroke: #475569;
+  stroke-width: 4;
+  stroke-linecap: round;
+  opacity: 0.8;
+}
+
+.pipe-core-tube {
+  fill: none;
+  stroke: #070d18;
+  stroke-width: 6;
+  stroke-linecap: round;
+}
+
+.pipe-energy-pulse {
+  fill: none;
+  stroke: var(--cyan-glow);
+  stroke-width: 5;
+  stroke-dasharray: 14 32;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 8px var(--cyan-glow));
+  opacity: 0.25;
+  transition: opacity 0.4s ease;
+}
+
+.pipe-energy-pulse.flowing {
+  opacity: 1;
+  animation: pipeEnergyRun 1.1s linear infinite;
+}
+
+.pipe-energy-pulse.purple { stroke: var(--pink-hot); filter: drop-shadow(0 0 8px var(--pink-hot)); }
+.pipe-energy-pulse.green { stroke: var(--green-neon); filter: drop-shadow(0 0 8px var(--green-neon)); }
+.pipe-energy-pulse.orange { stroke: #ff5722; filter: drop-shadow(0 0 8px #ff5722); }
+.pipe-energy-pulse.gold { stroke: var(--amber-warm); filter: drop-shadow(0 0 8px var(--amber-warm)); }
+
+@keyframes pipeEnergyRun {
+  from { stroke-dashoffset: 92; }
+  to { stroke-dashoffset: 0; }
+}
+
+/* Pipe Flange Joints (Riveted Metallic Rings) */
+.pipe-flange {
+  fill: #334155;
+  stroke: #64748b;
+  stroke-width: 1.5;
+}
+
+/* ==========================================================================
+   3D FACTORY CHAMBERS GRID
+   ========================================================================== */
+/* ==========================================================================
+   LARGE UNIFORM 4x2 REALISTIC 3D CHARACTER CHAMBERS GRID
+   ========================================================================== */
+.factory-chambers-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 24px;
+  position: relative;
+  z-index: 2;
+  flex: 1;
+  margin: 16px 0 20px 0;
+  transform-style: preserve-3d;
+}
+
+@media (max-width: 1400px) and (min-width: 960px) {
+  .factory-chambers-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 959px) {
+  .factory-chambers-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Large Uniform 3D Character Chamber Card */
+.factory-chamber {
+  position: relative;
+  min-height: 530px;
+  height: 530px;
+  background: linear-gradient(165deg, rgba(16, 24, 40, 0.94) 0%, rgba(8, 12, 22, 0.98) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 20px;
+  padding: 18px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  transform-style: preserve-3d;
+  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  cursor: pointer;
+  user-select: none;
+  backdrop-filter: blur(24px);
+
+  /* Deep Chamfered PBR Shadow & Metallic Inset Bevel */
+  box-shadow: 
+    0 20px 48px -12px rgba(0, 0, 0, 0.9),
+    0 4px 14px rgba(0, 0, 0, 0.7),
+    inset 0 1px 1px rgba(255, 255, 255, 0.18),
+    inset 0 -6px 14px rgba(0, 0, 0, 0.7);
+}
+
+/* Large 3D Viewport Box for GLB / Canvas */
+.factory-avatar-3d-box {
+  width: 100%;
+  height: 310px;
+  position: relative;
+  overflow: visible;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 6px 0;
+}
+
+.factory-avatar-3d-box canvas {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.factory-avatar-3d-box model-viewer {
+  width: 100%;
+  height: 100%;
+  display: block;
+  --poster-color: transparent;
+}
+
+/* Card Titles */
+.chamber-card-titles {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 2px;
+  width: 100%;
+}
+
+.chamber-agent-name {
+  font-size: 15px;
+  font-weight: 900;
+  color: #fff;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+}
+
+.chamber-role-title {
+  font-size: 10.5px;
+  font-family: var(--font-mono);
+  color: rgba(255, 255, 255, 0.6);
+  letter-spacing: 0.4px;
+}
+
+/* Card Interactive Control Footer */
+.chamber-card-footer {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.btn-card-toggle-state {
+  padding: 5px 10px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.8);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-card-toggle-state:hover {
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+}
+
+.btn-card-3d-toggle {
+  padding: 5px 10px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.8);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-card-3d-toggle:hover {
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+}
+
+.btn-card-3d-toggle.active {
+  background: rgba(168, 85, 247, 0.22);
+  border-color: #a855f7;
+  color: #fff;
+  box-shadow: 0 0 12px rgba(168, 85, 247, 0.5);
+}
+
+.atom-character-glb {
+  --poster-color: transparent;
+  background-color: transparent;
+}
+
+.btn-card-toggle-state.active {
+  background: rgba(0, 242, 254, 0.18);
+  border-color: #00f2fe;
+  color: #00f2fe;
+  box-shadow: 0 0 10px rgba(0, 242, 254, 0.3);
+}
+
+.btn-card-open-bay {
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-family: var(--font-mono);
+  font-weight: 800;
+  background: rgba(0, 242, 254, 0.1);
+  border: 1px solid rgba(0, 242, 254, 0.4);
+  color: #00f2fe;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-card-open-bay:hover {
+  background: rgba(0, 242, 254, 0.22);
+  box-shadow: 0 0 12px rgba(0, 242, 254, 0.4);
+}
+
+/* WORKING OVERDRIVE STATE */
+.factory-chamber.working-chamber {
+  border-color: rgba(0, 242, 254, 0.6);
+  box-shadow: 
+    0 24px 52px -10px rgba(0, 242, 254, 0.35),
+    0 0 30px rgba(0, 242, 254, 0.2),
+    inset 0 1px 2px rgba(255, 255, 255, 0.35);
+}
+
+.factory-chamber.working-chamber.chamber-iris {
+  border-color: rgba(247, 37, 133, 0.7);
+  box-shadow: 0 24px 52px -10px rgba(247, 37, 133, 0.4), 0 0 30px rgba(247, 37, 133, 0.25);
+}
+
+.factory-chamber.working-chamber.chamber-aura {
+  border-color: rgba(255, 209, 102, 0.7);
+  box-shadow: 0 24px 52px -10px rgba(255, 209, 102, 0.4), 0 0 30px rgba(255, 209, 102, 0.25);
+}
+
+.factory-chamber.working-chamber.chamber-echo {
+  border-color: rgba(76, 201, 240, 0.7);
+  box-shadow: 0 24px 52px -10px rgba(76, 201, 240, 0.4), 0 0 30px rgba(76, 201, 240, 0.25);
+}
+
+.factory-chamber.working-chamber.chamber-forge {
+  border-color: rgba(255, 107, 53, 0.7);
+  box-shadow: 0 24px 52px -10px rgba(255, 107, 53, 0.4), 0 0 30px rgba(255, 107, 53, 0.25);
+}
+
+.factory-chamber.working-chamber.chamber-herald {
+  border-color: rgba(16, 185, 129, 0.7);
+  box-shadow: 0 24px 52px -10px rgba(16, 185, 129, 0.4), 0 0 30px rgba(16, 185, 129, 0.25);
+}
+
+.factory-chamber.working-chamber.chamber-mercury {
+  border-color: rgba(168, 85, 247, 0.7);
+  box-shadow: 0 24px 52px -10px rgba(168, 85, 247, 0.4), 0 0 30px rgba(168, 85, 247, 0.25);
+}
+
+/* 3D Hydraulic Pedestal Footing */
+.factory-chamber::before {
+  content: "";
+  position: absolute;
+  bottom: -8px;
+  left: 15%;
+  right: 15%;
+  height: 8px;
+  background: linear-gradient(180deg, #1e293b, #090e18);
+  border-radius: 0 0 6px 6px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.6);
+  z-index: -1;
+}
+
+.factory-chamber:hover {
+  transform: translateY(-8px) translateZ(16px);
+  border-color: rgba(0, 242, 254, 0.6);
+  box-shadow: 
+    0 24px 48px -10px rgba(0, 242, 254, 0.25),
+    0 6px 16px rgba(0, 0, 0, 0.8),
+    inset 0 2px 2px rgba(255, 255, 255, 0.3),
+    inset 0 -6px 12px rgba(0, 0, 0, 0.7);
+}
+
+/* ACTIVE 3D CHAMBER STATE */
+.factory-chamber.active-chamber {
+  border-color: var(--cyan-glow);
+  transform: translateY(-12px) translateZ(28px);
+  background: 
+    radial-gradient(circle at 50% 25%, rgba(0, 242, 254, 0.28) 0%, rgba(10, 16, 30, 0.98) 75%);
+  box-shadow: 
+    0 28px 56px -10px rgba(0, 242, 254, 0.45),
+    0 0 35px rgba(0, 242, 254, 0.3),
+    inset 0 2px 3px rgba(255, 255, 255, 0.4),
+    inset 0 0 25px rgba(0, 242, 254, 0.2);
+}
+
+.factory-chamber.active-chamber.chamber-iris {
+  border-color: var(--pink-hot);
+  background: radial-gradient(circle at 50% 25%, rgba(247, 37, 133, 0.3) 0%, rgba(14, 10, 26, 0.98) 75%);
+  box-shadow: 0 28px 56px -10px rgba(247, 37, 133, 0.5), 0 0 35px rgba(247, 37, 133, 0.35);
+}
+
+.factory-chamber.active-chamber.chamber-echo {
+  border-color: var(--blue-bright);
+  background: radial-gradient(circle at 50% 25%, rgba(79, 172, 254, 0.3) 0%, rgba(8, 16, 28, 0.98) 75%);
+  box-shadow: 0 28px 56px -10px rgba(79, 172, 254, 0.5), 0 0 35px rgba(79, 172, 254, 0.35);
+}
+
+.factory-chamber.active-chamber.chamber-aura {
+  border-color: var(--amber-warm);
+  background: radial-gradient(circle at 50% 25%, rgba(255, 209, 102, 0.3) 0%, rgba(22, 16, 8, 0.98) 75%);
+  box-shadow: 0 28px 56px -10px rgba(255, 209, 102, 0.5), 0 0 35px rgba(255, 209, 102, 0.35);
+}
+
+.factory-chamber.active-chamber.chamber-forge {
+  border-color: #ff5722;
+  background: radial-gradient(circle at 50% 25%, rgba(255, 87, 34, 0.3) 0%, rgba(24, 12, 8, 0.98) 75%);
+  box-shadow: 0 28px 56px -10px rgba(255, 87, 34, 0.5), 0 0 35px rgba(255, 87, 34, 0.35);
+}
+
+.factory-chamber.active-chamber.chamber-vault {
+  border-color: var(--green-neon);
+  background: radial-gradient(circle at 50% 25%, rgba(6, 214, 160, 0.3) 0%, rgba(6, 20, 16, 0.98) 75%);
+  box-shadow: 0 28px 56px -10px rgba(6, 214, 160, 0.5), 0 0 35px rgba(6, 214, 160, 0.35);
+}
+
+/* ==========================================================================
+   CHAMBER 3D EQUIPMENT & MACHINERY ANIMATIONS
+   ========================================================================== */
+
+/* Chamber Header */
+.chamber-header-bar {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.chamber-badge {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  font-weight: 800;
+  padding: 3px 8px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  letter-spacing: 0.5px;
+}
+
+.chamber-status-light {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #334155;
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.8);
+}
+
+.factory-chamber.active-chamber .chamber-status-light {
+  background: var(--cyan-glow);
+  box-shadow: 0 0 12px var(--cyan-glow);
+  animation: lampBlink 0.6s infinite alternate;
+}
+
+.factory-chamber.completed .chamber-status-light {
+  background: var(--green-neon);
+  box-shadow: 0 0 8px var(--green-neon);
+}
+
+/* 3D Character Avatar Stage */
+.chamber-avatar-wrap {
+  width: 86px;
+  height: 86px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 4px 0;
+  transform-style: preserve-3d;
+}
+
+.chamber-avatar-wrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 8px 14px rgba(0, 0, 0, 0.6));
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.factory-chamber.active-chamber .chamber-avatar-wrap img {
+  transform: translateZ(20px) scale(1.15);
+  animation: characterHover3D 1.8s ease-in-out infinite alternate;
+}
+
+@keyframes characterHover3D {
+  0% { transform: translateZ(16px) translateY(0) rotate(-1deg); }
+  100% { transform: translateZ(24px) translateY(-6px) rotate(1deg); }
+}
+
+/* 3D Rotating Holographic Radar (Vanguard) */
+.chamber-vanguard .chamber-avatar-wrap::before {
+  content: "";
+  position: absolute;
+  width: 96px;
+  height: 48px;
+  border-radius: 50%;
+  border: 1px dashed rgba(0, 242, 254, 0.4);
+  bottom: -6px;
+  transform: rotateX(65deg);
+  animation: spinRadar 4s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes spinRadar {
+  0% { transform: rotateX(65deg) rotate(0deg); }
+  100% { transform: rotateX(65deg) rotate(360deg); }
+}
+
+/* 3D Laser Sweep Bar (Iris Scanner Bay) */
+.laser-gantry-line {
+  position: absolute;
+  top: 0;
+  left: 10px;
+  right: 10px;
+  height: 2px;
+  background: var(--pink-hot);
+  box-shadow: 0 0 10px var(--pink-hot), 0 0 20px var(--pink-hot);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.factory-chamber.active-chamber.chamber-iris .laser-gantry-line {
+  opacity: 1;
+  animation: laserScanSweep 1.6s ease-in-out infinite alternate;
+}
+
+@keyframes laserScanSweep {
+  0% { top: 15%; opacity: 0.3; }
+  50% { opacity: 1; }
+  100% { top: 85%; opacity: 0.3; }
+}
+
+/* 3D Acoustic Equalizer Tubes (Echo Sound Lab) */
+.sound-tubes-strip {
+  display: flex;
+  gap: 4px;
+  align-items: flex-end;
+  height: 18px;
+}
+
+.tube-fluid {
+  width: 4px;
+  background: var(--blue-bright);
+  border-radius: 2px;
+  height: 6px;
+  transition: height 0.2s ease;
+}
+
+.factory-chamber.active-chamber.chamber-echo .tube-fluid:nth-child(1) { animation: tubeBounce 0.5s infinite alternate; }
+.factory-chamber.active-chamber.chamber-echo .tube-fluid:nth-child(2) { animation: tubeBounce 0.7s infinite alternate 0.15s; }
+.factory-chamber.active-chamber.chamber-echo .tube-fluid:nth-child(3) { animation: tubeBounce 0.4s infinite alternate 0.3s; }
+.factory-chamber.active-chamber.chamber-echo .tube-fluid:nth-child(4) { animation: tubeBounce 0.6s infinite alternate 0.2s; }
+.factory-chamber.active-chamber.chamber-echo .tube-fluid:nth-child(5) { animation: tubeBounce 0.8s infinite alternate 0.1s; }
+
+@keyframes tubeBounce {
+  0% { height: 4px; opacity: 0.4; }
+  100% { height: 18px; opacity: 1; box-shadow: 0 0 6px var(--blue-bright); }
+}
+
+/* 3D Floating Rune Shards (Aura Scriptorium) */
+.chamber-aura .chamber-avatar-wrap::after {
+  content: "✦";
+  position: absolute;
+  top: -6px;
+  right: 4px;
+  font-size: 14px;
+  color: var(--amber-warm);
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.factory-chamber.active-chamber.chamber-aura .chamber-avatar-wrap::after {
+  opacity: 1;
+  animation: floatRune 2s ease-in-out infinite alternate;
+}
+
+@keyframes floatRune {
+  0% { transform: translateY(0) scale(0.9); }
+  100% { transform: translateY(-8px) scale(1.2); filter: drop-shadow(0 0 6px var(--amber-warm)); }
+}
+
+/* 3D Industrial Turbine Gear (Forge Cutter Plant) */
+.forge-piston-gear {
+  font-size: 16px;
+  display: inline-block;
+  color: #ff5722;
+  transition: transform 0.3s;
+}
+
+.factory-chamber.active-chamber.chamber-forge .forge-piston-gear {
+  animation: spinTurbine 1.8s linear infinite;
+  filter: drop-shadow(0 0 6px #ff5722);
+}
+
+@keyframes spinTurbine {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* 3D Cargo Vault Wheel (Cargo Silo) */
+.vault-wheel {
+  font-size: 20px;
+  display: inline-block;
+  transition: transform 0.4s ease;
+}
+
+.factory-chamber.active-chamber.chamber-vault .vault-wheel {
+  animation: spinVault 2.5s ease-in-out infinite alternate;
+}
+
+@keyframes spinVault {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(180deg); }
+}
+
+/* 3D Floating Speech Bubble */
+.chamber-speech {
+  position: absolute;
+  top: -14px;
+  background: rgba(6, 10, 20, 0.95);
+  border: 1px solid var(--cyan-glow);
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 10px;
+  font-family: var(--font-main);
+  font-weight: 600;
+  color: #fff;
+  white-space: nowrap;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.8), 0 0 10px var(--cyan-glow);
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(6px) translateZ(30px);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 20;
+}
+
+.factory-chamber.active-chamber .chamber-speech,
+.factory-chamber:hover .chamber-speech {
+  opacity: 1;
+  transform: translateY(0) translateZ(30px);
+}
+
+/* Chamber Machinery Footer */
+.chamber-machinery {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 6px;
+  font-size: 11px;
+}
+
+.chamber-activity-meter {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--text-dim);
+  font-weight: 600;
+}
+
+.factory-chamber.active-chamber .chamber-activity-meter {
+  color: var(--cyan-glow);
+  font-weight: 800;
+  text-shadow: 0 0 8px var(--cyan-glow);
+}
+
+/* Bottom Factory Telemetry Bar */
+.factory-floor-status-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  margin-top: auto;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--text-dim);
+}
+
+
+/* ============================================================================
+   MOBILE RESPONSIVE EXTENSIONS FOR 3D CYBER-FACTORY
+   ============================================================================ */
+@media (max-width: 768px) {
+  .factory-stage-container {
+    min-height: auto !important;
+    padding: 12px 8px !important;
+    perspective: none !important;
+  }
+
+  .factory-conduits-svg {
+    display: none !important;
+  }
+
+  .factory-chambers-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    grid-template-rows: auto !important;
+    gap: 12px !important;
+    margin: 8px 0 !important;
+  }
+
+  .factory-chamber {
+    padding: 10px 8px !important;
+  }
+
+  .factory-character-stage {
+    width: 64px !important;
+    height: 64px !important;
+  }
+
+  .factory-char-img {
+    max-height: 48px !important;
+  }
+
+  .factory-chamber-title {
+    font-size: 10px !important;
+  }
+}
+
+/* 3D Holographic Pedestal Footing for Chamber Characters */
+.chamber-avatar-wrap::after {
+  content: "";
+  position: absolute;
+  bottom: -3px;
+  width: 76px;
+  height: 16px;
+  background: radial-gradient(ellipse, rgba(0, 242, 254, 0.7) 0%, rgba(0, 242, 254, 0.15) 50%, transparent 75%);
+  border-radius: 50%;
+  pointer-events: none;
+  filter: blur(3px);
+  animation: holoPedestalGlow 2.8s ease-in-out infinite alternate;
+  z-index: 1;
+}
+
+.chamber-iris .chamber-avatar-wrap::after {
+  background: radial-gradient(ellipse, rgba(247, 37, 133, 0.7) 0%, rgba(247, 37, 133, 0.15) 50%, transparent 75%);
+}
+
+.chamber-echo .chamber-avatar-wrap::after {
+  background: radial-gradient(ellipse, rgba(79, 172, 254, 0.7) 0%, rgba(79, 172, 254, 0.15) 50%, transparent 75%);
+}
+
+.chamber-aura .chamber-avatar-wrap::after {
+  background: radial-gradient(ellipse, rgba(255, 209, 102, 0.7) 0%, rgba(255, 209, 102, 0.15) 50%, transparent 75%);
+}
+
+.chamber-forge .chamber-avatar-wrap::after {
+  background: radial-gradient(ellipse, rgba(255, 87, 34, 0.7) 0%, rgba(255, 87, 34, 0.15) 50%, transparent 75%);
+}
+
+@keyframes holoPedestalGlow {
+  0% { transform: scale(0.9); opacity: 0.45; }
+  100% { transform: scale(1.1); opacity: 0.85; filter: blur(5px); }
+}
+
+
+/* ==========================================================================
+   FACTORY CHAMBERS UNIFORM GRID & AVATAR FIX
+   ========================================================================== */
+.factory-chambers-grid {
+  display: grid !important;
+  grid-template-columns: repeat(4, 1fr) !important;
+  gap: 20px !important;
+  margin: 12px 0 20px 0 !important;
+}
+
+.factory-chamber {
+  min-height: 480px !important;
+  height: auto !important;
+  padding: 16px 14px !important;
+}
+
+.factory-avatar-3d-box {
+  width: 100% !important;
+  height: 280px !important;
+  position: relative !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  margin: 6px 0 !important;
+  overflow: visible !important;
+}
+
+.factory-avatar-3d-box img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: contain !important;
+  display: block !important;
+  pointer-events: none !important;
+}
+
+
+/* ==========================================================================
+   FACTORY CHAMBERS UNIFORM GRID & AVATAR FIX
+   ========================================================================== */
+.factory-chambers-grid {
+  display: grid !important;
+  grid-template-columns: repeat(4, 1fr) !important;
+  gap: 16px !important;
+  margin: 10px 0 20px 0 !important;
+}
+
+.factory-chamber {
+  min-height: 420px !important;
+  height: 420px !important;
+  padding: 14px 12px !important;
+  border-radius: 16px !important;
+}
+
+.factory-avatar-3d-box {
+  width: 100% !important;
+  height: 190px !important;
+  position: relative !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  margin: 4px 0 !important;
+  overflow: visible !important;
+}
+
+.factory-avatar-3d-box img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: contain !important;
+  display: block !important;
+  pointer-events: none !important;
+}
+
+.chamber-card-footer {
+  width: 100% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-wrap: wrap !important;
+  gap: 8px !important;
+  margin-top: 10px !important;
+}

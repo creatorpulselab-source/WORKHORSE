@@ -1,0 +1,16 @@
+fastapi>=0.111.0
+uvicorn[standard]>=0.29.0
+python-multipart>=0.0.9
+Pillow>=10.0.0
+opencv-python-headless>=4.8.0
+faster-whisper>=1.0.0
+google-genai>=2.19.0
+openai>=3.3.1
+pywebpush>=2.0.0
+# ollama is optional — only needed for local Ollama mode, not for cloud deployment
+# ollama>=0.6.0
+
+# --- Dev/test only, not needed in production deploy ---
+# pytest>=8.0.0
+
+# ollama>=0.6.0

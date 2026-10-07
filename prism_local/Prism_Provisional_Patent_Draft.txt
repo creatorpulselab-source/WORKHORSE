@@ -1,0 +1,671 @@
+================================================================
+PROVISIONAL PATENT APPLICATION
+================================================================
+Title of Invention:
+
+  System and Method for Motion-Adaptive Video Frame Sampling,
+  Concurrent AI Inference Deduplication, Feedback-Reinforced
+  Content Generation, and Appearance-Consistent AI Image
+  Synthesis in a Multi-Modal Social Media Content Studio
+
+Inventor:         [YOUR FULL LEGAL NAME]
+Residence:        [YOUR CITY, STATE, ZIP]
+Citizenship:      [YOUR COUNTRY]
+Correspondence:   [YOUR EMAIL ADDRESS]
+                  [YOUR MAILING ADDRESS]
+
+Filing Date:      [DATE YOU FILE — leave blank until you file]
+
+NOTE: This is a provisional patent application filed pursuant
+to 35 U.S.C. Section 111(b). It establishes a priority filing
+date and confers "Patent Pending" status for 12 months from
+the filing date. A non-provisional utility patent application
+must be filed within 12 months to claim priority to this date.
+================================================================
+
+
+================================================================
+FIELD OF THE INVENTION
+================================================================
+
+The present invention relates to artificial intelligence-assisted
+digital content creation systems, and more specifically to a
+server-side web application that enables users to upload visual
+media (images or video) and receive platform-optimized social
+media captions, image generation prompts, video generation
+prompts, and pose-consistent synthetic images through a
+multi-provider AI pipeline with performance optimization
+features including motion-adaptive frame sampling, concurrent
+inference deduplication, feedback-based prompt reinforcement,
+and appearance-locked image consistency enforcement.
+
+
+================================================================
+BACKGROUND OF THE INVENTION
+================================================================
+
+Social media content creators, brand marketers, and user-
+generated content (UGC) producers face recurring challenges in
+producing high-quality, platform-optimized written captions and
+generative AI prompts from their visual media. Existing tools
+are limited in one or more of the following ways:
+
+1. VIDEO PROCESSING INEFFICIENCY: Existing AI video analysis
+   tools either send all video frames to AI models (incurring
+   excessive token costs and latency) or use naive uniform
+   sampling (missing key motion moments and wasting API budget
+   on static, redundant frames).
+
+2. REDUNDANT AI API CALLS: In multi-feature web applications
+   where multiple UI operations can trigger the same underlying
+   AI inference for the same input image, there is no standard
+   mechanism to deduplicate concurrent or near-concurrent calls.
+   This results in wasted API costs and degraded response times.
+
+3. STATIC CONTENT GENERATION: Existing AI caption generators
+   produce output based solely on the current input image,
+   ignoring the user's own validated historical content
+   preferences and proven writing styles. The system therefore
+   never improves to match the individual user's voice or the
+   specific formats that perform well for that user.
+
+4. AI IMAGE CONSISTENCY IN SERIES: When generating multiple
+   AI images of the same subject in different poses, existing
+   systems fail to reliably preserve physically-specific subject
+   attributes such as tattoo locations, held items, background
+   environments, and outfit details. This forces creators to
+   manually re-describe or regenerate until consistent results
+   are produced.
+
+The present invention addresses all four of these limitations
+through novel technical subsystems described herein.
+
+
+================================================================
+SUMMARY OF THE INVENTION
+================================================================
+
+The present invention provides a web-based content creation
+system and method comprising four novel technical subsystems:
+
+SUBSYSTEM 1 — Motion-Adaptive Video Frame Sampling with
+  Hold-and-Wait Batch Analysis: A video processing pipeline
+  that uses pixel-level motion scoring to identify and extract
+  only the most content-rich video frames through a burst-
+  capture-and-skip pattern, followed by multi-frame grid
+  composition to minimize AI API call count while preserving
+  temporal content representation.
+
+SUBSYSTEM 2 — Concurrent AI Inference Deduplication via
+  Prefetch Cache and Event-Synchronized Wait: A server-side
+  caching and thread-synchronization mechanism that fires a
+  background AI vision inference call immediately upon media
+  upload, caches the result keyed by the media's cryptographic
+  hash, and causes any concurrent generation request for the
+  same media to wait for and reuse the in-progress inference
+  result rather than issuing a duplicate API call.
+
+SUBSYSTEM 3 — Feedback-Reinforced Dynamic Prompt Construction
+  Using User-Validated Historical Output: A prompt engineering
+  system that automatically identifies the user's own highest-
+  rated historical generated content, injects those examples
+  as few-shot style references into every subsequent generation
+  prompt for the same platform, and thereby continuously
+  adapts generated output toward the user's proven preferences
+  without model fine-tuning or retraining.
+
+SUBSYSTEM 4 — Appearance-Locked Multi-Shot AI Image Synthesis
+  with Physically-Specific Constraint Extraction: An image
+  generation system that, prior to generating each image in
+  a series, performs a dedicated AI vision inference pass to
+  extract a comprehensive set of physically-specific subject
+  attributes — including every visible tattoo with exact body
+  location, items held in each hand, background environment,
+  and complete outfit description — and appends these as
+  explicit cannot-change constraints in every image generation
+  prompt in the series.
+
+
+================================================================
+DETAILED DESCRIPTION OF THE PREFERRED EMBODIMENTS
+================================================================
+
+The following detailed description sets forth the specific
+technical implementation of each subsystem. Reference
+numerals are used throughout and correspond to the
+accompanying drawings.
+
+----------------------------------------------------------------
+SUBSYSTEM 1: MOTION-ADAPTIVE VIDEO FRAME SAMPLING WITH
+HOLD-AND-WAIT BATCH ANALYSIS
+----------------------------------------------------------------
+
+PROBLEM STATEMENT:
+Video files submitted for social media content generation
+typically contain 24-60 frames per second. Sending all frames
+to an AI vision model is computationally prohibitive and
+unnecessary. Uniform temporal sampling (e.g., one frame per
+second) wastes budget on static scenes while missing rapid
+action sequences.
+
+TECHNICAL IMPLEMENTATION:
+
+Step 1 — Frame Preprocessing:
+Each video frame is read sequentially from the video file.
+Each frame is resized to a standardized resolution of 854
+pixels wide by 480 pixels tall using area interpolation
+(INTER_AREA) to reduce computational cost in subsequent
+processing steps.
+
+Step 2 — Motion Scoring:
+For each frame, a motion score is computed as follows:
+  a. The frame is converted from BGR color space to grayscale.
+  b. A Gaussian blur with a kernel size of 21x21 pixels is
+     applied to the grayscale frame to suppress high-frequency
+     noise artifacts.
+  c. An absolute difference (absdiff) is computed between the
+     current blurred grayscale frame and the immediately
+     preceding blurred grayscale frame.
+  d. A binary threshold operation is applied to the difference
+     image at pixel value 25, producing a binary mask where
+     pixels with a difference greater than 25 are set to 255
+     (motion detected) and all others to 0.
+  e. The motion score is computed as:
+       motion_score = (count of nonzero pixels / total pixel
+                       count of the frame) * 100
+     This produces a percentage value representing the
+     proportion of the frame containing detected motion.
+
+Step 3 — Static Frame Handling:
+If motion_score is less than 2.5 (i.e., less than 2.5% of
+pixels show motion), the frame is classified as static. Static
+frames are added to the extraction set only once per every 30
+consecutive static frames, preventing the accumulation of
+redundant near-identical frames from long static shots while
+still capturing one representative frame from each static
+scene.
+
+Step 4 — Burst-Capture-and-Skip Pattern:
+If motion_score is 2.5 or greater (motion detected), the
+system enters burst-capture mode. In burst-capture mode:
+  a. 5 consecutive frames are extracted and added to the set.
+  b. After 5 burst frames are captured, the system enters
+     skip mode.
+  c. In skip mode, the next 10 frames are not extracted.
+  d. After 10 frames are skipped, the system returns to
+     burst-capture mode if motion continues.
+  e. This 5-capture / 10-skip cycle repeats until motion
+     subsides or the maximum frame count is reached.
+A maximum of 30 total frames are extracted from any single
+video regardless of video length.
+
+Step 5 — Hold-and-Wait Grid Composition:
+Extracted frames are processed in sequential batches of up to
+3 frames per batch. Within each batch:
+  a. Each frame is resized to 400 pixels wide by 225 pixels
+     tall.
+  b. All frames in the batch are composed side-by-side onto
+     a single canvas with dimensions of 1200 pixels wide by
+     225 pixels tall (for a full 3-frame batch), with a dark
+     fill background (RGB 20, 20, 20) for visual separation.
+  c. The composed canvas is encoded as a single JPEG image
+     at quality factor 82.
+  d. This single composite JPEG is transmitted as one AI API
+     call with a prompt requesting sequential temporal analysis
+     of the frames.
+
+This grid composition step reduces total AI API calls by
+approximately 67% (3 frames analyzed per call instead of 1)
+while preserving temporal ordering for coherent sequential
+scene description.
+
+Step 6 — Synthesis:
+The textual descriptions returned from each batch AI call
+are concatenated in temporal order. A final synthesis AI
+call combines all batch descriptions, any available audio
+transcript (described in Step 7), and the user's generation
+parameters to produce the final output (caption, image prompt,
+or video prompt).
+
+Step 7 — Audio Transcription (parallel track):
+Concurrently with frame analysis, audio is extracted from the
+video file using ffmpeg at 16kHz sample rate, mono channel,
+PCM format. The extracted audio is transcribed using a locally
+running Whisper model (tiny variant, int8 quantization, CPU
+inference) with a fallback to a cloud-based speech recognition
+API if the local model is unavailable. The resulting transcript
+is incorporated into the synthesis prompt.
+
+NOVEL ASPECTS:
+The specific combination of: (a) Gaussian-blur-normalized
+absdiff motion scoring with a 2.5% pixel threshold for static
+classification; (b) a 5-capture / 10-skip burst pattern that
+adapts temporal sampling density to motion content; (c) grid-
+composition batching of exactly 3 frames per AI call; and (d)
+integration with parallel audio transcription and downstream
+text synthesis — constitutes a novel video analysis pipeline
+not previously described in the art.
+
+----------------------------------------------------------------
+SUBSYSTEM 2: CONCURRENT AI INFERENCE DEDUPLICATION VIA
+PREFETCH CACHE AND EVENT-SYNCHRONIZED WAIT
+----------------------------------------------------------------
+
+PROBLEM STATEMENT:
+In interactive web applications, a user's action of uploading
+an image immediately followed by configuring generation options
+and clicking "Generate" can result in two near-simultaneous
+AI inference calls for the same input image: one triggered
+automatically at upload time (prefetch) and one triggered by
+the user's Generate action. Without deduplication, both calls
+proceed independently, doubling API cost and potentially
+delivering inconsistent results.
+
+TECHNICAL IMPLEMENTATION:
+
+Step 1 — Cache Key Generation:
+Upon image upload, a cache key is computed as the first 20
+characters of the SHA-256 cryptographic hash of the raw
+(resized) image bytes. This key uniquely identifies the
+image content without storing the full image.
+
+Step 2 — Prefetch Trigger:
+Immediately upon successful image upload, the server
+automatically initiates a background AI vision inference
+call using the uploaded image and a comprehensive scene
+description prompt. This call runs concurrently with the
+user configuring their generation options in the user
+interface.
+
+Step 3 — Cache and Event Management:
+The system maintains two shared server-side data structures:
+  a. A description cache (dict keyed by cache key): stores
+     completed AI inference results with a time-to-live of
+     600 seconds (10 minutes) from the time of computation.
+  b. A prefetch events registry (dict keyed by cache key):
+     stores threading synchronization event objects for each
+     image currently being processed.
+
+The following mutex-protected logic governs all cache access:
+  - If a valid (non-expired) cache entry exists for the key,
+    it is returned immediately (fast path, no API call).
+  - If no cache entry exists and no event exists for the key,
+    a new threading Event object is created and registered
+    for the key. The calling thread becomes the "computing
+    thread" responsible for executing the AI inference call.
+  - If no cache entry exists but an event already exists
+    for the key, the calling thread is NOT the computing
+    thread. It calls event.wait(timeout=90) to block until
+    the computing thread completes, then reads the result
+    from the cache. This is the deduplication path.
+
+Step 4 — Result Storage and Event Signaling:
+When the computing thread completes the AI inference call,
+it stores the result in the description cache with the
+computed expiry timestamp, removes the event from the
+prefetch events registry, and calls event.set() to unblock
+any waiting threads.
+
+Step 5 — Stale Cache Eviction:
+After each successful cache write, the system scans the
+cache for entries whose expiry timestamp has passed and
+removes them. This prevents unbounded memory growth from
+accumulated cached descriptions.
+
+Step 6 — Description Injection:
+For subsequent generation modes that would normally require
+re-sending the image, the cached description is injected
+into the generation prompt as a structured text prefix:
+  "[IMAGE DESCRIPTION — use this as your visual reference
+   for the task below]\n{description}\n[END DESCRIPTION]\n"
+This eliminates the need to transmit image bytes for any
+mode after the initial description is computed and cached.
+
+NOVEL ASPECTS:
+The specific combination of: (a) SHA-256-keyed in-memory
+description caching with TTL; (b) threading.Event-based
+synchronization to deduplicate concurrent callers for the
+same image; (c) "computing thread" election via mutex-
+protected event registration; and (d) cached-description
+injection as a structured text prefix to eliminate redundant
+image transmission — constitutes a novel AI inference
+deduplication mechanism not previously described in the art.
+
+----------------------------------------------------------------
+SUBSYSTEM 3: FEEDBACK-REINFORCED DYNAMIC PROMPT CONSTRUCTION
+USING USER-VALIDATED HISTORICAL OUTPUT
+----------------------------------------------------------------
+
+PROBLEM STATEMENT:
+AI content generation systems produce outputs based solely
+on the current input and generic instructions. They have
+no mechanism to adapt to an individual user's specific
+writing style, preferred caption structure, or the content
+formats that have historically performed well for that
+particular user on that particular platform. Each generation
+is therefore independent of and uninfluenced by the user's
+real-world performance feedback.
+
+TECHNICAL IMPLEMENTATION:
+
+Step 1 — Performance Signal Collection:
+The system records all generated content in a persistent
+database (history table). For each historical record, the
+user can designate the item as "posted" (boolean flag) and
+assign a performance rating from 1 to 5 (integer). The
+system stores the timestamp of the rating action.
+
+Step 2 — Top Performer Identification:
+At the time of each new generation request, before
+constructing the generation prompt, the system executes
+a database query:
+  SELECT platform, results FROM history
+  WHERE posted = 1 AND rating >= 4
+  ORDER BY created_at DESC
+  LIMIT 20
+From the returned records, the system filters to only those
+matching the current generation's target platform (e.g.,
+Instagram, TikTok, Facebook, Twitter). Up to 2 of the most
+recently rated qualifying records are selected as "top
+performer examples."
+
+Step 3 — Dynamic Prompt Injection:
+The extracted top performer examples are appended to the
+base generation prompt as a structured few-shot reference
+block:
+  "TOP-PERFORMING PAST CAPTIONS (style/structure reference,
+   don't copy):\n- {example_1}\n- {example_2}"
+
+This block is positioned at the end of the base platform-
+specific prompt template, after style instructions and
+before any user-supplied context, so the AI model receives
+both the general instructions and the concrete validated
+examples in a single inference call.
+
+Step 4 — Continuous Adaptation:
+As the user continues rating generated content over time,
+the top performer pool grows and refreshes. The 2 most
+recent high-rated examples are always selected, so the
+system continuously adapts to the user's evolving style
+and platform algorithm changes, without any model
+retraining, fine-tuning, or explicit style configuration
+by the user.
+
+NOVEL ASPECTS:
+The specific combination of: (a) user-driven binary
+"posted" signaling combined with integer performance
+rating as a ground-truth quality signal; (b) platform-
+filtered retrieval of only the most recent qualifying
+examples from a persistent historical record; (c)
+automatic injection of these examples as structured
+few-shot references in every subsequent same-platform
+generation prompt; and (d) continuous adaptation through
+ongoing rating without model modification — constitutes
+a novel user-specific adaptive content generation system
+not previously described in the art.
+
+----------------------------------------------------------------
+SUBSYSTEM 4: APPEARANCE-LOCKED MULTI-SHOT AI IMAGE SYNTHESIS
+WITH PHYSICALLY-SPECIFIC CONSTRAINT EXTRACTION
+----------------------------------------------------------------
+
+PROBLEM STATEMENT:
+When generating multiple AI images of the same human subject
+in different poses, existing AI image generation systems
+frequently alter subject-specific physical attributes such
+as tattoo designs and body locations, items held in the
+subject's hands, clothing details, and background environments.
+This inconsistency requires users to manually re-describe or
+repeatedly regenerate until satisfactory consistency is
+achieved across all images in the series.
+
+TECHNICAL IMPLEMENTATION:
+
+Step 1 — Reference Image Submission:
+The user provides a reference photograph of the subject.
+This image is transmitted to an AI vision model with a
+structured appearance extraction prompt (described in
+Step 2) before any pose image generation occurs.
+
+Step 2 — Physically-Specific Appearance Extraction:
+The appearance extraction prompt instructs the AI vision
+model to analyze the reference image and produce a
+comprehensive textual description covering the following
+specific categories, in a single dense paragraph:
+  a. FACE: face shape, eye color and shape, nose, lips,
+     jawline, and distinctive features.
+  b. HAIR: exact color (specific shade, not generic terms),
+     length, texture (straight/wavy/curly), and style.
+  c. SKIN TONE: a specific descriptor (e.g., "light olive",
+     "deep warm brown") rather than generic categories.
+  d. BODY TYPE: build and approximate physique.
+  e. TATTOOS: every visible tattoo in the reference image
+     must be listed individually with its EXACT body
+     location specified (e.g., "full sleeve tattoo covering
+     the entire right arm from wrist to shoulder", "rose
+     tattoo on the inner left wrist", "script lettering on
+     the right collarbone"). If no tattoos are visible,
+     the token "NONE" is recorded.
+  f. HELD ITEMS: every item held in the subject's hands,
+     specifying which hand (left or right) holds each item
+     and how it is held (e.g., "right hand grips a white
+     ceramic coffee cup by the handle").
+  g. OUTFIT: complete garment description including every
+     visible article of clothing, shoes, and accessories.
+  h. BACKGROUND: exact description of the environment,
+     surfaces, and setting visible in the reference image.
+
+Step 3 — Consistency Constraint Construction:
+The extracted appearance description is formatted as a
+"SUBJECT REFERENCE" prefix and prepended to each pose
+generation prompt:
+  "SUBJECT REFERENCE — maintain this exact appearance for
+   the person: {appearance_description}"
+
+Additionally, an explicit set of CANNOT-CHANGE constraints
+is appended to every pose generation prompt, specifying
+the following rules:
+  - FACE: Keep the exact same facial features, face
+    structure, and skin tone.
+  - TATTOOS: ALL tattoos must appear at their EXACT same
+    body locations — do NOT add, remove, move, or alter
+    any tattoo in any way across any image in the series.
+  - HELD ITEMS: All items held in hands must appear in
+    every generated image — same item, same hand, clearly
+    visible to the camera.
+  - BACKGROUND: Keep the EXACT same background, location,
+    and environment as the reference image.
+  - OUTFIT: Keep identical clothing and accessories.
+  - ONLY CHANGE: body pose, posture, weight distribution,
+    arm angles (while keeping held items visible), head and
+    face direction, and camera angle and framing.
+
+Step 4 — Series Generation:
+With the above constraints embedded, the system generates
+each of the requested pose variations (up to 6) by
+submitting the enriched prompt — containing both the
+appearance description prefix and the explicit constraint
+block — to the configured AI image generation model
+(supporting Google Imagen 3, OpenAI DALL-E 3, and DALL-E
+2 edit endpoint as provider options).
+
+Step 5 — Reference-Guided Edit (OpenAI Provider):
+When the OpenAI provider is configured, the system first
+attempts to use the DALL-E 2 image edit endpoint, which
+accepts the original reference photograph as direct visual
+input alongside the generation prompt. The reference image
+is padded to a square aspect ratio with transparent fill
+and encoded as PNG before submission. This provides direct
+visual grounding in addition to the text-based appearance
+constraints. If the edit endpoint returns an error, the
+system falls back to DALL-E 3 text-to-image generation
+using only the text-based constraints.
+
+NOVEL ASPECTS:
+The specific combination of: (a) a dedicated pre-generation
+AI vision inference pass solely for appearance extraction;
+(b) mandatory per-tattoo location specification including
+exact body region and side; (c) per-hand item tracking
+with visibility requirement enforcement; (d) background
+and environment locking as an explicit named constraint;
+(e) a structured CANNOT-CHANGE / ONLY-CHANGE constraint
+block appended to every prompt in the series; and (f)
+reference-image-guided edit endpoint preferencing with
+automatic text-only fallback — constitutes a novel
+appearance-consistent multi-shot AI image synthesis
+system not previously described in the art.
+
+
+================================================================
+BRIEF DESCRIPTION OF DRAWINGS
+================================================================
+
+The following drawings accompany this application.
+(Note: If you are filing without drawings, write
+"Drawings to be provided in non-provisional application."
+You are allowed to do this for a provisional.)
+
+FIG. 1 — System architecture overview showing the
+  relationship between the user interface, web server,
+  AI provider abstraction layer, and storage subsystems.
+
+FIG. 2 — Flowchart of the Motion-Adaptive Video Frame
+  Sampling pipeline (Subsystem 1), showing motion scoring
+  logic, burst-capture-and-skip pattern, and Hold-and-Wait
+  grid composition steps.
+
+FIG. 3 — Sequence diagram of the Concurrent AI Inference
+  Deduplication system (Subsystem 2), showing the prefetch
+  trigger, cache lookup, threading.Event synchronization,
+  and description injection flow.
+
+FIG. 4 — Data flow diagram of the Feedback-Reinforced
+  Prompt Construction system (Subsystem 3), showing the
+  rating collection, top-performer query, and few-shot
+  injection into the generation prompt.
+
+FIG. 5 — Process flow of the Appearance-Locked Image
+  Synthesis system (Subsystem 4), showing the appearance
+  extraction step, constraint block construction, and
+  per-pose prompt enrichment.
+
+
+================================================================
+CLAIMS
+================================================================
+
+NOTE: Formal claims are not required in a provisional patent
+application. The following are included as informal claim
+outlines to support the non-provisional application filed
+within 12 months. A patent attorney should formalize these
+into independent and dependent claims for the non-provisional.
+
+Claim 1 (Subsystem 1):
+  A computer-implemented method for video frame extraction
+  comprising: computing a per-frame motion score as the ratio
+  of pixels exceeding an absdiff threshold to total frame
+  pixels; classifying frames as static when motion score is
+  below a threshold value; applying a burst-capture-and-skip
+  pattern to motion-detected frames; composing extracted
+  frames into multi-frame grid images for batched AI analysis.
+
+Claim 2 (Subsystem 2):
+  A server-side system for AI inference deduplication
+  comprising: a hash-keyed in-memory cache with time-to-live
+  expiry; a thread-synchronization event registry; logic to
+  elect a single computing thread per cache key; and event-
+  synchronized waiting for concurrent requests for the same
+  input to share a single AI inference result.
+
+Claim 3 (Subsystem 3):
+  A method for adapting AI-generated content to user
+  preferences comprising: storing user-assigned performance
+  ratings for generated content; querying for recent high-
+  rated examples matching a target platform; dynamically
+  injecting selected examples as few-shot references into
+  subsequent generation prompts for the same platform without
+  model retraining.
+
+Claim 4 (Subsystem 4):
+  A method for maintaining subject consistency across a
+  series of AI-generated images comprising: performing a
+  dedicated vision AI inference pass to extract tattoo
+  locations, held items by hand, background, and outfit
+  from a reference image; constructing explicit cannot-change
+  constraint rules from the extracted attributes; appending
+  these constraints to every prompt in the generation series.
+
+
+================================================================
+ABSTRACT
+================================================================
+
+A multi-modal AI-powered social media content creation
+system comprising four novel technical subsystems. The first
+subsystem performs motion-adaptive video frame sampling using
+per-frame pixel-level motion scoring, a burst-capture-and-skip
+pattern, and multi-frame grid composition to minimize AI API
+calls while preserving temporal content coverage. The second
+subsystem eliminates redundant AI inference calls through a
+hash-keyed in-memory description cache combined with thread-
+synchronization event objects that cause concurrent requests
+for the same input to share a single inference result. The
+third subsystem continuously adapts generated content to the
+individual user's preferences by querying for high-rated
+historical output and dynamically injecting those examples
+as few-shot references into every new generation prompt
+without model modification. The fourth subsystem maintains
+physical subject consistency across AI-generated image series
+by performing a dedicated appearance extraction inference
+pass that identifies every tattoo, held item, and environment
+detail from a reference image, then enforces these as explicit
+cannot-change constraints in every subsequent image generation
+prompt in the series.
+
+
+================================================================
+INVENTOR DECLARATION
+================================================================
+
+I hereby declare that:
+  - I am the original inventor of the subject matter claimed.
+  - I have reviewed and understand the contents of this
+    provisional patent application.
+  - All statements made herein are true to the best of my
+    knowledge.
+
+Signature: ________________________________
+Name:      [YOUR FULL LEGAL NAME]
+Date:      [DATE]
+
+
+================================================================
+NOTES FOR FILING
+================================================================
+
+1. Save this document as a PDF before uploading to USPTO
+   Patent Center (https://patentcenter.uspto.gov)
+
+2. Complete USPTO Form SB/16 (Provisional Application Cover
+   Sheet) — available free at:
+   https://www.uspto.gov/sites/default/files/documents/sb0016.pdf
+   Fill in: Inventor name, address, title of invention,
+   correspondence email, signature, date.
+
+3. Complete USPTO Form SB/15A (Micro Entity Certification)
+   if your gross income is under ~$239,000/year and you have
+   filed fewer than 5 prior patent applications:
+   https://www.uspto.gov/sites/default/files/documents/sb0015a.pdf
+
+4. Filing fee: $320 (micro entity) or $480 (small entity).
+   Paid by credit card in Patent Center at time of filing.
+
+5. You will receive an immediate email confirmation with your
+   application number and official filing date.
+
+6. Mark your calendar: non-provisional must be filed within
+   exactly 12 months of this filing date to claim priority.
+
+================================================================
+END OF PROVISIONAL PATENT APPLICATION DRAFT
+================================================================
