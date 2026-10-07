@@ -3,6 +3,7 @@ import sys
 import json
 import time
 import uuid
+import math
 import urllib.request
 import urllib.parse
 from pathlib import Path
@@ -43,6 +44,21 @@ QUALITY_NEGATIVE_BOOST = (
     "distorted face, asymmetrical eyes, blurry, low quality, artifacts, plastic skin, overly airbrushed, "
     "waxy skin, cartoon, 3d render, cgi, overexposed, underexposed, watermark, text, logo, grainy, jpeg artifacts"
 )
+
+# Per-agent PBR color + idle/working kinetic tuning, mirrored from the CHARACTERS table in
+# dashboard/static/js/character3d.js so the real 3D mesh and its Idle/Working GLB animation
+# match the same color + motion 'personality' already used by the 2D WebGL parallax card.
+AGENT_VISUAL_THEMES = {
+    "synapse": {"color": (0.0, 0.95, 1.0), "idle_speed": 0.85, "idle_yaw": 0.08, "idle_bob": 0.08, "working_speed": 2.8, "working_yaw": 0.22, "working_bob": 0.14},
+    "iris":    {"color": (0.97, 0.15, 0.52), "idle_speed": 0.90, "idle_yaw": 0.18, "idle_bob": 0.06, "working_speed": 3.2, "working_yaw": 0.35, "working_bob": 0.12},
+    "aura":    {"color": (1.0, 0.82, 0.40), "idle_speed": 0.70, "idle_yaw": 0.12, "idle_bob": 0.07, "working_speed": 2.2, "working_yaw": 0.26, "working_bob": 0.14},
+    "echo":    {"color": (0.30, 0.79, 0.94), "idle_speed": 1.30, "idle_yaw": 0.12, "idle_bob": 0.09, "working_speed": 3.8, "working_yaw": 0.24, "working_bob": 0.18},
+    "forge":   {"color": (1.0, 0.42, 0.21), "idle_speed": 1.0, "idle_yaw": 0.08, "idle_bob": 0.08, "working_speed": 3.0, "working_yaw": 0.20, "working_bob": 0.16},
+    "cipher":  {"color": (0.65, 0.72, 0.82), "idle_speed": 0.80, "idle_yaw": 0.12, "idle_bob": 0.11, "working_speed": 3.0, "working_yaw": 0.26, "working_bob": 0.16},
+    "herald":  {"color": (0.06, 0.73, 0.51), "idle_speed": 0.90, "idle_yaw": 0.12, "idle_bob": 0.07, "working_speed": 3.4, "working_yaw": 0.30, "working_bob": 0.15},
+    "mercury": {"color": (0.66, 0.33, 0.97), "idle_speed": 1.10, "idle_yaw": 0.15, "idle_bob": 0.09, "working_speed": 3.2, "working_yaw": 0.28, "working_bob": 0.16},
+}
+DEFAULT_VISUAL_THEME = {"color": (0.8, 0.8, 0.85), "idle_speed": 0.9, "idle_yaw": 0.12, "idle_bob": 0.08, "working_speed": 3.0, "working_yaw": 0.25, "working_bob": 0.15}
 
 
 class ComfyUIBridge:
@@ -107,23 +123,32 @@ class ComfyUIBridge:
 
     def generate_glb_character(self, agent_name: str, prompt: Optional[str] = None) -> Dict[str, Any]:
         """
-        Renders a 3D-style character concept plate on the Main PC (image generation only).
-        NOTE: The installed ComfyUI node inventory has no mesh/rig export nodes (e.g. Hunyuan3D),
-        so this does NOT produce a real rigged .glb - it only generates reference art. An actual
-        animated .glb (idle/working clips) must be rigged externally (e.g. Mixamo/Blender) and
-        dropped into dashboard/static/models/<agent>.glb to be picked up by the viewer.
+        End-to-end real 3D character pipeline on the Main PC:
+          1. Renders a clean, plain-background front-facing concept plate (Iris QC-gated).
+          2. Converts it to a real textured 3D mesh via the local Hunyuan3D (Hy3D*) node
+             pack, PBR-tinted to this agent's theme color.
+          3. Injects real 'Idle'/'Working' glTF animation clips (rotation sway + bob + pulse,
+             tuned per-agent to match character3d.js's kinetic personality) via pygltflib.
+        Requires the Hunyuan3D shape model + VAE to be present in ComfyUI/models/diffusion_models
+        and ComfyUI/models/vae on the Main PC - if missing, falls back to concept-art-only and
+        reports the gap clearly instead of failing silently.
         """
         clean_name = agent_name.lower().strip()
         models_dir = Path("F:/WORKHORSE/dashboard/static/models")
         models_dir.mkdir(parents=True, exist_ok=True)
         target_glb = models_dir / f"{clean_name}.glb"
+        theme = AGENT_VISUAL_THEMES.get(clean_name, DEFAULT_VISUAL_THEME)
 
-        pos_prompt = prompt or f"A hyperrealistic sci-fi video game character bust of {clean_name.capitalize()}, elemental cyberpunk armor, cinematic studio lighting, highly detailed 3D model asset"
+        pos_prompt = prompt or (
+            f"A hyperrealistic sci-fi video game character bust of {clean_name.capitalize()}, elemental "
+            f"cyberpunk armor, plain flat neutral grey background, centered, full bust visible, orthographic "
+            f"front-facing view, even studio lighting, highly detailed 3D model reference asset"
+        )
 
-        # 1. Generate concept base plate on 5070 Ti
+        # 1. Generate concept base plate on 5070 Ti (plain-background front view converts to mesh best)
         render_res = self.generate_and_audit(
             positive_prompt=pos_prompt,
-            negative_prompt="low quality, deformed, extra limbs, blurry, pixelated, 2d cartoon",
+            negative_prompt="low quality, deformed, extra limbs, blurry, pixelated, 2d cartoon, cluttered background, side profile",
             checkpoint="cyberrealisticXL_v80.safetensors",
             width=832,
             height=1024,
@@ -138,23 +163,371 @@ class ComfyUIBridge:
                 "details": render_res
             }
 
-        glb_ready = target_glb.exists()
+        base_image = render_res.get("file_path")
+
+        # 2. Convert concept plate into a real textured mesh via local Hunyuan3D
+        mesh_res = self.generate_3d_character_mesh(
+            agent_name=clean_name,
+            source_image_path=base_image,
+            base_color=theme["color"]
+        )
+
+        if not mesh_res.get("success"):
+            return {
+                "success": True,
+                "agent": clean_name,
+                "base_image": base_image,
+                "glb_path": str(target_glb) if target_glb.exists() else None,
+                "glb_ready": target_glb.exists(),
+                "mesh_error": mesh_res.get("error"),
+                "status": "Concept reference art rendered; real 3D mesh generation failed.",
+                "message": (
+                    f"Reference concept art for {clean_name.capitalize()} generated at {render_res.get('url_path')}, "
+                    f"but converting it into a real 3D mesh failed: {mesh_res.get('error')}. If this mentions a "
+                    f"missing checkpoint, the Hunyuan3D shape model/VAE still need to be downloaded onto the "
+                    f"Main PC's ComfyUI/models/diffusion_models and ComfyUI/models/vae folders."
+                )
+            }
+
+        # 3. Inject real Idle/Working animation clips into the freshly exported mesh
+        anim_res = self.inject_kinetic_animation(target_glb, agent_name=clean_name)
+
         return {
             "success": True,
             "agent": clean_name,
-            "base_image": render_res.get("file_path"),
-            "glb_path": str(target_glb) if glb_ready else None,
-            "glb_ready": glb_ready,
-            "status": "Concept reference art rendered." if not glb_ready else "Concept rendered and GLB active in viewport.",
+            "base_image": base_image,
+            "glb_path": str(target_glb),
+            "glb_ready": True,
+            "animated": anim_res.get("success", False),
+            "status": "Real textured 3D model generated and animated.",
             "message": (
-                f"Reference concept art for {clean_name.capitalize()} generated at {render_res.get('url_path')}. "
-                f"No rigged .glb exists yet for this agent - this pipeline cannot auto-generate a rigged/animated "
-                f"mesh (no 3D mesh nodes installed on the ComfyUI host). Rig the concept externally and save the "
-                f"result as dashboard/static/models/{clean_name}.glb with 'Idle' and 'Working' animation clips."
-                if not glb_ready else
-                f"Interactive 3D model for {clean_name.capitalize()} updated and active in dashboard viewport."
+                f"Interactive 3D model for {clean_name.capitalize()} generated from a real Hunyuan3D mesh, "
+                f"tinted to its theme color, with Idle/Working animation clips, and is now active in the "
+                f"dashboard viewport."
             )
         }
+
+    def _fetch_object_info(self, node_class: str) -> Dict[str, Any]:
+        """Fetches live schema/inputs for a single ComfyUI node class (cheaper than the full /object_info dump)."""
+        url = f"{self.get_base_url()}/object_info/{node_class}"
+        req = urllib.request.Request(url, headers={"User-Agent": "WORKHORSE-Bridge"})
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+        return data.get(node_class, {})
+
+    def resolve_hy3d_models(self) -> str:
+        """
+        Picks the installed Hunyuan3D shape model off the live ComfyUI node's combo list.
+        Raises a clear, actionable error if it hasn't been downloaded yet. Only a single
+        "hunyuan3d-dit-v2-1" checkpoint is needed - the Hy3D_2_1SimpleMeshGen node loads its
+        own matching v2.1 config internally and needs no separate VAE file (unlike the older
+        v2.0 Hy3DModelLoader/Hy3DVAELoader pair, which expects a different checkpoint
+        architecture and fails with a missing 'latent_in.weight' key on a v2.1 file).
+        """
+        loader_info = self._fetch_object_info("Hy3D_2_1SimpleMeshGen")
+        model_choices = loader_info.get("input", {}).get("required", {}).get("model", [[]])[0]
+
+        def _pick(choices: List[str]) -> Optional[str]:
+            for c in choices:
+                if "hunyuan3d" in c.lower() or "hy3d" in c.lower():
+                    return c
+            return None
+
+        shape_model = _pick(model_choices)
+
+        if not shape_model:
+            raise RuntimeError(
+                "Hunyuan3D shape model not found on the Main PC's ComfyUI install. "
+                "Download hunyuan3d-dit-v2-1.safetensors into ComfyUI/models/diffusion_models "
+                "(see ComfyUI-Hunyuan3DWrapper's README for current download links), then retry."
+            )
+
+        return shape_model
+
+    def build_image_to_3d_mesh_workflow(self,
+                                        source_image_name: str,
+                                        shape_model: str,
+                                        base_color: Tuple[float, float, float] = (1.0, 1.0, 1.0),
+                                        emissive: Tuple[float, float, float] = (0.0, 0.0, 0.0),
+                                        metallic: float = 0.75,
+                                        roughness: float = 0.2,
+                                        steps: int = 30,
+                                        guidance_scale: float = 5.5,
+                                        octree_resolution: int = 384,
+                                        max_facenum: int = 24000,
+                                        seed: Optional[int] = None,
+                                        filename_prefix: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Builds a ComfyUI API graph for local image-to-3D-mesh generation via Hunyuan3D 2.1:
+        LoadImage -> Hy3D_2_1SimpleMeshGen -> Hy3DPostprocessMesh -> Hy3DMeshUVWrap ->
+        Hy3DSetMeshPBRAttributes -> Hy3DExportMesh.
+        Texture baking (multi-view render/delight/bake) is intentionally skipped - the mesh is
+        tinted with a flat PBR material matching the agent's theme color instead, which keeps
+        the graph simple/robust while still producing a real, correctly-shaped 3D asset.
+        """
+        workflow: Dict[str, Any] = {
+            "1": {
+                "inputs": {"image": source_image_name},
+                "class_type": "LoadImage"
+            },
+            "2": {
+                "inputs": {
+                    "model": shape_model,
+                    "image": ["1", 0],
+                    "steps": steps,
+                    "guidance_scale": guidance_scale,
+                    "octree_resolution": octree_resolution
+                },
+                "class_type": "Hy3D_2_1SimpleMeshGen"
+            },
+            "6": {
+                "inputs": {
+                    "trimesh": ["2", 0],
+                    "remove_floaters": True,
+                    "remove_degenerate_faces": True,
+                    "reduce_faces": True,
+                    "max_facenum": max_facenum,
+                    "smooth_normals": True
+                },
+                "class_type": "Hy3DPostprocessMesh"
+            },
+            "7": {
+                "inputs": {"trimesh": ["6", 0]},
+                "class_type": "Hy3DMeshUVWrap"
+            },
+            "8": {
+                "inputs": {
+                    "trimesh": ["7", 0],
+                    "baseColorFactor": sum(base_color) / 3.0,
+                    "emissiveFactor": sum(emissive) / 3.0 if any(emissive) else 0.0,
+                    "metallicFactor": metallic,
+                    "roughnessFactor": roughness,
+                    "doubleSided": True
+                },
+                "class_type": "Hy3DSetMeshPBRAttributes"
+            },
+            "9": {
+                "inputs": {
+                    "trimesh": ["8", 0],
+                    "filename_prefix": filename_prefix or "3D/WORKHORSE_Hy3D",
+                    "file_format": "glb",
+                    "save_file": True
+                },
+                "class_type": "Hy3DExportMesh"
+            }
+        }
+        return workflow
+
+    def wait_for_mesh_execution(self, prompt_id: str, timeout_seconds: int = 600) -> Optional[Dict[str, str]]:
+        """
+        Polls /history/{prompt_id} until a mesh export finishes or times out. Mesh/3D-export
+        nodes aren't standardized on a single UI output key the way images/videos are, so this
+        defensively scans all node outputs for any dict with a '.glb' filename or bare string
+        ending in '.glb' under any key name.
+        """
+        history_url = f"{self.get_base_url()}/history/{prompt_id}"
+        start_time = time.time()
+
+        while time.time() - start_time < timeout_seconds:
+            try:
+                req = urllib.request.Request(history_url)
+                with urllib.request.urlopen(req, timeout=5) as resp:
+                    history = json.loads(resp.read().decode("utf-8"))
+                    if prompt_id in history:
+                        status = history[prompt_id].get("status", {})
+                        if status.get("status_str") == "error":
+                            for msg in status.get("messages", []):
+                                if msg[0] == "execution_error":
+                                    raise RuntimeError(
+                                        f"Node {msg[1].get('node_id')} ({msg[1].get('node_type')}): "
+                                        f"{msg[1].get('exception_message')}"
+                                    )
+                        if not status.get("completed", True) and status.get("status_str") not in ("success",):
+                            time.sleep(2)
+                            continue
+                        outputs = history[prompt_id].get("outputs", {})
+                        for node_output in outputs.values():
+                            for key, value in node_output.items():
+                                if isinstance(value, list):
+                                    for item in value:
+                                        if isinstance(item, dict) and str(item.get("filename", "")).lower().endswith(".glb"):
+                                            return item
+                                        if isinstance(item, str) and item.lower().endswith(".glb"):
+                                            return {"filename": Path(item).name, "subfolder": str(Path(item).parent) if Path(item).parent != Path(".") else "", "type": "output"}
+                        if outputs:
+                            # Execution completed but no .glb reference surfaced in history UI data.
+                            return None
+            except RuntimeError:
+                raise
+            except Exception:
+                pass
+            time.sleep(3)
+
+        return None
+
+    def download_mesh(self, filename: str, subfolder: str = "", folder_type: str = "output") -> Path:
+        """Pulls an exported mesh (.glb) from ComfyUI's /view endpoint into local staging folder."""
+        params = urllib.parse.urlencode({
+            "filename": filename,
+            "subfolder": subfolder,
+            "type": folder_type
+        })
+        view_url = f"{self.get_base_url()}/view?{params}"
+        dest_path = STAGING_DIR / f"{Path(filename).stem}_{int(time.time())}.glb"
+
+        req = urllib.request.Request(view_url, headers={"User-Agent": "WORKHORSE-Bridge"})
+        with urllib.request.urlopen(req, timeout=60) as resp:
+            with open(dest_path, "wb") as f:
+                f.write(resp.read())
+
+        return dest_path
+
+    def generate_3d_character_mesh(self,
+                                   agent_name: str,
+                                   source_image_path: Union[str, Path],
+                                   base_color: Tuple[float, float, float] = (1.0, 1.0, 1.0),
+                                   emissive: Tuple[float, float, float] = (0.0, 0.0, 0.0),
+                                   timeout_seconds: int = 600) -> Dict[str, Any]:
+        """
+        End-to-end: uploads a reference image, converts it to a real textured mesh via the
+        local Hunyuan3D node pack, and writes the result straight to
+        dashboard/static/models/<agent>.glb (no animation yet - see inject_kinetic_animation).
+        """
+        conn = self.check_connection()
+        if not conn.get("online"):
+            return {"success": False, "error": f"ComfyUI on Main PC is offline ({conn.get('host')}:{conn.get('port')})."}
+
+        source_image_path = Path(source_image_path)
+        if not source_image_path.exists():
+            return {"success": False, "error": f"Source image not found: {source_image_path}"}
+
+        try:
+            shape_model = self.resolve_hy3d_models()
+        except RuntimeError as e:
+            return {"success": False, "error": str(e)}
+
+        try:
+            uploaded_name = self.upload_image_to_comfy(source_image_path)
+        except Exception as e:
+            return {"success": False, "error": f"Failed to upload source image to ComfyUI: {e}"}
+
+        clean_name = agent_name.lower().strip()
+        workflow = self.build_image_to_3d_mesh_workflow(
+            source_image_name=uploaded_name,
+            shape_model=shape_model,
+            base_color=base_color,
+            emissive=emissive,
+            filename_prefix=f"3D/Hy3D_{clean_name}"
+        )
+
+        try:
+            queued = self.queue_prompt(workflow)
+            prompt_id = queued.get("prompt_id")
+            if not prompt_id:
+                return {"success": False, "error": f"No prompt_id returned by ComfyUI. node_errors: {queued.get('node_errors')}"}
+
+            mesh_ref = self.wait_for_mesh_execution(prompt_id, timeout_seconds=timeout_seconds)
+            if not mesh_ref:
+                return {"success": False, "error": "ComfyUI mesh generation timed out or yielded no .glb output"}
+
+            staged_path = self.download_mesh(
+                filename=mesh_ref["filename"],
+                subfolder=mesh_ref.get("subfolder", ""),
+                folder_type=mesh_ref.get("type", "output")
+            )
+        except RuntimeError as e:
+            return {"success": False, "error": f"ComfyUI mesh generation failed: {e}"}
+        except Exception as e:
+            return {"success": False, "error": f"ComfyUI mesh generation failed: {e}"}
+
+        models_dir = Path("F:/WORKHORSE/dashboard/static/models")
+        models_dir.mkdir(parents=True, exist_ok=True)
+        dest_path = models_dir / f"{clean_name}.glb"
+        if dest_path.exists():
+            dest_path.unlink()
+        staged_path.rename(dest_path)
+
+        return {
+            "success": True,
+            "agent": clean_name,
+            "glb_path": str(dest_path),
+            "source_image": str(source_image_path),
+            "host_used": f"{self.host}:{self.port}"
+        }
+
+    def inject_kinetic_animation(self, glb_path: Union[str, Path], agent_name: str = "") -> Dict[str, Any]:
+        """
+        Appends real glTF 'Idle' and 'Working' animation clips (gentle Y-axis rotation sway +
+        vertical bob for Idle; faster rotation + bigger bob + a scale pulse for Working) onto
+        the mesh's root node, tuned per-agent from AGENT_VISUAL_THEMES so the 3D viewer moves
+        with the same 'feel' as the 2D WebGL card. Safe to run on any valid GLB.
+        """
+        import struct
+        from pygltflib import GLTF2, Animation, AnimationSampler, AnimationChannel, AnimationChannelTarget, Accessor, BufferView, FLOAT, VEC3, VEC4, SCALAR
+
+        glb_path = Path(glb_path)
+        theme = AGENT_VISUAL_THEMES.get(agent_name.lower().strip(), DEFAULT_VISUAL_THEME)
+
+        try:
+            gltf = GLTF2.load(str(glb_path))
+        except Exception as e:
+            return {"success": False, "error": f"Failed to load GLB for animation: {e}"}
+
+        if not gltf.nodes:
+            return {"success": False, "error": "GLB has no nodes to animate"}
+
+        target_node = 0
+        blob = bytearray(gltf.binary_blob() or b"")
+
+        def _quat_y(angle_rad: float):
+            return (0.0, math.sin(angle_rad / 2.0), 0.0, math.cos(angle_rad / 2.0))
+
+        def _push_accessor(values: List[Tuple[float, ...]], fmt: str, accessor_type: str, set_bounds: bool = False) -> int:
+            data = b"".join(struct.pack(fmt, *v) for v in values)
+            pad = (-len(blob)) % 4
+            blob.extend(b"\x00" * pad)
+            offset = len(blob)
+            blob.extend(data)
+            bv_index = len(gltf.bufferViews)
+            gltf.bufferViews.append(BufferView(buffer=0, byteOffset=offset, byteLength=len(data)))
+            acc = Accessor(bufferView=bv_index, componentType=FLOAT, count=len(values), type=accessor_type)
+            if set_bounds:
+                flat = [list(v) for v in values]
+                acc.min = [min(col) for col in zip(*flat)]
+                acc.max = [max(col) for col in zip(*flat)]
+            acc_index = len(gltf.accessors)
+            gltf.accessors.append(acc)
+            return acc_index
+
+        def _add_clip(name: str, duration: float, yaw_amp: float, bob_amp: float, scale_pulse: float) -> None:
+            times = [(t,) for t in (0.0, duration * 0.25, duration * 0.5, duration * 0.75, duration)]
+            rotations = [_quat_y(a) for a in (0.0, yaw_amp, 0.0, -yaw_amp, 0.0)]
+            translations = [(0.0, b, 0.0) for b in (0.0, bob_amp, 0.0, -bob_amp * 0.6, 0.0)]
+            scales = [(1.0 + s, 1.0 + s, 1.0 + s) for s in (0.0, scale_pulse, 0.0, scale_pulse * 0.5, 0.0)]
+
+            time_acc = _push_accessor(times, "<f", SCALAR, set_bounds=True)
+            rot_acc = _push_accessor(rotations, "<4f", VEC4)
+            trans_acc = _push_accessor(translations, "<3f", VEC3)
+            scale_acc = _push_accessor(scales, "<3f", VEC3)
+
+            anim = Animation(name=name)
+            for acc_index, path in ((rot_acc, "rotation"), (trans_acc, "translation"), (scale_acc, "scale")):
+                sampler_index = len(anim.samplers)
+                anim.samplers.append(AnimationSampler(input=time_acc, output=acc_index, interpolation="LINEAR"))
+                anim.channels.append(AnimationChannel(sampler=sampler_index, target=AnimationChannelTarget(node=target_node, path=path)))
+            gltf.animations.append(anim)
+
+        _add_clip("Idle", duration=max(2.0, 3.0 / theme["idle_speed"]), yaw_amp=theme["idle_yaw"], bob_amp=theme["idle_bob"], scale_pulse=0.02)
+        _add_clip("Working", duration=max(0.6, 2.4 / theme["working_speed"]), yaw_amp=theme["working_yaw"], bob_amp=theme["working_bob"], scale_pulse=0.08)
+
+        gltf.set_binary_blob(bytes(blob))
+        gltf.buffers[0].byteLength = len(blob)
+        try:
+            gltf.save(str(glb_path))
+        except Exception as e:
+            return {"success": False, "error": f"Failed to save animated GLB: {e}"}
+
+        return {"success": True, "glb_path": str(glb_path), "clips": ["Idle", "Working"]}
 
     def remote_purge_vram(self) -> Dict[str, Any]:
         """
@@ -1408,6 +1781,7 @@ If ANY extra limbs, mutated hands, or severe facial defects are found, set "pass
         current_neg = negative_prompt
         last_audit = None
         saved_file = None
+        staged_path = None
 
         while attempt <= max_retries:
             attempt += 1

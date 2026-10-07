@@ -52,6 +52,14 @@ STATE_FILE = Path("F:/WORKHORSE/workspace/daily_schedule_state.json")
 LOGS_DIR = Path("F:/WORKHORSE/workspace/newsletter_logs")
 LOGS_DIR.mkdir(parents=True, exist_ok=True)
 
+# Public newsletters that previously had NO automated send path at all - only
+# dispensary_deals (private) was ever actually dispatched by trigger_dispatch().
+PUBLICATION_SCHEDULE = {
+    "studio_wire": "08:30",
+    "creator_pulse": "09:00",
+    "creator_blueprint": "10:00",
+}
+
 DAILY_SLOTS = [
     {
         "slot_id": "slot_1_morning",
@@ -184,6 +192,9 @@ class HeraldScheduler:
             "last_date": str(date.today()),
             "executed_slots": [],
             "newsletters_sent_today": False,
+            "studio_wire_sent_today": False,
+            "creator_pulse_sent_today": False,
+            "creator_blueprint_sent_today": False,
             "history": []
         }
         self._save_state()
@@ -203,6 +214,9 @@ class HeraldScheduler:
             self.state["executed_slots"] = []
             self.state["newsletters_sent_today"] = False
             self.state["radar_sweep_done_today"] = False
+            self.state["studio_wire_sent_today"] = False
+            self.state["creator_pulse_sent_today"] = False
+            self.state["creator_blueprint_sent_today"] = False
             self._save_state()
             print(f"[Herald Scheduler] Day rollover to {today_str}. Schedule reset for 5 new slots.")
 
@@ -227,6 +241,10 @@ class HeraldScheduler:
             "date": str(date.today()),
             "current_time": current_time_str,
             "newsletters_sent_today": self.state.get("newsletters_sent_today", False),
+            "publications_sent_today": {
+                pub_id: self.state.get(f"{pub_id}_sent_today", False)
+                for pub_id in PUBLICATION_SCHEDULE
+            },
             "executed_slots_count": len(self.state.get("executed_slots", [])),
             "total_slots": len(DAILY_SLOTS),
             "slots": slots_status,
@@ -289,12 +307,26 @@ class HeraldScheduler:
         return results
 
     def dispatch_newsletters_all(self) -> Dict[str, Any]:
-        """Trigger full morning dispatch across all 4 publications."""
+        """Trigger the private Dispensary Deals dispatch (dispensary_deals.py subprocess)."""
         self._check_day_rollover()
         res = self.newsletter.trigger_dispatch()
         self.state["newsletters_sent_today"] = True
         self.state["history"].append({
             "type": "newsletter_dispatch",
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "result": res
+        })
+        self._save_state()
+        return res
+
+    def dispatch_publication(self, pub_id: str) -> Dict[str, Any]:
+        """Sends a public newsletter (studio_wire / creator_pulse / creator_blueprint) to its real subscriber list."""
+        self._check_day_rollover()
+        res = self.newsletter.send_publication_now(pub_id)
+        self.state[f"{pub_id}_sent_today"] = True
+        self.state["history"].append({
+            "type": "newsletter_dispatch",
+            "pub_id": pub_id,
             "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "result": res
         })
@@ -354,9 +386,17 @@ class HeraldScheduler:
                         loop = asyncio.get_event_loop()
                         await loop.run_in_executor(None, lambda s_id=slot_id: self.dispatch_slot(s_id))
 
-                        # If morning slot, also dispatch newsletters
+                        # If morning slot, also dispatch the private Dispensary Deals newsletter
                         if slot_id == "slot_1_morning" and not self.state.get("newsletters_sent_today"):
                             await loop.run_in_executor(None, self.dispatch_newsletters_all)
+
+                # Public newsletters (Studio Wire / Creator Pulse / Creator Blueprint) each have
+                # their own target time and subscriber list - dispatch independently of the Twitter slots.
+                for pub_id, target in PUBLICATION_SCHEDULE.items():
+                    if current_time >= target and not self.state.get(f"{pub_id}_sent_today"):
+                        print(f"[Herald Scheduler] Target time {target} reached for publication '{pub_id}'. Dispatching to subscribers...")
+                        loop = asyncio.get_event_loop()
+                        await loop.run_in_executor(None, lambda p=pub_id: self.dispatch_publication(p))
 
             except asyncio.CancelledError:
                 self.is_running = False

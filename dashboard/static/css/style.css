@@ -421,6 +421,9 @@ main.workspace-layout-3col {
   font-size: 12px;
   outline: none;
   font-family: var(--font-main);
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .btn-launch-run {
@@ -693,10 +696,39 @@ main.workspace-layout-3col {
   align-items: start;
 }
 
+/* Grid items get an implicit min-width:auto (content-based) that ignores the
+   track's 1fr size, letting wide inline content (selects, nowrap pill rows)
+   blow out the column past its intended width - min-width:0 fixes it. */
+.bay-2col-grid > * {
+  min-width: 0;
+}
+
 @media (max-width: 1200px) {
   .bay-2col-grid {
     grid-template-columns: 1fr;
   }
+}
+
+/* Same grid-blowout fix for the inline-styled "two-col-split-grid" layout used
+   by Marketing Hub/Newsletter Hub (grid-template-columns set via inline style,
+   not this class) - the fix below previously only existed inside the
+   max-width:768px mobile block, so desktop/tablet widths (769-1200px) still
+   had the right column overflow its 1fr track uncontained. */
+.two-col-split-grid > * {
+  min-width: 0;
+}
+
+/* Many bay-panel section headers are "title + action button"/"tabs + actions"
+   inline-styled flex rows (display:flex; justify-content:space-between;
+   align-items:center). This used to only be fixed inside the mobile media
+   query, but a narrow grid column (e.g. the 1fr side of .bay-2col-grid or
+   .two-col-split-grid) can force the same overflow at any viewport width -
+   confirmed on the Newsletter bay's tab row at 1024px, where "Blog Post"/
+   "Terminal Logs" tabs silently overflowed past the column with no scroll
+   affordance. Made unconditional so it wraps whenever content doesn't fit. */
+[style*="justify-content: space-between"][style*="align-items: center"] {
+  flex-wrap: wrap !important;
+  row-gap: 10px !important;
 }
 
 /* ==========================================================================
@@ -3392,7 +3424,7 @@ main.workspace-layout-3col {
 
   /* Explicitly clear all individual coordinate offsets */
   .atom-pos-1, .atom-pos-2, .atom-pos-3, .atom-pos-4,
-  .atom-pos-5, .atom-pos-6, .atom-pos-7, .atom-pos-8 {
+  .atom-pos-5, .atom-pos-6, .atom-pos-7, .atom-pos-8, .atom-pos-9 {
     top: auto !important;
     left: auto !important;
     right: auto !important;
@@ -3482,11 +3514,36 @@ main.workspace-layout-3col {
   .atom-pos-6 { top: 16% !important; left: 1% !important; right: auto !important; bottom: auto !important; }   /* Vanguard: Upper-Left */
   .atom-pos-7 { top: 58% !important; left: 1% !important; right: auto !important; bottom: auto !important; }   /* Mercury: Lower-Left */
   .atom-pos-8 { bottom: 0% !important; left: 23% !important; right: auto !important; top: auto !important; }  /* Herald: Bottom-Left */
+  .atom-pos-9 { top: -9% !important; left: 50% !important; right: auto !important; bottom: auto !important; transform: translateX(-50%) !important; }  /* Muse: Top-Center Crown */
 }
 
 /* Float Variations */
 .atom-pos-7 { animation: atomFloat 4.7s ease-in-out infinite alternate 0.4s; }
 .atom-pos-8 { animation: atomFloat 4.5s ease-in-out infinite alternate 0.7s; }
+.atom-pos-9 { animation: atomFloat 4.9s ease-in-out infinite alternate 0.2s; }
+
+/* Neon Themes: Muse (Iridescent Magenta #e072f0) */
+.node-muse { border-color: rgba(224, 114, 240, 0.5); }
+.node-muse:hover { border-color: #e072f0; box-shadow: 0 0 35px rgba(224, 114, 240, 0.65), inset 0 0 25px rgba(224, 114, 240, 0.4); }
+.dossier-muse { border-color: #e072f0; box-shadow: 0 12px 35px rgba(0, 0, 0, 0.8), 0 0 25px rgba(224, 114, 240, 0.35); }
+.dossier-muse .dossier-elem-tag { color: #e072f0; }
+.dossier-muse .dossier-action-footer { color: #e072f0; }
+.node-muse:hover .atom-character-live {
+  filter: drop-shadow(0 24px 38px rgba(0, 0, 0, 0.96)) drop-shadow(0 0 25px rgba(224, 114, 240, 0.75)) !important;
+}
+.chemical-atom-node.working.node-muse .atom-character-live {
+  filter: drop-shadow(0 20px 30px rgba(0, 0, 0, 0.9)) drop-shadow(0 0 25px #e072f0) !important;
+}
+
+/* Muse Animation: Inspiration Shimmer & Gentle Creative Sway */
+.char-motion-muse {
+  animation: animCharMuse 4.8s ease-in-out infinite alternate;
+}
+@keyframes animCharMuse {
+  0% { transform: translateY(0px) rotate(-1deg) scale(0.99); filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.82)); }
+  50% { transform: translateY(-9px) rotate(1deg) scale(1.03); filter: drop-shadow(0 18px 28px rgba(0, 0, 0, 0.92)) drop-shadow(0 0 16px rgba(224, 114, 240, 0.55)); }
+  100% { transform: translateY(0px) rotate(-1deg) scale(0.99); filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.82)); }
+}
 
 /* Neon Themes: Mercury (Electric Violet #a855f7) */
 .node-marketing { border-color: rgba(168, 85, 247, 0.5); }
@@ -3590,7 +3647,7 @@ main.workspace-layout-3col {
   width: 100%;
   gap: 6px !important;
   padding: 3px 0 !important;
-  justify-content: flex-end;
+  justify-content: flex-start;
   flex-wrap: nowrap !important;
   }
 

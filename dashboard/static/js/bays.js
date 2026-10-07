@@ -1284,14 +1284,14 @@ this.currentBay = initHash || 'command-center';
 
     if (btnOpen && modal) {
       btnOpen.addEventListener('click', () => {
-        modal.classList.add('active');
+        modal.classList.add('open');
         this.fetchRadarStatus();
       });
     }
 
     if (btnClose && modal) {
       btnClose.addEventListener('click', () => {
-        modal.classList.remove('active');
+        modal.classList.remove('open');
       });
     }
 
@@ -1464,7 +1464,7 @@ this.currentBay = initHash || 'command-center';
   loadOrderIntoFulfill(orderId, buyer, gigId) {
     // Close radar modal
     const modal = document.getElementById('radar-modal');
-    if (modal) modal.classList.remove('active');
+    if (modal) modal.classList.remove('open');
 
     // Switch to fiverr bot bay
     this.switchBay('fiverr-bot');

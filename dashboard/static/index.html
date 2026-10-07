@@ -7,9 +7,9 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/css/style.css?v=20261003_v7">
+  <link rel="stylesheet" href="/static/css/style.css?v=20261007_v12">
   <link rel="stylesheet" href="/static/css/factory.css">
-  <link rel="stylesheet" href="/static/css/operator_layout.css?v=20261007_v2">
+  <link rel="stylesheet" href="/static/css/operator_layout.css?v=20261007_v3">
 </head>
 <body>
 
@@ -24,9 +24,9 @@
       <div class="header-left">
         <div style="display: flex; align-items: center; gap: 10px; cursor: pointer;" id="brand-logo-home" title="CreatorMediaLab Studio • Return to Master Command Center">
           <img src="/static/img/creatormedialab_logo.jpg" alt="CreatorMediaLab" style="width: 36px; height: 36px; border-radius: 50%; border: 1.5px solid #00f2fe; box-shadow: 0 0 12px rgba(0,242,254,0.45); object-fit: cover;">
-          <div style="display: flex; flex-direction: column;">
-            <span style="font-size: 13px; font-weight: 900; letter-spacing: 0.8px; color: #fff; line-height: 1.1;">CREATOR MEDIA LAB</span>
-            <span style="font-size: 8px; font-family: var(--font-mono); color: #00f2fe; letter-spacing: 0.8px;">STUDIO WORKFLOW AI • DUAL RTX 3060</span>
+          <div style="display: flex; flex-direction: column; min-width: 0;">
+            <span style="font-size: 13px; font-weight: 900; letter-spacing: 0.8px; color: #fff; line-height: 1.1; white-space: nowrap;">CREATOR MEDIA LAB</span>
+            <span style="font-size: 8px; font-family: var(--font-mono); color: #00f2fe; letter-spacing: 0.8px; white-space: nowrap;">STUDIO WORKFLOW AI • DUAL RTX 3060</span>
           </div>
         </div>
         <div class="system-status-pills">
@@ -853,6 +853,45 @@
             </div>
           </div>
 
+        </div>
+
+        <!-- ATOM 9: Muse -->
+        <div class="chemical-atom-node atom-pos-9 node-muse" data-character="muse" data-target-bay="photo-bay" onclick="window.workBaysManager.switchBay('photo-bay')">
+          <div class="atom-valence-aura"></div>
+
+          <!-- Hover Pop-Out Dossier Card -->
+          <div class="atom-dossier-popout popout-right dossier-muse">
+            <div class="dossier-header-bar">
+              <div class="dossier-title-box">
+                <span class="dossier-elem-tag">[34 Se]</span>
+                <span class="dossier-agent-name">Muse</span>
+              </div>
+              <span class="dossier-status-pill">FLUX / WAN PROMPT ENGINE</span>
+            </div>
+            <div class="dossier-role-title">AI Image/Video Prompt Engineer</div>
+            <div class="dossier-divider"></div>
+            <ul class="dossier-specs-list">
+              <li><span>🖌️</span> Crafts FLUX.1/SDXL image generation prompts</li>
+              <li><span>🎬</span> Writes WAN2.1/2.2 video motion prompts</li>
+              <li><span>🌀</span> Builds 6-variation pose-series prompt sets</li>
+              <li><span>🔍</span> Grounded in Iris's real forensic scene reads</li>
+            </ul>
+            <div class="dossier-action-footer">
+              <span>🪄 CLICK TO DEPLOY PROMPT KIT &rarr;</span></div>
+          </div>
+
+          <!-- 3D Sci-Fi Card: Stable Chassis Frame + Living Animated Character -->
+          <div class="atom-3d-card-viewport">
+            <div class="atom-3d-card-stage">
+              <!-- Stable Card Chassis Frame & Text (Rock-Solid) -->
+              <img src="/static/img/characters_3d/muse_rig_stage.png?v=20261007_v7" alt="Muse [34 Se] • Prompt Engine Chassis" class="atom-card-chassis" />
+
+              <!-- Living Character Entity with Custom Motion & Animation -->
+              <div class="atom-character-movement-box">
+                <img src="/static/img/characters_3d/muse_rig_char.png?v=20261007_v4" alt="Muse" class="atom-character-live char-motion-muse" />
+              </div>
+            </div>
+          </div>
         </div>
 
       </div> <!-- Close .chemical-compound-container -->
@@ -2388,7 +2427,7 @@
       <div class="glass-panel" style="padding: 20px; border-color: rgba(16, 185, 129, 0.25); min-height: 600px; display: flex; flex-direction: column;">
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 12px; margin-bottom: 16px;">
           <!-- Tabs -->
-          <div style="display: flex; gap: 8px;">
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
             <button class="btn-cyber active" id="tab-nl-preview" onclick="window.workBaysManager.setNewsletterTab('preview')" style="font-size: 11px; padding: 6px 14px;">
               👁️ Live Newsletter Preview
             </button>
@@ -2805,7 +2844,7 @@
   <script src="/static/js/factory.js"></script>
   <script src="/static/js/pipeline.js"></script>
   <script src="/static/js/app.js"></script>
-  <script src="/static/js/bays.js"></script>
+  <script src="/static/js/bays.js?v=20261007_v2"></script>
   <script src="/static/js/operator.js?v=20261007_v2"></script>
   <script src="/static/js/character3d.js?v=20261006_v2" defer></script>
   <script type="module" src="/static/js/vendor/model-viewer.min.js" defer></script>

@@ -530,6 +530,66 @@ class NewsletterManager:
         }
 
     # ──────────────────────────────────────────────────────────────────────────
+    # REAL AUTOMATED DISPATCH — sends today's issue to every active subscriber
+    # opted into this publication. This is the actual daily-send counterpart to
+    # send_test_email (single test recipient) / send_welcome_email (one-off onboarding).
+    # ──────────────────────────────────────────────────────────────────────────
+    def send_publication_now(self, pub_id: str) -> Dict[str, Any]:
+        cfg = self.load_config()
+        email_cfg = cfg.get("email", {})
+        if not email_cfg or not email_cfg.get("enabled"):
+            return {"success": False, "error": "Email dispatch is disabled in config"}
+
+        pub = self.publications.get(pub_id)
+        if not pub:
+            return {"success": False, "error": f"Unknown publication '{pub_id}'"}
+
+        subs = self.load_subscribers().get("subscribers", [])
+        recipients = [
+            s["email"] for s in subs
+            if s.get("status") == "active" and pub_id in (s.get("publications") or [])
+        ]
+        if not recipients:
+            return {"success": False, "error": f"No active subscribers for '{pub_id}'", "sent": 0}
+
+        subject = pub["subject"]
+        html_body = self.get_html_preview(pub_id)
+        sent: List[str] = []
+        failed: List[Dict[str, str]] = []
+
+        try:
+            with smtplib.SMTP(email_cfg["smtp_host"], email_cfg["smtp_port"], timeout=20) as server:
+                server.ehlo()
+                server.starttls()
+                server.login(email_cfg["sender"], email_cfg["password"])
+                for recipient in recipients:
+                    try:
+                        msg = MIMEMultipart("alternative")
+                        msg["Subject"] = Header(subject, "utf-8")
+                        msg["From"] = f"CreatorMediaLab <{email_cfg['sender']}>"
+                        msg["To"] = recipient
+                        msg.attach(MIMEText(html_body, "html", "utf-8"))
+                        server.send_message(msg)
+                        sent.append(recipient)
+                        print(f"[NewsletterManager] '{pub_id}' sent to {recipient}")
+                    except Exception as e:
+                        failed.append({"email": recipient, "error": str(e)})
+                        print(f"[NewsletterManager] '{pub_id}' FAILED for {recipient}: {e}")
+        except Exception as e:
+            print(f"[NewsletterManager] SMTP connection failed while dispatching '{pub_id}': {e}")
+            return {"success": False, "error": str(e), "sent": 0, "recipients_attempted": len(recipients)}
+
+        return {
+            "success": len(sent) > 0,
+            "pub_id": pub_id,
+            "subject": subject,
+            "sent": len(sent),
+            "sent_to": sent,
+            "failed": failed,
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        }
+
+    # ──────────────────────────────────────────────────────────────────────────
     # CLEAN ZERO-ATTACHMENT EMAIL SENDER
     # ──────────────────────────────────────────────────────────────────────────
     def send_test_email(self, pub_id: str = "creator_pulse", recipient: str = "careypmediagroup@gmail.com") -> Dict[str, Any]:

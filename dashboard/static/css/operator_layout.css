@@ -44,6 +44,49 @@ header.command-header {
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   z-index: 100;
   flex-shrink: 0;
+  gap: 12px;
+}
+
+/* Header content never fits every telemetry pill/action button at every window
+   width - instead of letting pills wrap mid-text (orphaned parens, 3-line GPU
+   stats) or stretch the header taller, each lane scrolls horizontally within
+   its own fixed-height row so the 56px header height never changes. */
+.header-left {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.system-status-pills {
+  flex: 1 1 auto;
+  min-width: 0;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 16px), transparent 100%);
+  mask-image: linear-gradient(90deg, #000 calc(100% - 16px), transparent 100%);
+}
+.system-status-pills::-webkit-scrollbar { display: none; }
+
+#brand-logo-home {
+  flex-shrink: 0;
+}
+
+.header-actions {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow-x: auto;
+  flex-wrap: nowrap;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.header-actions::-webkit-scrollbar { display: none; }
+
+.hud-pill,
+.hud-health-pill,
+.btn-cyber {
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 /* 3-COLUMN MASTER STUDIO GRID */
