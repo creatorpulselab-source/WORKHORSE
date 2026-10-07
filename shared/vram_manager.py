@@ -64,6 +64,30 @@ class VramManager:
         except Exception:
             pass
         return []
+    def _warm_up_model(self, target_model: str, keep_alive: str) -> Dict[str, Any]:
+        """
+        Blocking pre-load of target_model into Ollama/GPU VRAM via an empty-prompt
+        /api/generate call, BEFORE the real timed request is made. Without this,
+        a cold model load (reading weights off disk + VRAM allocation for an 8B+
+        model) can easily exceed a short request timeout (e.g. Iris's 25s vision
+        QC call), causing every first-call-after-a-swap to time out even though
+        the model itself works fine once resident.
+        """
+        start = time.time()
+        try:
+            resp = requests.post(
+                f"{self.ollama_url}/api/generate",
+                json={"model": target_model, "prompt": "", "stream": False, "keep_alive": keep_alive},
+                timeout=120
+            )
+            duration_ms = round((time.time() - start) * 1000, 2)
+            if resp.status_code == 200:
+                logger.info(f"[BLOCK SWAPPER] Warmed up '{target_model}' in {duration_ms}ms.")
+                return {"status": "warmed", "duration_ms": duration_ms}
+            return {"status": "warm_failed", "http_status": resp.status_code, "duration_ms": duration_ms}
+        except Exception as e:
+            logger.warning(f"[BLOCK SWAPPER] Warm-up request for '{target_model}' failed: {e}")
+            return {"status": "warm_error", "error": str(e), "duration_ms": round((time.time() - start) * 1000, 2)}
 
     def prepare_for_model(self, target_model: str, keep_alive: str = "5m") -> Dict[str, Any]:
         """
@@ -120,11 +144,16 @@ class VramManager:
                     pass
             gc.collect()
 
+        # Block until target_model is actually resident, so the caller's own
+        # (often short) request timeout doesn't have to absorb a cold model load.
+        warm_result = self._warm_up_model(target_model, keep_alive)
+
         swap_record = {
             "status": "swapped" if evicted else "clean_start",
             "target_model": target_model,
             "evicted_models": evicted,
             "torch_flushed": torch_flushed,
+            "warm_up": warm_result,
             "duration_ms": round((time.time() - start_time) * 1000, 2),
             "timestamp": time.time()
         }

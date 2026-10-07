@@ -111,7 +111,7 @@ class AIProviderService:
             }
         }
         try:
-            resp = requests.post(url, json=payload, timeout=25)
+            resp = requests.post(url, json=payload, timeout=60)
             if resp.status_code == 200:
                 return resp.json().get("response", "").strip()
 
@@ -120,18 +120,18 @@ class AIProviderService:
             if "memory" in err_text or "out of memory" in err_text or resp.status_code == 500:
                 print(f"[AI PROVIDER VISION] Memory warning from Ollama ({resp.status_code}). Triggering emergency VRAM purge & retry...")
                 vram_manager.purge_vram(reason="emergency_vision_oom_retry")
-                resp_retry = requests.post(url, json=payload, timeout=25)
+                resp_retry = requests.post(url, json=payload, timeout=60)
                 if resp_retry.status_code == 200:
                     return resp_retry.json().get("response", "").strip()
 
             return f"Error from Local Ollama Vision: HTTP {resp.status_code} - {resp.text}"
         except requests.exceptions.Timeout:
-            print(f"[AI PROVIDER VISION] Request timed out (>25s) on {active_model}! Aborting to release GPU compute...")
+            print(f"[AI PROVIDER VISION] Request timed out (>60s) on {active_model}! Aborting to release GPU compute...")
             try:
                 requests.post(f"{self.get_ollama_url()}/api/generate", json={"model": active_model, "keep_alive": 0}, timeout=2)
             except Exception:
                 pass
-            return '{"passed": false, "error": "Vision QC timed out (>25s) and was aborted to release GPU."}'
+            return '{"passed": false, "error": "Vision QC timed out (>60s) and was aborted to release GPU."}'
         except Exception as e:
             try:
                 requests.post(f"{self.get_ollama_url()}/api/generate", json={"model": active_model, "keep_alive": 0}, timeout=2)
