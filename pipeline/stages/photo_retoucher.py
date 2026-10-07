@@ -11,13 +11,35 @@ class PhotoRetoucher:
         self.output_base.mkdir(parents=True, exist_ok=True)
 
     def apply_skin_smoothing(self, img: np.ndarray, strength: float = 0.5) -> np.ndarray:
-        """Frequency separation bilateral filter: softens skin while preserving fine eye/hair texture."""
+        """True frequency separation retouch: splits the image into a low-frequency
+        (tone/blemish) layer and a high-frequency (pore/texture/hair) layer, smooths
+        only the low layer, then recombines - avoids the waxy/plastic look of a
+        simple blurred blend while still removing blemishes and uneven skin tone."""
         try:
-            # Low-frequency smooth layer
-            smoothed = cv2.bilateralFilter(img, d=9, sigmaColor=75, sigmaSpace=75)
-            # Blend smoothly based on strength
-            result = cv2.addWeighted(img, 1.0 - strength, smoothed, strength, 0)
-            return result
+            img_f = img.astype(np.float32)
+
+            # Low frequency: heavy gaussian blur captures tone/blemishes, not fine detail
+            low_freq = cv2.GaussianBlur(img_f, (0, 0), sigmaX=8)
+            # High frequency: original minus low = pores, hair, fine texture detail
+            high_freq = img_f - low_freq
+
+            # Smooth blemishes/tone in the low layer only (edge-aware, preserves contours)
+            low_smoothed = cv2.bilateralFilter(low_freq.astype(np.uint8), d=15, sigmaColor=60, sigmaSpace=60).astype(np.float32)
+
+            # Recombine: smoothed tone + original fine detail, blended by strength
+            recombined = np.clip(low_smoothed + high_freq, 0, 255)
+            result = cv2.addWeighted(img_f, 1.0 - strength, recombined, strength, 0)
+            return np.clip(result, 0, 255).astype(np.uint8)
+        except Exception:
+            return img
+
+    def apply_clarity_sharpen(self, img: np.ndarray, amount: float = 0.35) -> np.ndarray:
+        """Unsharp-mask clarity pass: restores crisp detail (eyes, hair, fabric) lost to
+        skin smoothing, the finishing step professional retouchers apply before export."""
+        try:
+            blurred = cv2.GaussianBlur(img, (0, 0), sigmaX=3)
+            sharpened = cv2.addWeighted(img, 1.0 + amount, blurred, -amount, 0)
+            return sharpened
         except Exception:
             return img
 
@@ -140,10 +162,12 @@ class PhotoRetoucher:
             if img is None:
                 continue
 
-            # 1. Skin smoothing
+            # 1. Skin smoothing (true frequency separation)
             retouched = self.apply_skin_smoothing(img, strength=smooth_strength)
             # 2. Color grading
-            graded = self.apply_color_grade(retouched, preset=preset)
+            graded_raw = self.apply_color_grade(retouched, preset=preset)
+            # 3. Clarity/sharpen finishing pass
+            graded = self.apply_clarity_sharpen(graded_raw)
 
             stem = img_path.stem
             # Save master fullres

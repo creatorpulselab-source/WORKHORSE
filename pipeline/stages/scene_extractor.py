@@ -22,6 +22,14 @@ def get_nvenc_flags() -> List[str]:
     """
     return ["-gpu", "1"]
 
+def get_nvenc_quality_flags() -> List[str]:
+    """High-quality constant-quality NVENC settings for cinematic-grade output (vs default low-bitrate NVENC)."""
+    return ["-preset", "p7", "-tune", "hq", "-rc", "vbr", "-cq", "19", "-b:v", "0"]
+
+def get_cpu_quality_flags() -> List[str]:
+    """High-quality constant-rate-factor libx264 settings for cinematic-grade output."""
+    return ["-preset", "slow", "-crf", "18"]
+
 def get_video_info(video_path: Path) -> Dict[str, Any]:
     """Get video duration, resolution, fps using ffprobe and cv2."""
     duration = 0.0
@@ -107,13 +115,14 @@ def cut_preview_video(video_path: Path, output_dir: Path, target_duration: int =
         progress_cb(f"Forge Agent: Cutting {target_duration}s teaser preview ({encoder} on GPU 1)...", 60)
 
     gpu_flags = get_nvenc_flags() if encoder == "h264_nvenc" else []
+    quality_flags = get_nvenc_quality_flags() if encoder == "h264_nvenc" else get_cpu_quality_flags()
     cmd = [
         "ffmpeg", "-y",
         "-ss", "0",
         "-t", str(target_duration),
         "-i", str(video_path),
         "-c:v", encoder
-    ] + gpu_flags + [
+    ] + gpu_flags + quality_flags + [
         "-pix_fmt", "yuv420p",
         "-c:a", "aac",
         "-b:a", "192k",
@@ -130,7 +139,8 @@ def cut_preview_video(video_path: Path, output_dir: Path, target_duration: int =
                 "-t", str(target_duration),
                 "-i", str(video_path),
                 "-c:v", "h264_nvenc",
-                "-gpu", "0",
+                "-gpu", "0"
+            ] + get_nvenc_quality_flags() + [
                 "-pix_fmt", "yuv420p",
                 "-c:a", "aac",
                 "-b:a", "192k",
@@ -144,7 +154,8 @@ def cut_preview_video(video_path: Path, output_dir: Path, target_duration: int =
                     "-ss", "0",
                     "-t", str(target_duration),
                     "-i", str(video_path),
-                    "-c:v", "libx264",
+                    "-c:v", "libx264"
+                ] + get_cpu_quality_flags() + [
                     "-pix_fmt", "yuv420p",
                     "-c:a", "aac",
                     "-b:a", "192k",
@@ -169,14 +180,15 @@ def generate_social_crops(preview_video: Path, output_dir: Path, progress_cb: Op
         progress_cb(f"Forge Agent: Generating 9:16 vertical social cut ({encoder} on GPU 1)...", 75)
 
     gpu_flags = get_nvenc_flags() if encoder == "h264_nvenc" else []
+    quality_flags = get_nvenc_quality_flags() if encoder == "h264_nvenc" else get_cpu_quality_flags()
 
-    # 9:16 crop filter (center crop)
+    # 9:16 crop filter (center crop), lanczos scaling for crisp cinematic resize
     cmd_vertical = [
         "ffmpeg", "-y",
         "-i", str(preview_video),
-        "-vf", "crop=ih*(9/16):ih,scale=1080:1920",
+        "-vf", "crop=ih*(9/16):ih,scale=1080:1920:flags=lanczos",
         "-c:v", encoder
-    ] + gpu_flags + [
+    ] + gpu_flags + quality_flags + [
         "-pix_fmt", "yuv420p",
         "-c:a", "aac",
         str(v_path)
@@ -188,8 +200,9 @@ def generate_social_crops(preview_video: Path, output_dir: Path, progress_cb: Op
             cmd_vertical_cpu = [
                 "ffmpeg", "-y",
                 "-i", str(preview_video),
-                "-vf", "crop=ih*(9/16):ih,scale=1080:1920",
-                "-c:v", "libx264",
+                "-vf", "crop=ih*(9/16):ih,scale=1080:1920:flags=lanczos",
+                "-c:v", "libx264"
+            ] + get_cpu_quality_flags() + [
                 "-pix_fmt", "yuv420p",
                 "-c:a", "aac",
                 str(v_path)
@@ -203,13 +216,13 @@ def generate_social_crops(preview_video: Path, output_dir: Path, progress_cb: Op
     if progress_cb:
         progress_cb(f"Forge Agent: Generating 1:1 square feed cut ({encoder} on GPU 1)...", 85)
 
-    # 1:1 square crop
+    # 1:1 square crop, lanczos scaling for crisp cinematic resize
     cmd_square = [
         "ffmpeg", "-y",
         "-i", str(preview_video),
-        "-vf", "crop=min(iw\\,ih):min(iw\\,ih),scale=1080:1080",
+        "-vf", "crop=min(iw\\,ih):min(iw\\,ih),scale=1080:1080:flags=lanczos",
         "-c:v", encoder
-    ] + gpu_flags + [
+    ] + gpu_flags + quality_flags + [
         "-pix_fmt", "yuv420p",
         "-c:a", "aac",
         str(s_path)
@@ -220,8 +233,9 @@ def generate_social_crops(preview_video: Path, output_dir: Path, progress_cb: Op
             cmd_square_cpu = [
                 "ffmpeg", "-y",
                 "-i", str(preview_video),
-                "-vf", "crop=min(iw\\,ih):min(iw\\,ih),scale=1080:1080",
-                "-c:v", "libx264",
+                "-vf", "crop=min(iw\\,ih):min(iw\\,ih),scale=1080:1080:flags=lanczos",
+                "-c:v", "libx264"
+            ] + get_cpu_quality_flags() + [
                 "-pix_fmt", "yuv420p",
                 "-c:a", "aac",
                 str(s_path)

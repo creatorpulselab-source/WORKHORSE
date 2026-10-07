@@ -24,6 +24,26 @@ STAGING_DIR.mkdir(parents=True, exist_ok=True)
 RENDERS_DIR.mkdir(parents=True, exist_ok=True)
 VIDEO_RENDERS_DIR.mkdir(parents=True, exist_ok=True)
 
+# Expert-level quality boosters, keyed by style_preset - injected into every render
+# so "high-end realistic images" is the default output, not an opt-in.
+QUALITY_PRESETS = {
+    "photorealism": "professional photography, shot on full-frame DSLR, 85mm f/1.4 lens, "
+                    "natural skin texture with visible pores, soft directional studio lighting, "
+                    "shallow depth of field, hyper-detailed, photorealistic, 8k uhd, award-winning photography",
+    "cinematic": "cinematic film still, dramatic volumetric lighting, color graded like a feature film, "
+                 "shallow depth of field, anamorphic lens characteristics, subtle film grain, "
+                 "ultra high production value, photorealistic",
+    "graphic_design": "professional graphic design, clean vector composition, balanced negative space, "
+                       "studio-quality rendering, ultra high resolution",
+    "glamour": "high-end glamour photography, beauty-dish studio lighting, flawless skin retouch look, "
+               "luxury editorial fashion photography, hyper-detailed, photorealistic, 8k uhd",
+}
+QUALITY_NEGATIVE_BOOST = (
+    "deformed, extra limbs, bad anatomy, bad hands, 6 fingers, missing fingers, fused limbs, "
+    "distorted face, asymmetrical eyes, blurry, low quality, artifacts, plastic skin, overly airbrushed, "
+    "waxy skin, cartoon, 3d render, cgi, overexposed, underexposed, watermark, text, logo, grainy, jpeg artifacts"
+)
+
 
 class ComfyUIBridge:
     """
@@ -621,6 +641,7 @@ class ComfyUIBridge:
                                 lora_name: Optional[str] = None,
                                 lora_strength: float = 0.8,
                                 brand_target: Optional[str] = None,
+                                style_preset: str = "photorealism",
                                 filename_prefix: Optional[str] = None) -> Dict[str, Any]:
         """
         Generates standard ComfyUI API-compatible prompt graph.
@@ -628,10 +649,12 @@ class ComfyUIBridge:
         """
         ckpt_resolved = self.resolve_checkpoint_name(checkpoint)
         seed_val = seed if seed is not None else int(time.time() * 1000) % (2**31 - 1)
-        neg = negative_prompt or (
-            "deformed, extra limbs, bad anatomy, bad hands, 6 fingers, missing fingers, "
-            "fused limbs, distorted face, asymmetrical eyes, blurry, low quality, artifacts"
-        )
+
+        quality_tag = QUALITY_PRESETS.get(style_preset, QUALITY_PRESETS["photorealism"])
+        full_positive = positive_prompt if quality_tag in positive_prompt else f"{positive_prompt}, {quality_tag}"
+
+        neg = negative_prompt or ""
+        neg = neg if QUALITY_NEGATIVE_BOOST in neg else (f"{neg}, {QUALITY_NEGATIVE_BOOST}" if neg else QUALITY_NEGATIVE_BOOST)
 
         workflow: Dict[str, Any] = {
             "4": {
@@ -706,7 +729,7 @@ class ComfyUIBridge:
         # Text conditioning
         workflow["6"] = {
             "inputs": {
-                "text": positive_prompt,
+                "text": full_positive,
                 "clip": current_clip
             },
             "class_type": "CLIPTextEncode"
@@ -870,10 +893,20 @@ class ComfyUIBridge:
 
         seed_val = seed if seed is not None else int(time.time() * 1000) % (2**31 - 1)
 
+        cinematic_tag = "cinematic motion, smooth natural movement, film-quality motion dynamics, photorealistic, high production value"
+        full_prompt = prompt if cinematic_tag in prompt else f"{prompt}, {cinematic_tag}"
+        video_negative_default = (
+            "jittery motion, flickering, morphing, warped limbs, distorted face, static image, "
+            "frozen frame, low quality, blurry, artifacts, watermark, text"
+        )
+        full_negative = negative_prompt or ""
+        full_negative = full_negative if video_negative_default in full_negative else (
+            f"{full_negative}, {video_negative_default}" if full_negative else video_negative_default
+        )
+
         workflow["269"]["inputs"]["image"] = source_image_name
-        workflow["267:266"]["inputs"]["value"] = prompt
-        if negative_prompt:
-            workflow["267:247"]["inputs"]["text"] = negative_prompt
+        workflow["267:266"]["inputs"]["value"] = full_prompt
+        workflow["267:247"]["inputs"]["text"] = full_negative
         workflow["267:257"]["inputs"]["value"] = width
         workflow["267:258"]["inputs"]["value"] = height
         workflow["267:225"]["inputs"]["value"] = num_frames
@@ -1393,7 +1426,8 @@ If ANY extra limbs, mutated hands, or severe facial defects are found, set "pass
                 loras=loras,
                 lora_name=lora_name,
                 lora_strength=lora_strength,
-                brand_target=brand_target
+                brand_target=brand_target,
+                style_preset=style_preset
             )
 
             try:
