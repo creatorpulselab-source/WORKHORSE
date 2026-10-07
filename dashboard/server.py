@@ -481,6 +481,13 @@ async def generate_tip_menu_endpoint(payload: Dict[str, Any]):
     top_tipper = payload.get("top_tipper")
     schedule = payload.get("schedule")
 
+    # Surface which fields are still demo placeholders so the operator doesn't
+    # accidentally ship stock photos/fake data to a real client.
+    warnings = cam_generator.validate_tip_menu_inputs(
+        avatar_url=avatar_url, banner_url=banner_url, top_tipper=top_tipper,
+        schedule=schedule, items=items
+    )
+
     rendered_html = cam_generator.generate_tip_menu_standalone(
         title=title,
         subtitle=subtitle,
@@ -502,7 +509,8 @@ async def generate_tip_menu_endpoint(payload: Dict[str, Any]):
         "status": "ok",
         "rendered_html": rendered_html,
         "chatbot_text": chatbot_text,
-        "bundle": bundle_res
+        "bundle": bundle_res,
+        "warnings": warnings
     }
 
 

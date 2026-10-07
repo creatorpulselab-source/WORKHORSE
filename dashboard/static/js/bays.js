@@ -967,6 +967,17 @@ this.currentBay = initHash || 'command-center';
 
       if (status) status.innerText = `✓ Tip menu ready! Bundled into ${data.bundle.zip_name} (${data.bundle.zip_size_kb} KB).`;
 
+      // Flag any fields still on stock/demo placeholder data before this ships to a real client
+      const warnBox = document.getElementById('tip-menu-build-warnings');
+      if (warnBox) {
+        if (data.warnings && data.warnings.length > 0) {
+          warnBox.style.display = 'block';
+          warnBox.innerHTML = `⚠ Still using demo placeholder data for:<br>` + data.warnings.map(w => `• ${w}`).join('<br>');
+        } else {
+          warnBox.style.display = 'none';
+          warnBox.innerHTML = '';
+        }
+      }
       // 1. Update Preview Sandbox Frame
       const frame = document.getElementById('tipmenu-preview-frame');
       if (frame) {

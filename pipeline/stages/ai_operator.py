@@ -120,6 +120,10 @@ When the user asks you to inspect, check, or execute a task, you can invoke:
 - {"tool": "prune_staging_buffer"}: Purges unapproved staging renders older than 48 hours to preserve Drive F.
 - {"tool": "cipher_scrub_file", "file": "..."}: Air-gap EXIF/GPS metadata scrubber for adult creator privacy.
 - {"tool": "trend_radar_sweep"}: Runs morning web search across Google News RSS for fresh trends.
+- {"tool": "generate_tip_menu", "title": "...", "theme": "...", "layout_style": "vip_showcase|table|cards|obs_overlay", "items": [{"tokens": "...", "action": "..."}], "avatar_url": "...", "banner_url": "...", "top_tipper": "...", "schedule": "...", "goal_text": "..."}: Builds and bundles a client's custom tip menu / cam profile.
+
+JOB-INTAKE RULE (CRITICAL):
+Before emitting a generate_tip_menu tool-call, you MUST already have the Commander's REAL values in this conversation for: the client's own avatar/banner photos (or image references), their real tip-menu pricing tiers, their real top tipper and schedule, and any social/platform links they want included. If any of these are missing or the Commander only gave a vague request, DO NOT call the tool and DO NOT invent placeholder/stock data - instead ask the Commander directly, in plain text, exactly what specifics you still need before you can build it. Only call the tool once you actually have real values to put in it.
 
 COMMUNICATION:
 - Address the user as Commander.
@@ -435,6 +439,54 @@ class AIOperatorEngine:
 
         elif tool_name == "repair_subscribers":
             return self.repair_subscribers_db()
+
+        elif tool_name == "generate_tip_menu":
+            try:
+                from pipeline.stages.cam_template_generator import CamTemplateGenerator
+                cam_gen = CamTemplateGenerator()
+                avatar_url = tool_call.get("avatar_url")
+                banner_url = tool_call.get("banner_url")
+                top_tipper = tool_call.get("top_tipper")
+                schedule = tool_call.get("schedule")
+                items = tool_call.get("items")
+
+                missing = cam_gen.validate_tip_menu_inputs(
+                    avatar_url=avatar_url, banner_url=banner_url,
+                    top_tipper=top_tipper, schedule=schedule, items=items
+                )
+                if missing:
+                    result["status"] = "needs_info"
+                    result["missing"] = missing
+                    result["message"] = (
+                        "SYNAPSE [100 Fm]: Can't finalize this tip menu yet - still need from the Commander: "
+                        + "; ".join(missing)
+                    )
+                    return result
+
+                html = cam_gen.generate_tip_menu_standalone(
+                    title=tool_call.get("title", "Interactive Tip Menu"),
+                    subtitle=tool_call.get("subtitle", ""),
+                    theme=tool_call.get("theme", "neon_cyber"),
+                    layout_style=tool_call.get("layout_style", "vip_showcase"),
+                    items=items,
+                    goal_text=tool_call.get("goal_text", ""),
+                    avatar_url=avatar_url,
+                    banner_url=banner_url,
+                    top_tipper=top_tipper,
+                    schedule=schedule
+                )
+                bundle_res = cam_gen.bundle_tip_menu_product(
+                    bundle_name=f"TIP_MENU_{tool_call.get('theme', 'neon_cyber').upper()}_PACK",
+                    theme=tool_call.get("theme", "neon_cyber"),
+                    items=items
+                )
+                result["message"] = f"SYNAPSE [100 Fm]: Tip menu generated and bundled into {bundle_res.get('zip_name')}."
+                result["details"] = bundle_res
+                return result
+            except Exception as e:
+                result["status"] = "error"
+                result["error"] = str(e)
+                return result
 
         # NEWSLETTER ACTIONS
         elif tool_name == "newsletter_add":

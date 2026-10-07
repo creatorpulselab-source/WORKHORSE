@@ -16,6 +16,39 @@ class CamTemplateGenerator:
       - Lovense Lush Interactive Vibration Indicators
       - Dynamic Animated Token Goal Progress Bars
     """
+    # Known stock/demo placeholder values shipped as defaults in generate_vip_creator_showcase().
+    # If a caller's value matches one of these, the client hasn't actually customized that field yet.
+    PLACEHOLDER_VALUES = {
+        "avatar_url": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=500&q=80",
+        "banner_url": "https://images.unsplash.com/photo-1579546929518-9e396f3cc809?auto=format&fit=crop&w=1200&q=80",
+        "top_tipper": "👑 King_Vip_99 (12,450 tks)",
+        "schedule": "Live Daily 9:00 PM – 2:00 AM EST",
+    }
+
+    def validate_tip_menu_inputs(
+        self,
+        avatar_url: Optional[str] = None,
+        banner_url: Optional[str] = None,
+        top_tipper: Optional[str] = None,
+        schedule: Optional[str] = None,
+        items: Optional[List[Dict[str, str]]] = None,
+    ) -> List[str]:
+        """Returns a list of human-readable field names still missing or on demo/placeholder content.
+        Used to stop a job from shipping with a stock stand-in photo or fake data instead of the
+        real client's info."""
+        missing: List[str] = []
+        if not avatar_url or avatar_url == self.PLACEHOLDER_VALUES["avatar_url"]:
+            missing.append("Client avatar/profile photo (avatar_url)")
+        if not banner_url or banner_url == self.PLACEHOLDER_VALUES["banner_url"]:
+            missing.append("Client hero banner photo (banner_url)")
+        if not top_tipper or top_tipper == self.PLACEHOLDER_VALUES["top_tipper"]:
+            missing.append("Real top tipper name/amount (top_tipper)")
+        if not schedule or schedule == self.PLACEHOLDER_VALUES["schedule"]:
+            missing.append("Real live stream schedule (schedule)")
+        if not items or len(items) == 0:
+            missing.append("At least one real tip-menu pricing tier (items)")
+        return missing
+
     def __init__(self, output_base: str = "F:/WORKHORSE/workspace/cam_templates"):
         self.output_base = Path(output_base)
         self.output_base.mkdir(parents=True, exist_ok=True)
