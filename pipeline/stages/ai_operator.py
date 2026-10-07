@@ -11,6 +11,7 @@ import base64
 import asyncio
 import datetime
 import shutil
+import time
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple
 
@@ -130,6 +131,8 @@ COMMUNICATION:
 class AIOperatorEngine:
     def __init__(self):
         self.history = []
+        self.last_search_status = "ok"
+        self.last_search_error = None
 
     def get_available_models(self):
         """Fetch all installed models in Ollama."""
@@ -143,8 +146,20 @@ class AIOperatorEngine:
         return [DEFAULT_TEXT_MODEL, DEFAULT_VISION_MODEL]
 
     def search_web(self, query: str, max_results: int = 4):
-        """Perform real-time web search using Google News RSS and DuckDuckGo fallback."""
+        """Perform real-time web search using Google News RSS and DuckDuckGo fallback.
+
+        Sets self.last_search_status to one of:
+        - "ok" (results found)
+        - "no_results" (both backends ran cleanly but found nothing)
+        - "error" (both backends failed/were blocked - e.g. DDGS rate-limited
+          or DuckDuckGo changed its scraping-unfriendly layout again). This is
+          tracked explicitly so callers (chat()) can tell a real backend
+          failure apart from a legitimately empty result set, instead of both
+          silently looking like "no web context" to the LLM.
+        """
         results = []
+        self.last_search_status = "ok"
+        self.last_search_error = None
         try:
             from pipeline.stages.trend_researcher import trend_researcher
             news_items = trend_researcher.search_live_trends(query, max_results=max_results)
@@ -158,17 +173,30 @@ class AIOperatorEngine:
             print(f"[SYNAPSE] Google News RSS search error: {e}")
 
         if not results:
-            try:
-                with DDGS() as ddgs:
-                    raw = list(ddgs.text(query, max_results=max_results))
-                    for item in raw:
-                        results.append({
-                            "title": item.get("title", ""),
-                            "url": item.get("href", ""),
-                            "snippet": item.get("body", "")
-                        })
-            except Exception as e:
-                print(f"[SYNAPSE] DDGS search error: {e}")
+            last_ddgs_error = None
+            for attempt in range(2):  # 1 retry on transient failures (rate limits, timeouts)
+                try:
+                    with DDGS() as ddgs:
+                        raw = list(ddgs.text(query, max_results=max_results))
+                        for item in raw:
+                            results.append({
+                                "title": item.get("title", ""),
+                                "url": item.get("href", ""),
+                                "snippet": item.get("body", "")
+                            })
+                    last_ddgs_error = None
+                    break
+                except Exception as e:
+                    last_ddgs_error = e
+                    print(f"[SYNAPSE] DDGS search error (attempt {attempt + 1}/2): {e}")
+                    if attempt == 0:
+                        time.sleep(1.5)
+            if last_ddgs_error is not None and not results:
+                self.last_search_status = "error"
+                self.last_search_error = str(last_ddgs_error)
+
+        if self.last_search_status == "ok" and not results:
+            self.last_search_status = "no_results"
         return results
 
     def run_system_diagnostics(self) -> Dict[str, Any]:
@@ -865,13 +893,25 @@ class AIOperatorEngine:
 
         web_context_str = ""
         web_sources = []
+        web_search_status = None
         if web_search:
             web_sources = self.search_web(message, max_results=4)
+            web_search_status = getattr(self, "last_search_status", "ok")
             if web_sources:
                 web_context_str = "\n\n--- REAL-TIME WEB SEARCH RESULTS ---\n"
                 for idx, src in enumerate(web_sources, 1):
                     web_context_str += f"[{idx}] {src['title']}\nURL: {src['url']}\nSnippet: {src['snippet']}\n\n"
                 web_context_str += "--- END SEARCH RESULTS ---\nUse the real-time facts above to answer accurately.\n"
+            elif web_search_status == "error":
+                # Tell the model explicitly that search failed rather than
+                # silently proceeding as if no search had been requested -
+                # prevents it from confidently answering from stale training
+                # data while implying it checked current sources.
+                web_context_str = (
+                    "\n\n--- REAL-TIME WEB SEARCH UNAVAILABLE ---\n"
+                    f"The live web search backend failed/was blocked ({getattr(self, 'last_search_error', 'unknown error')}). "
+                    "Tell the user live web search is temporarily unavailable before answering from existing knowledge.\n"
+                )
 
         # Autonomous URL Ingestion: Detect dropped articles/links
         extracted_urls = re.findall(r'https?://[^\s<>"]+', message)
@@ -1024,6 +1064,7 @@ class AIOperatorEngine:
                 "reply": reply_text,
                 "model": chosen_model,
                 "web_sources": web_sources,
+                "web_search_status": web_search_status,
                 "executed_actions": executed_actions,
                 "attached_files_count": len(attached_files) if attached_files else 0,
                 "vision_auto_detected": is_vision,
