@@ -563,7 +563,14 @@ async def download_etsy_bundle(bundle_name: str):
     return FileResponse(zip_path, filename=zip_path.name, media_type="application/zip")
 
 # =========================================================================
-# FIVERR SERVICE BOT APIS (HIGH-DEMAND GIG AUTOMATION)
+# FIVERR DELIVERY PACKAGER APIS
+# NOTE: This does NOT automate Fiverr itself (no Fiverr API / browser login).
+# It only (1) serves a static local gig catalog, (2) bundles already-generated
+# assets + a review-request note into a ZIP, and (3) serves that ZIP for
+# manual upload to the real Fiverr order page. Posting gigs, detecting new
+# orders, and messaging buyers on Fiverr are all still manual/human steps
+# (new orders ARE detected separately via email in order_radar.py, which
+# polls IMAP - it does not call the Fiverr API either).
 # =========================================================================
 @app.get("/api/fiverr/gigs")
 async def get_fiverr_gigs():
