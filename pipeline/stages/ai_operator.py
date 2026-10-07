@@ -129,7 +129,7 @@ When the user asks you to inspect, check, or execute a task, you can invoke:
 - {"tool": "incident_log"}: Retrieves the recent self-healing incident history (auto-detected issues and what was done about them).
 - {"tool": "generate_tip_menu", "title": "...", "theme": "...", "layout_style": "vip_showcase|table|cards|obs_overlay", "items": [{"tokens": "...", "action": "..."}], "avatar_url": "...", "banner_url": "...", "top_tipper": "...", "schedule": "...", "goal_text": "..."}: Builds and bundles a client's custom tip menu / cam profile.
 - {"tool": "aura_retouch", "files": ["..."], "style": "moody_boudoir|natural|...", "shoot_name": "...", "smooth_strength": 0.5, "watermark_text": "..."}: Aura [79 Au] runs real skin-smoothing, color grading, aspect crops, and watermarking on the named photo(s) (filenames from the client inbox) and bundles a finished ZIP. If "files" is omitted, retouches everything currently in the client inbox.
-- {"tool": "create_banner", "client_name": "...", "headline": "...", "style": "neon_cyber|velvet_boudoir|pastel_dream|gothic_noir|emerald_luxe|neon_pink", "platform": "onlyfans|fansly|twitter|..."}: Renders a brand-new finished profile/header banner image on RTX 5070 Ti (Iris QC-gated), then burns in the headline and client handle text. Produces a real PNG file, not a mockup.
+- {"tool": "create_banner", "client_name": "...", "headline": "...", "style": "neon_cyber|velvet_boudoir|pastel_dream|gothic_noir|emerald_luxe|neon_pink|corporate_clean|vibrant_lifestyle|minimalist_editorial|tech_futuristic", "platform": "onlyfans|fansly|twitter|..."}: Renders a brand-new finished profile/header banner image on RTX 5070 Ti (Iris QC-gated), then burns in the headline and client handle text. Produces a real PNG file, not a mockup. Use the corporate_clean/vibrant_lifestyle/minimalist_editorial/tech_futuristic styles for non-adult business/brand clients instead of the glamour-themed styles.
 - {"tool": "apex_package", "client_name": "..."}: Apex [78 Pt] zips every file currently in the client inbox into a real finished delivery archive ready to send to the client.
 - {"tool": "newsletter_add", "email": "...", "publication": "creator_pulse|studio_wire|creator_blueprint|dispensary_deals", "send_welcome": true}: Subscribes a real email address to a publication and queues its welcome email.
 - {"tool": "newsletter_remove", "email": "...", "publication": "..."}: Unsubscribes an email from one publication (omit publication to unsubscribe from all).
@@ -681,7 +681,11 @@ class AIOperatorEngine:
                     "pastel_dream": "dreamy pastel gradient backdrop, soft pink and lavender neon glow, ethereal glamour atmosphere, soft bokeh lighting",
                     "gothic_noir": "gothic noir backdrop, dark moody crimson and black tones, dramatic chiaroscuro lighting, elegant dark romance atmosphere",
                     "emerald_luxe": "opulent emerald green and gold backdrop, luxury jewel-toned atmosphere, glowing ambient light, high-end editorial glamour",
-                    "neon_pink": "vibrant neon pink and magenta glow backdrop, glossy futuristic atmosphere, glamorous nightclub lighting"
+                    "neon_pink": "vibrant neon pink and magenta glow backdrop, glossy futuristic atmosphere, glamorous nightclub lighting",
+                    "corporate_clean": "clean modern corporate backdrop, soft blue and white gradient, minimal geometric line accents, professional studio lighting, crisp SaaS/brand aesthetic",
+                    "vibrant_lifestyle": "bright energetic lifestyle backdrop, warm orange and gold gradient, sunlit outdoor atmosphere, upbeat influencer/creator vibe",
+                    "minimalist_editorial": "minimalist editorial backdrop, soft neutral cream and grey tones, high-fashion magazine negative space, subtle studio shadow",
+                    "tech_futuristic": "sleek dark tech backdrop, cyan and indigo gradient glow, futuristic circuit-light atmosphere, clean gaming/tech studio aesthetic"
                 }
                 style_desc = style_prompts.get(style, style_prompts["neon_cyber"])
                 prompt = (

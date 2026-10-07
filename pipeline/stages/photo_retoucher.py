@@ -92,6 +92,13 @@ class PhotoRetoucher:
             graded = cv2.merge([b, g, r])
             return (graded * 255.0).astype(np.uint8)
 
+        elif preset == "clean_editorial":
+            # Neutral true-to-life tones with gentle lifted shadows - for business/brand clients
+            b, g, r = cv2.split(img_float)
+            lifted = np.clip(np.stack([b, g, r], axis=-1) * 1.03 + 0.015, 0, 1)
+            graded = np.clip(lifted ** 1.05, 0, 1)
+            return (graded * 255.0).astype(np.uint8)
+
         return img
 
     def crop_aspect_ratio(self, img: np.ndarray, ratio_w: int, ratio_h: int) -> np.ndarray:

@@ -103,6 +103,46 @@ class CamTemplateGenerator:
                 "text": "#eefcf6",
                 "border": "#06d6a0",
                 "glow": "rgba(6, 214, 160, 0.35)"
+            },
+            "corporate_clean": {
+                "name": "Corporate Clean",
+                "bg": "#f4f6fb",
+                "card": "#ffffff",
+                "accent": "#2563eb",
+                "secondary": "#0ea5e9",
+                "text": "#0f172a",
+                "border": "#2563eb",
+                "glow": "rgba(37, 99, 235, 0.25)"
+            },
+            "vibrant_lifestyle": {
+                "name": "Vibrant Lifestyle",
+                "bg": "#1a1025",
+                "card": "#2a1a3d",
+                "accent": "#ff9f1c",
+                "secondary": "#ffbf69",
+                "text": "#fffaf0",
+                "border": "#ff9f1c",
+                "glow": "rgba(255, 159, 28, 0.35)"
+            },
+            "minimalist_editorial": {
+                "name": "Minimalist Editorial",
+                "bg": "#faf8f5",
+                "card": "#ffffff",
+                "accent": "#2b2b2b",
+                "secondary": "#8a8a8a",
+                "text": "#1a1a1a",
+                "border": "#2b2b2b",
+                "glow": "rgba(43, 43, 43, 0.15)"
+            },
+            "tech_futuristic": {
+                "name": "Tech Futuristic",
+                "bg": "#060a12",
+                "card": "#0d1726",
+                "accent": "#38bdf8",
+                "secondary": "#818cf8",
+                "text": "#e5f3ff",
+                "border": "#38bdf8",
+                "glow": "rgba(56, 189, 248, 0.35)"
             }
         }
 
