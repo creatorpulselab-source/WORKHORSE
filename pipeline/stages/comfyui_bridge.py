@@ -16,10 +16,13 @@ CONFIG_FILE = Path("F:/WORKHORSE/config.json")
 WORKSPACE_DIR = Path("F:/WORKHORSE/workspace")
 STAGING_DIR = WORKSPACE_DIR / "comfy_staging"
 RENDERS_DIR = WORKSPACE_DIR / "brand_assets" / "comfy_renders"
+VIDEO_RENDERS_DIR = WORKSPACE_DIR / "brand_assets" / "comfy_video_renders"
 AUDIT_LOG_FILE = WORKSPACE_DIR / "comfy_qc_audit.json"
+WORKFLOW_TEMPLATES_DIR = BASE_DIR / "pipeline" / "stages" / "workflow_templates"
 
 STAGING_DIR.mkdir(parents=True, exist_ok=True)
 RENDERS_DIR.mkdir(parents=True, exist_ok=True)
+VIDEO_RENDERS_DIR.mkdir(parents=True, exist_ok=True)
 
 
 class ComfyUIBridge:
@@ -360,6 +363,244 @@ class ComfyUIBridge:
             "matched_loras": matched_loras
         }
 
+    def upload_image_to_comfy(self, image_path: Union[str, Path]) -> str:
+        """Uploads a local image into ComfyUI's input folder via POST /upload/image so it
+        can be referenced by name in a LoadImage node. Returns the server-side filename."""
+        image_path = Path(image_path)
+        if not image_path.exists():
+            raise FileNotFoundError(f"Image not found: {image_path}")
+
+        boundary = uuid.uuid4().hex
+        with open(image_path, "rb") as f:
+            file_bytes = f.read()
+
+        body = (
+            f"--{boundary}\r\n"
+            f'Content-Disposition: form-data; name="image"; filename="{image_path.name}"\r\n'
+            f"Content-Type: application/octet-stream\r\n\r\n"
+        ).encode("utf-8") + file_bytes + f"\r\n--{boundary}--\r\n".encode("utf-8")
+
+        url = f"{self.get_base_url()}/upload/image"
+        req = urllib.request.Request(
+            url, data=body,
+            headers={
+                "Content-Type": f"multipart/form-data; boundary={boundary}",
+                "User-Agent": "WORKHORSE-Bridge"
+            }
+        )
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            result = json.loads(resp.read().decode("utf-8"))
+
+        return result.get("name", image_path.name)
+
+    def build_background_change_workflow(self,
+                                         source_image_name: str,
+                                         new_background_prompt: str,
+                                         negative_prompt: str = "",
+                                         checkpoint: Optional[str] = None,
+                                         seed: Optional[int] = None,
+                                         steps: int = 25,
+                                         cfg: float = 7.0,
+                                         sampler: str = "euler",
+                                         scheduler: str = "normal",
+                                         denoise: float = 1.0,
+                                         keep_face: bool = True,
+                                         keep_hair: bool = True,
+                                         keep_body: bool = True,
+                                         keep_clothes: bool = True,
+                                         keep_accessories: bool = True,
+                                         mask_expand: int = 6,
+                                         mask_blur_radius: float = 4.0,
+                                         filename_prefix: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Builds a ComfyUI API graph that automatically segments the subject out of an
+        uploaded photo (LayerMask: PersonMaskUltra V2 - no manual mask painting required),
+        then inpaints a brand-new background around them from a text prompt while the
+        subject region itself is protected from the noise mask.
+        """
+        ckpt_resolved = self.resolve_checkpoint_name(checkpoint)
+        seed_val = seed if seed is not None else int(time.time() * 1000) % (2**31 - 1)
+        neg = negative_prompt or "blurry, low quality, artifacts, seams, mismatched lighting, warped perspective"
+
+        workflow: Dict[str, Any] = {
+            "1": {
+                "inputs": {"image": source_image_name},
+                "class_type": "LoadImage"
+            },
+            "2": {
+                "inputs": {"ckpt_name": ckpt_resolved},
+                "class_type": "CheckpointLoaderSimple"
+            },
+            "3": {
+                "inputs": {
+                    "images": ["1", 0],
+                    "face": keep_face,
+                    "hair": keep_hair,
+                    "body": keep_body,
+                    "clothes": keep_clothes,
+                    "accessories": keep_accessories,
+                    "background": False,
+                    "confidence": 0.4,
+                    "detail_method": "VITMatte",
+                    "detail_erode": 6,
+                    "detail_dilate": 6,
+                    "black_point": 0.01,
+                    "white_point": 0.99,
+                    "process_detail": True,
+                    "device": "cuda",
+                    "max_megapixels": 2.0
+                },
+                "class_type": "LayerMask: PersonMaskUltra V2"
+            },
+            "4": {
+                "inputs": {
+                    "mask": ["3", 1],
+                    "expand": mask_expand,
+                    "incremental_expandrate": 0.0,
+                    "tapered_corners": True,
+                    "flip_input": False,
+                    "blur_radius": mask_blur_radius,
+                    "lerp_alpha": 1.0,
+                    "decay_factor": 1.0
+                },
+                "class_type": "GrowMaskWithBlur"
+            },
+            "5": {
+                "inputs": {
+                    "text": new_background_prompt,
+                    "clip": ["2", 1]
+                },
+                "class_type": "CLIPTextEncode"
+            },
+            "6": {
+                "inputs": {
+                    "text": neg,
+                    "clip": ["2", 1]
+                },
+                "class_type": "CLIPTextEncode"
+            },
+            "7": {
+                "inputs": {
+                    "pixels": ["1", 0],
+                    "vae": ["2", 2],
+                    "mask": ["4", 1],
+                    "grow_mask_by": 0
+                },
+                "class_type": "VAEEncodeForInpaint"
+            },
+            "8": {
+                "inputs": {
+                    "seed": seed_val,
+                    "steps": steps,
+                    "cfg": cfg,
+                    "sampler_name": sampler,
+                    "scheduler": scheduler,
+                    "denoise": denoise,
+                    "model": ["2", 0],
+                    "positive": ["5", 0],
+                    "negative": ["6", 0],
+                    "latent_image": ["7", 0]
+                },
+                "class_type": "KSampler"
+            },
+            "9": {
+                "inputs": {
+                    "samples": ["8", 0],
+                    "vae": ["2", 2]
+                },
+                "class_type": "VAEDecode"
+            },
+            "10": {
+                "inputs": {
+                    "filename_prefix": filename_prefix or "WORKHORSE_BgChange",
+                    "images": ["9", 0]
+                },
+                "class_type": "SaveImage"
+            }
+        }
+        return workflow
+
+    def generate_background_change(self,
+                                   source_image_path: Union[str, Path],
+                                   new_background_prompt: str,
+                                   negative_prompt: str = "",
+                                   checkpoint: Optional[str] = None,
+                                   denoise: float = 1.0,
+                                   auto_qc: bool = True) -> Dict[str, Any]:
+        """
+        End-to-end: uploads the client's photo, auto-segments the subject, inpaints a new
+        background from a text prompt, and runs the same Iris QC gate used on standard
+        renders before releasing the result.
+        """
+        conn = self.check_connection()
+        if not conn.get("online"):
+            return {
+                "success": False,
+                "error": f"ComfyUI on Main PC is offline ({conn.get('host')}:{conn.get('port')}).",
+                "details": conn
+            }
+
+        source_image_path = Path(source_image_path)
+        if not source_image_path.exists():
+            return {"success": False, "error": f"Source image not found: {source_image_path}"}
+
+        try:
+            uploaded_name = self.upload_image_to_comfy(source_image_path)
+        except Exception as e:
+            return {"success": False, "error": f"Failed to upload source image to ComfyUI: {e}"}
+
+        workflow = self.build_background_change_workflow(
+            source_image_name=uploaded_name,
+            new_background_prompt=new_background_prompt,
+            negative_prompt=negative_prompt,
+            checkpoint=checkpoint,
+            denoise=denoise
+        )
+
+        try:
+            queued = self.queue_prompt(workflow)
+            prompt_id = queued.get("prompt_id")
+            if not prompt_id:
+                return {"success": False, "error": "No prompt_id returned by ComfyUI"}
+
+            images = self.wait_for_execution(prompt_id, timeout_seconds=120)
+            if not images:
+                return {"success": False, "error": "ComfyUI background-change generation timed out or yielded no image output"}
+
+            first_img = images[0]
+            staged_path = self.download_image(
+                filename=first_img["filename"],
+                subfolder=first_img.get("subfolder", ""),
+                folder_type=first_img.get("type", "output")
+            )
+        except Exception as e:
+            return {"success": False, "error": f"ComfyUI background-change generation failed: {e}"}
+
+        dest_path = RENDERS_DIR / staged_path.name
+        staged_path.rename(dest_path)
+
+        result: Dict[str, Any] = {
+            "success": True,
+            "file_path": str(dest_path),
+            "filename": dest_path.name,
+            "url_path": f"/static/brand_assets/comfy_renders/{dest_path.name}",
+            "source_image": str(source_image_path),
+            "host_used": f"{self.host}:{self.port}"
+        }
+
+        if auto_qc and self.qc_cfg.get("auto_qc_enabled", True):
+            audit = self.run_iris_qc_audit(dest_path, original_prompt=new_background_prompt)
+            result["qc_audit"] = audit
+            self._log_audit_record(dest_path.name, audit, f"[BG CHANGE] {new_background_prompt}", 1, passed=audit.get("passed", True))
+
+        try:
+            from pipeline.stages.cipher import cipher_scrubber
+            cipher_scrubber.scrub_image(dest_path)
+        except Exception as ce:
+            print(f"[CIPHER] Warning: Metadata scrub failed: {ce}")
+
+        return result
+
     def build_standard_workflow(self,
                                 positive_prompt: str,
                                 negative_prompt: str = "",
@@ -545,6 +786,173 @@ class ComfyUIBridge:
                 f.write(resp.read())
 
         return dest_path
+
+    def wait_for_video_execution(self, prompt_id: str, timeout_seconds: int = 900) -> List[Dict[str, str]]:
+        """Polls /history/{prompt_id} until a video render finishes or times out.
+        Video-producing nodes (SaveVideo/VHS) report their output file(s) under a
+        'videos'/'gifs' key instead of 'images' - check all known keys defensively."""
+        history_url = f"{self.get_base_url()}/history/{prompt_id}"
+        start_time = time.time()
+
+        while time.time() - start_time < timeout_seconds:
+            try:
+                req = urllib.request.Request(history_url)
+                with urllib.request.urlopen(req, timeout=5) as resp:
+                    history = json.loads(resp.read().decode("utf-8"))
+                    if prompt_id in history:
+                        status = history[prompt_id].get("status", {})
+                        if status.get("status_str") == "error":
+                            for msg in status.get("messages", []):
+                                if msg[0] == "execution_error":
+                                    raise RuntimeError(
+                                        f"Node {msg[1].get('node_id')} ({msg[1].get('node_type')}): "
+                                        f"{msg[1].get('exception_message')}"
+                                    )
+                        outputs = history[prompt_id].get("outputs", {})
+                        videos = []
+                        for node_output in outputs.values():
+                            for key in ("videos", "gifs", "images"):
+                                if key in node_output:
+                                    videos.extend(node_output[key])
+                        if videos:
+                            return videos
+            except RuntimeError:
+                raise
+            except Exception:
+                pass
+            time.sleep(3)
+
+        return []
+
+    def download_video(self, filename: str, subfolder: str = "", folder_type: str = "output") -> Path:
+        """Pulls a rendered video from ComfyUI /view endpoint into local staging folder."""
+        params = urllib.parse.urlencode({
+            "filename": filename,
+            "subfolder": subfolder,
+            "type": folder_type
+        })
+        view_url = f"{self.get_base_url()}/view?{params}"
+        suffix = Path(filename).suffix or ".mp4"
+        dest_path = STAGING_DIR / f"{Path(filename).stem}_{int(time.time())}{suffix}"
+
+        req = urllib.request.Request(view_url, headers={"User-Agent": "WORKHORSE-Bridge"})
+        with urllib.request.urlopen(req, timeout=120) as resp:
+            with open(dest_path, "wb") as f:
+                f.write(resp.read())
+
+        return dest_path
+
+    def build_image_to_video_workflow(self,
+                                      source_image_name: str,
+                                      prompt: str,
+                                      negative_prompt: Optional[str] = None,
+                                      width: int = 720,
+                                      height: int = 1280,
+                                      num_frames: int = 300,
+                                      fps: int = 30,
+                                      seed: Optional[int] = None,
+                                      filename_prefix: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Builds a ComfyUI API graph for LTX 2.3 image-to-video generation, based directly
+        on the user's own confirmed-working local workflow template (base generation at
+        half-resolution + 2x latent upscale + fast distilled refinement pass). Only the
+        variable leaf values (source image, prompt, resolution, length, fps, seed,
+        output filename) are patched - the internal node wiring is left untouched.
+        """
+        template_path = WORKFLOW_TEMPLATES_DIR / "ltx_2_3_i2v_template.json"
+        with open(template_path, "r", encoding="utf-8") as f:
+            workflow = json.load(f)
+
+        seed_val = seed if seed is not None else int(time.time() * 1000) % (2**31 - 1)
+
+        workflow["269"]["inputs"]["image"] = source_image_name
+        workflow["267:266"]["inputs"]["value"] = prompt
+        if negative_prompt:
+            workflow["267:247"]["inputs"]["text"] = negative_prompt
+        workflow["267:257"]["inputs"]["value"] = width
+        workflow["267:258"]["inputs"]["value"] = height
+        workflow["267:225"]["inputs"]["value"] = num_frames
+        workflow["267:260"]["inputs"]["value"] = fps
+        workflow["267:216"]["inputs"]["noise_seed"] = seed_val
+        workflow["267:237"]["inputs"]["noise_seed"] = seed_val + 1
+        workflow["273"]["inputs"]["filename_prefix"] = filename_prefix or "video/WORKHORSE_I2V"
+
+        return workflow
+
+    def generate_image_to_video(self,
+                                source_image_path: Union[str, Path],
+                                prompt: str,
+                                negative_prompt: Optional[str] = None,
+                                width: int = 720,
+                                height: int = 1280,
+                                num_frames: int = 300,
+                                fps: int = 30,
+                                timeout_seconds: int = 900) -> Dict[str, Any]:
+        """
+        End-to-end LTX 2.3 image-to-video: uploads the source photo, builds the graph
+        from the proven local template, renders, and saves the result video. Rendering
+        is GPU/length/resolution dependent and can take several minutes - no Iris QC
+        pass is run on video output (QC gate is vision/image-based only, v1).
+        """
+        conn = self.check_connection()
+        if not conn.get("online"):
+            return {
+                "success": False,
+                "error": f"ComfyUI on Main PC is offline ({conn.get('host')}:{conn.get('port')}).",
+                "details": conn
+            }
+
+        source_image_path = Path(source_image_path)
+        if not source_image_path.exists():
+            return {"success": False, "error": f"Source image not found: {source_image_path}"}
+
+        try:
+            uploaded_name = self.upload_image_to_comfy(source_image_path)
+        except Exception as e:
+            return {"success": False, "error": f"Failed to upload source image to ComfyUI: {e}"}
+
+        workflow = self.build_image_to_video_workflow(
+            source_image_name=uploaded_name,
+            prompt=prompt,
+            negative_prompt=negative_prompt,
+            width=width,
+            height=height,
+            num_frames=num_frames,
+            fps=fps
+        )
+
+        try:
+            queued = self.queue_prompt(workflow)
+            prompt_id = queued.get("prompt_id")
+            if not prompt_id:
+                return {"success": False, "error": f"No prompt_id returned by ComfyUI. node_errors: {queued.get('node_errors')}"}
+
+            videos = self.wait_for_video_execution(prompt_id, timeout_seconds=timeout_seconds)
+            if not videos:
+                return {"success": False, "error": "ComfyUI image-to-video generation timed out or yielded no video output"}
+
+            first_vid = videos[0]
+            staged_path = self.download_video(
+                filename=first_vid["filename"],
+                subfolder=first_vid.get("subfolder", ""),
+                folder_type=first_vid.get("type", "output")
+            )
+        except RuntimeError as e:
+            return {"success": False, "error": f"ComfyUI image-to-video generation failed: {e}"}
+        except Exception as e:
+            return {"success": False, "error": f"ComfyUI image-to-video generation failed: {e}"}
+
+        dest_path = VIDEO_RENDERS_DIR / staged_path.name
+        staged_path.rename(dest_path)
+
+        return {
+            "success": True,
+            "file_path": str(dest_path),
+            "filename": dest_path.name,
+            "url_path": f"/static/brand_assets/comfy_video_renders/{dest_path.name}",
+            "source_image": str(source_image_path),
+            "host_used": f"{self.host}:{self.port}"
+        }
 
     def run_iris_qc_audit(self, image_path: Path, original_prompt: str = "") -> Dict[str, Any]:
         """
