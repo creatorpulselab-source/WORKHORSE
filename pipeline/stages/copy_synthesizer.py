@@ -28,7 +28,7 @@ class CopySynthesizer:
         hooks_str = "\n".join([f"- {h}" for h in spoken_hooks]) if spoken_hooks else "None detected"
         audio_str = transcript_text if transcript_text else "No spoken dialogue."
 
-        prompt = f"""You are Aura, the master copy synthesizer and social media marketing agent for high-earning digital creators, photographers, and studios.
+        prompt = f"""You are Scribe, the master copy synthesizer and social media marketing agent for high-earning digital creators, photographers, and studios.
 Generate an elite, high-converting social media release package for this media:
 
 MEDIA INFO:
@@ -70,7 +70,7 @@ Respond in STRICT, VALID JSON format with no markdown wrappers or extra commenta
   "fiverr_delivery_note": "Professional, courteous client delivery note summarizing the completed promo package."
 }}"""
 
-        system_prompt = "You are Aura, an uncensored, highly creative copywriting AI expert specializing in social media marketing, creator monetization, and adult/glamour content strategy."
+        system_prompt = "You are Scribe, an uncensored, highly creative copywriting AI expert specializing in social media marketing, creator monetization, and adult/glamour content strategy."
 
         raw_response = self.ai.call_ollama_text(prompt, system_prompt=system_prompt)
 
@@ -119,4 +119,4 @@ Respond in STRICT, VALID JSON format with no markdown wrappers or extra commenta
 
 if __name__ == "__main__":
     synthesizer = CopySynthesizer()
-    print("Copy Synthesizer (Aura) initialized.")
+    print("Copy Synthesizer (Scribe) initialized.")
