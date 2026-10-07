@@ -153,7 +153,7 @@ app = FastAPI(title="WORKHORSE AI Command Center", version="1.2.0", lifespan=lif
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,  # wildcard origin + credentials would let any site ride the session cookie
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -696,12 +696,13 @@ async def upload_media(file: UploadFile = File(...)):
     try:
         input_dir = BASE_DIR / "workspace" / "input"
         input_dir.mkdir(parents=True, exist_ok=True)
-        dest_file = input_dir / file.filename
+        safe_name = Path(file.filename or "upload").name  # strip any path components from the client-supplied filename
+        dest_file = input_dir / safe_name
         with open(dest_file, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
         return {
             "status": "ok",
-            "filename": file.filename,
+            "filename": safe_name,
             "saved_path": str(dest_file),
             "size_mb": round(dest_file.stat().st_size / (1024**2), 2)
         }
@@ -730,20 +731,21 @@ async def get_job(job_id: str):
 
 @app.get("/api/media/{file_path:path}")
 async def serve_media(file_path: str):
-    candidate = (BASE_DIR / "workspace" / "output" / file_path).resolve()
-    if not candidate.exists():
-        candidate = (BASE_DIR / "workspace" / "photos_output" / file_path).resolve()
-    if not candidate.exists():
-        candidate = (BASE_DIR / "workspace" / "photos_input" / file_path).resolve()
-    if not candidate.exists():
-        candidate = (BASE_DIR / "workspace" / "inspiration" / file_path).resolve()
-    if not candidate.exists():
-        candidate = (BASE_DIR / "workspace" / "cam_templates" / file_path).resolve()
-    if not candidate.exists():
-        candidate = (BASE_DIR / "workspace" / "temp" / file_path).resolve()
-    if not candidate.exists():
-        raise HTTPException(status_code=404, detail="Media file not found")
-    return FileResponse(candidate)
+    search_dirs = [
+        BASE_DIR / "workspace" / "output",
+        BASE_DIR / "workspace" / "photos_output",
+        BASE_DIR / "workspace" / "photos_input",
+        BASE_DIR / "workspace" / "inspiration",
+        BASE_DIR / "workspace" / "cam_templates",
+        BASE_DIR / "workspace" / "temp",
+    ]
+    for base_dir in search_dirs:
+        base_resolved = base_dir.resolve()
+        candidate = (base_dir / file_path).resolve()
+        # reject any traversal ("..") that escapes the intended base directory
+        if candidate.is_relative_to(base_resolved) and candidate.exists():
+            return FileResponse(candidate)
+    raise HTTPException(status_code=404, detail="Media file not found")
 
 @app.get("/api/download/photos-zip/{shoot_name}")
 async def download_photos_bundle(shoot_name: str):
