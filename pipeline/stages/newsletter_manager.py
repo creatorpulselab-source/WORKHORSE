@@ -571,24 +571,49 @@ class NewsletterManager:
     # ──────────────────────────────────────────────────────────────────────────
     # RESPONSIVE HORIZONTAL (PC) / VERTICAL (MOBILE) EMAIL BUILDERS
     # ──────────────────────────────────────────────────────────────────────────
+    def _load_iris_verified_filenames(self) -> set:
+        """Returns the set of filenames with a passed=true IRIS QC audit record."""
+        audit_log = self.workspace / "comfy_qc_audit.json"
+        verified = set()
+        if audit_log.exists():
+            try:
+                with open(audit_log, "r", encoding="utf-8") as f:
+                    records = json.load(f)
+                for r in records:
+                    if r.get("passed") and r.get("filename"):
+                        verified.add(r["filename"])
+            except Exception:
+                pass
+        return verified
+
     def get_latest_comfy_visual(self, pub_id: str = "creator_pulse") -> Optional[Path]:
         """
-        Retrieves the latest verified visual render for the SPECIFIC brand.
+        Retrieves the latest IRIS-QC-verified visual render for the SPECIFIC brand.
         - 'creator_pulse' / 'creatorpulselab': searches workspace/brand_assets/creator_pulse_lab
         - 'studio_wire' / 'creator_blueprint' / 'TheCreatorAsset': searches workspace/brand_assets/creator_media_lab
         Falls back to brand prefix filtering (CPL_ vs CML_).
+        Only ever returns a file with a passed=true record in comfy_qc_audit.json - a
+        test render or a render that failed QC must never be auto-attached to a live post.
         """
         is_pulse = any(k in pub_id.lower() for k in ["pulse", "boudoir", "cam", "adult", "cpl"])
         target_subfolder = "creator_pulse_lab" if is_pulse else "creator_media_lab"
         target_prefix = "CPL_" if is_pulse else "CML_"
+        verified_names = self._load_iris_verified_filenames()
+
+        def _latest_verified(files: List[Path]) -> Optional[Path]:
+            verified_files = [f for f in files if f.name in verified_names]
+            if not verified_files:
+                return None
+            verified_files.sort(key=lambda x: x.stat().st_mtime, reverse=True)
+            return verified_files[0]
 
         # 1. Dedicated brand folder
         brand_dir = self.workspace / "brand_assets" / target_subfolder
         if brand_dir.exists():
             files = [f for f in brand_dir.iterdir() if f.is_file() and f.suffix.lower() in [".png", ".jpg", ".jpeg", ".webp"]]
-            if files:
-                files.sort(key=lambda x: x.stat().st_mtime, reverse=True)
-                return files[0]
+            picked = _latest_verified(files)
+            if picked:
+                return picked
 
         # 2. General comfy_renders filtered by brand prefix
         renders_dir = self.workspace / "brand_assets" / "comfy_renders"
@@ -597,19 +622,21 @@ class NewsletterManager:
                 f for f in renders_dir.iterdir()
                 if f.is_file() and f.name.startswith(target_prefix) and f.suffix.lower() in [".png", ".jpg", ".jpeg", ".webp"]
             ]
-            if filtered:
-                filtered.sort(key=lambda x: x.stat().st_mtime, reverse=True)
-                return filtered[0]
+            picked = _latest_verified(filtered)
+            if picked:
+                return picked
 
-        # 3. Fallback: if brand directory is empty, return latest general render
+        # 3. Fallback: only an IRIS-verified render, regardless of brand prefix - never
+        # fall back to "whatever file is newest" since that can be an unaudited test render
         renders_dir = self.workspace / "brand_assets" / "comfy_renders"
         if renders_dir.exists():
             all_files = [f for f in renders_dir.iterdir() if f.is_file() and f.suffix.lower() in [".png", ".jpg", ".jpeg", ".webp"]]
-            if all_files:
-                all_files.sort(key=lambda x: x.stat().st_mtime, reverse=True)
-                return all_files[0]
+            picked = _latest_verified(all_files)
+            if picked:
+                return picked
 
         return None
+
 
     def get_publication_visual_embed(self, pub_id: str = "creator_pulse") -> Dict[str, str]:
         """

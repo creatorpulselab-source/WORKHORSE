@@ -13,6 +13,7 @@ import json
 import time
 import asyncio
 import logging
+import random
 from pathlib import Path
 from datetime import datetime, date
 from typing import Dict, Any, List, Optional
@@ -22,6 +23,30 @@ from pipeline.stages.twitter_poster import TwitterPoster
 from pipeline.stages.newsletter_manager import NewsletterManager
 
 logger = logging.getLogger("workhorse.herald_scheduler")
+
+# Each brand has its own distinct visual "vibe" since @creatorpulselab and @TheCreatorAsset
+# serve different audiences - Herald generates a FRESH on-brand image per post rather than
+# reusing a leftover/test render, and every render still passes through the Iris QC gate.
+BRAND_VIBES = {
+    "creator_pulse_lab": {
+        "brand_target": "creator_pulse_lab",
+        "prompts": [
+            "Luxury boudoir photography, intimate warm rim lighting, satin and velvet fabric textures, sensual confident pose, soft romantic shadows, high-end editorial glamour, photorealistic, 85mm lens, shallow depth of field",
+            "Sultry studio boudoir portrait, golden hour warm key light, silk sheets and velvet backdrop, intimate close framing, soft glowing skin tones, luxury glamour photography, photorealistic, shallow depth of field",
+            "Seductive cam-studio glamour shot, moody warm rim lighting, lace and satin lingerie texture, confident alluring gaze, cinematic shadow play, high-end boudoir editorial, photorealistic, 85mm portrait lens"
+        ],
+        "negative_prompt": "extra limbs, deformed hands, mutated fingers, bad anatomy, blurry, low quality, watermark, text, cartoon, illustration"
+    },
+    "creator_media_lab": {
+        "brand_target": "creator_media_lab",
+        "prompts": [
+            "Editorial studio photography, 5600K key light, Kodak Portra 400 film color grading, magazine-quality shallow depth of field, professional photographer backdrop, crisp clean composition, photorealistic, 50mm lens",
+            "High-fashion studio portrait, softbox lighting setup, Kodak Portra 400 color science, clean minimalist backdrop, sharp focus editorial composition, photorealistic, 85mm lens",
+            "Professional studio headshot photography, three-point lighting, film emulation color grade, magazine cover composition, polished commercial aesthetic, photorealistic, 50mm lens"
+        ],
+        "negative_prompt": "extra limbs, deformed hands, mutated fingers, bad anatomy, blurry, low quality, watermark, text, cartoon, illustration"
+    }
+}
 
 STATE_FILE = Path("F:/WORKHORSE/workspace/daily_schedule_state.json")
 LOGS_DIR = Path("F:/WORKHORSE/workspace/newsletter_logs")
@@ -114,6 +139,39 @@ class HeraldScheduler:
         self.is_running = False
         self._load_state()
 
+    def _get_brand_visual_for_post(self, handle: str) -> Optional[str]:
+        """
+        Generates a FRESH, on-brand image for this specific post (each account has its
+        own distinct vibe/audience) rather than reusing a leftover render. The render
+        goes through the standard Iris QC gate; only a passed image is ever returned.
+        Falls back to the latest already-verified render for this brand if ComfyUI is
+        offline or the fresh generation fails/fails QC - never returns an unverified file.
+        """
+        is_pulse = "pulse" in handle.lower()
+        brand_key = "creator_pulse_lab" if is_pulse else "creator_media_lab"
+        pub_key = "creator_pulse" if is_pulse else "studio_wire"
+        vibe = BRAND_VIBES[brand_key]
+
+        try:
+            from pipeline.stages.comfyui_bridge import comfy_bridge
+            prompt = random.choice(vibe["prompts"])
+            gen_res = comfy_bridge.generate_and_audit(
+                positive_prompt=prompt,
+                negative_prompt=vibe["negative_prompt"],
+                brand_target=vibe["brand_target"],
+                auto_qc=True
+            )
+            if gen_res.get("success") and gen_res.get("qc_audit", {}).get("passed", gen_res.get("qc_bypassed")):
+                print(f"[Herald Scheduler] Fresh on-brand visual generated for @{handle}: {gen_res.get('filename')}")
+                return gen_res.get("file_path")
+            print(f"[Herald Scheduler] Fresh visual for @{handle} did not pass Iris QC, falling back to last verified render.")
+        except Exception as e:
+            print(f"[Herald Scheduler] Fresh visual generation unavailable for @{handle} ({e}), falling back to last verified render.")
+
+        # Safety net: last known IRIS-verified render for this brand (never an unaudited file)
+        vis_path = self.newsletter.get_latest_comfy_visual(pub_key)
+        return str(vis_path) if vis_path else None
+
     def _load_state(self) -> Dict[str, Any]:
         if STATE_FILE.exists():
             try:
@@ -203,15 +261,12 @@ class HeraldScheduler:
         for handle, tweets in tweets_dict.items():
             if tweets:
                 try:
-                    # Dynamically look for latest verified ComfyUI 5070 Ti visual to attach to root tweet
                     media_paths = None
                     try:
-                        # Strictly enforce brand-specific visual isolation
-                        pub_key = "creator_pulse" if "pulse" in handle.lower() else "studio_wire"
-                        vis_path = self.newsletter.get_latest_comfy_visual(pub_key)
+                        vis_path = self._get_brand_visual_for_post(handle)
                         if vis_path and Path(vis_path).exists():
                             media_paths = [str(vis_path)]
-                            print(f"[Herald Scheduler] Brand visual selected for @{handle} -> {vis_path.name} (from {vis_path.parent.name})")
+                            print(f"[Herald Scheduler] Brand visual attached for @{handle} -> {Path(vis_path).name}")
                     except Exception as ve:
                         print(f"[Herald Scheduler] Visual lookup notice: {ve}")
 

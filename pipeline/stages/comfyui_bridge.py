@@ -1190,7 +1190,7 @@ class ComfyUIBridge:
         dest_path = RENDERS_DIR / staged_path.name
         staged_path.rename(dest_path)
 
-        return {
+        result: Dict[str, Any] = {
             "success": True,
             "file_path": str(dest_path),
             "filename": dest_path.name,
@@ -1199,6 +1199,19 @@ class ComfyUIBridge:
             "reference_face_image": str(reference_face_image_path),
             "host_used": f"{self.host}:{self.port}"
         }
+
+        if self.qc_cfg.get("auto_qc_enabled", True):
+            audit = self.run_iris_qc_audit(dest_path, original_prompt=prompt)
+            result["qc_audit"] = audit
+            self._log_audit_record(dest_path.name, audit, f"[SUBJECT SWAP] {prompt}", 1, passed=audit.get("passed", True))
+
+        try:
+            from pipeline.stages.cipher import cipher_scrubber
+            cipher_scrubber.scrub_image(dest_path)
+        except Exception as ce:
+            print(f"[CIPHER] Warning: Metadata scrub failed: {ce}")
+
+        return result
 
     def run_iris_qc_audit(self, image_path: Path, original_prompt: str = "") -> Dict[str, Any]:
         """

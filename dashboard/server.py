@@ -412,7 +412,8 @@ async def upload_photos(files: List[UploadFile] = File(...)):
     photos_dir.mkdir(parents=True, exist_ok=True)
     saved = []
     for file in files:
-        dest = photos_dir / file.filename
+        safe_name = Path(file.filename or "upload").name  # strip any path components from the client-supplied filename
+        dest = photos_dir / safe_name
         with open(dest, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
         saved.append(str(dest))
@@ -458,10 +459,11 @@ async def upload_inspiration(files: List[UploadFile] = File(...)):
     insp_dir.mkdir(parents=True, exist_ok=True)
     saved = []
     for file in files:
-        dest = insp_dir / file.filename
+        safe_name = Path(file.filename or "upload").name  # strip any path components from the client-supplied filename
+        dest = insp_dir / safe_name
         with open(dest, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
-        saved.append(file.filename)
+        saved.append(safe_name)
     return {"status": "ok", "uploaded": saved}
 
 @app.get("/api/inspiration/analyze")
@@ -1103,7 +1105,8 @@ async def operator_chat_endpoint(
     if files:
         for f in files:
             if f.filename:
-                dest = CLIENT_INBOX_DIR / f.filename
+                safe_name = Path(f.filename).name  # strip any path components from the client-supplied filename
+                dest = CLIENT_INBOX_DIR / safe_name
                 content = await f.read()
                 with open(dest, "wb") as out:
                     out.write(content)
