@@ -119,6 +119,7 @@ When the user asks you to inspect, check, or execute a task, you can invoke:
 - {"tool": "comfy_generate_glb", "agent": "synapse|iris|aura|echo|forge|cipher|herald|mercury"}: Renders an interactive 3D GLB model on RTX 5070 Ti for the dashboard card.
 - {"tool": "comfy_background_change", "image": "...", "prompt": "...", "negative_prompt": "..."}: Auto-segments the subject (SAM3) out of an uploaded photo and swaps in a brand-new background from a text prompt.
 - {"tool": "comfy_image_to_video", "image": "...", "prompt": "...", "negative_prompt": "...", "width": 720, "height": 1280, "num_frames": 300, "fps": 30}: Animates a still photo into a short video clip on RTX 5070 Ti using the local LTX 2.3 image-to-video pipeline (SageAttention-optimized). Takes several minutes - warn the Commander it will take a while before calling this.
+- {"tool": "comfy_subject_swap", "image": "...", "reference_face_image": "...", "prompt": "...", "negative_prompt": "..."}: Full-subject identity swap (not just face) - keeps the ORIGINAL photo's pose/outfit/composition, replaces the person's identity using a separate reference face photo. Used for tattoo/identity anonymity protection. Requires BOTH a source pose/outfit photo and a separate reference face photo - ask for both if either is missing.
 - {"tool": "comfy_remote_purge"}: Remotely unloads models and frees 16GB VRAM on RTX 5070 Ti (Main PC).
 - {"tool": "comfy_prewarm", "checkpoint": "..."}: Pre-loads checkpoint into 5070 Ti VRAM before scheduled dispatches.
 - {"tool": "prune_staging_buffer"}: Purges unapproved staging renders older than 48 hours to preserve Drive F.
@@ -733,6 +734,51 @@ class AIOperatorEngine:
                     result["status"] = "warning"
                     result["message"] = f"SYNAPSE [100 Fm]: Background change failed: {bg_res.get('error')}"
                     result["details"] = bg_res
+            except Exception as e:
+                result["status"] = "error"
+                result["error"] = str(e)
+
+        elif tool_name == "comfy_subject_swap":
+            filename = tool_call.get("image", "").strip()
+            ref_filename = tool_call.get("reference_face_image", "").strip()
+            prompt = tool_call.get("prompt", "").strip()
+            negative_prompt = tool_call.get("negative_prompt") or None
+            if not filename:
+                return {"status": "error", "error": "No source pose/outfit image provided for subject swap"}
+            if not ref_filename:
+                return {"status": "error", "error": "No reference face image provided for subject swap"}
+            if not prompt:
+                return {"status": "error", "error": "No scene/identity prompt provided for subject swap"}
+            try:
+                def _resolve(fn):
+                    p = Path(fn)
+                    if not p.is_absolute():
+                        p = Path("F:/WORKHORSE/workspace/client_inbox") / fn
+                        if not p.exists():
+                            p = Path("F:/WORKHORSE/workspace/brand_assets/comfy_renders") / fn
+                    return p
+
+                img_path = _resolve(filename)
+                ref_path = _resolve(ref_filename)
+                if not img_path.exists():
+                    return {"status": "error", "error": f"Source image not found: {filename}"}
+                if not ref_path.exists():
+                    return {"status": "error", "error": f"Reference face image not found: {ref_filename}"}
+
+                from pipeline.stages.comfyui_bridge import comfy_bridge
+                swap_res = comfy_bridge.generate_subject_swap(
+                    source_image_path=img_path,
+                    reference_face_image_path=ref_path,
+                    prompt=prompt,
+                    negative_prompt=negative_prompt
+                )
+                if swap_res.get("success"):
+                    result["message"] = f"SYNAPSE [100 Fm]: Full-subject swap rendered on RTX 5070 Ti. Saved to: {swap_res.get('filename')}."
+                    result["details"] = swap_res
+                else:
+                    result["status"] = "warning"
+                    result["message"] = f"SYNAPSE [100 Fm]: Subject swap failed: {swap_res.get('error')}"
+                    result["details"] = swap_res
             except Exception as e:
                 result["status"] = "error"
                 result["error"] = str(e)

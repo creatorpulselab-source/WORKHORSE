@@ -959,6 +959,243 @@ class ComfyUIBridge:
             "host_used": f"{self.host}:{self.port}"
         }
 
+    def build_subject_swap_workflow(self,
+                                    source_image_name: str,
+                                    reference_face_image_name: str,
+                                    prompt: str,
+                                    negative_prompt: Optional[str] = None,
+                                    controlnet_name: str = "flux1-dev-controlnet-union.safetensors",
+                                    pose_type: str = "openpose",
+                                    controlnet_strength: float = 0.8,
+                                    pulid_weight: float = 1.0,
+                                    width: int = 1024,
+                                    height: int = 1024,
+                                    steps: int = 20,
+                                    guidance: float = 3.5,
+                                    seed: Optional[int] = None,
+                                    unet_name: str = "flux1-krea-dev_fp8_scaled.safetensors",
+                                    clip_name: str = "clip_l.safetensors",
+                                    t5_name: str = "t5xxl_fp8_e4m3fn_scaled.safetensors",
+                                    vae_name: str = "ae.safetensors",
+                                    pulid_file: str = "pulid_flux_v0.9.1.safetensors",
+                                    filename_prefix: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Builds a ComfyUI API graph for full-subject identity swap on Flux: the new
+        person's identity (from `reference_face_image_name`) is injected via PuLID-Flux,
+        while OpenPose + a Union ControlNet preserve the ORIGINAL photo's pose/outfit/
+        composition (`source_image_name`) - used for tattoo/identity anonymity swaps.
+        Requires a Flux-compatible Union ControlNet model file (supports an "openpose"
+        mode via SetUnionControlNetType) to be present in ComfyUI's controlnet folder.
+        """
+        seed_val = seed if seed is not None else int(time.time() * 1000) % (2**31 - 1)
+        neg = negative_prompt or "blurry, low quality, deformed, mismatched pose, warped outfit"
+
+        workflow: Dict[str, Any] = {
+            "1": {
+                "inputs": {"image": source_image_name},
+                "class_type": "LoadImage"
+            },
+            "2": {
+                "inputs": {"image": reference_face_image_name},
+                "class_type": "LoadImage"
+            },
+            "3": {
+                "inputs": {"unet_name": unet_name, "weight_dtype": "default"},
+                "class_type": "UNETLoader"
+            },
+            "4": {
+                "inputs": {"clip_name1": clip_name, "clip_name2": t5_name, "type": "flux"},
+                "class_type": "DualCLIPLoader"
+            },
+            "5": {
+                "inputs": {"vae_name": vae_name},
+                "class_type": "VAELoader"
+            },
+            "6": {
+                "inputs": {
+                    "image": ["1", 0],
+                    "detect_hand": "enable",
+                    "detect_body": "enable",
+                    "detect_face": "enable",
+                    "resolution": 512
+                },
+                "class_type": "OpenposePreprocessor"
+            },
+            "7": {
+                "inputs": {"control_net_name": controlnet_name},
+                "class_type": "ControlNetLoader"
+            },
+            "8": {
+                "inputs": {"control_net": ["7", 0], "type": pose_type},
+                "class_type": "SetUnionControlNetType"
+            },
+            "9": {
+                "inputs": {"text": prompt, "clip": ["4", 0]},
+                "class_type": "CLIPTextEncode"
+            },
+            "10": {
+                "inputs": {"text": neg, "clip": ["4", 0]},
+                "class_type": "CLIPTextEncode"
+            },
+            "11": {
+                "inputs": {"conditioning": ["9", 0], "guidance": guidance},
+                "class_type": "FluxGuidance"
+            },
+            "12": {
+                "inputs": {
+                    "positive": ["11", 0],
+                    "negative": ["10", 0],
+                    "control_net": ["8", 0],
+                    "image": ["6", 0],
+                    "strength": controlnet_strength,
+                    "start_percent": 0.0,
+                    "end_percent": 1.0
+                },
+                "class_type": "ControlNetApplyAdvanced"
+            },
+            "13": {
+                "inputs": {"pulid_file": pulid_file},
+                "class_type": "PulidFluxModelLoader"
+            },
+            "14": {
+                "inputs": {"provider": "CUDA"},
+                "class_type": "PulidFluxInsightFaceLoader"
+            },
+            "15": {
+                "inputs": {},
+                "class_type": "PulidFluxEvaClipLoader"
+            },
+            "16": {
+                "inputs": {
+                    "model": ["3", 0],
+                    "pulid_flux": ["13", 0],
+                    "eva_clip": ["15", 0],
+                    "face_analysis": ["14", 0],
+                    "image": ["2", 0],
+                    "weight": pulid_weight,
+                    "start_at": 0.0,
+                    "end_at": 1.0,
+                    "fusion": "mean",
+                    "fusion_weight_max": 1.0
+                },
+                "class_type": "ApplyPulidFlux"
+            },
+            "17": {
+                "inputs": {"width": width, "height": height, "batch_size": 1},
+                "class_type": "EmptyLatentImage"
+            },
+            "18": {
+                "inputs": {
+                    "seed": seed_val,
+                    "steps": steps,
+                    "cfg": 1.0,
+                    "sampler_name": "euler",
+                    "scheduler": "simple",
+                    "denoise": 1.0,
+                    "model": ["16", 0],
+                    "positive": ["12", 0],
+                    "negative": ["12", 1],
+                    "latent_image": ["17", 0]
+                },
+                "class_type": "KSampler"
+            },
+            "19": {
+                "inputs": {"samples": ["18", 0], "vae": ["5", 0]},
+                "class_type": "VAEDecode"
+            },
+            "20": {
+                "inputs": {
+                    "filename_prefix": filename_prefix or "WORKHORSE_SubjectSwap",
+                    "images": ["19", 0]
+                },
+                "class_type": "SaveImage"
+            }
+        }
+
+        return workflow
+
+    def generate_subject_swap(self,
+                              source_image_path: Union[str, Path],
+                              reference_face_image_path: Union[str, Path],
+                              prompt: str,
+                              negative_prompt: Optional[str] = None,
+                              controlnet_name: str = "flux1-dev-controlnet-union.safetensors",
+                              controlnet_strength: float = 0.8,
+                              pulid_weight: float = 1.0,
+                              width: int = 1024,
+                              height: int = 1024,
+                              timeout_seconds: int = 180) -> Dict[str, Any]:
+        """
+        End-to-end full-subject identity swap: uploads the original pose/outfit photo
+        and the new identity's reference face, builds the Flux + OpenPose/ControlNet +
+        PuLID graph, renders, and saves. Used for tattoo/identity anonymity protection -
+        keeps the original pose/outfit/composition, replaces the person's identity.
+        """
+        conn = self.check_connection()
+        if not conn.get("online"):
+            return {
+                "success": False,
+                "error": f"ComfyUI on Main PC is offline ({conn.get('host')}:{conn.get('port')}).",
+                "details": conn
+            }
+
+        source_image_path = Path(source_image_path)
+        reference_face_image_path = Path(reference_face_image_path)
+        if not source_image_path.exists():
+            return {"success": False, "error": f"Source image not found: {source_image_path}"}
+        if not reference_face_image_path.exists():
+            return {"success": False, "error": f"Reference face image not found: {reference_face_image_path}"}
+
+        try:
+            uploaded_source = self.upload_image_to_comfy(source_image_path)
+            uploaded_reference = self.upload_image_to_comfy(reference_face_image_path)
+        except Exception as e:
+            return {"success": False, "error": f"Failed to upload images to ComfyUI: {e}"}
+
+        workflow = self.build_subject_swap_workflow(
+            source_image_name=uploaded_source,
+            reference_face_image_name=uploaded_reference,
+            prompt=prompt,
+            negative_prompt=negative_prompt,
+            controlnet_name=controlnet_name,
+            controlnet_strength=controlnet_strength,
+            pulid_weight=pulid_weight,
+            width=width,
+            height=height
+        )
+
+        try:
+            queued = self.queue_prompt(workflow)
+            prompt_id = queued.get("prompt_id")
+            if not prompt_id:
+                return {"success": False, "error": f"No prompt_id returned by ComfyUI. node_errors: {queued.get('node_errors')}"}
+
+            images = self.wait_for_execution(prompt_id, timeout_seconds=timeout_seconds)
+            if not images:
+                return {"success": False, "error": "ComfyUI subject-swap generation timed out or yielded no image output"}
+
+            first_img = images[0]
+            staged_path = self.download_image(
+                filename=first_img["filename"],
+                subfolder=first_img.get("subfolder", ""),
+                folder_type=first_img.get("type", "output")
+            )
+        except Exception as e:
+            return {"success": False, "error": f"ComfyUI subject-swap generation failed: {e}"}
+
+        dest_path = RENDERS_DIR / staged_path.name
+        staged_path.rename(dest_path)
+
+        return {
+            "success": True,
+            "file_path": str(dest_path),
+            "filename": dest_path.name,
+            "url_path": f"/static/brand_assets/comfy_renders/{dest_path.name}",
+            "source_image": str(source_image_path),
+            "reference_face_image": str(reference_face_image_path),
+            "host_used": f"{self.host}:{self.port}"
+        }
+
     def run_iris_qc_audit(self, image_path: Path, original_prompt: str = "") -> Dict[str, Any]:
         """
         IRIS [77 Ir] Quality Control Gate:
