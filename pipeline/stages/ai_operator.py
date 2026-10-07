@@ -31,6 +31,8 @@ CLIENT_INBOX_DIR = WORKSPACE_DIR / "client_inbox"
 CLIENT_OUTPUTS_DIR = WORKSPACE_DIR / "client_deliveries"
 CONFIG_FILE = BASE_DIR / "config.json"
 SUBSCRIBERS_FILE = WORKSPACE_DIR / "newsletter_subscribers.json"
+INCIDENT_LOG_FILE = WORKSPACE_DIR / "incident_log.json"
+MAX_INCIDENT_LOG_ENTRIES = 200
 
 for d in (CLIENT_INBOX_DIR, CLIENT_OUTPUTS_DIR):
     d.mkdir(parents=True, exist_ok=True)
@@ -120,6 +122,7 @@ When the user asks you to inspect, check, or execute a task, you can invoke:
 - {"tool": "prune_staging_buffer"}: Purges unapproved staging renders older than 48 hours to preserve Drive F.
 - {"tool": "cipher_scrub_file", "file": "..."}: Air-gap EXIF/GPS metadata scrubber for adult creator privacy.
 - {"tool": "trend_radar_sweep"}: Runs morning web search across Google News RSS for fresh trends.
+- {"tool": "incident_log"}: Retrieves the recent self-healing incident history (auto-detected issues and what was done about them).
 - {"tool": "generate_tip_menu", "title": "...", "theme": "...", "layout_style": "vip_showcase|table|cards|obs_overlay", "items": [{"tokens": "...", "action": "..."}], "avatar_url": "...", "banner_url": "...", "top_tipper": "...", "schedule": "...", "goal_text": "..."}: Builds and bundles a client's custom tip menu / cam profile.
 
 JOB-INTAKE RULE (CRITICAL):
@@ -202,6 +205,72 @@ class AIOperatorEngine:
         if self.last_search_status == "ok" and not results:
             self.last_search_status = "no_results"
         return results
+
+    def log_incident(self, component: str, issue: str, action_taken: str, status: str = "resolved") -> Dict[str, Any]:
+        """Appends an entry to the persistent incident log so Synapse can reference
+        past self-healing events in conversation instead of only reacting on-demand."""
+        entry = {
+            "timestamp": datetime.datetime.now().isoformat(),
+            "component": component,
+            "issue": issue,
+            "action_taken": action_taken,
+            "status": status
+        }
+        try:
+            entries = []
+            if INCIDENT_LOG_FILE.exists():
+                with open(INCIDENT_LOG_FILE, "r", encoding="utf-8") as f:
+                    entries = json.load(f).get("incidents", [])
+            entries.append(entry)
+            entries = entries[-MAX_INCIDENT_LOG_ENTRIES:]
+            with open(INCIDENT_LOG_FILE, "w", encoding="utf-8") as f:
+                json.dump({"incidents": entries}, f, indent=2)
+        except Exception as e:
+            print(f"[SYNAPSE Incident Log] Failed to persist incident: {e}")
+        return entry
+
+    def get_recent_incidents(self, limit: int = 10) -> List[Dict[str, Any]]:
+        try:
+            if INCIDENT_LOG_FILE.exists():
+                with open(INCIDENT_LOG_FILE, "r", encoding="utf-8") as f:
+                    entries = json.load(f).get("incidents", [])
+                return list(reversed(entries))[:limit]
+        except Exception:
+            pass
+        return []
+
+    def auto_remediate(self) -> Dict[str, Any]:
+        """Periodic self-healing sweep: runs full diagnostics, then attempts a known
+        fix for every detected issue it's able to resolve autonomously (storage,
+        corrupted DB). Issues it cannot safely auto-fix (e.g. Ollama offline, needs
+        a human to restart the service) are logged as 'needs_attention' instead of
+        silently retried forever. Every attempt - successful or not - is recorded
+        in the incident log."""
+        diag = self.run_system_diagnostics()
+        remediations = []
+
+        storage = diag["components"].get("storage_f", {})
+        if storage.get("status") == "warning":
+            try:
+                prune_res = vram_manager.prune_old_staging_files(max_age_hours=24)
+                action = f"Aggressively pruned staging files older than 24h: freed {prune_res['deleted_mb']} MB."
+                self.log_incident("storage_f", f"Low disk space ({storage.get('free_gb')} GB free)", action, status="resolved")
+                remediations.append({"component": "storage_f", "action": action})
+            except Exception as e:
+                self.log_incident("storage_f", f"Low disk space ({storage.get('free_gb')} GB free)", f"Auto-prune failed: {e}", status="failed")
+
+        subs_db = diag["components"].get("subscribers_db", {})
+        if subs_db.get("status") == "corrupted":
+            repair_res = self.repair_subscribers_db()
+            self.log_incident("subscribers_db", "newsletter_subscribers.json corrupted", repair_res.get("message", ""), status="resolved" if repair_res.get("status") == "ok" else "failed")
+            remediations.append({"component": "subscribers_db", "action": repair_res.get("message", "")})
+
+        ollama = diag["components"].get("ollama", {})
+        if ollama.get("status") == "offline":
+            self.log_incident("ollama", "Ollama server offline/unreachable on port 11434", "Cannot auto-restart a local service from here - flagged for Commander attention.", status="needs_attention")
+
+        diag["remediations_applied"] = remediations
+        return diag
 
     def run_system_diagnostics(self) -> Dict[str, Any]:
         """Comprehensive health check across GPUs, Ollama, Storage, and Databases."""
@@ -335,6 +404,12 @@ class AIOperatorEngine:
 
         elif tool_name == "fix_vram_overflow":
             return self.fix_vram_overflow()
+
+        elif tool_name == "incident_log":
+            incidents = self.get_recent_incidents(limit=10)
+            result["incidents"] = incidents
+            result["message"] = f"SYNAPSE: {len(incidents)} recent self-healing incident(s) on record." if incidents else "SYNAPSE: No incidents logged - system has been running clean."
+            return result
 
         elif tool_name == "comfy_generate_glb":
             agent = tool_call.get("agent", "synapse")
@@ -1024,6 +1099,16 @@ class AIOperatorEngine:
             system_content += trend_context_str
         if comfy_context_str:
             system_content += comfy_context_str
+
+        # Self-healing awareness: let Synapse proactively mention recent auto-detected
+        # issues/fixes instead of only reporting them when asked via system_diagnostics.
+        recent_incidents = self.get_recent_incidents(limit=5)
+        if recent_incidents:
+            incident_context_str = "\n\n--- RECENT SELF-HEALING INCIDENT LOG (newest first) ---\n"
+            for inc in recent_incidents:
+                incident_context_str += f"[{inc['timestamp']}] {inc['component']}: {inc['issue']} -> {inc['action_taken']} ({inc['status']})\n"
+            incident_context_str += "--- END INCIDENT LOG ---\nIf any entry is 'needs_attention', proactively flag it to the Commander.\n"
+            system_content += incident_context_str
         if ingested_link_context:
             system_content += ingested_link_context
         if web_context_str:

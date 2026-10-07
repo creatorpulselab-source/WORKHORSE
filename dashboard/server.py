@@ -98,6 +98,7 @@ comfy_health_cache: Dict[str, Any] = {"online": None, "last_checked": None, "err
 async def comfy_health_monitor_loop():
     from pipeline.stages.comfyui_bridge import comfy_bridge
     loop = asyncio.get_event_loop()
+    was_online = None
     while True:
         try:
             status = await loop.run_in_executor(None, comfy_bridge.check_connection)
@@ -105,11 +106,30 @@ async def comfy_health_monitor_loop():
             comfy_health_cache["host"] = status.get("host")
             comfy_health_cache["error"] = status.get("error")
             comfy_health_cache["last_checked"] = time.strftime("%Y-%m-%d %H:%M:%S")
+            # Log transitions (not every poll) so the incident log stays readable
+            if was_online is True and comfy_health_cache["online"] is False:
+                ai_operator.log_incident("comfy_ui", f"ComfyUI (RTX 5070 Ti) went offline: {comfy_health_cache['error']}", "Cannot remotely restart Main PC service - flagged for Commander attention.", status="needs_attention")
+            elif was_online is False and comfy_health_cache["online"] is True:
+                ai_operator.log_incident("comfy_ui", "ComfyUI (RTX 5070 Ti) came back online", "No action needed - connection self-recovered.", status="resolved")
+            was_online = comfy_health_cache["online"]
         except Exception as e:
             comfy_health_cache["online"] = False
             comfy_health_cache["error"] = str(e)
             comfy_health_cache["last_checked"] = time.strftime("%Y-%m-%d %H:%M:%S")
         await asyncio.sleep(45)
+
+async def auto_remediation_loop():
+    """Periodic self-healing sweep (every 10 min): proactively runs diagnostics and
+    attempts known fixes instead of waiting for someone to ask Synapse to check."""
+    loop = asyncio.get_event_loop()
+    while True:
+        try:
+            await asyncio.sleep(600)
+            await loop.run_in_executor(None, ai_operator.auto_remediate)
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            print(f"[AUTO-REMEDIATION] Error in loop: {e}")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -119,12 +139,14 @@ async def lifespan(app: FastAPI):
     watchdog_task = asyncio.create_task(vram_manager.run_watchdog_loop())
     herald_task = asyncio.create_task(herald_scheduler.run_loop())
     comfy_health_task = asyncio.create_task(comfy_health_monitor_loop())
+    remediation_task = asyncio.create_task(auto_remediation_loop())
     try:
         yield
     finally:
         watchdog_task.cancel()
         herald_task.cancel()
         comfy_health_task.cancel()
+        remediation_task.cancel()
 
 app = FastAPI(title="WORKHORSE AI Command Center", version="1.2.0", lifespan=lifespan)
 
@@ -1047,6 +1069,10 @@ async def websocket_telemetry(websocket: WebSocket):
 async def get_system_health():
     report = ai_operator.run_system_diagnostics()
     return report
+
+@app.get("/api/system/incidents")
+async def get_incident_log(limit: int = 20):
+    return {"status": "ok", "incidents": ai_operator.get_recent_incidents(limit=limit)}
 
 @app.post("/api/system/self-heal")
 async def trigger_self_heal(payload: Dict[str, Any] = {}):
