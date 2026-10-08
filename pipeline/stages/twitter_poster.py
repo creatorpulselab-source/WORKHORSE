@@ -154,10 +154,10 @@ class TwitterPoster:
                     for mp in media_paths:
                         p = Path(mp)
                         if p.exists():
-                            # CIPHER [82 Pb] Pre-flight EXIF scrub
+                            # SCRUBBER [82 Pb] Pre-flight EXIF scrub
                             try:
-                                from pipeline.stages.cipher import cipher_scrubber
-                                cipher_scrubber.scrub_image(p)
+                                from pipeline.stages.scrubber import metadata_scrubber
+                                metadata_scrubber.scrub_image(p)
                             except Exception:
                                 pass
                             print(f"[TwitterPoster] Uploading visual media to X: {p.name}...")

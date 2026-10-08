@@ -239,6 +239,74 @@ Respond in STRICT, VALID JSON format with no markdown wrappers or extra commenta
 
         return parsed_kit
 
+    def generate_daily_publication_content(
+        self,
+        pub_id: str,
+        pub_name: str,
+        audience: str,
+        funnel_blurb: str,
+        today_str: str,
+        progress_cb: Optional[Callable[[str, int], None]] = None
+    ) -> Dict[str, Any]:
+        """Generates genuinely fresh daily editorial content for one WORKHORSE publication:
+        a new lead-story headline+body for the newsletter HTML, a full markdown blog article,
+        and a fresh Twitter/X thread - so Herald never dispatches the same canned copy twice.
+        Returns {"success": False, ...} on any failure so callers can fall back to static copy."""
+        if progress_cb:
+            progress_cb(f"Scribe Agent: Writing fresh daily editorial for {pub_name}...", 10)
+
+        persona = (
+            "You are Scribe, a high-converting copywriter and editorial strategist for the "
+            f"'{pub_name}' daily publication, written for {audience}. Everything runs 100% "
+            "locally and privately. Your job today is to write a GENUINELY NEW angle or insight "
+            "- never reuse generic filler or repeat an idea you'd expect to see in a stale template."
+        )
+
+        prompt = f"""{persona}
+
+Today is {today_str}. Write fresh daily editorial content for today's issue. This publication promotes: {funnel_blurb}.
+
+Respond in STRICT, VALID JSON (no markdown wrappers, no commentary). Use \\n for line breaks inside string values - never use literal newlines inside a JSON string. Follow this exact schema:
+{{
+  "lead_headline": "A punchy, specific headline for today's #1 lead story (under 90 characters), different from anything generic.",
+  "lead_body": "2-4 sentences of genuinely new, specific, non-generic insight/advice/data expanding on the headline.",
+  "markdown_article": "A complete ~5-section Markdown article body (use ## headers and bullet points, bold where useful) covering fresh angles relevant to {audience} for today's issue. Do not include a title or date line - start directly with the first ## section heading.",
+  "tweet_thread": ["1/4 opening hook tweet with an emoji and a question or bold claim", "2/4 supporting point", "3/4 supporting point or proof", "4/4 call-to-action tweet"]
+}}"""
+
+        raw_response = self.ai.call_ollama_text(prompt, system_prompt=persona)
+
+        try:
+            clean_json = raw_response.strip()
+            clean_json = re.sub(r"<think>.*?</think>", "", clean_json, flags=re.DOTALL).strip()
+            if "```" in clean_json:
+                matches = re.findall(r"```(?:json)?(.*?)```", clean_json, re.DOTALL)
+                if matches:
+                    clean_json = matches[0].strip()
+            if not clean_json.startswith("{"):
+                start = clean_json.find("{")
+                end = clean_json.rfind("}")
+                if start != -1 and end != -1 and end > start:
+                    clean_json = clean_json[start:end + 1]
+            parsed = json.loads(clean_json)
+
+            tweet_thread = parsed.get("tweet_thread")
+            if not isinstance(tweet_thread, list):
+                tweet_thread = []
+
+            if progress_cb:
+                progress_cb(f"Scribe Agent: Fresh daily editorial ready for {pub_name}.", 100)
+
+            return {
+                "success": True,
+                "lead_headline": (parsed.get("lead_headline") or "").strip(),
+                "lead_body": (parsed.get("lead_body") or "").strip(),
+                "markdown_article": (parsed.get("markdown_article") or "").strip(),
+                "tweet_thread": [str(t).strip() for t in tweet_thread if str(t).strip()]
+            }
+        except Exception as e:
+            return {"success": False, "error": str(e), "raw_response": raw_response[:500]}
+
 if __name__ == "__main__":
     synthesizer = CopySynthesizer()
     print("Copy Synthesizer (Scribe) initialized.")

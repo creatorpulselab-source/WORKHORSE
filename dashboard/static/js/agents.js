@@ -3,17 +3,17 @@
 // ==========================================================================
 
 const AGENTS_METADATA = {
-  vanguard: {
-    name: "Vanguard",
-    role: "Tactical Commander & System Orchestrator",
+  synapse: {
+    name: "Synapse",
+    role: "Master AI Operator & Pipeline Orchestrator",
     hardware: "Dual NVIDIA RTX 3060 (24GB VRAM)",
-    model: "System Orchestrator Core",
+    model: "Local Ollama Reasoning LLM (SYNAPSE 14B)",
     privacyStatus: "🔒 100% Local GPU Offline (Air-Gapped)",
     defaultQuote: "Command center online. Standing by for raw shoot media.",
     whatItDoes: [
       "Monitors real-time VRAM allocation across Dual RTX 3060 GPUs.",
       "Validates incoming video stream container, resolution, framerate, and duration.",
-      "Manages sequential agent deployment through all 7 pipeline stages.",
+      "Manages sequential agent deployment through all pipeline stages.",
       "Coordinates safe file archiving and error prevention."
     ],
     configFields: [
@@ -24,6 +24,27 @@ const AGENTS_METADATA = {
       ]},
       { id: "output_dir", label: "Destination Output Directory", type: "text", default: "F:/WORKHORSE/workspace/output" },
       { id: "auto_archive", label: "Auto-Archive Raw Shoot upon completion", type: "checkbox", default: false }
+    ]
+  },
+
+  vanguard: {
+    name: "Vanguard",
+    role: "Fiverr Automation & Service Dispatcher",
+    hardware: "NVIDIA NVENC Hardware Encoder (shared with Forge, GPU 1)",
+    model: "Fiverr Gig Fulfillment Engine",
+    privacyStatus: "🔒 100% Local GPU Offline (Air-Gapped)",
+    defaultQuote: "Order radar live. Standing by to dispatch and fulfill incoming Fiverr gigs.",
+    whatItDoes: [
+      "Monitors a live order radar on digitalcreatorassets@gmail.com for new Fiverr gig orders.",
+      "Auto-fulfills 4 high-demand service gigs - photo retouching & color grading, video teaser/reels, social captions & hashtag kits, and OnlyFans/Fansly promo banners - by routing client media through Aura's and Forge's real processing engines.",
+      "Packages finished deliverables into 1-click client-ready ZIP bundles.",
+      "Generates automated 5-star review request follow-ups after delivery."
+    ],
+    configFields: [
+      { id: "order_radar_email", label: "Order Intake Mailbox", type: "text", default: "digitalcreatorassets@gmail.com" },
+      { id: "active_gigs", label: "Active Fiverr Gigs", type: "textarea",
+        default: "Photo Retouching & Color Grading, Video Teaser & Reels, Social Captions & Hashtag Kits, OnlyFans/Fansly Promo Banners" },
+      { id: "auto_review_request", label: "Auto-Send 5-Star Review Request", type: "checkbox", default: true }
     ]
   },
 
@@ -87,35 +108,35 @@ const AGENTS_METADATA = {
 
   aura: {
     name: "Aura",
-    role: "Copy Synthesizer & Adult Marketing Muse",
-    hardware: "Local Ollama Uncensored LLM",
-    model: "huihui_ai/qwen3-abliterated:14b",
-    privacyStatus: "🔒 100% Local GPU Offline (Strict Adult Privacy)",
-    defaultQuote: "Creative matrix humming. Ready to generate high-converting release kits.",
+    role: "Editorial Retoucher & Digital Preset Studio",
+    hardware: "CPU / OpenCV Image Processing Pipeline",
+    model: "OpenCV Frequency-Separation Retouch & Color-Grade Engine",
+    privacyStatus: "🔒 100% Local Offline (No Cloud Uploads)",
+    defaultQuote: "Retouching bay warmed up. Ready to smooth, sharpen, and grade your shoot.",
     whatItDoes: [
-      "Synthesizes platform-specific copy (OnlyFans, Fansly, Instagram, Twitter/X, TikTok, Reddit).",
-      "Crafts enticing PPV teaser captions with customizable unlock pricing.",
-      "Generates VIP direct message broadcasts for top subscribers.",
-      "Produces 25+ curated hashtags tailored to adult creator and photography niches."
+      "Applies true frequency-separation skin smoothing - splits the tone/blemish layer from the pore/texture layer so edits never look waxy or plastic.",
+      "Runs an unsharp-mask clarity pass to restore crisp eyes, hair, and fabric detail after smoothing.",
+      "Applies 6 cinematic color-grade presets (Moody Boudoir, Golden Hour, Cyber Neon, Monochrome Noir, Vintage 35mm, Clean Editorial) via matrix transforms and tone curves.",
+      "Crops to social aspect ratios, burns promotional watermarks, and batch-processes full shoots.",
+      "Packages matching Lightroom .XMP presets, posing guides, and model release / 2257 compliance paperwork as sellable Etsy digital products."
     ],
     configFields: [
-      { id: "text_model", label: "Local Ollama Text Model", type: "select", options: [
-        { val: "huihui_ai/qwen3-abliterated:14b", label: "huihui_ai/qwen3-abliterated:14b (Uncensored & Creative)" },
-        { val: "qwen3.8:27b", label: "qwen3.8:27b (27B Deep Reasoning)" },
-        { val: "huihui_ai/gemma-4-abliterated:31b", label: "huihui_ai/gemma-4-abliterated:31b (31B Heavy Model)" },
-        { val: "studiobrn/uncensoredmodai:latest", label: "studiobrn/uncensoredmodai:latest (Dedicated Creator Model)" }
+      { id: "retouch_strength", label: "Skin Smoothing Strength", type: "select", options: [
+        { val: "0.3", label: "Light (0.3 - Subtle Natural Touch-up)" },
+        { val: "0.5", label: "Standard (0.5 - Recommended)" },
+        { val: "0.7", label: "Heavy (0.7 - Full Glamour Polish)" }
       ]},
-      { id: "tone_preset", label: "Copywriting Tone of Voice", type: "select", options: [
-        { val: "seductive_teasing", label: "Seductive & Teasing (OnlyFans / Fansly Focus)" },
-        { val: "glamour_luxury", label: "Glamour & Luxury Editorial (High-End Photography)" },
-        { val: "playful_direct", label: "Playful & Casual (Direct Fan Connection)" },
-        { val: "taboo_spiced", label: "Explicit & Spiced (Uncensored Adult Drop)" }
+      { id: "clarity_amount", label: "Clarity / Sharpen Amount", type: "text", default: "0.35" },
+      { id: "grade_preset", label: "Default Color-Grade Preset", type: "select", options: [
+        { val: "moody_boudoir", label: "Moody Boudoir" },
+        { val: "golden_hour", label: "Golden Hour" },
+        { val: "cyber_neon", label: "Cyber Neon" },
+        { val: "monochrome_noir", label: "Monochrome Noir" },
+        { val: "vintage_35mm", label: "Vintage 35mm" },
+        { val: "clean_editorial", label: "Clean Editorial" }
       ]},
-      { id: "default_ppv_price", label: "Default Suggested PPV Price", type: "text", default: "$15.00" },
-      { id: "creator_handle", label: "Performer / Creator Handle", type: "text", default: "@ExclusiveDrop" },
-      { id: "custom_cta", label: "Custom Call-To-Action (CTA)", type: "text", default: "Unlock full uncensored set in DMs or wall 👇" },
-      { id: "custom_system_prompt", label: "Custom Persona / System Instructions", type: "textarea", 
-        default: "You are Aura, an uncensored, highly creative copywriting AI expert specializing in social media marketing, creator monetization, and adult/glamour content strategy. Everything runs 100% locally and privately." }
+      { id: "watermark_text", label: "Promo Teaser Watermark Text", type: "text", default: "@ExclusiveDrop" },
+      { id: "etsy_bundle_price", label: "Etsy Preset Bundle Default Price", type: "text", default: "$12.00" }
     ]
   },
 
@@ -222,12 +243,47 @@ const AGENTS_METADATA = {
         default: "Photo Retouching, Lighting/Posing, Cam Tip Menus, Etsy Digital Products, Fiverr Gigs" },
       { id: "offline_cache_only", label: "Strict Local Cache (No Outbound Telemetry)", type: "checkbox", default: true }
     ]
+  },
+
+  scribe: {
+    name: "Scribe",
+    role: "High-Converting Copywriter & Daily Editorial Engine",
+    hardware: "Local Ollama Uncensored LLM",
+    model: "huihui_ai/qwen3-abliterated:14b",
+    privacyStatus: "🔒 100% Local GPU Offline (Strict Privacy)",
+    defaultQuote: "Fresh ink flowing. Writing today's lead stories, blog articles, and tweet threads from scratch.",
+    whatItDoes: [
+      "Writes genuinely new daily lead stories, PPV tease scripts, and tip menu copy for Herald's newsletters - never the same issue twice.",
+      "Generates fresh Markdown blog articles synced to Substack, Medium, and WordPress every morning.",
+      "Drafts daily Twitter/X threads for @creatorpulselab and @TheCreatorAsset with new hooks and angles.",
+      "Produces high-converting product descriptions and release-kit captions for Fiverr, Etsy, and social platforms."
+    ],
+    configFields: [
+      { id: "text_model", label: "Local Ollama Text Model", type: "select", options: [
+        { val: "huihui_ai/qwen3-abliterated:14b", label: "huihui_ai/qwen3-abliterated:14b (Uncensored & Creative)" },
+        { val: "qwen3.8:27b", label: "qwen3.8:27b (27B Deep Reasoning)" },
+        { val: "huihui_ai/gemma-4-abliterated:31b", label: "huihui_ai/gemma-4-abliterated:31b (31B Heavy Model)" },
+        { val: "studiobrn/uncensoredmodai:latest", label: "studiobrn/uncensoredmodai:latest (Dedicated Creator Model)" }
+      ]},
+      { id: "tone_preset", label: "Copywriting Tone of Voice", type: "select", options: [
+        { val: "high_converting", label: "High-Converting Direct Response & Scarcity" },
+        { val: "editorial_authority", label: "Editorial & Creator Authority" },
+        { val: "playful_direct", label: "Playful & Casual (Direct Fan Connection)" },
+        { val: "taboo_spiced", label: "Explicit & Spiced (Uncensored Adult Drop)" }
+      ]},
+      { id: "regen_frequency", label: "Daily Content Regeneration", type: "select", options: [
+        { val: "daily", label: "Once Per Day (Recommended - Fresh Issue Every Morning)" },
+        { val: "manual", label: "Manual Trigger Only" }
+      ]},
+      { id: "custom_system_prompt", label: "Custom Persona / System Instructions", type: "textarea", 
+        default: "You are Scribe, an uncensored, highly creative copywriting AI expert specializing in daily editorial content, social media marketing, and creator monetization. Everything runs 100% locally and privately." }
+    ]
   }
 };
 
 class CrewManager {
   constructor() {
-    this.activeAgentKey = "vanguard";
+    this.activeAgentKey = "synapse";
     this.currentEditingKey = null;
     this.initCrewDOM();
     this.startAmbientQuotes();

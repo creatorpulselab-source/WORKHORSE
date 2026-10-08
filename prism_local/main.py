@@ -254,7 +254,7 @@ async def auth_middleware(request: Request, call_next):
 # Config
 # ---------------------------------------------------------------------------
 
-DEFAULT_CONFIG = {"ollama_host": "http://localhost:11434", "vision_model": "qwen2.5vl:7b", "server_port": 7861,
+DEFAULT_CONFIG = {"ollama_host": "http://127.0.0.1:11434", "vision_model": "qwen2.5vl:7b", "server_port": 7861,
                   "provider": "ollama", "api_key": "", "cloud_model": "",
                   "gemini_api_key": "", "grok_api_key": "", "openai_api_key": ""}
 

@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import Dict, Any, List, Optional
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, WebSocket, WebSocketDisconnect, Request
 from fastapi.responses import HTMLResponse, FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -33,7 +33,7 @@ sys.path.insert(0, str(BASE_DIR))
 
 from shared.system_monitor import get_system_stats, get_ollama_models
 from shared.ai_providers import AIProviderService
-from shared.auth import verify_password, hash_password, make_session_token, verify_session_token
+from shared.auth import verify_password, hash_password, make_session_token, verify_session_token, get_session_id
 from shared.vram_manager import vram_manager, VramManager
 from pipeline.orchestrator import WorkhorseOrchestrator
 from pipeline.stages.photo_retoucher import PhotoRetoucher
@@ -46,6 +46,7 @@ from pipeline.stages.order_radar import OrderRadar
 from pipeline.stages.omni_marketer import OmniMarketer
 from pipeline.stages.newsletter_manager import NewsletterManager
 from pipeline.stages.twitter_poster import TwitterPoster
+from pipeline.stages.pinterest_poster import PinterestPoster
 from pipeline.stages.ai_operator import ai_operator, CLIENT_INBOX_DIR, CLIENT_OUTPUTS_DIR
 from pipeline.stages.herald_scheduler import herald_scheduler
 
@@ -65,6 +66,7 @@ order_radar = OrderRadar()
 omni_marketer = OmniMarketer()
 newsletter_mgr = NewsletterManager()
 twitter_poster = TwitterPoster(str(CONFIG_FILE))
+pinterest_poster = PinterestPoster(str(CONFIG_FILE))
 # vram_manager imported as global singleton from shared.vram_manager
 
 def is_any_orchestrator_job_active() -> bool:
@@ -140,6 +142,10 @@ async def lifespan(app: FastAPI):
     herald_task = asyncio.create_task(herald_scheduler.run_loop())
     comfy_health_task = asyncio.create_task(comfy_health_monitor_loop())
     remediation_task = asyncio.create_task(auto_remediation_loop())
+    # Logs today's health snapshot immediately on startup instead of waiting for the
+    # first 10-minute auto-remediation cycle (run_daily_health_check is a no-op if
+    # today's entry already exists, so this is safe to call on every restart).
+    main_loop.run_in_executor(None, ai_operator.run_daily_health_check)
     try:
         yield
     finally:
@@ -161,8 +167,11 @@ app.add_middleware(
 SECRETS_FILE = BASE_DIR / "secrets.json"
 SESSION_COOKIE = "workhorse_session"
 # Routes reachable without login: the newsletter signup portal is meant for external subscribers.
-PUBLIC_PATHS = {"/login", "/api/login", "/setup", "/api/setup", "/favicon.ico", "/subscribe", "/api/newsletter/subscribe", "/api/newsletter/unsubscribe"}
-PUBLIC_PREFIXES = ("/static/",)
+# The Stripe/Gumroad webhooks and order-download link are also unauthenticated since they're
+# called by external services/buyers who have no WORKHORSE login - protected instead by
+# Stripe signature verification, Gumroad seller_id matching, and an unguessable download token.
+PUBLIC_PATHS = {"/login", "/api/login", "/setup", "/api/setup", "/favicon.ico", "/subscribe", "/api/newsletter/subscribe", "/api/newsletter/unsubscribe", "/api/radar/webhook/stripe", "/api/radar/webhook/gumroad"}
+PUBLIC_PREFIXES = ("/static/", "/api/download/order/")
 
 
 def _load_secrets() -> Dict[str, Any]:
@@ -190,6 +199,15 @@ def _get_session_secret() -> str:
 def _is_authenticated(request) -> bool:
     token = request.cookies.get(SESSION_COOKIE)
     return bool(token) and verify_session_token(token, _get_session_secret())
+
+
+def _get_request_session_id(request) -> Optional[str]:
+    """Extracts the unique per-login session id from the request's auth cookie, used to
+    keep each browser session's SYNAPSE chat memory separate from every other session."""
+    token = request.cookies.get(SESSION_COOKIE)
+    if not token:
+        return None
+    return get_session_id(token, _get_session_secret())
 
 
 @app.middleware("http")
@@ -691,6 +709,58 @@ async def generate_research_briefing(payload: Optional[Dict[str, Any]] = None):
     return {"status": "ok", "focus_area": focus, "briefing": briefing}
 
 # =========================================================================
+# PIPE 1 - WEBHOOK AUTO-FULFILLMENT (Stripe / Gumroad)
+# Public, unauthenticated endpoints called directly by Stripe/Gumroad servers.
+# Stripe calls are verified via HMAC signature; Gumroad via seller_id match.
+# =========================================================================
+@app.post("/api/radar/webhook/stripe")
+async def stripe_webhook(request: Request):
+    payload = await request.body()
+    sig_header = request.headers.get("stripe-signature", "")
+    loop = asyncio.get_event_loop()
+    res = await loop.run_in_executor(None, lambda: order_radar.handle_stripe_webhook(payload, sig_header))
+    status_code = 200 if res.get("success") else 400
+    return JSONResponse(res, status_code=status_code)
+
+@app.post("/api/radar/webhook/gumroad")
+async def gumroad_webhook(request: Request):
+    form = await request.form()
+    loop = asyncio.get_event_loop()
+    res = await loop.run_in_executor(None, lambda: order_radar.handle_gumroad_webhook(dict(form)))
+    status_code = 200 if res.get("success") else 400
+    return JSONResponse(res, status_code=status_code)
+
+@app.post("/api/radar/webhook/config")
+async def update_webhook_config(payload: Dict[str, Any]):
+    cfg = order_radar.update_config(
+        stripe_webhook_secret=payload.get("stripe_webhook_secret"),
+        gumroad_seller_id=payload.get("gumroad_seller_id"),
+        webhook_product_map=payload.get("webhook_product_map")
+    )
+    return {"status": "ok", "config": {k: v for k, v in cfg.items() if k != "app_password"}}
+
+@app.get("/api/download/order/{token}")
+async def download_order_by_token(token: str):
+    zip_path = order_radar.get_delivery_by_token(token)
+    if not zip_path:
+        raise HTTPException(status_code=404, detail="Invalid or expired download link")
+    return FileResponse(zip_path, filename=zip_path.name, media_type="application/zip")
+
+# =========================================================================
+# PIPE 3 - AUTONOMOUS AI MODEL CONTENT ENGINE (Cipher -> RTX 5070 Ti -> Forge -> Scribe)
+# =========================================================================
+@app.get("/api/content-engine/status")
+async def get_content_engine_status():
+    from pipeline.stages.content_engine import content_engine
+    return {"status": "ok", "last_result": content_engine.get_last_result(), "schedule": herald_scheduler.get_status()}
+
+@app.post("/api/content-engine/run-now")
+async def run_content_engine_now():
+    loop = asyncio.get_event_loop()
+    res = await loop.run_in_executor(None, herald_scheduler.dispatch_content_engine)
+    return {"status": "ok", "result": res}
+
+# =========================================================================
 # MASTER PIPELINE APIS
 # =========================================================================
 @app.post("/api/upload")
@@ -1042,6 +1112,22 @@ async def publish_twitter_thread(payload: Dict[str, Any]):
     res = twitter_poster.post_thread(handle, tweets, media_paths=media_list)
     return res
 
+@app.get("/api/pinterest/status")
+async def get_pinterest_status():
+    return pinterest_poster.verify_credentials()
+
+@app.get("/api/pinterest/boards")
+async def get_pinterest_boards():
+    return pinterest_poster.list_boards()
+
+@app.post("/api/pinterest/post-now")
+async def publish_pinterest_pin():
+    """Manually triggers today's scheduled Pinterest pin immediately (for testing the
+    integration end-to-end), instead of waiting for Herald's daily_slot_time window."""
+    loop = asyncio.get_event_loop()
+    res = await loop.run_in_executor(None, herald_scheduler.dispatch_pinterest_daily)
+    return res
+
 @app.websocket("/ws/telemetry")
 async def websocket_telemetry(websocket: WebSocket):
     token = websocket.cookies.get(SESSION_COOKIE)
@@ -1078,6 +1164,18 @@ async def get_system_health():
 async def get_incident_log(limit: int = 20):
     return {"status": "ok", "incidents": ai_operator.get_recent_incidents(limit=limit)}
 
+@app.get("/api/system/daily-health-log")
+async def get_daily_health_log(limit: int = 30):
+    """Returns the persisted daily system-health snapshot history (one entry per
+    calendar day) so health trends are reviewable over time, not just right now."""
+    return {"status": "ok", "daily_checks": ai_operator.get_daily_health_log(limit=limit)}
+
+@app.get("/api/system/error-log")
+async def get_error_log(limit: int = 20):
+    """Returns the persistent raw error log - tool failures, Ollama timeouts/connection
+    errors, etc. - independent from the self-healing incident log."""
+    return {"status": "ok", "errors": ai_operator.get_recent_errors(limit=limit)}
+
 @app.post("/api/system/self-heal")
 async def trigger_self_heal(payload: Dict[str, Any] = {}):
     action = payload.get("action", "all")
@@ -1094,8 +1192,17 @@ async def get_operator_models():
     models = ai_operator.get_available_models()
     return {"status": "ok", "models": models}
 
+@app.get("/api/operator/history")
+async def get_operator_history(request: Request):
+    """Returns the persisted SYNAPSE conversation for THIS browser session only, so the
+    UI can restore it after a page reload, tab switch, or a dropped connection without
+    pulling in any other session's chat."""
+    session_id = _get_request_session_id(request)
+    return {"status": "ok", "history": ai_operator.get_history(session_id)}
+
 @app.post("/api/operator/chat")
 async def operator_chat_endpoint(
+    request: Request,
     message: str = Form(...),
     model: str = Form("huihui_ai/qwen3-abliterated:14b"),
     web_search: bool = Form(False),
@@ -1111,7 +1218,8 @@ async def operator_chat_endpoint(
                 with open(dest, "wb") as out:
                     out.write(content)
                 saved_paths.append(str(dest))
-    
+
+    session_id = _get_request_session_id(request)
     loop = asyncio.get_event_loop()
     res = await loop.run_in_executor(
         None,
@@ -1119,14 +1227,16 @@ async def operator_chat_endpoint(
             message=message,
             model=model,
             web_search=web_search,
-            attached_files=saved_paths
+            attached_files=saved_paths,
+            session_id=session_id
         )
     )
     return res
 
 @app.post("/api/operator/clear")
-async def operator_clear_endpoint():
-    ai_operator.clear_history()
+async def operator_clear_endpoint(request: Request):
+    session_id = _get_request_session_id(request)
+    ai_operator.clear_history(session_id)
     return {"status": "ok", "message": "Operator history cleared"}
 
 @app.get("/api/operator/client-files")

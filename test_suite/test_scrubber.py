@@ -1,4 +1,4 @@
-"""Unit tests for pipeline/stages/cipher.py (EXIF/metadata scrubbing).
+"""Unit tests for pipeline/stages/scrubber.py (EXIF/metadata scrubbing).
 
 Uses real small in-memory-generated images on disk (tmp_path fixture) so no
 network/GPU dependency is needed - PIL is already a hard dependency of the
@@ -7,7 +7,7 @@ photo pipeline.
 from PIL import Image
 from PIL.ExifTags import Base as ExifBase
 
-from pipeline.stages.cipher import CipherScrubber
+from pipeline.stages.scrubber import MetadataScrubber
 
 
 def _make_image_with_exif(path, fmt="JPEG"):
@@ -24,7 +24,7 @@ def test_scrub_image_removes_exif_in_place(tmp_path):
     with Image.open(img_path) as before:
         assert len(before.getexif()) > 0
 
-    scrubber = CipherScrubber()
+    scrubber = MetadataScrubber()
     result = scrubber.scrub_image(img_path)
 
     assert result["success"] is True
@@ -38,7 +38,7 @@ def test_scrub_image_to_separate_output_path(tmp_path):
     out_path = tmp_path / "clean.png"
     _make_image_with_exif(img_path, fmt="PNG")
 
-    scrubber = CipherScrubber()
+    scrubber = MetadataScrubber()
     result = scrubber.scrub_image(img_path, output_path=out_path)
 
     assert result["success"] is True
@@ -48,7 +48,7 @@ def test_scrub_image_to_separate_output_path(tmp_path):
 
 
 def test_scrub_image_missing_file_returns_error():
-    scrubber = CipherScrubber()
+    scrubber = MetadataScrubber()
     result = scrubber.scrub_image("F:/WORKHORSE/does_not_exist.jpg")
     assert result["success"] is False
     assert "error" in result

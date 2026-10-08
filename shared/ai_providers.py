@@ -24,7 +24,7 @@ class AIProviderService:
         return self.config.get("privacy", {}).get("strict_local_only", True)
 
     def get_ollama_url(self) -> str:
-        return self.config.get("ai_engine", {}).get("ollama_url", "http://localhost:11434")
+        return self.config.get("ai_engine", {}).get("ollama_url", "http://127.0.0.1:11434")
 
     def get_text_model(self) -> str:
         agent_model = self.config.get("agents", {}).get("aura", {}).get("text_model")
@@ -86,7 +86,7 @@ class AIProviderService:
         except Exception as e:
             return f"Ollama connection error: {str(e)}"
 
-    def call_ollama_vision(self, prompt: str, image_paths: List[Path], system_prompt: str = "", model: Optional[str] = None, num_predict: int = 180) -> str:
+    def call_ollama_vision(self, prompt: str, image_paths: List[Path], system_prompt: str = "", model: Optional[str] = None, num_predict: int = 180, timeout: int = 60) -> str:
         url = f"{self.get_ollama_url()}/api/generate"
         active_model = model or self.get_vision_model()
 
@@ -111,7 +111,7 @@ class AIProviderService:
             }
         }
         try:
-            resp = requests.post(url, json=payload, timeout=60)
+            resp = requests.post(url, json=payload, timeout=timeout)
             if resp.status_code == 200:
                 return resp.json().get("response", "").strip()
 
@@ -120,18 +120,18 @@ class AIProviderService:
             if "memory" in err_text or "out of memory" in err_text or resp.status_code == 500:
                 print(f"[AI PROVIDER VISION] Memory warning from Ollama ({resp.status_code}). Triggering emergency VRAM purge & retry...")
                 vram_manager.purge_vram(reason="emergency_vision_oom_retry")
-                resp_retry = requests.post(url, json=payload, timeout=60)
+                resp_retry = requests.post(url, json=payload, timeout=timeout)
                 if resp_retry.status_code == 200:
                     return resp_retry.json().get("response", "").strip()
 
             return f"Error from Local Ollama Vision: HTTP {resp.status_code} - {resp.text}"
         except requests.exceptions.Timeout:
-            print(f"[AI PROVIDER VISION] Request timed out (>60s) on {active_model}! Aborting to release GPU compute...")
+            print(f"[AI PROVIDER VISION] Request timed out (>{timeout}s) on {active_model}! Aborting to release GPU compute...")
             try:
                 requests.post(f"{self.get_ollama_url()}/api/generate", json={"model": active_model, "keep_alive": 0}, timeout=2)
             except Exception:
                 pass
-            return '{"passed": false, "error": "Vision QC timed out (>60s) and was aborted to release GPU."}'
+            return f'{{"passed": false, "error": "Vision QC timed out (>{timeout}s) and was aborted to release GPU."}}'
         except Exception as e:
             try:
                 requests.post(f"{self.get_ollama_url()}/api/generate", json={"model": active_model, "keep_alive": 0}, timeout=2)

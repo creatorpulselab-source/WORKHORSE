@@ -21,6 +21,7 @@ from typing import Dict, Any, List, Optional
 sys.path.insert(0, "F:/WORKHORSE")
 from pipeline.stages.twitter_poster import TwitterPoster
 from pipeline.stages.newsletter_manager import NewsletterManager
+from pipeline.stages.pinterest_poster import PinterestPoster
 
 logger = logging.getLogger("workhorse.herald_scheduler")
 
@@ -67,6 +68,10 @@ ALL_MONITORED_PUBLICATIONS = {"dispensary_deals": "09:00", **PUBLICATION_SCHEDUL
 # A dispatch isn't marked "done" until real delivery is verified. Failed dispatches are
 # auto-retried up to this many times before Synapse gives up and alerts the Commander.
 MAX_DISPATCH_RETRIES = 3
+
+# Pipe 3 - Autonomous AI Model Content Engine (Cipher -> RTX 5070 Ti -> Forge -> Scribe).
+# One hands-off content drop per day; output is staged for manual review, never auto-posted.
+CONTENT_ENGINE_SCHEDULE_TIME = "11:30"
 
 DAILY_SLOTS = [
     {
@@ -147,10 +152,45 @@ DAILY_SLOTS = [
     }
 ]
 
+# Pinterest content pool - CreatorMediaLab / @TheCreatorAsset (mainstream brand) ONLY.
+# There is deliberately no equivalent list for the adult_creator_brand ("creatorpulselab") -
+# Pinterest's Community Guidelines prohibit sexual content, nudity, and promotion of cam/
+# webcam services, so that brand must never have a Pinterest content source at all. Every
+# entry here still passes through PinterestPoster.is_pinterest_safe() before publishing as
+# defense-in-depth, with content_type hardcoded to "general".
+PINTEREST_DAILY_CONTENT = [
+    {
+        "title": "Kodak Portra 400 Film Color Grade Tutorial",
+        "description": "Studio photography color science: how to recreate the Kodak Portra 400 film look in Lightroom with tone curve and HSL adjustments. Free masterclass from CreatorMediaLab.",
+        "link": "https://digitalcreatorassets-source.github.io/creatormedialab/?pub=studio_wire"
+    },
+    {
+        "title": "45-Degree Studio Lighting Setup Guide",
+        "description": "A simple studio lighting rule of thumb for soft, flattering portrait light using key light feathering and apparent light size. #StudioPhotography",
+        "link": "https://www.etsy.com/shop/CreatorMediaLab"
+    },
+    {
+        "title": "Editorial Photo Retouching & Film Emulation Presets",
+        "description": "Frequency separation, non-destructive dodge & burn, and Portra/Cinestill film color grading presets for photographers and creators.",
+        "link": "https://www.fiverr.com/s/GPz71VL"
+    },
+    {
+        "title": "The Creator Media Asset Flywheel",
+        "description": "Shoot once, cut trailers, extract poses, synthesize platform copy, and distribute across channels. A full media automation guide for creators.",
+        "link": "https://digitalcreatorassets-source.github.io/creatormedialab/"
+    },
+    {
+        "title": "Lightroom Preset Pack for Studio Portraits",
+        "description": "Master studio preset pack (.XMP) for editorial-quality portrait photography and color grading.",
+        "link": "https://www.etsy.com/shop/CreatorMediaLab"
+    }
+]
+
 class HeraldScheduler:
     def __init__(self, config_path: str = "F:/WORKHORSE/config.json"):
         self.config_path = config_path
         self.twitter = TwitterPoster(config_path)
+        self.pinterest = PinterestPoster(config_path)
         self.newsletter = NewsletterManager()
         self.is_running = False
         self._load_state()
@@ -196,6 +236,9 @@ class HeraldScheduler:
                 for pub_id in ALL_MONITORED_PUBLICATIONS:
                     self.state.setdefault(f"{pub_id}_attempts", 0)
                     self.state.setdefault(f"{pub_id}_alerted_today", False)
+                self.state.setdefault("content_engine_sent_today", False)
+                self.state.setdefault("content_engine_attempts", 0)
+                self.state.setdefault("content_engine_alerted_today", False)
                 return self.state
             except Exception:
                 pass
@@ -206,6 +249,9 @@ class HeraldScheduler:
             "studio_wire_sent_today": False,
             "creator_pulse_sent_today": False,
             "creator_blueprint_sent_today": False,
+            "content_engine_sent_today": False,
+            "content_engine_attempts": 0,
+            "content_engine_alerted_today": False,
             "history": []
         }
         for pub_id in ALL_MONITORED_PUBLICATIONS:
@@ -231,6 +277,10 @@ class HeraldScheduler:
             self.state["studio_wire_sent_today"] = False
             self.state["creator_pulse_sent_today"] = False
             self.state["creator_blueprint_sent_today"] = False
+            self.state["content_engine_sent_today"] = False
+            self.state["content_engine_attempts"] = 0
+            self.state["content_engine_alerted_today"] = False
+            self.state["pinterest_posted_today"] = False
             for pub_id in ALL_MONITORED_PUBLICATIONS:
                 self.state[f"{pub_id}_attempts"] = 0
                 self.state[f"{pub_id}_alerted_today"] = False
@@ -262,6 +312,8 @@ class HeraldScheduler:
                 pub_id: self.state.get(f"{pub_id}_sent_today", False)
                 for pub_id in PUBLICATION_SCHEDULE
             },
+            "content_engine_sent_today": self.state.get("content_engine_sent_today", False),
+            "content_engine_attempts": self.state.get("content_engine_attempts", 0),
             "executed_slots_count": len(self.state.get("executed_slots", [])),
             "total_slots": len(DAILY_SLOTS),
             "slots": slots_status,
@@ -322,6 +374,62 @@ class HeraldScheduler:
         })
         self._save_state()
         return results
+
+    def dispatch_pinterest_daily(self) -> Dict[str, Any]:
+        """
+        Publishes one pin per day to the mainstream CreatorMediaLab/@TheCreatorAsset
+        Pinterest board, sourced exclusively from PINTEREST_DAILY_CONTENT (general-brand
+        content only). content_type is hardcoded to "general" here and re-verified inside
+        PinterestPoster.create_pin()'s TOS safety gate - there is no path for
+        adult_creator_brand content to reach this method.
+        """
+        self._check_day_rollover()
+
+        try:
+            with open(self.config_path, "r", encoding="utf-8") as f:
+                cfg = json.load(f)
+        except Exception as e:
+            return {"status": "error", "message": f"Failed to read config.json: {e}"}
+
+        pin_cfg = cfg.get("marketing_channels", {}).get("main_brand", {}).get("pinterest", {})
+        if not pin_cfg.get("enabled"):
+            return {"status": "skipped", "reason": "pinterest_disabled", "message": "Pinterest publishing is disabled in config.json (marketing_channels.main_brand.pinterest.enabled)."}
+
+        board_id = pin_cfg.get("default_board_id", "").strip()
+        if not board_id:
+            return {"status": "skipped", "reason": "no_board_id", "message": "No default_board_id configured under marketing_channels.main_brand.pinterest."}
+
+        day_index = date.today().toordinal() % len(PINTEREST_DAILY_CONTENT)
+        content = PINTEREST_DAILY_CONTENT[day_index]
+
+        vis_path = None
+        try:
+            vis_path = self._get_brand_visual_for_post("TheCreatorAsset")
+        except Exception as e:
+            print(f"[Herald Scheduler] Pinterest visual lookup notice: {e}")
+
+        if not vis_path or not Path(vis_path).exists():
+            result = {"status": "error", "message": "No verified brand visual available for Pinterest pin (ComfyUI unavailable and no fallback render found)."}
+        else:
+            post_res = self.pinterest.create_pin(
+                board_id=board_id,
+                title=content["title"],
+                description=content["description"],
+                link=content.get("link", ""),
+                image_path=vis_path,
+                content_type="general"
+            )
+            result = {"status": "ok" if post_res.get("success") else "error", "content": content, "result": post_res}
+            print(f"[Herald Scheduler] Pinterest daily pin dispatched: {post_res.get('success')} ({post_res.get('status', post_res.get('pin_url'))})")
+
+        self.state["pinterest_posted_today"] = True
+        self.state["history"].append({
+            "type": "pinterest_pin",
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "results": result
+        })
+        self._save_state()
+        return result
 
     def _verify_dispensary_dispatch(self, timeout_s: int = 180) -> Dict[str, Any]:
         """Blocks until the dispensary_deals.py subprocess finishes, then inspects its
@@ -429,6 +537,60 @@ class HeraldScheduler:
             else:
                 self.dispatch_publication(pub_id)
 
+    def dispatch_content_engine(self) -> Dict[str, Any]:
+        """Runs one Pipe 3 autonomous content drop (Cipher -> RTX 5070 Ti -> Forge -> Scribe).
+        Only marks today's run successful if the full chain actually produced a manifest -
+        a render that fails partway (e.g. ComfyUI offline) must NOT be silently treated as done."""
+        self._check_day_rollover()
+        from pipeline.stages.content_engine import content_engine
+        res = content_engine.run_autonomous_cycle()
+        if res.get("success"):
+            self.state["content_engine_sent_today"] = True
+        self.state["history"].append({
+            "type": "content_engine_cycle",
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "result": {k: v for k, v in res.items() if k != "copy_kit"}  # copy kit is large, keep history compact
+        })
+        self._save_state()
+        return res
+
+    def _monitor_and_remediate_content_engine(self):
+        """Autonomous watchdog for Pipe 3, mirroring _monitor_and_remediate_publications:
+        retries a failed/missed daily content drop up to MAX_DISPATCH_RETRIES, then alerts
+        the Commander via Synapse's notify_commander once retries are exhausted."""
+        current_time = datetime.now().strftime("%H:%M")
+        if current_time < CONTENT_ENGINE_SCHEDULE_TIME:
+            return
+        if self.state.get("content_engine_sent_today"):
+            return
+
+        attempts = self.state.get("content_engine_attempts", 0)
+        if attempts >= MAX_DISPATCH_RETRIES:
+            if not self.state.get("content_engine_alerted_today"):
+                msg = (f"WORKHORSE ALERT: Autonomous content engine (Pipe 3) failed to produce "
+                       f"today's drop after {MAX_DISPATCH_RETRIES} automatic retries. Manual check needed.")
+                print(f"[Herald Scheduler] {msg}")
+                try:
+                    from pipeline.stages.ai_operator import ai_operator
+                    ai_operator.log_incident(
+                        "content_engine",
+                        f"Failed to complete autonomous content cycle after {MAX_DISPATCH_RETRIES} attempts",
+                        "Auto-retry exhausted - Commander notified via SMS.",
+                        status="needs_attention"
+                    )
+                    ai_operator.notify_commander(msg)
+                except Exception as e:
+                    print(f"[Herald Scheduler] Failed to notify commander: {e}")
+                self.state["content_engine_alerted_today"] = True
+                self._save_state()
+            return
+
+        print(f"[Herald Scheduler] Content engine not yet confirmed done today "
+              f"(attempt {attempts + 1}/{MAX_DISPATCH_RETRIES}). Running cycle...")
+        self.state["content_engine_attempts"] = attempts + 1
+        self._save_state()
+        self.dispatch_content_engine()
+
     def dispatch_today_all_now(self) -> Dict[str, Any]:
         """
         Instant catch-up: Dispatches today's newsletters AND posts the current/pending
@@ -482,11 +644,26 @@ class HeraldScheduler:
                         loop = asyncio.get_event_loop()
                         await loop.run_in_executor(None, lambda s_id=slot_id: self.dispatch_slot(s_id))
 
+                # Daily Pinterest pin (mainstream brand only; no-op if disabled/unconfigured)
+                try:
+                    with open(self.config_path, "r", encoding="utf-8") as f:
+                        pin_target = json.load(f).get("marketing_channels", {}).get("main_brand", {}).get("pinterest", {}).get("daily_slot_time", "12:00")
+                except Exception:
+                    pin_target = "12:00"
+                if current_time >= pin_target and not self.state.get("pinterest_posted_today"):
+                    print(f"[Herald Scheduler] Target time {pin_target} reached for Pinterest daily pin. Triggering automated dispatch...")
+                    loop = asyncio.get_event_loop()
+                    await loop.run_in_executor(None, self.dispatch_pinterest_daily)
+
                 # Autonomous newsletter dispatch, retry, and Commander alerting (Dispensary
                 # Deals, Studio Wire, Creator Pulse, Creator Blueprint) - verifies ACTUAL
                 # delivery every pass instead of trusting a one-shot "launched" flag.
                 loop = asyncio.get_event_loop()
                 await loop.run_in_executor(None, self._monitor_and_remediate_publications)
+
+                # Pipe 3 - Autonomous AI Model Content Engine: same verify/retry/alert
+                # pattern, once per day at CONTENT_ENGINE_SCHEDULE_TIME.
+                await loop.run_in_executor(None, self._monitor_and_remediate_content_engine)
 
             except asyncio.CancelledError:
                 self.is_running = False

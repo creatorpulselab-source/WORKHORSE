@@ -1727,10 +1727,13 @@ this.currentBay = initHash || 'command-center';
   selectPublication(pubId) {
     this.selectedPublication = pubId;
 
-    // Update active button state
+    // Update active button state across ALL instances of the publication selector bar
+    // (it's duplicated in both the Marketing bay and the Newsletter bay), not just the
+    // first one found - using getElementById here used to only ever update whichever
+    // bay's bar happened to come first in the DOM, leaving the other bay's buttons stuck.
     ['creator_pulse', 'studio_wire', 'creator_blueprint', 'dispensary_deals'].forEach(id => {
-      const btn = document.getElementById(`pub-btn-${id}`);
-      if (btn) {
+      const btns = document.querySelectorAll(`[data-pub-id="${id}"]`);
+      btns.forEach(btn => {
         if (id === pubId) {
           const color = id === 'creator_pulse' ? '#f72585' :
                         id === 'studio_wire' ? '#3b82f6' :
@@ -1749,7 +1752,7 @@ this.currentBay = initHash || 'command-center';
           btn.style.color = '#94a3b8';
           btn.style.boxShadow = 'none';
         }
-      }
+      });
     });
 
     // Update header subtitle

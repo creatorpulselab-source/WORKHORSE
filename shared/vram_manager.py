@@ -17,7 +17,7 @@ class VramManager:
     - GPU 0 (12GB): Dedicated to Ollama LLM / Vision (SYNAPSE & IRIS)
     - GPU 1 (12GB): Dedicated to Faster-Whisper (ECHO) & NVENC 60fps (FORGE)
     """
-    def __init__(self, idle_timeout_seconds: int = 300, ollama_url: str = "http://localhost:11434"):
+    def __init__(self, idle_timeout_seconds: int = 300, ollama_url: str = "http://127.0.0.1:11434"):
         self.idle_timeout = idle_timeout_seconds
         self.ollama_url = ollama_url
         self.last_activity_time = time.time()
@@ -58,7 +58,7 @@ class VramManager:
 
     def get_loaded_ollama_models(self) -> List[Dict[str, Any]]:
         try:
-            resp = requests.get(f"{self.ollama_url}/api/ps", timeout=2)
+            resp = requests.get(f"{self.ollama_url}/api/ps", timeout=4)
             if resp.status_code == 200:
                 return resp.json().get("models", [])
         except Exception:

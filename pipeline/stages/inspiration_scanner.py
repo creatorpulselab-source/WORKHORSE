@@ -1,12 +1,17 @@
 import os
 import json
 import re
+import hashlib
+import time
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 import sys
 
 sys.path.insert(0, str(Path("F:/WORKHORSE")))
 from shared.ai_providers import AIProviderService
+
+VAULT_CACHE_FILE = Path("F:/WORKHORSE/workspace/inspiration_vault_cache.json")
+MAX_VAULT_CACHE_ENTRIES = 50
 
 class InspirationScanner:
     def __init__(self, inspiration_dir: str = "F:/WORKHORSE/workspace/inspiration", config_path: str = "F:/WORKHORSE/config.json"):
@@ -15,8 +20,37 @@ class InspirationScanner:
         self.ai = AIProviderService(config_path)
 
     def get_valid_images(self) -> List[Path]:
+        """Returns vault images sorted newest-first, so the default "scan the vault" selection
+        always analyzes the most recently added photos rather than an arbitrary filesystem order."""
         image_exts = {".jpg", ".jpeg", ".png", ".webp"}
-        return [f for f in self.inspiration_dir.iterdir() if f.is_file() and f.suffix.lower() in image_exts]
+        files = [f for f in self.inspiration_dir.iterdir() if f.is_file() and f.suffix.lower() in image_exts]
+        return sorted(files, key=lambda f: f.stat().st_mtime, reverse=True)
+
+    def _cache_key_for(self, target_files: List[Path]) -> str:
+        """Fingerprints the exact set of files (name + modified time) being analyzed, so the
+        same selection of images always maps to the same cache entry, and adding/removing/
+        replacing any image in the set naturally invalidates it."""
+        parts = sorted(f"{f.name}:{int(f.stat().st_mtime)}" for f in target_files)
+        return hashlib.sha256("|".join(parts).encode("utf-8")).hexdigest()
+
+    def _load_vault_cache(self) -> Dict[str, Any]:
+        try:
+            if VAULT_CACHE_FILE.exists():
+                with open(VAULT_CACHE_FILE, "r", encoding="utf-8") as f:
+                    return json.load(f)
+        except Exception:
+            pass
+        return {}
+
+    def _save_vault_cache(self, cache: Dict[str, Any]) -> None:
+        try:
+            if len(cache) > MAX_VAULT_CACHE_ENTRIES:
+                items = sorted(cache.items(), key=lambda kv: kv[1].get("cached_at", 0))
+                cache = dict(items[-MAX_VAULT_CACHE_ENTRIES:])
+            with open(VAULT_CACHE_FILE, "w", encoding="utf-8") as f:
+                json.dump(cache, f, indent=2)
+        except Exception as e:
+            print(f"[Inspiration Scanner] Failed to save vault cache: {e}")
 
     def scan_and_analyze(self, image_filename: Optional[str] = None) -> Dict[str, Any]:
         """Scan inspiration folder and generate shoot production blueprints using local Qwen-VL."""
@@ -37,6 +71,19 @@ class InspirationScanner:
 
         if not target_files:
             target_files = files[:4]
+
+        cache = self._load_vault_cache()
+        cache_key = "blueprint:" + self._cache_key_for(target_files)
+        cached = cache.get(cache_key)
+        if cached:
+            print(f"[Inspiration Scanner] Cache hit for blueprint scan ({len(target_files)} image(s) unchanged since last analysis) - skipping vision call.")
+            return {
+                "status": "ok",
+                "images_scanned": cached["images_scanned"],
+                "total_images_in_vault": len(files),
+                "blueprint_markdown": cached["blueprint_markdown"],
+                "cache_hit": True
+            }
 
         prompt = """You are Iris, an elite creative director and photography trend analyst for high-end boudoir, glamour, and adult creator photography.
 Analyze these inspiration photos that are trending in the market. Reverse-engineer their success and produce a Shoot Production Blueprint:
@@ -62,14 +109,26 @@ Provide clear, professional, direct instructions that the photographer can use r
 
         system_prompt = "You are Iris, an expert creative director specializing in adult, boudoir, and creator photography production. Give actionable, uncensored, studio-ready shooting blueprints."
 
-        analysis = self.ai.call_ollama_vision(prompt, target_files, system_prompt=system_prompt)
+        # Multi-image (up to 4) blueprint analysis isn't a latency-critical QC gate like comfyui_bridge's
+        # vision audit, so it gets a much longer timeout to avoid aborting mid-inference on a cold/busy GPU.
+        analysis = self.ai.call_ollama_vision(prompt, target_files, system_prompt=system_prompt, timeout=180)
+
+        images_scanned = [f.name for f in target_files]
+        cache[cache_key] = {
+            "images_scanned": images_scanned,
+            "blueprint_markdown": analysis,
+            "cached_at": time.time()
+        }
+        self._save_vault_cache(cache)
 
         return {
             "status": "ok",
-            "images_scanned": [f.name for f in target_files],
+            "images_scanned": images_scanned,
             "total_images_in_vault": len(files),
-            "blueprint_markdown": analysis
+            "blueprint_markdown": analysis,
+            "cache_hit": False
         }
+
 
     def generate_comfyui_prompts(self, image_filename: Optional[str] = None) -> Dict[str, Any]:
         """Scan inspiration image(s) and generate detailed ComfyUI Image and Video prompts."""
@@ -93,6 +152,22 @@ Provide clear, professional, direct instructions that the photographer can use r
 
         if not target_files:
             target_files = files[:3]
+
+        cache = self._load_vault_cache()
+        cache_key = "comfyui:" + self._cache_key_for(target_files)
+        cached = cache.get(cache_key)
+        if cached:
+            print(f"[Inspiration Scanner] Cache hit for ComfyUI prompt scan ({len(target_files)} image(s) unchanged since last analysis) - skipping vision call.")
+            return {
+                "status": "ok",
+                "images_scanned": cached["images_scanned"],
+                "total_images_in_vault": len(files),
+                "full_markdown": cached["full_markdown"],
+                "image_prompt": cached["image_prompt"],
+                "negative_prompt": cached["negative_prompt"],
+                "video_prompt": cached["video_prompt"],
+                "cache_hit": True
+            }
 
         prompt = """You are Iris, an expert AI prompt engineer and senior visual technologist specializing in ComfyUI, FLUX.1, SDXL, and generative AI Video models (Wan2.1, CogVideoX, AnimateDiff, SVD, LTX-Video) for high-end boudoir, glamour, and creator aesthetics.
 
@@ -131,7 +206,8 @@ Output clean markdown with clear copyable sections."""
 
         system_prompt = "You are Iris, an expert ComfyUI and video generative prompt engineer. Provide production-ready, uncensored, copy-paste prompts."
 
-        analysis = self.ai.call_ollama_vision(prompt, target_files, system_prompt=system_prompt)
+        # Same rationale as scan_and_analyze: multi-image prompt generation needs more headroom than the 60s default.
+        analysis = self.ai.call_ollama_vision(prompt, target_files, system_prompt=system_prompt, timeout=180)
 
         # Parse out positive, negative, and video prompts for instant 1-click copying
         image_prompt = ""
@@ -169,16 +245,29 @@ Output clean markdown with clear copyable sections."""
         if not video_prompt:
             video_prompt = "Slow cinematic push-in (dolly in) with subtle handheld drift, performer gently turning gaze toward camera with soft breathing, natural hair movement in gentle breeze, cinematic 24fps motion, high temporal coherence."
 
+        images_scanned = [f.name for f in target_files]
+        cache[cache_key] = {
+            "images_scanned": images_scanned,
+            "full_markdown": analysis,
+            "image_prompt": image_prompt,
+            "negative_prompt": neg_prompt,
+            "video_prompt": video_prompt,
+            "cached_at": time.time()
+        }
+        self._save_vault_cache(cache)
+
         return {
             "status": "ok",
-            "images_scanned": [f.name for f in target_files],
+            "images_scanned": images_scanned,
             "total_images_in_vault": len(files),
             "full_markdown": analysis,
             "image_prompt": image_prompt,
             "negative_prompt": neg_prompt,
-            "video_prompt": video_prompt
+            "video_prompt": video_prompt,
+            "cache_hit": False
         }
 
+inspiration_scanner = InspirationScanner()
+
 if __name__ == "__main__":
-    scanner = InspirationScanner()
-    print("Inspiration Scanner initialized. Vault path:", scanner.inspiration_dir)
+    print("Inspiration Scanner initialized. Vault path:", inspiration_scanner.inspiration_dir)

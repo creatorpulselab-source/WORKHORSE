@@ -17,9 +17,9 @@ class FiverrServiceBot:
                 "category": "Graphics & Design > Image Editing > Photo Retouching",
                 "search_tags": ["boudoir retouch", "glamour edit", "photo retouching", "color grading", "skin smoothing"],
                 "pricing": {
-                    "basic": {"name": "Essential Glamour", "price": "$15", "desc": "5 Photos: Skin smoothing + 1 color grade + 4:5 Instagram crop", "delivery": "1 Day"},
-                    "standard": {"name": "Full Editorial Drop", "price": "$35", "desc": "15 Photos: Bilateral smoothing + 2 color grades + 4:5 & 9:16 crops + watermarked teasers", "delivery": "2 Days"},
-                    "premium": {"name": "VIP Studio Master Set", "price": "$75", "desc": "40 Photos: Complete batch retouch + all 5 color grades + story crops + high-res ZIP", "delivery": "3 Days"}
+                    "basic": {"name": "Essential Glamour", "price": "$20", "desc": "5 Photos: Skin smoothing + 1 color grade + 4:5 Instagram crop", "delivery": "1 Day"},
+                    "standard": {"name": "Full Editorial Drop", "price": "$45", "desc": "15 Photos: Bilateral smoothing + 2 color grades + 4:5 & 9:16 crops + watermarked teasers", "delivery": "2 Days"},
+                    "premium": {"name": "VIP Studio Master Set", "price": "$85", "desc": "40 Photos: Complete batch retouch + all 5 color grades + story crops + high-res ZIP", "delivery": "3 Days"}
                 },
                 "description": """Are you a content creator, glamour model, or photographer looking for magazine-quality retouching without the plastic, fake look?
 
@@ -40,9 +40,9 @@ Send over your raw shoot and let's create stunning editorial results!"""
                 "category": "Video & Animation > Video Editing > Social Media Videos",
                 "search_tags": ["video teaser", "reels editor", "promo video", "creator video", "short form video"],
                 "pricing": {
-                    "basic": {"name": "Quick Teaser Reel", "price": "$20", "desc": "One 30-60s teaser cut from raw footage + 6 high-res pose screenshots", "delivery": "1 Day"},
-                    "standard": {"name": "Social Promo Duo", "price": "$45", "desc": "60s Master teaser + 9:16 Vertical Reel cut + spoken hook clips + 6 pose stills", "delivery": "2 Days"},
-                    "premium": {"name": "Full Release Video Kit", "price": "$85", "desc": "60s Teaser + 9:16 Reel + 1:1 Square + Audio Hook Extraction + Full promo package", "delivery": "3 Days"}
+                    "basic": {"name": "Quick Teaser Reel", "price": "$30", "desc": "One 30-60s teaser cut from raw footage + 6 high-res pose screenshots", "delivery": "1 Day"},
+                    "standard": {"name": "Social Promo Duo", "price": "$65", "desc": "60s Master teaser + 9:16 Vertical Reel cut + spoken hook clips + 6 pose stills", "delivery": "2 Days"},
+                    "premium": {"name": "Full Release Video Kit", "price": "$120", "desc": "60s Teaser + 9:16 Reel + 1:1 Square + Audio Hook Extraction + Full promo package", "delivery": "3 Days"}
                 },
                 "description": """Turn your raw photoshoot or behind-the-scenes footage into high-converting promotional video teasers that drive subscriptions and sales!
 

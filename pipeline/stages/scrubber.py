@@ -3,11 +3,11 @@ import logging
 from pathlib import Path
 from typing import Dict, Any, Union
 
-logger = logging.getLogger("workhorse.cipher")
+logger = logging.getLogger("workhorse.scrubber")
 
-class CipherScrubber:
+class MetadataScrubber:
     """
-    CIPHER [82 Pb] (Lead Shield)
+    SCRUBBER [82 Pb] (Lead Shield)
     Privacy & Air-Gapped EXIF/Metadata Scrubber for Creator Media.
     Strips camera serial numbers, GPS coords, creation timestamps,
     software tags, and ICC profile device fingerprints.
@@ -55,7 +55,7 @@ class CipherScrubber:
                 "file": str(out_p),
                 "filename": out_p.name,
                 "privacy_status": "CLEAN (All EXIF/GPS/Device tags permanently stripped)",
-                "agent": "CIPHER [82 Pb]"
+                "agent": "SCRUBBER [82 Pb]"
             }
 
         except Exception as e:
@@ -64,7 +64,7 @@ class CipherScrubber:
                     tmp_p.unlink()
                 except Exception:
                     pass
-            logger.error(f"[CIPHER] Failed to scrub {in_p.name}: {e}")
+            logger.error(f"[SCRUBBER] Failed to scrub {in_p.name}: {e}")
             return {"success": False, "error": str(e), "file": str(in_p)}
 
-cipher_scrubber = CipherScrubber()
+metadata_scrubber = MetadataScrubber()

@@ -16,6 +16,7 @@ RESPONSIVE EMAIL ARCHITECTURE:
 import os
 import sys
 import json
+import html
 
 if sys.platform == "win32":
     try:
@@ -33,6 +34,8 @@ from datetime import datetime
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.header import Header
+
+from pipeline.stages.copy_synthesizer import CopySynthesizer
 
 LINKTREE_URL = "https://linktr.ee/CreatorMediaLab"
 ETSY_URL = "https://www.etsy.com/shop/CreatorMediaLab"
@@ -68,6 +71,8 @@ class NewsletterManager:
         self.logs_dir.mkdir(parents=True, exist_ok=True)
         self.log_file = self.logs_dir / "latest_run.log"
         self.subscribers_path = self.workspace / "newsletter_subscribers.json"
+        self.scribe_cache_path = self.workspace / "scribe_daily_content.json"
+        self._scribe: Optional[CopySynthesizer] = None
 
         self.current_process: Optional[subprocess.Popen] = None
         self.run_status: str = "idle"
@@ -121,6 +126,50 @@ class NewsletterManager:
 
     def get_publications(self) -> List[Dict[str, Any]]:
         return list(self.publications.values())
+
+    # ──────────────────────────────────────────────────────────────────────────
+    # SCRIBE [6 C] — DYNAMIC DAILY EDITORIAL CONTENT (NEWSLETTER LEAD STORIES,
+    # MARKDOWN ARTICLES & TWITTER/X THREADS). Generated once per publication per
+    # calendar day and cached to disk so repeated dashboard previews don't hammer
+    # Ollama; falls back to static copy below if Scribe or Ollama are unavailable.
+    # ──────────────────────────────────────────────────────────────────────────
+    def _get_scribe(self) -> CopySynthesizer:
+        with self._lock:
+            if self._scribe is None:
+                self._scribe = CopySynthesizer()
+            return self._scribe
+
+    def _get_daily_scribe_content(self, pub_id: str) -> Optional[Dict[str, Any]]:
+        """Returns today's Scribe-generated content for pub_id, generating and caching
+        it on first call of the day. Returns None (never raises) if generation fails,
+        so every caller can gracefully fall back to its static copy."""
+        today_key = datetime.now().strftime("%Y-%m-%d")
+        cache = safe_read_json(self.scribe_cache_path, default={})
+        cached_entry = cache.get(pub_id)
+        if cached_entry and cached_entry.get("date") == today_key and cached_entry.get("content"):
+            return cached_entry["content"]
+
+        pub = self.publications.get(pub_id, self.publications["creator_pulse"])
+        try:
+            scribe = self._get_scribe()
+            result = scribe.generate_daily_publication_content(
+                pub_id=pub_id,
+                pub_name=pub["name"],
+                audience=pub["audience"],
+                funnel_blurb=pub["funnel"],
+                today_str=datetime.now().strftime("%A, %B %d, %Y")
+            )
+        except Exception as e:
+            print(f"[NewsletterManager] Scribe daily content generation failed for {pub_id}: {e}")
+            return None
+
+        if not result or not result.get("success"):
+            print(f"[NewsletterManager] Scribe daily content generation failed for {pub_id}: {result.get('error') if result else 'no result'}")
+            return None
+
+        cache[pub_id] = {"date": today_key, "content": result}
+        atomic_write_json(self.scribe_cache_path, cache)
+        return result
 
     def load_config(self) -> Dict[str, Any]:
         with self._lock:
@@ -775,6 +824,9 @@ class NewsletterManager:
         img_src = visual_info["src"]
         caption = visual_info["caption"]
         subcaption = visual_info["subcaption"]
+        scribe_content = self._get_daily_scribe_content("creator_pulse")
+        lead_headline = html.escape((scribe_content or {}).get("lead_headline") or "Why Tight Face-Framing Crops Are Beating Full-Body Feeds")
+        lead_body = html.escape((scribe_content or {}).get("lead_body") or "Short-form recommendation engines (TikTok, IG Reels, and Twitter/X) are heavily penalizing wide glamour shots that resemble sensitive content. Top-earning creators are seeing a 3.4x lift in organic reach by using tight 4:5 portrait crops focusing strictly on eye contact, lips, and subtle expressions.")
         return f"""<!DOCTYPE html>
 <html>
 <head>
@@ -829,9 +881,9 @@ class NewsletterManager:
         <div style='display:inline-block;background:rgba(247,37,133,0.15);color:#f72585;font-size:11px;font-weight:800;letter-spacing:1px;padding:3px 10px;border-radius:4px;text-transform:uppercase;margin-bottom:8px;'>
           SECTION 1 &bull; ALGORITHM & TRAFFIC RADAR
         </div>
-        <h2 style='margin:0 0 10px 0;font-size:20px;color:#ffffff;'>Why Tight Face-Framing Crops Are Beating Full-Body Feeds</h2>
+        <h2 style='margin:0 0 10px 0;font-size:20px;color:#ffffff;'>{lead_headline}</h2>
         <p style='margin:0 0 16px 0;font-size:14px;line-height:1.65;color:#cbd5e1;'>
-          Short-form recommendation engines (TikTok, IG Reels, and Twitter/X) are heavily penalizing wide glamour shots that resemble sensitive content. Top-earning creators are seeing a <strong>3.4x lift in organic reach</strong> by using tight 4:5 portrait crops focusing strictly on eye contact, lips, and subtle expressions.
+          {lead_body}
         </p>
 
         <!-- 2-COLUMN HORIZONTAL METRIC CARDS ON PC, VERTICAL ON MOBILE -->
@@ -1054,6 +1106,9 @@ class NewsletterManager:
         img_src = visual_info["src"]
         caption = visual_info["caption"]
         subcaption = visual_info["subcaption"]
+        scribe_content = self._get_daily_scribe_content("studio_wire")
+        lead_headline = html.escape((scribe_content or {}).get("lead_headline") or "Why Digital Sensor Highlights Look Brittle (And How To Fix It)")
+        lead_body = html.escape((scribe_content or {}).get("lead_body") or "Digital CMOS sensors capture light linearly: when a highlight clips, it truncates instantly to pure #FFFFFF with zero chromatic transition. Analog film, by contrast, has a natural chemical S-curve with soft silver halide shoulder compression. In portraiture, this is why digital forehead highlights look greasy while editorial magazine film looks velvety.")
         return f"""<!DOCTYPE html>
 <html>
 <head>
@@ -1108,9 +1163,9 @@ class NewsletterManager:
         <div style='display:inline-block;background:rgba(0,242,254,0.15);color:#00f2fe;font-size:11px;font-weight:800;letter-spacing:1px;padding:3px 10px;border-radius:4px;text-transform:uppercase;margin-bottom:8px;'>
           SECTION 1 &bull; COLOR SCIENCE RADAR
         </div>
-        <h2 style='margin:0 0 10px 0;font-size:20px;color:#ffffff;'>Why Digital Sensor Highlights Look Brittle (And How To Fix It)</h2>
+        <h2 style='margin:0 0 10px 0;font-size:20px;color:#ffffff;'>{lead_headline}</h2>
         <p style='margin:0;font-size:14px;line-height:1.65;color:#cbd5e1;'>
-          Digital CMOS sensors capture light linearly: when a highlight clips, it truncates instantly to pure #FFFFFF with zero chromatic transition. Analog film, by contrast, has a natural chemical S-curve with soft silver halide shoulder compression. In portraiture, this is why digital forehead highlights look greasy while editorial magazine film looks velvety.
+          {lead_body}
         </p>
       </td>
     </tr>
@@ -1287,6 +1342,9 @@ class NewsletterManager:
 
     # ── 3. THE CREATOR BLUEPRINT ─────────────────────────────────────────────
     def _build_creator_blueprint_html(self, today_str: str) -> str:
+        scribe_content = self._get_daily_scribe_content("creator_blueprint")
+        lead_headline = html.escape((scribe_content or {}).get("lead_headline") or "The Micro-Asset Shift: Why $15 Digital Downloads Outsell $500 Courses")
+        lead_body = html.escape((scribe_content or {}).get("lead_body") or "Creator monetization has permanently shifted away from bloated 10-hour video masterclasses toward instant, tangible micro-assets. Modern buyers want immediate utility: Lightroom .XMP presets, stream bio kits, prompt cheat sheets, and editing templates. These digital downloads have 100% gross margins, zero fulfillment labor, and instant gratification.")
         return f"""<!DOCTYPE html>
 <html>
 <head>
@@ -1341,9 +1399,9 @@ class NewsletterManager:
         <div style='display:inline-block;background:rgba(234,179,8,0.15);color:#eab308;font-size:11px;font-weight:800;letter-spacing:1px;padding:3px 10px;border-radius:4px;text-transform:uppercase;margin-bottom:8px;'>
           SECTION 1 &bull; DIGITAL ASSET TRENDS
         </div>
-        <h2 style='margin:0 0 10px 0;font-size:20px;color:#ffffff;'>The Micro-Asset Shift: Why $15 Digital Downloads Outsell $500 Courses</h2>
+        <h2 style='margin:0 0 10px 0;font-size:20px;color:#ffffff;'>{lead_headline}</h2>
         <p style='margin:0;font-size:14px;line-height:1.65;color:#cbd5e1;'>
-          Creator monetization has permanently shifted away from bloated 10-hour video masterclasses toward instant, tangible micro-assets. Modern buyers want immediate utility: Lightroom .XMP presets, stream bio kits, prompt cheat sheets, and editing templates. These digital downloads have <strong>100% gross margins, zero fulfillment labor, and instant gratification</strong>.
+          {lead_body}
         </p>
       </td>
     </tr>
@@ -1531,6 +1589,9 @@ class NewsletterManager:
 
     # ── 4. FLORIDA DISPENSARY DEALS (PRIVATE) ────────────────────────────────
     def _build_dispensary_deals_html(self, today_str: str) -> str:
+        scribe_content = self._get_daily_scribe_content("dispensary_deals")
+        lead_headline = html.escape((scribe_content or {}).get("lead_headline") or "70-Day Rolling Inhalation Limit Optimization")
+        lead_body = html.escape((scribe_content or {}).get("lead_body") or "Remember to check your OMMU registry portal before placing orders. Florida's 70-day rolling calculation means milligram allocations expire dynamically on the 71st day after dispense. Purchasing live rosin vape carts on discount today reserves your inhalation milligrams before your next cycle renewal.")
         return f"""<!DOCTYPE html>
 <html>
 <head>
@@ -1621,9 +1682,9 @@ class NewsletterManager:
         <div style='display:inline-block;background:rgba(59,130,246,0.15);color:#60a5fa;font-size:11px;font-weight:800;letter-spacing:1px;padding:3px 10px;border-radius:4px;text-transform:uppercase;margin-bottom:8px;'>
           SECTION 2 &bull; PATIENT INTEL
         </div>
-        <h2 style='margin:0 0 10px 0;font-size:20px;color:#ffffff;'>70-Day Rolling Inhalation Limit Optimization</h2>
+        <h2 style='margin:0 0 10px 0;font-size:20px;color:#ffffff;'>{lead_headline}</h2>
         <p style='margin:0;font-size:14px;line-height:1.65;color:#cbd5e1;'>
-          Remember to check your OMMU registry portal before placing orders. Florida's 70-day rolling calculation means milligram allocations expire dynamically on the 71st day after dispense. Purchasing live rosin vape carts on discount today reserves your inhalation milligrams before your next cycle renewal.
+          {lead_body}
         </p>
       </td>
     </tr>
@@ -1650,13 +1711,11 @@ class NewsletterManager:
         today_str = datetime.now().strftime("%B %d, %Y")
 
         visual_info = self.get_publication_visual_embed(pub_id)
+        scribe_content = self._get_daily_scribe_content(pub_id)
+        dynamic_article = (scribe_content or {}).get("markdown_article") or None
+
         if pub_id == "creator_pulse":
-            return f"""# 💋 The Daily Creator Pulse: 5-Part Morning Monetization Playbook
-*Published by CreatorMediaLab • {today_str}*
-
----
-
-## 1. 📈 Algorithm & Traffic Radar
+            static_body = f"""## 1. 📈 Algorithm & Traffic Radar
 Short-form platforms are heavily boosting 4:5 portrait crops. Tight face-framing bypasses sensitive content AI flags and produces a **3.4x lift in organic reach** with 78.4% 3-second retention.
 
 ## 2. 💌 3 High-Converting PPV Teaser Formulas
@@ -1670,10 +1729,17 @@ Replace static tip menus with milestone tiers (Tier 1 @ 150 tokens, Tier 2 @ 450
 ## 4. 💡 The 2-Light Rim Lighting Formula
 Set your 45° key softbox to 5600K daylight. Place a warm 3200K accent light behind your shoulder. The color temperature contrast carves separation from the background and highlights authentic skin texture.
 
-![Creator Studio Visual (RTX 5070 Ti Diffusion • Iris [77 Ir] Verified)]({visual_info['web_src']})
-
 ## 5. 🔄 Subscriber Retention Habit
-A 1-sentence personalized DM to fans within 60 minutes of churn recovers up to 28% of lapsed subscribers before they uninstall the app.
+A 1-sentence personalized DM to fans within 60 minutes of churn recovers up to 28% of lapsed subscribers before they uninstall the app."""
+            body = dynamic_article or static_body
+            return f"""# 💋 The Daily Creator Pulse: 5-Part Morning Monetization Playbook
+*Published by CreatorMediaLab • {today_str}*
+
+---
+
+{body}
+
+![Creator Studio Visual (RTX 5070 Ti Diffusion • Iris [77 Ir] Verified)]({visual_info['web_src']})
 
 ---
 
@@ -1684,12 +1750,7 @@ A 1-sentence personalized DM to fans within 60 minutes of churn recovers up to 2
 """
 
         elif pub_id == "studio_wire":
-            return f"""# 📸 The Shutter & Studio Wire: Portra 400 Lightroom Masterclass
-*Published by CreatorMediaLab • {today_str}*
-
----
-
-## 1. 🔍 Sensor vs Analog Color Science
+            static_body = f"""## 1. 🔍 Sensor vs Analog Color Science
 Digital CMOS sensors capture light linearly with harsh #FFFFFF clipping. Analog film features smooth S-curve silver halide shoulder compression, which is why film portraits look velvety and textured.
 
 ## 2. 🎨 Kodak Portra 400 Lightroom Parameter Recipe
@@ -1702,15 +1763,22 @@ Digital CMOS sensors capture light linearly with harsh #FFFFFF clipping. Analog 
 ## 3. 💡 Studio Lighting Schematic: 45° Feathered Beauty Dish
 Position a 22" white beauty dish 45 degrees to camera left, feathered just across the bridge of the model's nose. Place a silver reflector at chest height. Result: striking cheekbone definition without harsh eye socket shadows.
 
-![45 Degree Beauty Dish Lighting Blueprint]({IMG_STUDIO_WIRE})
-
 ## 4. 💃 3 Directing Cues for Natural Client Posing
 - *"Breathe out through parted lips"* (releases jaw tension)
 - *"Shift 70% of your weight to your rear foot"* (creates graceful S-curve)
 - *"Drop front shoulder 1 inch"* (produces high-fashion asymmetry)
 
 ## 5. 💼 Studio Deliverables & Pricing Strategy
-Never dump 300 raw photos on clients. Deliver 25-40 fully color-graded master selects within 24 hours to justify $350-$750 per session and secure continuous referrals.
+Never dump 300 raw photos on clients. Deliver 25-40 fully color-graded master selects within 24 hours to justify $350-$750 per session and secure continuous referrals."""
+            body = dynamic_article or static_body
+            return f"""# 📸 The Shutter & Studio Wire: Portra 400 Lightroom Masterclass
+*Published by CreatorMediaLab • {today_str}*
+
+---
+
+{body}
+
+![45 Degree Beauty Dish Lighting Blueprint]({IMG_STUDIO_WIRE})
 
 ---
 
@@ -1721,20 +1789,13 @@ Never dump 300 raw photos on clients. Deliver 25-40 fully color-graded master se
 """
 
         elif pub_id == "creator_blueprint":
-            return f"""# ⚡ The Creator Blueprint: $0 to $5k Media Asset Flywheel
-*Published by CreatorMediaLab • {today_str}*
-
----
-
-## 1. 📈 Digital Product Market Pulse
+            static_body = f"""## 1. 📈 Digital Product Market Pulse
 Modern buyers prefer $15-$35 instant micro-assets (Lightroom presets, stream templates, editing overlays) over 10-hour video courses. 100% gross margins with zero shipping labor.
 
 ## 2. 📐 The 3-Step Flywheel Architecture
 1. **Phase 1: High-Touch Client Validation (Fiverr Gig)**: Sell custom retouching to validate willingness to pay.
 2. **Phase 2: Productize into Digital Downloads (Etsy Storefront)**: Turn color grades into .XMP files and digital bundles.
 3. **Phase 3: Automated Micro-Content (Twitter/X & Linktree Hub)**: Dispatch daily educational threads on `@TheCreatorAsset` routing 100% of organic traffic to your Linktree hub.
-
-![3-Tier Media Flywheel Architecture]({IMG_CREATOR_FLYWHEEL})
 
 ## 3. 🤖 Create Once, Syndicate 4x Pipeline
 Turn 1 core tip into: 1 Twitter Thread + 1 HTML Email Digest + 1 Markdown Article + 1 Pinterest Infographic.
@@ -1743,7 +1804,16 @@ Turn 1 core tip into: 1 Twitter Thread + 1 HTML Email Digest + 1 Markdown Articl
 Keep mobile landing pages uncluttered: 1 High-Ticket Service + 1 Digital Product + 1 Social Community + 1 VIP Waitlist.
 
 ## 5. 💰 Creator Monetization Math
-At a 2.5% conversion rate and $25 AOV, you only need 7 sales per week to hit $1,000/month. That requires just 6-7 clicks per day from Twitter/X.
+At a 2.5% conversion rate and $25 AOV, you only need 7 sales per week to hit $1,000/month. That requires just 6-7 clicks per day from Twitter/X."""
+            body = dynamic_article or static_body
+            return f"""# ⚡ The Creator Blueprint: $0 to $5k Media Asset Flywheel
+*Published by CreatorMediaLab • {today_str}*
+
+---
+
+{body}
+
+![3-Tier Media Flywheel Architecture]({IMG_CREATOR_FLYWHEEL})
 
 ---
 
@@ -1754,12 +1824,7 @@ At a 2.5% conversion rate and $25 AOV, you only need 7 sales per week to hit $1,
 """
 
         else:
-            return f"""# 🌿 Florida Dispensary Deals Morning Briefing
-*Private Patient Briefing • {today_str}*
-
----
-
-## 1. ☀️ Morning Market Scraped Flash Deals
+            static_body = """## 1. ☀️ Morning Market Scraped Flash Deals
 | Dispensary | Category | Top Pick | Discount | Sale Price |
 | :--- | :--- | :--- | :--- | :--- |
 | **Trulieve** | Whole Flower | Blue Dream (3.5g) | **40% OFF** | $24.00 |
@@ -1768,7 +1833,14 @@ At a 2.5% conversion rate and $25 AOV, you only need 7 sales per week to hit $1,
 | **Surterra** | Full Spec Oil | Float 1g Syringe | **30% OFF** | $42.00 |
 
 ## 2. 📋 Patient Intel & Rolling Limits
-Check your OMMU registry portal before placing orders. Florida's 70-day rolling calculation means milligram allocations expire dynamically on the 71st day after dispense.
+Check your OMMU registry portal before placing orders. Florida's 70-day rolling calculation means milligram allocations expire dynamically on the 71st day after dispense."""
+            body = dynamic_article or static_body
+            return f"""# 🌿 Florida Dispensary Deals Morning Briefing
+*Private Patient Briefing • {today_str}*
+
+---
+
+{body}
 
 ---
 👉 **[Florida MMTC Patient Registry]({LINKTREE_URL})**
@@ -1778,6 +1850,11 @@ Check your OMMU registry portal before placing orders. Florida's 70-day rolling 
     # TWITTER / X VIRAL THREADS (ROUTING TO LINKTREE)
     # ──────────────────────────────────────────────────────────────────────────
     def get_twitter_thread(self, pub_id: str = "creator_pulse") -> List[str]:
+        scribe_content = self._get_daily_scribe_content(pub_id)
+        dynamic_thread = (scribe_content or {}).get("tweet_thread")
+        if dynamic_thread:
+            return dynamic_thread
+
         if pub_id == "creator_pulse":
             return [
                 "1/4 💋 3 PPV message teaser formulas that converted 18%+ higher this weekend without sounding spammy 🧵👇 @creatorpulselab",

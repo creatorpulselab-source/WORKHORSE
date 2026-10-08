@@ -55,7 +55,7 @@
   },
   "ai_engine": {
     "default_mode": "local_only",
-    "ollama_url": "http://localhost:11434",
+    "ollama_url": "http://127.0.0.1:11434",
     "ollama_vision_model": "huihui_ai/qwen3-vl-abliterated:8b-instruct",
     "ollama_text_model": "huihui_ai/qwen3-abliterated:14b",
     "whisper_model": "base",
@@ -155,7 +155,12 @@
         "creator_blueprint"
       ],
       "fiverr_video_reels_url": "http://www.fiverr.com/s/emmRYZm",
-      "fiverr_tip_menus_url": "http://www.fiverr.com/s/GPPxKB3"
+      "fiverr_tip_menus_url": "http://www.fiverr.com/s/GPPxKB3",
+      "pinterest": {
+        "enabled": false,
+        "default_board_id": "",
+        "daily_slot_time": "12:00"
+      }
     },
     "adult_creator_brand": {
       "name": "The Daily Creator Pulse",

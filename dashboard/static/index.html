@@ -283,6 +283,10 @@
                   </select>
                 </div>
 
+                <button type="button" class="btn-operator-clear" id="operator-history-btn" title="View Full Saved Conversation Log">
+                  📜 History
+                </button>
+
                 <!-- Vision Auto-Detection Pill Indicator -->
                 <div id="vision-auto-pill" class="vision-auto-pill" style="display:none;" title="Synapse has automatically detected vision and routed to Qwen-VL with dynamic GPU 0 block swapping">
                   <span class="vision-dot"></span>
@@ -894,6 +898,45 @@
           </div>
         </div>
 
+        <!-- ATOM 10: Scribe -->
+        <div class="chemical-atom-node atom-pos-10 node-scribe" data-character="scribe" data-target-bay="newsletter-hub" onclick="window.workBaysManager.switchBay('newsletter-hub')">
+          <div class="atom-valence-aura"></div>
+
+          <!-- Hover Pop-Out Dossier Card -->
+          <div class="atom-dossier-popout popout-left dossier-scribe">
+            <div class="dossier-header-bar">
+              <div class="dossier-title-box">
+                <span class="dossier-elem-tag">[6 C]</span>
+                <span class="dossier-agent-name">Scribe</span>
+              </div>
+              <span class="dossier-status-pill" style="background: rgba(239, 68, 68, 0.2); color: #ef4444; border-color: #ef4444;">EDITORIAL ENGINE LIVE</span>
+            </div>
+            <div class="dossier-role-title">High-Converting Copywriter</div>
+            <div class="dossier-divider"></div>
+            <ul class="dossier-specs-list">
+              <li><span>✍️</span> Fresh daily lead stories & tip-menu copy for Herald's newsletters</li>
+              <li><span>📝</span> New Markdown blog articles synced to Substack, Medium & WordPress</li>
+              <li><span>🧵</span> Daily Twitter/X threads with new hooks & angles</li>
+              <li><span>🛍️</span> High-converting product copy for Fiverr & Etsy listings</li>
+            </ul>
+            <div class="dossier-action-footer">
+              <span>🖋️ CLICK TO DEPLOY NEWSLETTER HUB &rarr;</span></div>
+          </div>
+
+          <!-- 3D Sci-Fi Card: Stable Chassis Frame + Living Animated Character -->
+          <div class="atom-3d-card-viewport">
+            <div class="atom-3d-card-stage">
+              <!-- Stable Card Chassis Frame & Text (Rock-Solid) -->
+              <img src="/static/img/characters_3d/scribe_rig_stage.png?v=20261007_v1" alt="Scribe [6 C] • Copywriting Chassis" class="atom-card-chassis" />
+
+              <!-- Living Character Entity with Custom Motion & Animation -->
+              <div class="atom-character-movement-box">
+                <img src="/static/img/characters_3d/scribe_rig_char.png?v=20261007_v1" alt="Scribe" class="atom-character-live char-motion-scribe" />
+              </div>
+            </div>
+          </div>
+        </div>
+
       </div> <!-- Close .chemical-compound-container -->
 
       <!-- Bottom Operational Mission Status Ticker -->
@@ -1280,6 +1323,25 @@
             </div>
             <div class="chamber-card-footer">
               <button type="button" class="btn-card-3d-toggle" onclick="event.stopPropagation(); window.character3dEngine.toggleGlbViewer('mercury');">🧊 3D</button>
+            </div>
+          </div>
+
+          <!-- 09: SCRIBE [6 C] -->
+          <div class="factory-chamber chamber-scribe" id="chamber-scribe" data-character="scribe" onclick="window.workBaysManager.switchBay('newsletter-hub')">
+            <div class="chamber-header-bar">
+              <span class="chamber-badge" style="color: #ef4444; border-color: rgba(239,68,68,0.4);">[6 C] CARBON</span>
+              <span class="chamber-status-light" style="background: #ef4444; box-shadow: 0 0 10px #ef4444;"></span>
+            </div>
+            <div class="chamber-card-titles">
+              <span class="chamber-agent-name">SCRIBE</span>
+              <span class="chamber-role-title">High-Converting Copywriter</span>
+            </div>
+            <div class="factory-avatar-3d-box" data-character="scribe">
+              <img src="/static/img/characters_3d/scribe_rig_char.png" alt="Scribe" class="atom-character-live char-motion-scribe" style="width: 100%; height: 100%; object-fit: contain; pointer-events: none;" />
+            </div>
+            <div class="chamber-machinery">
+              <span style="font-size: 14px;">✒️</span>
+              <span class="chamber-activity-meter" style="color: #ef4444;">DAILY EDITORIAL ENGINE</span>
             </div>
           </div>
 
@@ -2153,19 +2215,19 @@
     <!-- Multi-Publication Selector Bar -->
     <div style="display: flex; gap: 10px; margin-top: 14px; margin-bottom: 6px; padding: 8px 12px; background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.07); border-radius: var(--radius-sm); align-items: center; overflow-x: auto;">
       <span style="font-size: 11px; font-weight: 800; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap;">Publication:</span>
-      <button class="pub-btn" id="pub-btn-creator_pulse" onclick="window.workBaysManager.selectPublication('creator_pulse')" style="background: rgba(247,37,133,0.3); border: 1px solid #f72585; color: #fff; font-size: 11.5px; font-weight: 700; padding: 6px 14px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 6px; white-space: nowrap; box-shadow: 0 0 12px #f72585;">
+      <button class="pub-btn" data-pub-id="creator_pulse" onclick="window.workBaysManager.selectPublication('creator_pulse')" style="background: rgba(247,37,133,0.3); border: 1px solid #f72585; color: #fff; font-size: 11.5px; font-weight: 700; padding: 6px 14px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 6px; white-space: nowrap; box-shadow: 0 0 12px #f72585;">
         <span>💋 The Daily Creator Pulse</span>
         <span style="font-size: 9px; background: #f72585; color: #fff; padding: 1px 6px; border-radius: 4px; font-weight: 800;">PUBLIC</span>
       </button>
-      <button class="pub-btn" id="pub-btn-studio_wire" onclick="window.workBaysManager.selectPublication('studio_wire')" style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.12); color: #94a3b8; font-size: 11.5px; font-weight: 700; padding: 6px 14px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 6px; white-space: nowrap;">
+      <button class="pub-btn" data-pub-id="studio_wire" onclick="window.workBaysManager.selectPublication('studio_wire')" style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.12); color: #94a3b8; font-size: 11.5px; font-weight: 700; padding: 6px 14px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 6px; white-space: nowrap;">
         <span>📸 The Shutter & Studio Wire</span>
         <span style="font-size: 9px; background: #3b82f6; color: #fff; padding: 1px 6px; border-radius: 4px; font-weight: 800;">PUBLIC</span>
       </button>
-      <button class="pub-btn" id="pub-btn-creator_blueprint" onclick="window.workBaysManager.selectPublication('creator_blueprint')" style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.12); color: #94a3b8; font-size: 11.5px; font-weight: 700; padding: 6px 14px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 6px; white-space: nowrap;">
+      <button class="pub-btn" data-pub-id="creator_blueprint" onclick="window.workBaysManager.selectPublication('creator_blueprint')" style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.12); color: #94a3b8; font-size: 11.5px; font-weight: 700; padding: 6px 14px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 6px; white-space: nowrap;">
         <span>⚡ The Creator Blueprint</span>
         <span style="font-size: 9px; background: #eab308; color: #000; padding: 1px 6px; border-radius: 4px; font-weight: 800;">PUBLIC</span>
       </button>
-      <button class="pub-btn" id="pub-btn-dispensary_deals" onclick="window.workBaysManager.selectPublication('dispensary_deals')" style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.12); color: #94a3b8; font-size: 11.5px; font-weight: 700; padding: 6px 14px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 6px; white-space: nowrap;">
+      <button class="pub-btn" data-pub-id="dispensary_deals" onclick="window.workBaysManager.selectPublication('dispensary_deals')" style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.12); color: #94a3b8; font-size: 11.5px; font-weight: 700; padding: 6px 14px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 6px; white-space: nowrap;">
         <span>🌿 Florida Dispensary Deals</span>
         <span style="font-size: 9px; background: #10b981; color: #000; padding: 1px 6px; border-radius: 4px; font-weight: 800;">PRIVATE</span>
       </button>
@@ -2302,19 +2364,19 @@
     <!-- Multi-Publication Selector Bar -->
     <div style="display: flex; gap: 10px; margin-top: 14px; margin-bottom: 6px; padding: 8px 12px; background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.07); border-radius: var(--radius-sm); align-items: center; overflow-x: auto;">
       <span style="font-size: 11px; font-weight: 800; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap;">Publication:</span>
-      <button class="pub-btn" id="pub-btn-creator_pulse" onclick="window.workBaysManager.selectPublication('creator_pulse')" style="background: rgba(247,37,133,0.3); border: 1px solid #f72585; color: #fff; font-size: 11.5px; font-weight: 700; padding: 6px 14px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 6px; white-space: nowrap; box-shadow: 0 0 12px #f72585;">
+      <button class="pub-btn" data-pub-id="creator_pulse" onclick="window.workBaysManager.selectPublication('creator_pulse')" style="background: rgba(247,37,133,0.3); border: 1px solid #f72585; color: #fff; font-size: 11.5px; font-weight: 700; padding: 6px 14px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 6px; white-space: nowrap; box-shadow: 0 0 12px #f72585;">
         <span>💋 The Daily Creator Pulse</span>
         <span style="font-size: 9px; background: #f72585; color: #fff; padding: 1px 6px; border-radius: 4px; font-weight: 800;">PUBLIC</span>
       </button>
-      <button class="pub-btn" id="pub-btn-studio_wire" onclick="window.workBaysManager.selectPublication('studio_wire')" style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.12); color: #94a3b8; font-size: 11.5px; font-weight: 700; padding: 6px 14px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 6px; white-space: nowrap;">
+      <button class="pub-btn" data-pub-id="studio_wire" onclick="window.workBaysManager.selectPublication('studio_wire')" style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.12); color: #94a3b8; font-size: 11.5px; font-weight: 700; padding: 6px 14px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 6px; white-space: nowrap;">
         <span>📸 The Shutter & Studio Wire</span>
         <span style="font-size: 9px; background: #3b82f6; color: #fff; padding: 1px 6px; border-radius: 4px; font-weight: 800;">PUBLIC</span>
       </button>
-      <button class="pub-btn" id="pub-btn-creator_blueprint" onclick="window.workBaysManager.selectPublication('creator_blueprint')" style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.12); color: #94a3b8; font-size: 11.5px; font-weight: 700; padding: 6px 14px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 6px; white-space: nowrap;">
+      <button class="pub-btn" data-pub-id="creator_blueprint" onclick="window.workBaysManager.selectPublication('creator_blueprint')" style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.12); color: #94a3b8; font-size: 11.5px; font-weight: 700; padding: 6px 14px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 6px; white-space: nowrap;">
         <span>⚡ The Creator Blueprint</span>
         <span style="font-size: 9px; background: #eab308; color: #000; padding: 1px 6px; border-radius: 4px; font-weight: 800;">PUBLIC</span>
       </button>
-      <button class="pub-btn" id="pub-btn-dispensary_deals" onclick="window.workBaysManager.selectPublication('dispensary_deals')" style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.12); color: #94a3b8; font-size: 11.5px; font-weight: 700; padding: 6px 14px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 6px; white-space: nowrap;">
+      <button class="pub-btn" data-pub-id="dispensary_deals" onclick="window.workBaysManager.selectPublication('dispensary_deals')" style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.12); color: #94a3b8; font-size: 11.5px; font-weight: 700; padding: 6px 14px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 6px; white-space: nowrap;">
         <span>🌿 Florida Dispensary Deals</span>
         <span style="font-size: 9px; background: #10b981; color: #000; padding: 1px 6px; border-radius: 4px; font-weight: 800;">PRIVATE</span>
       </button>
@@ -2840,12 +2902,75 @@
     </div>
   </div>
 
+  <!-- ======================================================================
+       SYNAPSE HEALTH DIAGNOSTICS MODAL (Live Status, Daily Log, Error Log)
+       ====================================================================== -->
+  <div class="modal-overlay" id="modal-health-diagnostics">
+    <div class="modal-card glass-panel" style="max-width: 720px; max-height: 88vh; overflow-y: auto;">
+      <div class="modal-header">
+        <h3>🩺 SYNAPSE System Diagnostics</h3>
+        <button class="modal-close-btn" id="btn-close-health-modal">&times;</button>
+      </div>
+
+      <div style="margin-bottom: 16px;">
+        <div style="font-size: 11px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">⚡ Live Status</div>
+        <div id="health-checks-container" style="display: flex; flex-direction: column; gap: 8px;"></div>
+      </div>
+
+      <div class="health-actions-row">
+        <button class="btn-cyber" id="btn-self-heal-all">🛠️ Self-Heal All</button>
+        <button class="btn-cyber" id="btn-self-heal-vram" style="border-color:#00f2fe;color:#00f2fe;">⚡ Purge VRAM</button>
+        <button class="btn-cyber" id="btn-self-heal-db" style="border-color:#ffd166;color:#ffd166;">🗄️ Repair Subscriber DB</button>
+      </div>
+      <div id="self-heal-feedback" style="font-size: 12px; min-height: 16px; margin: 8px 0 16px;"></div>
+
+      <div style="margin-bottom: 16px;">
+        <div style="font-size: 11px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">📅 Daily Health History</div>
+        <div id="daily-health-log-container" style="display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: var(--text-muted);">Loading...</div>
+      </div>
+
+      <div>
+        <div style="font-size: 11px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">🧯 Recent Error Log</div>
+        <div id="error-log-container" style="display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: var(--text-muted);">Loading...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================================
+       SYNAPSE SAVED CONVERSATION LOG MODAL (Read-Only Full History)
+       ====================================================================== -->
+  <div class="modal-overlay" id="modal-operator-history">
+    <div class="modal-card glass-panel" style="max-width: 760px; max-height: 88vh; display: flex; flex-direction: column;">
+      <div class="modal-header">
+        <h3>📜 SYNAPSE Saved Conversation Log</h3>
+        <button class="modal-close-btn" id="btn-close-history-modal">&times;</button>
+      </div>
+      <div id="operator-history-log-container" class="operator-chat-feed" style="flex: none; max-height: 70vh; overflow-y: auto; padding: 4px 4px 4px 0;">
+        Loading...
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================================
+       GENERIC LONG-FORM CONTENT POP-OUT (Shoot Blueprints, etc.)
+       ====================================================================== -->
+  <div class="modal-overlay" id="modal-content-viewer">
+    <div class="modal-card glass-panel" style="max-width: 820px; max-height: 88vh; display: flex; flex-direction: column;">
+      <div class="modal-header">
+        <h3 id="content-viewer-title">📋 Details</h3>
+        <button class="modal-close-btn" id="btn-close-content-viewer-modal">&times;</button>
+      </div>
+      <div id="content-viewer-body" style="overflow-y: auto; max-height: 75vh; padding: 4px 8px 4px 0; font-size: 13.5px; line-height: 1.6;">
+      </div>
+    </div>
+  </div>
+
   <script src="/static/js/agents.js"></script>
   <script src="/static/js/factory.js"></script>
   <script src="/static/js/pipeline.js"></script>
   <script src="/static/js/app.js"></script>
   <script src="/static/js/bays.js?v=20261007_v2"></script>
-  <script src="/static/js/operator.js?v=20261007_v2"></script>
+  <script src="/static/js/operator.js?v=20261008_v2"></script>
   <script src="/static/js/character3d.js?v=20261006_v2" defer></script>
   <script type="module" src="/static/js/vendor/model-viewer.min.js" defer></script>
 </body>

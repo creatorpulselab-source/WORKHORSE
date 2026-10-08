@@ -6,5 +6,8 @@
   "check_interval_seconds": 120,
   "auto_check": true,
   "sound_alerts": true,
-  "last_checked": "2026-10-06T16:41:07.143684"
+  "last_checked": "2026-10-06T16:41:07.143684",
+  "stripe_webhook_secret": "",
+  "gumroad_seller_id": "",
+  "webhook_product_map": {}
 }

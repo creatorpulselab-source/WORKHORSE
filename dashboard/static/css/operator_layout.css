@@ -763,6 +763,25 @@ header.command-header {
   color: #06d6a0;
 }
 
+.btn-view-blueprint {
+  align-self: flex-start;
+  padding: 7px 14px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  border: 1px solid rgba(0, 242, 254, 0.3);
+  background: rgba(0, 242, 254, 0.08);
+  color: var(--cyan-accent);
+  transition: all 0.2s;
+}
+
+.btn-view-blueprint:hover {
+  background: rgba(0, 242, 254, 0.18);
+  color: #fff;
+  border-color: var(--cyan-accent);
+}
+
 /* Typing Indicator */
 .typing-indicator {
   display: flex;
@@ -1809,13 +1828,27 @@ nav.bay-switcher-nav { display: none !important; }
   }
 
   /* 6. Modals on Mobile */
-  .modal-overlay .modal-dialog,
-  #modal-health-diagnostics .modal-dialog,
-  .modal-content {
+  .modal-card {
     width: 94vw !important;
     max-width: 94vw !important;
     margin: 4vh auto !important;
     padding: 14px !important;
+  }
+
+  /* Health/daily-log/error-log rows: wrap name+badge onto separate lines instead of
+     overflowing the narrower mobile modal width with long status text. */
+  .health-check-row {
+    flex-wrap: wrap !important;
+    gap: 6px !important;
+  }
+  .health-row-badge {
+    white-space: normal !important;
+  }
+  .health-actions-row {
+    flex-wrap: wrap !important;
+  }
+  .btn-self-heal {
+    flex: 1 1 100% !important;
   }
 }
 

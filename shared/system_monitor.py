@@ -76,10 +76,10 @@ def get_system_stats() -> Dict[str, Any]:
         }
     }
 
-def get_ollama_models(ollama_url: str = "http://localhost:11434") -> Dict[str, Any]:
+def get_ollama_models(ollama_url: str = "http://127.0.0.1:11434") -> Dict[str, Any]:
     """Check Ollama availability and list local models."""
     try:
-        resp = requests.get(f"{ollama_url}/api/tags", timeout=2)
+        resp = requests.get(f"{ollama_url}/api/tags", timeout=4)
         if resp.status_code == 200:
             data = resp.json()
             models = []

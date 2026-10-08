@@ -17,8 +17,31 @@ class AIOperatorUI {
     this.initSynapse3DMotion();
     this.initHeraldDailyDrop();
     await this.loadModels();
+    await this.loadChatHistory();
     this.pollHealthStatus();
     setInterval(() => this.pollHealthStatus(), 20000); // Poll health every 20s
+  }
+
+  // Restores prior SYNAPSE conversation turns from the server-persisted history so the
+  // Commander's chat survives page reloads, tab switches, or a dropped connection.
+  async loadChatHistory() {
+    try {
+      const res = await fetch('/api/operator/history');
+      const data = await res.json();
+      const history = data.history || [];
+      if (history.length === 0 || !this.chatContainer) return;
+
+      this.chatContainer.innerHTML = '';
+      history.forEach(entry => {
+        this.appendMessage({
+          role: entry.role,
+          content: entry.content
+        });
+      });
+      this.chatContainer.scrollTop = this.chatContainer.scrollHeight;
+    } catch (err) {
+      console.error('Failed to load SYNAPSE chat history:', err);
+    }
   }
 
   cacheElements() {
@@ -48,6 +71,17 @@ class AIOperatorUI {
     this.btnSelfHealAll = document.getElementById('btn-self-heal-all');
     this.btnPurgeVram = document.getElementById('btn-self-heal-vram');
     this.btnRepairDb = document.getElementById('btn-self-heal-db');
+
+    // Saved conversation log viewer
+    this.historyBtn = document.getElementById('operator-history-btn');
+    this.historyModal = document.getElementById('modal-operator-history');
+    this.closeHistoryModalBtn = document.getElementById('btn-close-history-modal');
+
+    // Generic long-form content pop-out (shoot blueprints, etc.)
+    this.contentViewerModal = document.getElementById('modal-content-viewer');
+    this.contentViewerTitle = document.getElementById('content-viewer-title');
+    this.contentViewerBody = document.getElementById('content-viewer-body');
+    this.closeContentViewerBtn = document.getElementById('btn-close-content-viewer-modal');
   }
 
   bindEvents() {
@@ -126,6 +160,21 @@ class AIOperatorUI {
     }
     if (this.btnRepairDb) {
       this.btnRepairDb.addEventListener('click', () => this.triggerSelfHeal('subscribers'));
+    }
+
+    // Saved conversation log modal controls
+    if (this.historyBtn) {
+      this.historyBtn.addEventListener('click', () => this.openHistoryModal());
+    }
+    if (this.closeHistoryModalBtn && this.historyModal) {
+      this.closeHistoryModalBtn.addEventListener('click', () => {
+        this.historyModal.classList.remove('open');
+      });
+    }
+    if (this.closeContentViewerBtn && this.contentViewerModal) {
+      this.closeContentViewerBtn.addEventListener('click', () => {
+        this.contentViewerModal.classList.remove('open');
+      });
     }
 
     // Dropzone drag/drop
@@ -324,6 +373,9 @@ class AIOperatorUI {
           visionAutoDetected: data.vision_auto_detected || (data.model && data.model.includes('vl')),
           linkIngested: (data.link_ingestion_results && data.link_ingestion_results.length > 0)
         });
+        if (data.web_search_auto_detected && this.webSearchToggle) {
+          this.webSearchToggle.checked = true;
+        }
         this.checkAndAutoDetectVision();
         this.checkAndAutoDetectLinks();
       } else {
@@ -336,9 +388,13 @@ class AIOperatorUI {
       }
     } catch (err) {
       this.removeLoadingIndicator(loadingId);
+      const isFetchFail = err.message && (err.message.includes('Failed to fetch') || err.message.includes('NetworkError'));
+      const msg = isFetchFail
+        ? `⚠️ **Server Disconnected**: Unable to reach WORKHORSE dashboard server on port 8800 (${err.message}). Please verify the backend server is active.`
+        : `⚠️ **Connection Error**: ${err.message}.`;
       this.appendMessage({
         role: 'assistant',
-        content: `⚠️ **Connection Error**: ${err.message}. Please verify local Ollama on port 11434.`,
+        content: msg,
         hasError: true
       });
     } finally {
@@ -356,7 +412,7 @@ class AIOperatorUI {
     }
   }
 
-  appendMessage(msg) {
+  appendMessage(msg, targetContainer = this.chatContainer) {
     const isUser = msg.role === 'user';
     const msgDiv = document.createElement('div');
     msgDiv.className = `operator-msg-row ${isUser ? 'user-msg' : 'assistant-msg'}`;
@@ -406,16 +462,47 @@ class AIOperatorUI {
     }
 
     if (msg.actions && msg.actions.length > 0) {
-      bodyHtml += `
-        <div class="msg-actions-list">
-          ${msg.actions.map(act => `
-            <div class="action-badge ${act.status === 'ok' ? 'success' : 'warn'}">
-              <span class="act-icon">⚡</span>
-              <span class="act-text">${act.message || JSON.stringify(act)}</span>
+      // Raw tool-call status badges are intentionally not rendered here - the Commander only
+      // wants to see SYNAPSE's actual written response. Blueprints and generated images (real
+      // content, not tool-execution noise) are still surfaced, with blueprints opening in a
+      // full-size pop-out modal instead of a cramped inline <details> dropdown.
+      const blueprintActions = msg.actions.filter(act => act.blueprint);
+      const imageActions = msg.actions.filter(act => act.images && act.images.length > 0);
+
+      if (blueprintActions.length > 0 || imageActions.length > 0) {
+        bodyHtml += `<div class="msg-actions-list">`;
+
+        blueprintActions.forEach(act => {
+          const blueprintId = 'bp-' + Date.now() + '-' + Math.floor(Math.random() * 100000);
+          this._blueprintStore = this._blueprintStore || {};
+          this._blueprintStore[blueprintId] = act.blueprint;
+          bodyHtml += `
+            <button type="button" class="btn-view-blueprint" data-blueprint-id="${blueprintId}">
+              📋 View Full Shoot Blueprint
+            </button>
+          `;
+        });
+
+        imageActions.forEach(act => {
+          bodyHtml += `
+            <div class="msg-generated-images-grid">
+              ${act.images.map(img => img.image_url ? `
+                <a href="${img.image_url}" target="_blank" class="msg-generated-image-card" title="${img.title || ''}">
+                  <img src="${img.image_url}" alt="${img.title || 'Generated concept'}" loading="lazy">
+                  <span class="msg-generated-image-caption">${img.title || ''}</span>
+                </a>
+              ` : `
+                <div class="msg-generated-image-card msg-generated-image-failed" title="${img.error || 'Render failed'}">
+                  <span class="act-icon">⚠️</span>
+                  <span class="msg-generated-image-caption">${img.title || 'Concept'} failed</span>
+                </div>
+              `).join('')}
             </div>
-          `).join('')}
-        </div>
-      `;
+          `;
+        });
+
+        bodyHtml += `</div>`;
+      }
     }
 
     if (msg.quickOptions && msg.quickOptions.length > 0) {
@@ -452,8 +539,25 @@ class AIOperatorUI {
       </div>
     `;
 
-    this.chatContainer.appendChild(msgDiv);
-    this.scrollToBottom();
+    targetContainer.appendChild(msgDiv);
+    msgDiv.querySelectorAll('.btn-view-blueprint').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.dataset.blueprintId;
+        this.openContentViewerModal('📋 Shoot Production Blueprint', this._blueprintStore[id]);
+      });
+    });
+    if (targetContainer === this.chatContainer) {
+      this.scrollToBottom();
+    }
+  }
+
+  // Generic pop-out for long-form content (currently shoot blueprints) that's too large/
+  // unwieldy to read in a small inline chat bubble.
+  openContentViewerModal(title, markdownContent) {
+    if (!this.contentViewerModal) return;
+    if (this.contentViewerTitle) this.contentViewerTitle.innerText = title;
+    if (this.contentViewerBody) this.contentViewerBody.innerHTML = this.formatMarkdown(markdownContent || '');
+    this.contentViewerModal.classList.add('open');
   }
 
   appendLoadingIndicator() {
@@ -564,6 +668,35 @@ class AIOperatorUI {
     }
   }
 
+  // Shows the full persisted conversation for this session in a read-only modal,
+  // independent of the live scrollable chat feed above.
+  async openHistoryModal() {
+    if (!this.historyModal) return;
+    this.historyModal.classList.add('open');
+    const container = document.getElementById('operator-history-log-container');
+    if (!container) return;
+
+    container.innerHTML = '<div style="color:#94a3b8;font-size:12px;">Loading saved conversation...</div>';
+
+    try {
+      const res = await fetch('/api/operator/history');
+      const data = await res.json();
+      const history = data.history || [];
+
+      if (history.length === 0) {
+        container.innerHTML = '<div style="color:#94a3b8;font-size:12px;">No saved messages yet for this session.</div>';
+        return;
+      }
+
+      container.innerHTML = '';
+      history.forEach(entry => {
+        this.appendMessage({ role: entry.role, content: entry.content }, container);
+      });
+    } catch (err) {
+      container.innerHTML = `<div style="color:#ef4444;font-size:12px;">Failed to load saved conversation: ${err.message}</div>`;
+    }
+  }
+
   async openHealthModal() {
     if (!this.healthModal) return;
     this.healthModal.classList.add('open');
@@ -611,6 +744,62 @@ class AIOperatorUI {
       `;
     } catch (err) {
       container.innerHTML = `<div style="color:#ef4444;font-size:12px;">Diagnostics failed: ${err.message}</div>`;
+    }
+
+    await this.loadDailyHealthLog();
+    await this.loadErrorLog();
+  }
+
+  async loadDailyHealthLog() {
+    const container = document.getElementById('daily-health-log-container');
+    if (!container) return;
+    try {
+      const res = await fetch('/api/system/daily-health-log?limit=14');
+      const data = await res.json();
+      const checks = data.daily_checks || [];
+      if (checks.length === 0) {
+        container.innerHTML = '<div style="color:#94a3b8;">No daily health snapshots recorded yet.</div>';
+        return;
+      }
+      container.innerHTML = checks.map(c => {
+        const badgeColor = c.overall_status === 'healthy' ? 'rgba(6,214,160,0.2);color:#06d6a0;'
+          : c.overall_status === 'warning' ? 'rgba(255,209,102,0.2);color:#ffd166;'
+          : 'rgba(239,68,68,0.2);color:#ef4444;';
+        const issuesText = (c.issues && c.issues.length > 0) ? c.issues.join('; ') : 'No issues detected';
+        return `
+          <div class="health-check-row">
+            <span class="health-row-name">${c.date}</span>
+            <span class="health-row-badge" style="background:${badgeColor}" title="${issuesText}">${(c.overall_status || 'unknown').toUpperCase()}</span>
+          </div>
+        `;
+      }).join('');
+    } catch (err) {
+      container.innerHTML = `<div style="color:#ef4444;">Failed to load daily health log: ${err.message}</div>`;
+    }
+  }
+
+  async loadErrorLog() {
+    const container = document.getElementById('error-log-container');
+    if (!container) return;
+    try {
+      const res = await fetch('/api/system/error-log?limit=15');
+      const data = await res.json();
+      const errors = data.errors || [];
+      if (errors.length === 0) {
+        container.innerHTML = '<div style="color:#94a3b8;">No errors logged - system has been running clean.</div>';
+        return;
+      }
+      container.innerHTML = errors.map(e => `
+        <div class="health-check-row" style="align-items: flex-start;">
+          <span class="health-row-name" style="flex: 1;">
+            <strong>${e.component}</strong><br>
+            <span style="color:#94a3b8; font-weight: 400;">${e.error}</span>
+          </span>
+          <span class="health-row-badge" style="background:rgba(239,68,68,0.2);color:#ef4444; white-space: nowrap;">${new Date(e.timestamp).toLocaleString()}</span>
+        </div>
+      `).join('');
+    } catch (err) {
+      container.innerHTML = `<div style="color:#ef4444;">Failed to load error log: ${err.message}</div>`;
     }
   }
 

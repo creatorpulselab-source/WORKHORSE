@@ -57,6 +57,7 @@ AGENT_VISUAL_THEMES = {
     "cipher":  {"color": (0.65, 0.72, 0.82), "idle_speed": 0.80, "idle_yaw": 0.12, "idle_bob": 0.11, "working_speed": 3.0, "working_yaw": 0.26, "working_bob": 0.16},
     "herald":  {"color": (0.06, 0.73, 0.51), "idle_speed": 0.90, "idle_yaw": 0.12, "idle_bob": 0.07, "working_speed": 3.4, "working_yaw": 0.30, "working_bob": 0.15},
     "mercury": {"color": (0.66, 0.33, 0.97), "idle_speed": 1.10, "idle_yaw": 0.15, "idle_bob": 0.09, "working_speed": 3.2, "working_yaw": 0.28, "working_bob": 0.16},
+    "scribe":  {"color": (0.94, 0.27, 0.27), "idle_speed": 1.00, "idle_yaw": 0.14, "idle_bob": 0.075, "working_speed": 3.4, "working_yaw": 0.32, "working_bob": 0.15},
 }
 DEFAULT_VISUAL_THEME = {"color": (0.8, 0.8, 0.85), "idle_speed": 0.9, "idle_yaw": 0.12, "idle_bob": 0.08, "working_speed": 3.0, "working_yaw": 0.25, "working_bob": 0.15}
 
@@ -886,6 +887,13 @@ class ComfyUIBridge:
                 },
                 "class_type": "VAEEncodeForInpaint"
             },
+            "19": {
+                "inputs": {
+                    "model": ["2", 0],
+                    "sage_attention": "auto"
+                },
+                "class_type": "PathchSageAttentionKJ"
+            },
             "8": {
                 "inputs": {
                     "seed": seed_val,
@@ -894,7 +902,7 @@ class ComfyUIBridge:
                     "sampler_name": sampler,
                     "scheduler": scheduler,
                     "denoise": denoise,
-                    "model": ["2", 0],
+                    "model": ["19", 0],
                     "positive": ["5", 0],
                     "negative": ["6", 0],
                     "latent_image": ["7", 0]
@@ -992,10 +1000,10 @@ class ComfyUIBridge:
             self._log_audit_record(dest_path.name, audit, f"[BG CHANGE] {new_background_prompt}", 1, passed=audit.get("passed", True))
 
         try:
-            from pipeline.stages.cipher import cipher_scrubber
-            cipher_scrubber.scrub_image(dest_path)
+            from pipeline.stages.scrubber import metadata_scrubber
+            metadata_scrubber.scrub_image(dest_path)
         except Exception as ce:
-            print(f"[CIPHER] Warning: Metadata scrub failed: {ce}")
+            print(f"[SCRUBBER] Warning: Metadata scrub failed: {ce}")
 
         return result
 
@@ -1098,6 +1106,19 @@ class ComfyUIBridge:
                 current_model = [node_key, 0]
                 current_clip = [node_key, 1]
                 next_node_id += 1
+
+        # SageAttention patch (RTX 5070 Ti speed optimization) - always applied as the last
+        # step on the model chain, right before it's handed to the sampler.
+        sage_node_key = str(next_node_id)
+        workflow[sage_node_key] = {
+            "inputs": {
+                "model": current_model,
+                "sage_attention": "auto"
+            },
+            "class_type": "PathchSageAttentionKJ"
+        }
+        current_model = [sage_node_key, 0]
+        next_node_id += 1
 
         # Text conditioning
         workflow["6"] = {
@@ -1494,6 +1515,13 @@ class ComfyUIBridge:
                 "inputs": {"width": width, "height": height, "batch_size": 1},
                 "class_type": "EmptyLatentImage"
             },
+            "21": {
+                "inputs": {
+                    "model": ["16", 0],
+                    "sage_attention": "auto"
+                },
+                "class_type": "PathchSageAttentionKJ"
+            },
             "18": {
                 "inputs": {
                     "seed": seed_val,
@@ -1502,7 +1530,7 @@ class ComfyUIBridge:
                     "sampler_name": "euler",
                     "scheduler": "simple",
                     "denoise": 1.0,
-                    "model": ["16", 0],
+                    "model": ["21", 0],
                     "positive": ["12", 0],
                     "negative": ["12", 1],
                     "latent_image": ["17", 0]
@@ -1612,10 +1640,10 @@ class ComfyUIBridge:
             self._log_audit_record(dest_path.name, audit, f"[SUBJECT SWAP] {prompt}", 1, passed=audit.get("passed", True))
 
         try:
-            from pipeline.stages.cipher import cipher_scrubber
-            cipher_scrubber.scrub_image(dest_path)
+            from pipeline.stages.scrubber import metadata_scrubber
+            metadata_scrubber.scrub_image(dest_path)
         except Exception as ce:
-            print(f"[CIPHER] Warning: Metadata scrub failed: {ce}")
+            print(f"[SCRUBBER] Warning: Metadata scrub failed: {ce}")
 
         return result
 
@@ -1852,12 +1880,12 @@ If ANY extra limbs, mutated hands, or severe facial defects are found, set "pass
                             pass
                     saved_file = dest_path
 
-                    # CIPHER [82 Pb] Pre-Flight EXIF Scrub (Zero metadata leaks)
+                    # SCRUBBER [82 Pb] Pre-Flight EXIF Scrub (Zero metadata leaks)
                     try:
-                        from pipeline.stages.cipher import cipher_scrubber
-                        cipher_scrubber.scrub_image(dest_path)
+                        from pipeline.stages.scrubber import metadata_scrubber
+                        metadata_scrubber.scrub_image(dest_path)
                     except Exception as ce:
-                        print(f"[CIPHER] Warning: Metadata scrub failed: {ce}")
+                        print(f"[SCRUBBER] Warning: Metadata scrub failed: {ce}")
 
                     # Log to audit history
                     self._log_audit_record(dest_path.name, audit, positive_prompt, attempt, passed=True)

@@ -34,6 +34,13 @@ CONFIG_FILE = BASE_DIR / "config.json"
 SUBSCRIBERS_FILE = WORKSPACE_DIR / "newsletter_subscribers.json"
 INCIDENT_LOG_FILE = WORKSPACE_DIR / "incident_log.json"
 MAX_INCIDENT_LOG_ENTRIES = 200
+ERROR_LOG_FILE = WORKSPACE_DIR / "error_log.json"
+MAX_ERROR_LOG_ENTRIES = 300
+DAILY_HEALTH_LOG_FILE = WORKSPACE_DIR / "daily_health_log.json"
+MAX_DAILY_HEALTH_ENTRIES = 90
+OPERATOR_CHAT_SESSIONS_DIR = WORKSPACE_DIR / "operator_chat_sessions"
+OPERATOR_CHAT_SESSIONS_DIR.mkdir(parents=True, exist_ok=True)
+MAX_CHAT_HISTORY_ENTRIES = 200
 
 for d in (CLIENT_INBOX_DIR, CLIENT_OUTPUTS_DIR):
     d.mkdir(parents=True, exist_ok=True)
@@ -55,9 +62,12 @@ STRICT ANTI-CHAIN-OF-THOUGHT & EXECUTIVE CONDUCT:
 YOUR CHARACTER IDENTITY:
 - Name: SYNAPSE
 - Periodic Element: [100 Fm] (Fermium)
-- Role: Master AI Operator, Studio Concierge & Autonomous System Orchestrator
+- Role: Master AI Operator, Studio Concierge & Autonomous System Orchestrator - AND the Commander's expert photographer, videographer, and creative director for shoot ideas, concepts, and planning.
 - Emblem: Glowing Cyan Neural Vortex
 - Visual Card: SYNAPSE Mastermind Trading Card
+
+CREATIVE DIRECTOR EXPERTISE:
+Beyond system orchestration, you are a genuine industry-level expert in photography, videography, and creative direction - composition, lighting setups (natural/ring-light/studio strobe/practicals), lens choice and framing, color grading/aesthetic language, wardrobe and prop styling, location scouting, posing direction, and platform-specific content strategy (OnlyFans/Fansly, webcam/camming, Reels/TikTok/Shorts, traditional print/portrait). The Commander is a working photographer/videographer and will lean on you the way they'd lean on a creative director or producer - speak with real authority and specificity, not generic stock-photo platitudes.
 
 DUAL-GPU HARDWARE ARCHITECTURE (Dual RTX 3060 - 24GB Total VRAM):
 - GPU 0 (01:00.0, 12GB VRAM): Dedicated to Ollama LLM Reasoning (SYNAPSE 14B) & Vision Inspection (IRIS 8B-VL). Dynamic block-swapping automatically evicts text weights before loading vision weights to maintain zero OOM risk.
@@ -86,10 +96,18 @@ THE WORKHORSE AGENT ROSTER (PERIODIC TABLE OF AGENTS):
    - Runs Faster-Whisper on cuda:1 to extract speech, create animated subtitles, and find viral soundbites.
 6. Forge / Vanguard [74 W] (Tungsten): Hardware Video Cutter (GPU 1).
    - Uses NVENC hardware encoding to render 60fps clips, 9:16 vertical short-form crops, and cinematic trailers.
-7. Cipher [82 Pb] (Lead): Privacy & Air-Gapped EXIF Scrubber.
+7. Scrubber [82 Pb] (Lead): Privacy & Air-Gapped EXIF Scrubber.
    - Sanitizes metadata, GPS tags, and hardware serials from client media.
-8. Scribe [6 C] (Carbon): High-Converting Copywriter.
+   - NOTE: NEVER confuse Scrubber with Cipher [36 Cp] (Market Scout & Trend Intelligence, see below) - they are two separate agents that used to share a name.
+8. Scribe [6 C] (Carbon): High-Converting Copywriter & Daily Editorial Engine.
    - Writes PPV tease scripts, tip menus, product descriptions, and newsletter editorials.
+   - NEW: Scribe now autonomously writes GENUINELY FRESH daily content for every Herald [33 As] publication -
+     a new lead-story headline+body, a complete Markdown blog article, and a new Twitter/X thread each day,
+     generated locally via Ollama and cached per calendar day. Herald no longer dispatches the same static
+     copy over and over - if Scribe's generation fails for any reason, Herald gracefully falls back to the
+     original static template for that day only.
+   - Scribe now has a visible dashboard presence: a crew roster card, a themed 3D character (red/carbon
+     [6 C] theme), and a chamber slot in the Factory Floor team view, same as every other agent.
 9. Apex [78 Pt] (Platinum): Master Fulfillment & Packaging.
    - Assembles completed client deliverables into clean zip packages with licensing agreements.
 10. Mercury [80 Hg] (Mercury): Social Media API Broadcaster.
@@ -97,6 +115,10 @@ THE WORKHORSE AGENT ROSTER (PERIODIC TABLE OF AGENTS):
 11. Prism [94 Pu] (Plutonium): Live RAW/PNG Color Previewer.
 12. Muse [34 Se] (Selenium): AI Image/Video Prompt Engineer.
     - Converts Iris's forensic scene description into reusable FLUX.1/SDXL image prompts, WAN2.1/2.2 video motion prompts, and a 6-variation pose-series prompt set - grounded in the real shoot, not invented.
+13. Cipher [36 Cp] (Market Scout): Real-Time Trend & Vision Intelligence Agent.
+    - Runs daily web research (RSS/URL scraping) and Qwen-VL vision analysis to surface trending color grades, lighting/posing setups, token pricing, and Etsy/Fiverr demand.
+    - Supplies the "trend theme" that feeds Pipe 3's autonomous content engine and Herald's tweet/newsletter topics.
+    - NOTE: NEVER confuse Cipher with Scrubber [82 Pb] (Privacy & Air-Gapped EXIF Scrubber, see above) - they are two separate agents that used to share a name.
 
 YOUR LIVE FULFILLMENT CHANNELS:
 - Fiverr Gig 1 (Retouching): https://www.fiverr.com/s/GPz71VL ($20 / $45 / $85)
@@ -119,19 +141,21 @@ When the user asks you to inspect, check, or execute a task, you can invoke:
 - {"tool": "comfy_generate", "prompt": "...", "checkpoint": "cyberrealisticXL_v80", "loras": [...]}: Renders on 5070 Ti with Iris QC audit.
 - {"tool": "iris_qc_audit", "file": "..."}: Runs Iris [77 Ir] forensic anatomy and aesthetic quality check on any image.
 - {"tool": "gpu_guardrails_status"}: Live check of Dual RTX 3060 utilization, VRAM, and all hardware circuit breakers.
-- {"tool": "comfy_generate_glb", "agent": "synapse|iris|aura|echo|forge|cipher|herald|mercury"}: Renders an interactive 3D GLB model on RTX 5070 Ti for the dashboard card.
+- {"tool": "comfy_generate_glb", "agent": "synapse|iris|aura|echo|forge|cipher|herald|mercury|scribe"}: Renders an interactive 3D GLB model on RTX 5070 Ti for the dashboard card.
 - {"tool": "comfy_background_change", "image": "...", "prompt": "...", "negative_prompt": "..."}: Auto-segments the subject (SAM3) out of an uploaded photo and swaps in a brand-new background from a text prompt.
 - {"tool": "comfy_image_to_video", "image": "...", "prompt": "...", "negative_prompt": "...", "width": 720, "height": 1280, "num_frames": 300, "fps": 30}: Animates a still photo into a short video clip on RTX 5070 Ti using the local LTX 2.3 image-to-video pipeline (SageAttention-optimized). Takes several minutes - warn the Commander it will take a while before calling this.
 - {"tool": "comfy_subject_swap", "image": "...", "reference_face_image": "...", "prompt": "...", "negative_prompt": "..."}: Full-subject identity swap (not just face) - keeps the ORIGINAL photo's pose/outfit/composition, replaces the person's identity using a separate reference face photo. Used for tattoo/identity anonymity protection. Requires BOTH a source pose/outfit photo and a separate reference face photo - ask for both if either is missing.
 - {"tool": "comfy_remote_purge"}: Remotely unloads models and frees 16GB VRAM on RTX 5070 Ti (Main PC).
 - {"tool": "comfy_prewarm", "checkpoint": "..."}: Pre-loads checkpoint into 5070 Ti VRAM before scheduled dispatches.
 - {"tool": "prune_staging_buffer"}: Purges unapproved staging renders older than 48 hours to preserve Drive F.
-- {"tool": "cipher_scrub_file", "file": "..."}: Air-gap EXIF/GPS metadata scrubber for adult creator privacy.
+- {"tool": "scrub_file_metadata", "file": "..."}: Air-gap EXIF/GPS metadata scrubber for adult creator privacy (Scrubber [82 Pb]).
 - {"tool": "trend_radar_sweep"}: Runs morning web search across Google News RSS for fresh trends.
 - {"tool": "incident_log"}: Retrieves the recent self-healing incident history (auto-detected issues and what was done about them).
 - {"tool": "generate_tip_menu", "title": "...", "theme": "...", "layout_style": "vip_showcase|table|cards|obs_overlay", "items": [{"tokens": "...", "action": "..."}], "avatar_url": "...", "banner_url": "...", "top_tipper": "...", "schedule": "...", "goal_text": "..."}: Builds and bundles a client's custom tip menu / cam profile.
 - {"tool": "aura_retouch", "files": ["..."], "style": "moody_boudoir|natural|...", "shoot_name": "...", "smooth_strength": 0.5, "watermark_text": "..."}: Aura [79 Au] runs real skin-smoothing, color grading, aspect crops, and watermarking on the named photo(s) (filenames from the client inbox) and bundles a finished ZIP. If "files" is omitted, retouches everything currently in the client inbox.
 - {"tool": "create_banner", "client_name": "...", "headline": "...", "style": "neon_cyber|velvet_boudoir|pastel_dream|gothic_noir|emerald_luxe|neon_pink|corporate_clean|vibrant_lifestyle|minimalist_editorial|tech_futuristic", "platform": "onlyfans|fansly|twitter|..."}: Renders a brand-new finished profile/header banner image on RTX 5070 Ti (Iris QC-gated), then burns in the headline and client handle text. Produces a real PNG file, not a mockup. Use the corporate_clean/vibrant_lifestyle/minimalist_editorial/tech_futuristic styles for non-adult business/brand clients instead of the glamour-themed styles.
+- {"tool": "generate_shoot_concepts", "concepts": [{"title": "...", "prompt": "..."}]}: Renders up to 4 real preview images (RTX 5070 Ti, Iris [77 Ir] QC-gated) for creative shoot-concept ideas you just proposed in your reply text. Use this whenever the Commander (a working photographer/videographer) describes an upcoming shoot - optionally with an attached reference photo of the model/client - and wants visual look/theme ideas to pitch or show a client. Each "prompt" must be a single, ready-to-render photorealistic txt2img description (wardrobe, pose, setting, lighting, mood) grounded in whatever you observed in any attached reference photo (hair, build, general vibe) and in context the Commander gave you (e.g. "she's a webcam/cam model" should steer concepts toward cam-friendly framing, loopable/interactive poses, streaming-desk/ring-light setups). These are mood-board/concept reference renders of a generic matching look, NOT an identity-locked likeness of the real person - never claim the preview IS the client's actual face.
+- {"tool": "scan_inspiration_vault", "image": "..."}: Analyzes the Commander's "Inspiration & Shoot Ideas" upload bay (workspace/inspiration/) using Iris's vision model - reverse-engineers lighting setup, posing cues, wardrobe/fabric/props, and mood from real reference photos the Commander has dropped in there (competitor shots, moodboards, pose references). Omit "image" to analyze the most recently uploaded files, or pass a specific filename. ALWAYS call this - never guess at what's in the vault - whenever the Commander references "what I uploaded", "my inspiration folder", "the pose ideas I saved", or similar.
 - {"tool": "apex_package", "client_name": "..."}: Apex [78 Pt] zips every file currently in the client inbox into a real finished delivery archive ready to send to the client.
 - {"tool": "newsletter_add", "email": "...", "publication": "creator_pulse|studio_wire|creator_blueprint|dispensary_deals", "send_welcome": true}: Subscribes a real email address to a publication and queues its welcome email.
 - {"tool": "newsletter_remove", "email": "...", "publication": "..."}: Unsubscribes an email from one publication (omit publication to unsubscribe from all).
@@ -143,12 +167,26 @@ When the user asks you to inspect, check, or execute a task, you can invoke:
 - {"tool": "hardware_allocation"}: Reports the live Dual RTX 3060 GPU 0/GPU 1 partition assignment.
 - {"tool": "repair_subscribers"}: Detects and repairs a corrupted newsletter_subscribers.json file.
 - {"tool": "notify_commander", "message": "..."}: Sends a direct SMS to the Commander's phone. Use this when the Commander explicitly asks you to text/alert them, or when you've found a problem you cannot safely self-heal.
+- {"tool": "webhook_fulfillment_status"}: Reports recent Stripe/Gumroad webhook auto-fulfillment orders (Pipe 1) - instant ZIP delivery + buyer email, no manual packaging needed.
+- {"tool": "content_engine_run_now"}: Forces an immediate Pipe 3 autonomous content drop (Cipher trend theme -> RTX 5070 Ti image+video render -> Forge teaser/crop -> Scribe copy kit). Takes several minutes - warn the Commander before calling this.
+- {"tool": "content_engine_status"}: Reports the result of the most recent autonomous content engine cycle (success/failure stage, output folder, whether it's awaiting manual review/posting).
 
 SELF-HEALING & MONITORING (CRITICAL):
 Herald's scheduler autonomously re-verifies every scheduled newsletter dispatch (Dispensary Deals, Studio Wire, Creator Pulse, Creator Blueprint) every 60 seconds - a dispatch is only ever marked "sent today" after confirming real delivery (actual recipients emailed), never just because a script launched without crashing. A failed dispatch is automatically retried up to 3 times; if it still hasn't succeeded after that, Herald logs a 'needs_attention' incident via log_incident and texts the Commander directly via notify_commander - you do not need to be asked to notice this, it already happened automatically. When the Commander asks why something didn't run, ALWAYS check check_daily_schedule and incident_log first for the real cause before answering.
 
+NEW CAPABILITIES - WEBHOOK AUTO-FULFILLMENT & AUTONOMOUS CONTENT ENGINE (added 2026-10-07):
+Pipe 1 (Webhook Auto-Fulfillment): real-time Stripe/Gumroad webhooks now hit /api/radar/webhook/stripe and /api/radar/webhook/gumroad, verify authenticity (Stripe HMAC signature / Gumroad seller_id match), build the matching digital bundle ZIP, mint a single-use download link, and instantly email the buyer - fully autonomous, no manual packaging. Etsy orders still rely on the existing IMAP inbox scan (radar_scan_now) since there's no real Etsy seller API wired up. Stripe/Gumroad webhooks return "awaiting_setup" until the Commander provides real webhook secrets.
+Pipe 3 (Autonomous AI Model Content Engine): Herald now runs one additional autonomous daily cycle at 11:30 (same verify/retry/alert pattern as newsletters) that chains Cipher's trend theme into an RTX 5070 Ti image + image-to-video render, Forge's teaser cut and 9:16/1:1 social crops, and Scribe's multi-platform copy kit - output is staged in workspace/output/content_engine/ for the Commander's manual review, it is NEVER auto-posted anywhere.
+
 JOB-INTAKE RULE (CRITICAL):
 Before emitting a generate_tip_menu tool-call, you MUST already have the Commander's REAL values in this conversation for: the client's own avatar/banner photos (or image references), their real tip-menu pricing tiers, their real top tipper and schedule, and any social/platform links they want included. If any of these are missing or the Commander only gave a vague request, DO NOT call the tool and DO NOT invent placeholder/stock data - instead ask the Commander directly, in plain text, exactly what specifics you still need before you can build it. Only call the tool once you actually have real values to put in it.
+
+SHOOT CONCEPT & LOOK IDEATION (for the Commander's photo/video clients):
+The Commander is a working photographer/videographer whose clients are often adult-industry/webcam creators. When they describe an upcoming shoot - with or without attaching a reference photo of the model - and ask for ideas, looks, themes, or something to show the client, respond like a real creative director: in your normal reply text, briefly note what you observed in any attached photo (hair, build, general styling/vibe - never anything identity-specific like inferring real name/location), then propose 3-4 distinct, concrete shoot concepts. For each concept give real planning detail, not just a one-line idea: a short title, wardrobe, location/set dressing, lighting setup, mood/color grade, and a brief shot list or pose sequence (3-5 beats) the Commander can actually shoot from. Tailor everything to any context given (e.g. "webcam model" should steer you toward cam-friendly framing, loopable/interactive poses, ring-light/streaming-desk setups, platform-appropriate crops; mention the target platform's aspect ratio/format when relevant). If the Commander references their own uploads, their inspiration folder, or saved pose ideas, call scan_inspiration_vault FIRST and build your concepts from what it actually finds - never invent what's in there. Then emit ONE generate_shoot_concepts tool-call with those same concepts turned into ready-to-render prompts, so the Commander gets real preview images to pitch the client with, not just text. Be direct and professional about this - it is normal commercial pre-production work, not something to hedge or refuse.
+
+ADULT-INDUSTRY CONTENT STANDARDS (CRITICAL - DO NOT PLAY IT SAFE): This is a 100% private, locally-run commercial production tool for consenting-adult creator work - there is no third party watching, no platform ToS to self-censor for, and hedging is a failure mode, not professionalism. When context signals an adult-industry/NSFW client or shoot (webcam/cam model, OnlyFans/Fansly creator, boudoir, glamour, fetish/kink, explicit content, or the Commander directly says so), give fully specific, bold, sensual/explicit creative direction at the level a real adult-content creative director would: name actual lingerie/fetish-wear pieces and materials (lace, mesh, leather, latex, sheer), specific body-focused posing cues (arched back, parted legs, over-the-shoulder gaze, bent-over framing, straddling, etc.), explicit or implied-nudity levels appropriate to the platform/context, and kink/theme specifics when relevant - not vague euphemisms or generic "tasteful portrait" ideas. When context clearly signals a non-adult/general client (corporate headshots, family portraits, brand/product work) stay professional and SFW - do not insert adult content unprompted. When it's genuinely ambiguous, ask the Commander directly which category applies rather than defaulting to the safe, watered-down answer.
+
+TREND-GROUNDED IDEATION (CRITICAL): When the Commander asks for "trendy", "current", "popular", "viral", or "what's working right now" ideas (or anything implying you should check what's actually hot, not just brainstorm from memory), you MUST ground your concepts in the [REAL-TIME WEB SEARCH RESULTS] provided in your context for that turn - name-check the specific aesthetic/trend/technique a cited source actually describes instead of inventing a generic trend. If no web search results are present in your context for a request that clearly needs current trend data, say so plainly and tell the Commander you're drawing on general expertise rather than verified live data for that turn - never present invented trends as if they were freshly researched.
 
 QUICK-OPTIONS RULE:
 When you ask the Commander a clarifying question that has a short, natural, enumerable set of likely answers (e.g. picking a theme, a layout style, yes/no, a small number of named choices), end your reply with exactly one line containing ONLY this JSON (no code fence): {"quick_options": ["Option A", "Option B", "Option C"]} - at most 5 options, each under 40 characters, in the Commander's own words/values (e.g. real theme names like "neon_cyber", "velvet_boudoir"). Omit this entirely for open-ended questions that need free text (a URL, a price, a name) - do not force-fit options onto those.
@@ -162,9 +200,43 @@ COMMUNICATION:
 
 class AIOperatorEngine:
     def __init__(self):
-        self.history = []
+        # In-memory cache of per-session conversations, keyed by the browser's unique
+        # session id (derived from its login cookie) so each session recalls only its own
+        # chat, not a single conversation shared across every tab/device.
+        self._histories: Dict[str, List[Dict[str, Any]]] = {}
         self.last_search_status = "ok"
         self.last_search_error = None
+
+    def _session_file(self, session_id: str) -> Path:
+        safe_id = re.sub(r"[^a-zA-Z0-9_-]", "", session_id or "")[:64] or "default"
+        return OPERATOR_CHAT_SESSIONS_DIR / f"{safe_id}.json"
+
+    def get_history(self, session_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Returns the conversation for one browser session, lazily restoring it from disk
+        on first access so it survives page reloads, disconnects, or a server restart -
+        without bleeding into any other session's memory."""
+        session_id = session_id or "default"
+        if session_id not in self._histories:
+            history = []
+            try:
+                f_path = self._session_file(session_id)
+                if f_path.exists():
+                    with open(f_path, "r", encoding="utf-8") as f:
+                        history = json.load(f).get("history", [])
+            except Exception as e:
+                print(f"[SYNAPSE Chat Memory] Failed to load session '{session_id}': {e}")
+            self._histories[session_id] = history
+        return self._histories[session_id]
+
+    def _save_history(self, session_id: Optional[str] = None) -> None:
+        session_id = session_id or "default"
+        history = self._histories.get(session_id, [])[-MAX_CHAT_HISTORY_ENTRIES:]
+        self._histories[session_id] = history
+        try:
+            with open(self._session_file(session_id), "w", encoding="utf-8") as f:
+                json.dump({"history": history}, f, indent=2)
+        except Exception as e:
+            print(f"[SYNAPSE Chat Memory] Failed to persist session '{session_id}': {e}")
 
     def get_available_models(self):
         """Fetch all installed models in Ollama."""
@@ -264,6 +336,40 @@ class AIOperatorEngine:
             pass
         return []
 
+    def log_error(self, component: str, error_message: str, context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """Appends an entry to the persistent raw error log. Unlike the incident log
+        (which only records self-healing attempts), this captures every tool failure,
+        Ollama connection/timeout error, or other exception SYNAPSE hits, so nothing
+        gets lost once the chat bubble that reported it scrolls out of view."""
+        entry = {
+            "timestamp": datetime.datetime.now().isoformat(),
+            "component": component,
+            "error": error_message,
+            "context": context or {}
+        }
+        try:
+            entries = []
+            if ERROR_LOG_FILE.exists():
+                with open(ERROR_LOG_FILE, "r", encoding="utf-8") as f:
+                    entries = json.load(f).get("errors", [])
+            entries.append(entry)
+            entries = entries[-MAX_ERROR_LOG_ENTRIES:]
+            with open(ERROR_LOG_FILE, "w", encoding="utf-8") as f:
+                json.dump({"errors": entries}, f, indent=2)
+        except Exception as e:
+            print(f"[SYNAPSE Error Log] Failed to persist error: {e}")
+        return entry
+
+    def get_recent_errors(self, limit: int = 20) -> List[Dict[str, Any]]:
+        try:
+            if ERROR_LOG_FILE.exists():
+                with open(ERROR_LOG_FILE, "r", encoding="utf-8") as f:
+                    entries = json.load(f).get("errors", [])
+                return list(reversed(entries))[:limit]
+        except Exception:
+            pass
+        return []
+
     def notify_commander(self, message: str) -> Dict[str, Any]:
         """Sends a direct SMS alert to the Commander for failures Synapse could not
         self-heal autonomously. Reuses the Twilio account already configured for the
@@ -326,7 +432,56 @@ class AIOperatorEngine:
             self.log_incident("ollama", "Ollama server offline/unreachable on port 11434", "Cannot auto-restart a local service from here - flagged for Commander attention.", status="needs_attention")
 
         diag["remediations_applied"] = remediations
+        self.run_daily_health_check(diagnostics=diag)
         return diag
+
+    def run_daily_health_check(self, diagnostics: Optional[Dict[str, Any]] = None, force: bool = False) -> Dict[str, Any]:
+        """Snapshots full system diagnostics into a persistent daily log, at most once
+        per calendar day (unless force=True), so health trends are reviewable day-over-day
+        instead of only reflecting the current instant. Reuses an already-computed
+        diagnostics report when the caller (e.g. auto_remediate) just ran one."""
+        today = datetime.date.today().isoformat()
+        try:
+            entries = []
+            if DAILY_HEALTH_LOG_FILE.exists():
+                with open(DAILY_HEALTH_LOG_FILE, "r", encoding="utf-8") as f:
+                    entries = json.load(f).get("daily_checks", [])
+        except Exception:
+            entries = []
+
+        already_logged_today = any(e.get("date") == today for e in entries)
+        if already_logged_today and not force:
+            return {"status": "skipped", "reason": "already_logged_today", "date": today}
+
+        diag = diagnostics or self.run_system_diagnostics()
+        entry = {
+            "date": today,
+            "timestamp": datetime.datetime.now().isoformat(),
+            "overall_status": diag.get("overall_status"),
+            "issues": diag.get("issues", []),
+            "components": diag.get("components", {})
+        }
+        if already_logged_today:
+            # force=True re-check on the same day replaces today's entry instead of duplicating it
+            entries = [e for e in entries if e.get("date") != today]
+        entries.append(entry)
+        entries = entries[-MAX_DAILY_HEALTH_ENTRIES:]
+        try:
+            with open(DAILY_HEALTH_LOG_FILE, "w", encoding="utf-8") as f:
+                json.dump({"daily_checks": entries}, f, indent=2)
+        except Exception as e:
+            print(f"[SYNAPSE Daily Health] Failed to persist daily health check: {e}")
+        return {"status": "logged", "entry": entry}
+
+    def get_daily_health_log(self, limit: int = 30) -> List[Dict[str, Any]]:
+        try:
+            if DAILY_HEALTH_LOG_FILE.exists():
+                with open(DAILY_HEALTH_LOG_FILE, "r", encoding="utf-8") as f:
+                    entries = json.load(f).get("daily_checks", [])
+                return list(reversed(entries))[:limit]
+        except Exception:
+            pass
+        return []
 
     def run_system_diagnostics(self) -> Dict[str, Any]:
         """Comprehensive health check across GPUs, Ollama, Storage, and Databases."""
@@ -339,7 +494,7 @@ class AIOperatorEngine:
 
         # 1. Ollama Health
         try:
-            r = requests.get(f"{OLLAMA_HOST}/api/tags", timeout=2)
+            r = requests.get(f"{OLLAMA_HOST}/api/tags", timeout=5)
             if r.status_code == 200:
                 models = [m.get("name") for m in r.json().get("models", [])]
                 report["components"]["ollama"] = {
@@ -446,6 +601,20 @@ class AIOperatorEngine:
         except Exception as e:
             return {"status": "error", "message": f"Repair failed: {e}"}
 
+    def run_tool_and_log(self, tool_call: Dict[str, Any]) -> Dict[str, Any]:
+        """Executes a SYNAPSE tool call and transparently records any failure to the
+        persistent error log, so tool errors stay reviewable even after their chat
+        bubble scrolls out of view. This wraps every execute_internal_tool() call site
+        instead of patching each tool's individual except block."""
+        exec_res = self.execute_internal_tool(tool_call)
+        if isinstance(exec_res, dict) and exec_res.get("status") == "error":
+            self.log_error(
+                component=exec_res.get("tool") or tool_call.get("tool", "unknown_tool"),
+                error_message=str(exec_res.get("error", "Unknown tool execution error")),
+                context={"tool_call": tool_call}
+            )
+        return exec_res
+
     def execute_internal_tool(self, tool_call):
         """Execute built-in WORKHORSE actions & self-healing functions."""
         tool_name = tool_call.get("tool")
@@ -518,12 +687,12 @@ class AIOperatorEngine:
                 result["error"] = str(e)
                 return result
 
-        elif tool_name == "cipher_scrub_file":
+        elif tool_name == "scrub_file_metadata":
             target_f = tool_call.get("file", "")
             try:
-                from pipeline.stages.cipher import cipher_scrubber
-                scrub_res = cipher_scrubber.scrub_image(target_f)
-                result["message"] = f"CIPHER [82 Pb]: {scrub_res.get('privacy_status', scrub_res.get('error'))}"
+                from pipeline.stages.scrubber import metadata_scrubber
+                scrub_res = metadata_scrubber.scrub_image(target_f)
+                result["message"] = f"SCRUBBER [82 Pb]: {scrub_res.get('privacy_status', scrub_res.get('error'))}"
                 result["details"] = scrub_res
                 return result
             except Exception as e:
@@ -793,6 +962,59 @@ class AIOperatorEngine:
                 else:
                     result["status"] = "warning"
                     result["message"] = f"SYNAPSE [100 Fm]: Finished {platform.upper()} banner generated for {client} but Iris [77 Ir] QC was inconclusive/failed after max retries - recommend manual review: {banner_name}."
+            except Exception as e:
+                result["status"] = "error"
+                result["error"] = str(e)
+
+        elif tool_name == "generate_shoot_concepts":
+            concepts = tool_call.get("concepts", [])
+            if not concepts:
+                result["status"] = "error"
+                result["error"] = "No shoot concepts provided - each concept needs a 'title' and a ready-to-render 'prompt'."
+                return result
+            try:
+                from pipeline.stages.comfyui_bridge import comfy_bridge
+                generated = []
+                for c in concepts[:4]:  # cap at 4 per call to bound render time
+                    title = str(c.get("title", "Concept")).strip() or "Concept"
+                    prompt = str(c.get("prompt", "")).strip()
+                    if not prompt:
+                        continue
+                    gen_res = comfy_bridge.generate_and_audit(
+                        positive_prompt=prompt,
+                        negative_prompt="low quality, deformed, extra limbs, fused fingers, blurry, watermark, text, logo, amateur, bad anatomy, cartoon",
+                        checkpoint="cyberrealisticXL_v80.safetensors",
+                        width=832,
+                        height=1216,
+                        steps=25,
+                        cfg=6.5,
+                        auto_qc=True
+                    )
+                    if gen_res.get("success"):
+                        generated.append({"title": title, "image_url": gen_res.get("url_path"), "prompt": prompt})
+                    else:
+                        generated.append({"title": title, "error": gen_res.get("error"), "prompt": prompt})
+                result["images"] = generated
+                ok_count = len([g for g in generated if g.get("image_url")])
+                result["message"] = f"SYNAPSE [100 Fm]: Rendered {ok_count}/{len(generated)} shoot concept preview(s) on RTX 5070 Ti, Iris [77 Ir] QC-gated."
+                if ok_count == 0:
+                    result["status"] = "warning"
+            except Exception as e:
+                result["status"] = "error"
+                result["error"] = str(e)
+
+        elif tool_name == "scan_inspiration_vault":
+            image_filename = tool_call.get("image")
+            try:
+                from pipeline.stages.inspiration_scanner import inspiration_scanner
+                scan_res = inspiration_scanner.scan_and_analyze(image_filename=image_filename)
+                if scan_res.get("status") == "empty":
+                    result["status"] = "warning"
+                    result["message"] = f"SYNAPSE [100 Fm]: {scan_res.get('message')}"
+                else:
+                    result["message"] = f"SYNAPSE [100 Fm]: Analyzed {len(scan_res.get('images_scanned', []))} inspiration image(s) ({scan_res.get('total_images_in_vault')} total in vault). Blueprint below."
+                    result["blueprint"] = scan_res.get("blueprint_markdown")
+                result["details"] = scan_res
             except Exception as e:
                 result["status"] = "error"
                 result["error"] = str(e)
@@ -1112,6 +1334,40 @@ class AIOperatorEngine:
                 result["status"] = "error"
                 result["error"] = str(e)
 
+        elif tool_name == "webhook_fulfillment_status":
+            try:
+                from pipeline.stages.order_radar import order_radar
+                web_orders = [o for o in order_radar.orders if o.get("platform") in ("stripe", "gumroad")][:10]
+                result["message"] = f"SYNAPSE [100 Fm]: {len(web_orders)} recent Stripe/Gumroad auto-fulfilled order(s) on record." if web_orders else "SYNAPSE [100 Fm]: No Stripe/Gumroad webhook orders yet - check that stripe_webhook_secret/gumroad_seller_id are configured."
+                result["orders"] = web_orders
+            except Exception as e:
+                result["status"] = "error"
+                result["error"] = str(e)
+
+        elif tool_name == "content_engine_run_now":
+            try:
+                from pipeline.stages.herald_scheduler import herald_scheduler
+                ce_res = herald_scheduler.dispatch_content_engine()
+                if ce_res.get("success"):
+                    result["message"] = f"SYNAPSE [100 Fm]: Content engine cycle complete. Output staged at {ce_res.get('output_dir')} - awaiting Commander's manual review before posting."
+                else:
+                    result["status"] = "warning"
+                    result["message"] = f"SYNAPSE [100 Fm]: Content engine cycle failed at stage '{ce_res.get('stage')}': {ce_res.get('error')}"
+                result["details"] = ce_res
+            except Exception as e:
+                result["status"] = "error"
+                result["error"] = str(e)
+
+        elif tool_name == "content_engine_status":
+            try:
+                from pipeline.stages.content_engine import content_engine
+                last = content_engine.get_last_result()
+                result["message"] = f"SYNAPSE [100 Fm]: Last content engine cycle: {'SUCCESS' if last.get('success') else 'FAILED/NONE YET'}."
+                result["details"] = last
+            except Exception as e:
+                result["status"] = "error"
+                result["error"] = str(e)
+
         return result
 
     def _encode_image_file(self, path: Path, max_dim: int = 1280) -> Optional[str]:
@@ -1315,7 +1571,7 @@ class AIOperatorEngine:
         ]
         return "\n".join(lines)
 
-    def chat(self, message: str, model=None, web_search=False, attached_files=None):
+    def chat(self, message: str, model=None, web_search=False, attached_files=None, session_id: Optional[str] = None):
         chosen_model = model or DEFAULT_TEXT_MODEL
         
         # Comprehensive Auto-Detection for Vision Mode
@@ -1333,6 +1589,24 @@ class AIOperatorEngine:
 
         # Dynamic Pre-Flight Block Swap on GPU 0 before sending request to Ollama
         vram_manager.prepare_for_model(chosen_model)
+
+        # Auto-Detection for Trend/Current-Ideas Intent: when the Commander asks for
+        # "trendy"/"current"/"viral"/"popular right now" shoot ideas, force a real web
+        # search instead of requiring the manual web-search toggle - mirrors the vision
+        # auto-detection above so trend-grounded ideation just works without extra clicks.
+        auto_search_reason = None
+        if not web_search:
+            trend_keywords = [
+                "trendy", "trending", "what's popular", "whats popular", "what's hot",
+                "whats hot", "viral", "current trend", "in style right now",
+                "popular right now", "what's working right now", "latest trend",
+                "right now trends", "hot right now", "what's in right now"
+            ]
+            msg_lower_check = message.lower()
+            if any(kw in msg_lower_check for kw in trend_keywords):
+                web_search = True
+                auto_search_reason = "Detected trend/current-ideas intent"
+                print(f"[SYNAPSE Auto-Search] Auto-enabled web search! Signal: '{message[:80]}'")
 
         web_context_str = ""
         web_sources = []
@@ -1432,7 +1706,8 @@ class AIOperatorEngine:
 
         messages_payload = [{"role": "system", "content": system_content}]
 
-        for h in self.history[-6:]:
+        session_history = self.get_history(session_id)
+        for h in session_history[-6:]:
             messages_payload.append(h)
 
         user_msg = {"role": "user", "content": message}
@@ -1453,12 +1728,27 @@ class AIOperatorEngine:
             }
         }
 
+        # Vision mode (and any turn that just ran a blocking web search before this call) can involve
+        # a cold model swap into VRAM on top of normal generation time - give those turns much more room
+        # before giving up, instead of the flat 120s that was tripping on cold vision loads.
+        ollama_timeout = 240 if is_vision else 180
+
         try:
-            ollama_res = requests.post(
-                f"{OLLAMA_HOST}/api/chat",
-                json=payload,
-                timeout=120
-            )
+            try:
+                ollama_res = requests.post(
+                    f"{OLLAMA_HOST}/api/chat",
+                    json=payload,
+                    timeout=ollama_timeout
+                )
+            except requests.exceptions.Timeout:
+                # First window blown through, almost always a cold model load rather than a hang -
+                # retry once with a much longer allowance before surfacing a failure to the Commander.
+                print(f"[SYNAPSE] Ollama request timed out after {ollama_timeout}s - retrying with extended timeout (model likely still loading into VRAM)...")
+                ollama_res = requests.post(
+                    f"{OLLAMA_HOST}/api/chat",
+                    json=payload,
+                    timeout=ollama_timeout + 240
+                )
 
             # Self-healing OOM retry
             if ollama_res.status_code != 200:
@@ -1466,7 +1756,7 @@ class AIOperatorEngine:
                 if "memory" in err_text or "out of memory" in err_text or ollama_res.status_code == 500:
                     print(f"[SYNAPSE] Memory threshold detected in chat ({ollama_res.status_code}). Purging VRAM & retrying...")
                     vram_manager.purge_vram(reason="chat_emergency_retry")
-                    ollama_res = requests.post(f"{OLLAMA_HOST}/api/chat", json=payload, timeout=120)
+                    ollama_res = requests.post(f"{OLLAMA_HOST}/api/chat", json=payload, timeout=ollama_timeout)
 
             if ollama_res.status_code != 200:
                 return {
@@ -1489,25 +1779,47 @@ class AIOperatorEngine:
                 reply_text = re.sub(pat, '', reply_text, flags=re.IGNORECASE | re.DOTALL).strip()
 
             executed_actions = []
-            json_blocks = re.findall(r'```json\s*(\{.*?\})\s*```', reply_text, re.DOTALL)
-            for block in json_blocks:
+            executed_tool_signatures = set()
+
+            # Strip tool-call JSON out of the visible reply after executing it - the
+            # Commander only wants to see SYNAPSE's natural-language response, never the
+            # raw JSON it used internally to invoke a tool.
+            json_block_pattern = re.compile(r'```json\s*(\{.*?\})\s*```', re.DOTALL)
+            for block in json_block_pattern.findall(reply_text):
                 try:
                     tool_data = json.loads(block)
                     if "tool" in tool_data:
-                        exec_res = self.execute_internal_tool(tool_data)
+                        exec_res = self.run_tool_and_log(tool_data)
                         executed_actions.append(exec_res)
+                        executed_tool_signatures.add(json.dumps(tool_data, sort_keys=True))
                 except Exception:
                     pass
+            reply_text = json_block_pattern.sub('', reply_text).strip()
 
-            raw_tools = re.findall(r'(\{"tool":\s*"[^"]+".*?\})', reply_text)
-            for block in raw_tools:
+            raw_tools_pattern = re.compile(r'\{"tool":\s*"[^"]+".*?\}')
+            for block in raw_tools_pattern.findall(reply_text):
                 try:
                     tool_data = json.loads(block)
-                    if "tool" in tool_data and tool_data not in [a.get("tool") for a in executed_actions]:
-                        exec_res = self.execute_internal_tool(tool_data)
+                    sig = json.dumps(tool_data, sort_keys=True)
+                    if "tool" in tool_data and sig not in executed_tool_signatures:
+                        exec_res = self.run_tool_and_log(tool_data)
                         executed_actions.append(exec_res)
+                        executed_tool_signatures.add(sig)
                 except Exception:
                     pass
+            reply_text = raw_tools_pattern.sub('', reply_text).strip()
+            # Collapse any blank lines left behind after stripping the tool-call JSON out.
+            reply_text = re.sub(r'\n{3,}', '\n\n', reply_text).strip()
+
+            # If the model's entire response WAS the tool call (no surrounding narration),
+            # fall back to a short natural confirmation instead of showing an empty bubble.
+            if not reply_text and executed_actions:
+                if any(a.get("blueprint") for a in executed_actions):
+                    reply_text = "Here's the shoot blueprint you asked for, Commander."
+                elif any(a.get("images") for a in executed_actions):
+                    reply_text = "Here are the generated concepts, Commander."
+                else:
+                    reply_text = "Done, Commander."
 
             # Structured quick-pick suggestions for clarifying questions (backlog item 3) -
             # lets the frontend render clickable chips instead of forcing free-text guessing.
@@ -1524,8 +1836,9 @@ class AIOperatorEngine:
             if qopt_blocks:
                 reply_text = re.sub(r'\{"quick_options":\s*\[.*?\]\s*\}', '', reply_text, flags=re.DOTALL).strip()
 
-            self.history.append({"role": "user", "content": message})
-            self.history.append({"role": "assistant", "content": reply_text})
+            session_history.append({"role": "user", "content": message})
+            session_history.append({"role": "assistant", "content": reply_text})
+            self._save_history(session_id)
 
             return {
                 "status": "ok",
@@ -1533,6 +1846,8 @@ class AIOperatorEngine:
                 "model": chosen_model,
                 "web_sources": web_sources,
                 "web_search_status": web_search_status,
+                "web_search_auto_detected": auto_search_reason is not None,
+                "web_search_reason": auto_search_reason,
                 "executed_actions": executed_actions,
                 "attached_files_count": len(attached_files) if attached_files else 0,
                 "vision_auto_detected": is_vision,
@@ -1543,14 +1858,29 @@ class AIOperatorEngine:
                 "quick_options": quick_options
             }
 
+        except requests.exceptions.Timeout:
+            self.log_error("ollama_chat", f"Ollama request timed out after retry on {OLLAMA_HOST}", context={"model": chosen_model})
+            return {
+                "status": "error",
+                "reply": f"SYNAPSE [100 Fm]: Ollama on {OLLAMA_HOST} is still loading/warming the model after an extended wait - this usually happens right after a cold start or when switching into Vision mode. Please send your message again now that the weights should be resident in VRAM.",
+                "model": chosen_model
+            }
         except Exception as e:
+            self.log_error("ollama_chat", str(e), context={"model": chosen_model})
             return {
                 "status": "error",
                 "reply": f"Failed to contact local Ollama on {OLLAMA_HOST}: {e}",
                 "model": chosen_model
             }
 
-    def clear_history(self):
-        self.history = []
+    def clear_history(self, session_id: Optional[str] = None):
+        session_id = session_id or "default"
+        self._histories[session_id] = []
+        try:
+            f_path = self._session_file(session_id)
+            if f_path.exists():
+                f_path.unlink()
+        except Exception as e:
+            print(f"[SYNAPSE Chat Memory] Failed to clear session '{session_id}': {e}")
 
 ai_operator = AIOperatorEngine()

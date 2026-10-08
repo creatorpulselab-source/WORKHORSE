@@ -94,6 +94,16 @@
       profile: 'omni',
       idle: { speed: 1.10, pitchAmp: 0.12, yawAmp: 0.15, bobAmp: 9.0, depthAmp: 0.065, glowPulse: 1.4 },
       working: { speed: 3.2, pitchAmp: 0.24, yawAmp: 0.28, bobAmp: 16.0, depthAmp: 0.095, glowPulse: 3.6 }
+    },
+    scribe: {
+      id: 'scribe',
+      name: 'Scribe',
+      element: '[6 C]',
+      color: [0.94, 0.27, 0.27],    // #ef4444 ink-red
+      glowHex: '#ef4444',
+      profile: 'quill',
+      idle: { speed: 1.00, pitchAmp: 0.10, yawAmp: 0.14, bobAmp: 7.5, depthAmp: 0.055, glowPulse: 1.3 },
+      working: { speed: 3.4, pitchAmp: 0.20, yawAmp: 0.32, bobAmp: 15.0, depthAmp: 0.090, glowPulse: 3.5 }
     }
   };
 
@@ -372,6 +382,10 @@
         case 'dispatch':
           this.idleOffset.x = Math.sin(t * 1.1) * p.yawAmp;
           this.idleOffset.y = Math.cos(t * 1.1) * (p.pitchAmp * 0.7);
+          break;
+        case 'quill':
+          this.idleOffset.x = Math.sin(t * 1.4) * p.yawAmp * 0.8;
+          this.idleOffset.y = Math.sin(t * 0.9) * p.pitchAmp + Math.cos(t * 2.6) * 0.01;
           break;
         case 'omni':
         default:
