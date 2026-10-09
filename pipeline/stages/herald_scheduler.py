@@ -456,9 +456,14 @@ class HeraldScheduler:
             self.state["content_engine_attempts"] = 0
             self.state["content_engine_alerted_today"] = False
             self.state["pinterest_posted_today"] = False
+            self.state["pinterest_attempts"] = 0
+            self.state["pinterest_alerted_today"] = False
             for pub_id in ALL_MONITORED_PUBLICATIONS:
                 self.state[f"{pub_id}_attempts"] = 0
                 self.state[f"{pub_id}_alerted_today"] = False
+            for s in DAILY_SLOTS:
+                self.state[f"{s['slot_id']}_attempts"] = 0
+                self.state[f"{s['slot_id']}_alerted_today"] = False
             self._save_state()
             print(f"[Herald Scheduler] Day rollover to {today_str}. Schedule reset for 5 new slots.")
 
@@ -526,6 +531,7 @@ class HeraldScheduler:
         except Exception as e:
             print(f"[Herald Scheduler] Error reading dynamic tweets from vault: {e}")
 
+        all_succeeded = True
         for handle, tweets in tweets_dict.items():
             if tweets:
                 try:
@@ -544,11 +550,21 @@ class HeraldScheduler:
 
                     post_res = self.twitter.post_thread(handle, tweets, media_paths=media_paths)
                     results["accounts"][handle] = post_res
+                    if not post_res.get("success"):
+                        all_succeeded = False
                     print(f"[Herald Scheduler] Posted {slot_id} to @{handle} (media={bool(media_paths)}): {post_res.get('success')}")
                 except Exception as e:
                     results["accounts"][handle] = {"success": False, "error": str(e)}
+                    all_succeeded = False
 
-        if slot_id not in self.state["executed_slots"]:
+        # Only mark this slot "done" for the day if every account that had content to
+        # post actually succeeded - a partial or total post failure (expired token,
+        # API error, rate limit) must stay retryable instead of being silently
+        # accepted as complete. This mirrors the newsletter dispatch-gap bug fixed
+        # 2026-10-07 (verify real delivery, don't trust a one-shot attempt), which had
+        # never been applied to Twitter dispatch until this 2026-10-09 self-healing audit.
+        results["fully_succeeded"] = all_succeeded
+        if all_succeeded and slot_id not in self.state["executed_slots"]:
             self.state["executed_slots"].append(slot_id)
 
         self.state["history"].append({
@@ -607,7 +623,12 @@ class HeraldScheduler:
             result = {"status": "ok" if post_res.get("success") else "error", "content": content, "result": post_res}
             print(f"[Herald Scheduler] Pinterest daily pin dispatched: {post_res.get('success')} ({post_res.get('status', post_res.get('pin_url'))})")
 
-        self.state["pinterest_posted_today"] = True
+        # Only mark today's pin as done if it actually posted - an error (ComfyUI
+        # unavailable, expired token, Pinterest API error) must stay retryable instead
+        # of being silently accepted as complete for the day. Same dispatch-gap bug
+        # class fixed for newsletters 2026-10-07; applied here 2026-10-09.
+        if result.get("status") == "ok":
+            self.state["pinterest_posted_today"] = True
         self.state["history"].append({
             "type": "pinterest_pin",
             "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -721,6 +742,102 @@ class HeraldScheduler:
                 self.dispatch_newsletters_all()
             else:
                 self.dispatch_publication(pub_id)
+
+    def _monitor_and_remediate_twitter_slots(self):
+        """Autonomous watchdog for daily Twitter slot dispatch, mirroring
+        _monitor_and_remediate_publications - added after a 2026-10-09 self-healing
+        audit found dispatch_slot() previously marked a slot 'done' for the day even
+        when post_thread() failed for every account (expired token, API error, rate
+        limit), with zero incident logging or Commander alert. Retries a not-yet-
+        fully-successful slot up to MAX_DISPATCH_RETRIES, then alerts."""
+        current_time = datetime.now().strftime("%H:%M")
+        for s in DAILY_SLOTS:
+            slot_id = s["slot_id"]
+            target = s["target_time"]
+            if current_time < target:
+                continue
+            if slot_id in self.state.get("executed_slots", []):
+                continue
+
+            attempts_key = f"{slot_id}_attempts"
+            alerted_key = f"{slot_id}_alerted_today"
+            attempts = self.state.get(attempts_key, 0)
+
+            if attempts >= MAX_DISPATCH_RETRIES:
+                if not self.state.get(alerted_key):
+                    msg = (f"WORKHORSE ALERT: Twitter slot '{slot_id}' failed to post to one "
+                           f"or more accounts after {MAX_DISPATCH_RETRIES} automatic retries "
+                           f"today. Manual check needed.")
+                    print(f"[Herald Scheduler] {msg}")
+                    try:
+                        from pipeline.stages.ai_operator import ai_operator
+                        ai_operator.log_incident(
+                            f"twitter_{slot_id}",
+                            f"Failed to post after {MAX_DISPATCH_RETRIES} attempts",
+                            "Auto-retry exhausted - Commander notified via SMS.",
+                            status="needs_attention"
+                        )
+                        ai_operator.notify_commander(msg)
+                    except Exception as e:
+                        print(f"[Herald Scheduler] Failed to notify commander: {e}")
+                    self.state[alerted_key] = True
+                    self._save_state()
+                continue
+
+            print(f"[Herald Scheduler] Twitter slot '{slot_id}' not yet confirmed fully "
+                  f"posted today (attempt {attempts + 1}/{MAX_DISPATCH_RETRIES}). Dispatching...")
+            self.state[attempts_key] = attempts + 1
+            self._save_state()
+            self.dispatch_slot(slot_id)
+
+    def _monitor_and_remediate_pinterest(self):
+        """Autonomous watchdog for the daily Pinterest pin, mirroring
+        _monitor_and_remediate_publications - added after the same 2026-10-09 audit
+        found dispatch_pinterest_daily() marked 'pinterest_posted_today' True even on
+        failure. Skips entirely (no retry/alert) if Pinterest is simply disabled or
+        unconfigured in config.json - that's an intentional state, not a failure."""
+        try:
+            with open(self.config_path, "r", encoding="utf-8") as f:
+                pin_cfg = json.load(f).get("marketing_channels", {}).get("main_brand", {}).get("pinterest", {})
+        except Exception:
+            pin_cfg = {}
+
+        if not pin_cfg.get("enabled") or not pin_cfg.get("default_board_id", "").strip():
+            return
+
+        current_time = datetime.now().strftime("%H:%M")
+        pin_target = pin_cfg.get("daily_slot_time", "12:00")
+        if current_time < pin_target:
+            return
+        if self.state.get("pinterest_posted_today"):
+            return
+
+        attempts = self.state.get("pinterest_attempts", 0)
+        if attempts >= MAX_DISPATCH_RETRIES:
+            if not self.state.get("pinterest_alerted_today"):
+                msg = (f"WORKHORSE ALERT: Daily Pinterest pin failed to post after "
+                       f"{MAX_DISPATCH_RETRIES} automatic retries today. Manual check needed.")
+                print(f"[Herald Scheduler] {msg}")
+                try:
+                    from pipeline.stages.ai_operator import ai_operator
+                    ai_operator.log_incident(
+                        "pinterest_daily",
+                        f"Failed to post after {MAX_DISPATCH_RETRIES} attempts",
+                        "Auto-retry exhausted - Commander notified via SMS.",
+                        status="needs_attention"
+                    )
+                    ai_operator.notify_commander(msg)
+                except Exception as e:
+                    print(f"[Herald Scheduler] Failed to notify commander: {e}")
+                self.state["pinterest_alerted_today"] = True
+                self._save_state()
+            return
+
+        print(f"[Herald Scheduler] Pinterest daily pin not yet confirmed posted today "
+              f"(attempt {attempts + 1}/{MAX_DISPATCH_RETRIES}). Dispatching...")
+        self.state["pinterest_attempts"] = attempts + 1
+        self._save_state()
+        self.dispatch_pinterest_daily()
 
     def dispatch_content_engine(self) -> Dict[str, Any]:
         """Runs one Pipe 3 autonomous content drop (Cipher -> RTX 5070 Ti -> Forge -> Scribe).
@@ -837,28 +954,17 @@ class HeraldScheduler:
                     except Exception as e:
                         print(f"[Herald Scheduler] Radar sweep error: {e}")
 
-                # Check each Twitter slot
-                for s in DAILY_SLOTS:
-                    slot_id = s["slot_id"]
-                    target = s["target_time"]
+                # Autonomous Twitter slot dispatch, retry, and Commander alerting - mirrors
+                # the newsletter watchdog pattern (verify every account actually posted,
+                # retry up to MAX_DISPATCH_RETRIES, then alert) instead of the old one-shot
+                # fire-and-forget trigger that silently accepted partial/total failures as
+                # "done for the day".
+                loop = asyncio.get_event_loop()
+                await loop.run_in_executor(None, self._monitor_and_remediate_twitter_slots)
 
-                    # If target time reached and not yet executed today
-                    if current_time >= target and slot_id not in self.state.get("executed_slots", []):
-                        print(f"[Herald Scheduler] Target time {target} reached for {slot_id}. Triggering automated dispatch...")
-                        # In background thread
-                        loop = asyncio.get_event_loop()
-                        await loop.run_in_executor(None, lambda s_id=slot_id: self.dispatch_slot(s_id))
-
-                # Daily Pinterest pin (mainstream brand only; no-op if disabled/unconfigured)
-                try:
-                    with open(self.config_path, "r", encoding="utf-8") as f:
-                        pin_target = json.load(f).get("marketing_channels", {}).get("main_brand", {}).get("pinterest", {}).get("daily_slot_time", "12:00")
-                except Exception:
-                    pin_target = "12:00"
-                if current_time >= pin_target and not self.state.get("pinterest_posted_today"):
-                    print(f"[Herald Scheduler] Target time {pin_target} reached for Pinterest daily pin. Triggering automated dispatch...")
-                    loop = asyncio.get_event_loop()
-                    await loop.run_in_executor(None, self.dispatch_pinterest_daily)
+                # Daily Pinterest pin - same retry/alert watchdog pattern (no-op if
+                # disabled/unconfigured).
+                await loop.run_in_executor(None, self._monitor_and_remediate_pinterest)
 
                 # Autonomous newsletter dispatch, retry, and Commander alerting (Dispensary
                 # Deals, Studio Wire, Creator Pulse, Creator Blueprint) - verifies ACTUAL
