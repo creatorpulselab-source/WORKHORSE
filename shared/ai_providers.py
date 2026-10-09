@@ -57,12 +57,21 @@ class AIProviderService:
         # Dynamic Pre-Flight Block Swap on GPU 0
         vram_manager.prepare_for_model(active_model)
 
+        # Hybrid-reasoning models (e.g. Qwen3) can silently burn their whole token budget
+        # on hidden "thinking" and return an EMPTY "response" field on Ollama's /api/generate
+        # endpoint - a known Ollama bug/asymmetry (think:false is honored on /api/chat but
+        # not reliably on /api/generate). Prepending /no_think is the one workaround that
+        # actually suppresses thinking at the template level regardless of Ollama version,
+        # and we also still pass think:false in case this model/version does honor it.
+        effective_system = f"/no_think\n{system_prompt}" if system_prompt else "/no_think"
+
         payload = {
             "model": active_model,
             "prompt": prompt,
-            "system": system_prompt,
+            "system": effective_system,
             "stream": False,
             "keep_alive": "5m",
+            "think": False,
             "options": {
                 "temperature": 0.7,
                 "top_p": 0.9
@@ -71,8 +80,14 @@ class AIProviderService:
         try:
             resp = requests.post(url, json=payload, timeout=90)
             if resp.status_code == 200:
-                return resp.json().get("response", "").strip()
-            
+                text = resp.json().get("response", "").strip()
+                if not text:
+                    print(f"[AI PROVIDER] {active_model} returned an empty response (likely consumed its budget on hidden 'thinking') - retrying once with thinking suppressed.")
+                    resp_retry = requests.post(url, json=payload, timeout=90)
+                    if resp_retry.status_code == 200:
+                        text = resp_retry.json().get("response", "").strip()
+                return text
+
             # Check for memory / OOM error: Self-Healing Retry
             err_text = resp.text.lower()
             if "memory" in err_text or "out of memory" in err_text or resp.status_code == 500:

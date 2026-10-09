@@ -34,7 +34,10 @@ BRAND_VIBES = {
         "prompts": [
             "Luxury boudoir photography, intimate warm rim lighting, satin and velvet fabric textures, sensual confident pose, soft romantic shadows, high-end editorial glamour, photorealistic, 85mm lens, shallow depth of field",
             "Sultry studio boudoir portrait, golden hour warm key light, silk sheets and velvet backdrop, intimate close framing, soft glowing skin tones, luxury glamour photography, photorealistic, shallow depth of field",
-            "Seductive cam-studio glamour shot, moody warm rim lighting, lace and satin lingerie texture, confident alluring gaze, cinematic shadow play, high-end boudoir editorial, photorealistic, 85mm portrait lens"
+            "Seductive cam-studio glamour shot, moody warm rim lighting, lace and satin lingerie texture, confident alluring gaze, cinematic shadow play, high-end boudoir editorial, photorealistic, 85mm portrait lens",
+            "Moody neon-lit boudoir scene, magenta and cyan gel rim lighting, sheer mesh and satin fabric, confident over-the-shoulder pose, cinematic nightclub glamour atmosphere, photorealistic, 50mm lens, shallow depth of field",
+            "Sunset-lit penthouse boudoir portrait, warm amber window light, silk robe and velvet chaise, relaxed intimate pose, soft golden haze, editorial glamour photography, photorealistic, 85mm lens",
+            "High-contrast chiaroscuro boudoir studio shot, single hard key light with deep black shadows, black lace and leather textures, dramatic confident pose, moody gothic glamour editorial, photorealistic, 85mm lens"
         ],
         "negative_prompt": "extra limbs, deformed hands, mutated fingers, bad anatomy, blurry, low quality, watermark, text, cartoon, illustration"
     },
@@ -43,7 +46,10 @@ BRAND_VIBES = {
         "prompts": [
             "Editorial studio photography, 5600K key light, Kodak Portra 400 film color grading, magazine-quality shallow depth of field, professional photographer backdrop, crisp clean composition, photorealistic, 50mm lens",
             "High-fashion studio portrait, softbox lighting setup, Kodak Portra 400 color science, clean minimalist backdrop, sharp focus editorial composition, photorealistic, 85mm lens",
-            "Professional studio headshot photography, three-point lighting, film emulation color grade, magazine cover composition, polished commercial aesthetic, photorealistic, 50mm lens"
+            "Professional studio headshot photography, three-point lighting, film emulation color grade, magazine cover composition, polished commercial aesthetic, photorealistic, 50mm lens",
+            "Natural window-light studio portrait, soft diffused daylight, Fujifilm color science, clean editorial backdrop, relaxed candid composition, photorealistic, 35mm lens, shallow depth of field",
+            "Dramatic rembrandt-lit studio portrait, single key light with reflector fill, Cinestill 800T color grade, moody dark backdrop, confident editorial pose, photorealistic, 85mm lens",
+            "Outdoor golden-hour environmental portrait, warm backlit rim glow, Kodak Gold film emulation, bokeh-rich natural backdrop, candid lifestyle composition, photorealistic, 50mm lens"
         ],
         "negative_prompt": "extra limbs, deformed hands, mutated fingers, bad anatomy, blurry, low quality, watermark, text, cartoon, illustration"
     }
@@ -72,6 +78,10 @@ MAX_DISPATCH_RETRIES = 3
 # Pipe 3 - Autonomous AI Model Content Engine (Cipher -> RTX 5070 Ti -> Forge -> Scribe).
 # One hands-off content drop per day; output is staged for manual review, never auto-posted.
 CONTENT_ENGINE_SCHEDULE_TIME = "11:30"
+
+# How long Herald keeps retrying the morning radar sweep (every ~60s) when it comes back
+# degraded/fallback before giving up and accepting whatever content it has for the day.
+RADAR_SWEEP_RETRY_CUTOFF = "10:30"
 
 DAILY_SLOTS = [
     {
@@ -195,6 +205,27 @@ class HeraldScheduler:
         self.is_running = False
         self._load_state()
 
+    def _pick_image_prompt(self, brand_key: str) -> str:
+        """Selects an image prompt for this brand while avoiding recent repeats - the same
+        prompt won't be reused until every other variant in the pool has had a turn, so a
+        week of daily posts doesn't end up visually samey even though each individual
+        generation is already a fresh render with its own random seed."""
+        prompts = BRAND_VIBES[brand_key]["prompts"]
+        recent_map = self.state.setdefault("recent_image_prompts", {})
+        recent = recent_map.setdefault(brand_key, [])
+
+        lookback = max(0, len(prompts) - 1)
+        recently_used = set(recent[-lookback:]) if lookback else set()
+        available = [i for i in range(len(prompts)) if i not in recently_used]
+        if not available:
+            available = list(range(len(prompts)))
+
+        chosen_idx = random.choice(available)
+        recent.append(chosen_idx)
+        recent_map[brand_key] = recent[-20:]
+        self._save_state()
+        return prompts[chosen_idx]
+
     def _get_brand_visual_for_post(self, handle: str) -> Optional[str]:
         """
         Generates a FRESH, on-brand image for this specific post (each account has its
@@ -210,7 +241,7 @@ class HeraldScheduler:
 
         try:
             from pipeline.stages.comfyui_bridge import comfy_bridge
-            prompt = random.choice(vibe["prompts"])
+            prompt = self._pick_image_prompt(brand_key)
             gen_res = comfy_bridge.generate_and_audit(
                 positive_prompt=prompt,
                 negative_prompt=vibe["negative_prompt"],
@@ -334,14 +365,20 @@ class HeraldScheduler:
         try:
             from pipeline.stages.trend_researcher import trend_researcher
             vault = trend_researcher.load_vault()
-            daily_synth = vault.get("daily_synthesis", {})
-            dynamic_slots = daily_synth.get("daily_slots", {})
-            if slot_id in dynamic_slots:
-                dyn = dynamic_slots[slot_id]
-                for handle, dyn_tweets in dyn.items():
-                    if dyn_tweets and len(dyn_tweets) > 0:
-                        tweets_dict[handle] = dyn_tweets
-                        print(f"[Herald Scheduler] Using dynamic trending tweets for @{handle} in {slot_id}")
+            if vault.get("today_date") != str(date.today()):
+                # Vault predates today (e.g. this morning's radar sweep hasn't run/completed
+                # yet) - never silently reuse a prior day's "dynamic" tweets as if they were
+                # fresh. Fall through to the static slot content instead.
+                print(f"[Herald Scheduler] Trend vault is stale (today_date={vault.get('today_date')!r}, expected {date.today()}) - using static content for {slot_id}.")
+            else:
+                daily_synth = vault.get("daily_synthesis", {})
+                dynamic_slots = daily_synth.get("daily_slots", {})
+                if slot_id in dynamic_slots:
+                    dyn = dynamic_slots[slot_id]
+                    for handle, dyn_tweets in dyn.items():
+                        if dyn_tweets and len(dyn_tweets) > 0:
+                            tweets_dict[handle] = dyn_tweets
+                            print(f"[Herald Scheduler] Using dynamic trending tweets for @{handle} in {slot_id}")
         except Exception as e:
             print(f"[Herald Scheduler] Error reading dynamic tweets from vault: {e}")
 
@@ -620,15 +657,35 @@ class HeraldScheduler:
                 now = datetime.now()
                 current_time = now.strftime("%H:%M")
 
-                # Autonomous Morning Trend Radar Sweep (08:00 AM)
+                # Autonomous Morning Trend Radar Sweep (08:00 AM). If the sweep comes back
+                # degraded/fallback content (LLM hiccup, incomplete JSON, etc.) it is NOT
+                # marked done - Herald keeps retrying every ~60s until RADAR_SWEEP_RETRY_CUTOFF,
+                # so a single transient failure doesn't silently stick Herald with repeated
+                # static content for the whole day.
                 if current_time >= "08:00" and not self.state.get("radar_sweep_done_today"):
                     print("[Herald Scheduler] 08:00 AM window reached: Triggering autonomous morning trend radar sweep...")
                     try:
                         from pipeline.stages.trend_researcher import trend_researcher
                         loop = asyncio.get_event_loop()
-                        await loop.run_in_executor(None, trend_researcher.run_daily_radar_sweep)
-                        self.state["radar_sweep_done_today"] = True
-                        self._save_state()
+                        vault_result = await loop.run_in_executor(None, trend_researcher.run_daily_radar_sweep)
+                        used_fallback = vault_result.get("daily_synthesis", {}).get("used_fallback", False)
+                        if used_fallback and current_time < RADAR_SWEEP_RETRY_CUTOFF:
+                            print(f"[Herald Scheduler] Radar sweep returned degraded/fallback content - will retry next cycle (before {RADAR_SWEEP_RETRY_CUTOFF} cutoff).")
+                        else:
+                            if used_fallback:
+                                print(f"[Herald Scheduler] Radar sweep still degraded past {RADAR_SWEEP_RETRY_CUTOFF} cutoff - accepting fallback content for today.")
+                                try:
+                                    from pipeline.stages.ai_operator import ai_operator
+                                    ai_operator.log_incident(
+                                        "trend_researcher",
+                                        "Daily radar sweep used degraded/fallback content after repeated retries (LLM synthesis failed or returned incomplete slots)",
+                                        f"Accepted fallback content past the {RADAR_SWEEP_RETRY_CUTOFF} retry cutoff - some tweet slots today may repeat prior static copy.",
+                                        status="needs_attention"
+                                    )
+                                except Exception:
+                                    pass
+                            self.state["radar_sweep_done_today"] = True
+                            self._save_state()
                     except Exception as e:
                         print(f"[Herald Scheduler] Radar sweep error: {e}")
 

@@ -277,19 +277,40 @@ Respond ONLY with valid JSON.
         system_prompt = "You are an expert social media and newsletter director for creator brands. Return valid JSON only."
 
         try:
-            raw = self.ai.call_ollama_text(prompt, system_prompt=system_prompt)
-            clean = raw.strip()
-            if clean.startswith("```json"):
-                clean = clean[7:]
-            if clean.startswith("```"):
-                clean = clean[3:]
-            if clean.endswith("```"):
-                clean = clean[:-3]
-            clean = clean.strip()
-            synth = json.loads(clean)
+            synth = None
+            last_error = None
+            # Retry the LLM synthesis call before giving up - a single transient Ollama
+            # hiccup or malformed-JSON response used to immediately drop to the static
+            # fallback (which only covers slot_1_morning), silently leaving slots 2-5 on
+            # repeated static content for the rest of the day.
+            for attempt in range(2):
+                try:
+                    raw = self.ai.call_ollama_text(prompt, system_prompt=system_prompt)
+                    clean = raw.strip()
+                    if clean.startswith("```json"):
+                        clean = clean[7:]
+                    if clean.startswith("```"):
+                        clean = clean[3:]
+                    if clean.endswith("```"):
+                        clean = clean[:-3]
+                    clean = clean.strip()
+                    parsed = json.loads(clean)
+                    EXPECTED_SLOTS = {"slot_1_morning", "slot_2_midday", "slot_3_afternoon", "slot_4_evening", "slot_5_latenight"}
+                    got_slots = set(parsed.get("daily_slots", {}).keys())
+                    if not EXPECTED_SLOTS.issubset(got_slots):
+                        raise ValueError(f"LLM returned incomplete daily_slots (got {sorted(got_slots)}, need all 5)")
+                    synth = parsed
+                    synth["used_fallback"] = False
+                    break
+                except Exception as inner_e:
+                    last_error = inner_e
+                    print(f"[TrendAgent] Synthesis attempt {attempt + 1}/2 failed: {inner_e}")
+            if synth is None:
+                raise last_error
         except Exception as e:
             print(f"[TrendAgent] LLM synthesis fallback due to: {e}")
             synth = {
+                "used_fallback": True,
                 "top_themes_today": [
                     "AI-Assisted Workflow & Faster Turnarounds in Studio Photography",
                     "Subscriber Retention Formulas & Personalized PPV Vault Delivery",

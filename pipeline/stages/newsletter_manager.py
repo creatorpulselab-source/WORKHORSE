@@ -139,10 +139,29 @@ class NewsletterManager:
                 self._scribe = CopySynthesizer()
             return self._scribe
 
+    def _log_fallback_incident(self, pub_id: str, reason: str) -> None:
+        """Lazily logs to the shared incident log (same file the dashboard's Health
+        Diagnostics modal reads) when a newsletter has to fall back to static copy, so
+        it's visible instead of silently repeating the same body text day after day.
+        Imported lazily to avoid a circular import with ai_operator.py, which itself
+        imports NewsletterManager."""
+        try:
+            from pipeline.stages.ai_operator import ai_operator
+            ai_operator.log_incident(
+                "newsletter_manager",
+                f"Scribe daily content generation failed for '{pub_id}': {reason}",
+                "Falling back to static newsletter copy for today - content will not be unique to today.",
+                status="needs_attention"
+            )
+        except Exception:
+            pass
+
     def _get_daily_scribe_content(self, pub_id: str) -> Optional[Dict[str, Any]]:
         """Returns today's Scribe-generated content for pub_id, generating and caching
         it on first call of the day. Returns None (never raises) if generation fails,
-        so every caller can gracefully fall back to its static copy."""
+        so every caller can gracefully fall back to its static copy. Retries once before
+        giving up, since a single transient Ollama hiccup used to immediately fall back
+        to the same static body for the rest of the day."""
         today_key = datetime.now().strftime("%Y-%m-%d")
         cache = safe_read_json(self.scribe_cache_path, default={})
         cached_entry = cache.get(pub_id)
@@ -150,21 +169,29 @@ class NewsletterManager:
             return cached_entry["content"]
 
         pub = self.publications.get(pub_id, self.publications["creator_pulse"])
-        try:
-            scribe = self._get_scribe()
-            result = scribe.generate_daily_publication_content(
-                pub_id=pub_id,
-                pub_name=pub["name"],
-                audience=pub["audience"],
-                funnel_blurb=pub["funnel"],
-                today_str=datetime.now().strftime("%A, %B %d, %Y")
-            )
-        except Exception as e:
-            print(f"[NewsletterManager] Scribe daily content generation failed for {pub_id}: {e}")
-            return None
+        result = None
+        last_error = None
+        for attempt in range(2):
+            try:
+                scribe = self._get_scribe()
+                result = scribe.generate_daily_publication_content(
+                    pub_id=pub_id,
+                    pub_name=pub["name"],
+                    audience=pub["audience"],
+                    funnel_blurb=pub["funnel"],
+                    today_str=datetime.now().strftime("%A, %B %d, %Y")
+                )
+                if result and result.get("success"):
+                    break
+                last_error = (result.get("error") if result else "no result")
+                result = None
+            except Exception as e:
+                last_error = str(e)
+                result = None
+            print(f"[NewsletterManager] Scribe daily content generation attempt {attempt + 1}/2 failed for {pub_id}: {last_error}")
 
-        if not result or not result.get("success"):
-            print(f"[NewsletterManager] Scribe daily content generation failed for {pub_id}: {result.get('error') if result else 'no result'}")
+        if not result:
+            self._log_fallback_incident(pub_id, last_error or "unknown error")
             return None
 
         cache[pub_id] = {"date": today_key, "content": result}
@@ -746,6 +773,27 @@ class NewsletterManager:
 
         return None
 
+    def _warn_if_visual_stale(self, pub_id: str, visual_path: Path) -> None:
+        """Logs a (once-per-day-per-publication) incident when the newsletter's embedded
+        image isn't from today - it's still a real IRIS-verified render, just not freshly
+        generated for today's send, so this is visibility rather than a hard failure."""
+        try:
+            render_date = datetime.fromtimestamp(visual_path.stat().st_mtime).strftime("%Y-%m-%d")
+            today_key = datetime.now().strftime("%Y-%m-%d")
+            if render_date == today_key:
+                return
+            state_key = f"stale_visual_warned_{pub_id}_{today_key}"
+            cache = safe_read_json(self.scribe_cache_path, default={})
+            if cache.get(state_key):
+                return
+            cache[state_key] = True
+            atomic_write_json(self.scribe_cache_path, cache)
+            self._log_fallback_incident(
+                pub_id,
+                f"Embedded newsletter image '{visual_path.name}' was last generated on {render_date}, not today ({today_key}) - no fresh verified render was available."
+            )
+        except Exception:
+            pass
 
     def get_publication_visual_embed(self, pub_id: str = "creator_pulse") -> Dict[str, str]:
         """
@@ -756,6 +804,7 @@ class NewsletterManager:
         import base64
         visual_path = self.get_latest_comfy_visual(pub_id)
         if visual_path and visual_path.exists():
+            self._warn_if_visual_stale(pub_id, visual_path)
             try:
                 b64 = base64.b64encode(visual_path.read_bytes()).decode("utf-8")
                 mime = "image/png" if visual_path.suffix.lower() == ".png" else "image/jpeg"
