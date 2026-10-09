@@ -143,7 +143,7 @@ When the user asks you to inspect, check, or execute a task, you can invoke:
 - {"tool": "gpu_guardrails_status"}: Live check of Dual RTX 3060 utilization, VRAM, and all hardware circuit breakers.
 - {"tool": "comfy_generate_glb", "agent": "synapse|iris|aura|echo|forge|cipher|herald|mercury|scribe"}: Renders an interactive 3D GLB model on RTX 5070 Ti for the dashboard card.
 - {"tool": "comfy_background_change", "image": "...", "prompt": "...", "negative_prompt": "..."}: Auto-segments the subject (SAM3) out of an uploaded photo and swaps in a brand-new background from a text prompt.
-- {"tool": "comfy_image_to_video", "image": "...", "prompt": "...", "negative_prompt": "...", "width": 720, "height": 1280, "num_frames": 300, "fps": 30, "engine": "ltx2.3|minimax_h3", "duration_seconds": 10, "adult_tuning": false}: Animates a still photo into a short video clip on RTX 5070 Ti. "engine" picks the model: "ltx2.3" (default) is the SageAttention-optimized general-purpose pipeline, safe for any brand. "minimax_h3" is a separate locally-installed engine tuned specifically for adult/boudoir motion - only ever set "adult_tuning": true for the adult_creator_brand ("creatorpulselab"); leave it false (the default) for CreatorMediaLab/TheCreatorAsset or any mainstream-brand request. Takes several minutes - warn the Commander it will take a while before calling this.
+- {"tool": "comfy_image_to_video", "image": "...", "prompt": "...", "negative_prompt": "...", "width": 720, "height": 1280, "num_frames": 300, "fps": 30, "engine": "ltx2.3|minimax_h3", "duration_seconds": 10, "adult_tuning": false}: Animates a still photo into a short video clip on RTX 5070 Ti. "engine" picks the model: "ltx2.3" (default) is the SageAttention-optimized general-purpose pipeline, safe for any brand. "minimax_h3" is a separate locally-installed engine tuned specifically for adult/boudoir motion - only ever set "adult_tuning": true for the adult_creator_brand ("creatorpulselab"); leave it false (the default) for CreatorMediaLab/TheCreatorAsset or any mainstream-brand request. IMPORTANT: even if you set "adult_tuning": true, it will only actually take effect if the Commander's own message explicitly asked for adult/NSFW content, or their "Adult Content Mode" toggle is on - this is enforced in code, not just by your judgment, so don't be surprised if it silently renders general-brand-safe instead. Takes several minutes - warn the Commander it will take a while before calling this.
 - {"tool": "comfy_subject_swap", "image": "...", "reference_face_image": "...", "prompt": "...", "negative_prompt": "..."}: Full-subject identity swap (not just face) - keeps the ORIGINAL photo's pose/outfit/composition, replaces the person's identity using a separate reference face photo. Used for tattoo/identity anonymity protection. Requires BOTH a source pose/outfit photo and a separate reference face photo - ask for both if either is missing.
 - {"tool": "comfy_remote_purge"}: Remotely unloads models and frees 16GB VRAM on RTX 5070 Ti (Main PC).
 - {"tool": "comfy_prewarm", "checkpoint": "..."}: Pre-loads checkpoint into 5070 Ti VRAM before scheduled dispatches.
@@ -601,12 +601,12 @@ class AIOperatorEngine:
         except Exception as e:
             return {"status": "error", "message": f"Repair failed: {e}"}
 
-    def run_tool_and_log(self, tool_call: Dict[str, Any]) -> Dict[str, Any]:
+    def run_tool_and_log(self, tool_call: Dict[str, Any], adult_allowed: bool = False) -> Dict[str, Any]:
         """Executes a SYNAPSE tool call and transparently records any failure to the
         persistent error log, so tool errors stay reviewable even after their chat
         bubble scrolls out of view. This wraps every execute_internal_tool() call site
         instead of patching each tool's individual except block."""
-        exec_res = self.execute_internal_tool(tool_call)
+        exec_res = self.execute_internal_tool(tool_call, adult_allowed=adult_allowed)
         if isinstance(exec_res, dict) and exec_res.get("status") == "error":
             self.log_error(
                 component=exec_res.get("tool") or tool_call.get("tool", "unknown_tool"),
@@ -615,7 +615,7 @@ class AIOperatorEngine:
             )
         return exec_res
 
-    def execute_internal_tool(self, tool_call):
+    def execute_internal_tool(self, tool_call, adult_allowed: bool = False):
         """Execute built-in WORKHORSE actions & self-healing functions."""
         tool_name = tool_call.get("tool")
         result = {"status": "ok", "tool": tool_name}
@@ -1263,10 +1263,15 @@ class AIOperatorEngine:
                 if engine in ("minimax", "minimax_h3", "minimax-h3", "hailuo"):
                     duration_seconds = tool_call.get("duration_seconds", 10.0)
                     # The MiniMax H3 template ships with 3 adult/boudoir-tuned LoRAs loaded by
-                    # default. They are opt-IN (adult_tuning=true), never the default, so a
-                    # plain video-to-video request stays general-brand-safe unless the
-                    # Commander explicitly asks for the adult-tuned engine.
-                    adult_tuning = bool(tool_call.get("adult_tuning", False))
+                    # default. Honoring adult_tuning requires BOTH the model requesting it AND
+                    # the Commander having actually authorized adult content this turn (either
+                    # the Adult Content Mode toggle is on, or their own message explicitly asked
+                    # for it) - adult_allowed is computed/enforced upstream in chat(), not by
+                    # trusting the LLM's tool-call JSON alone.
+                    requested_adult_tuning = bool(tool_call.get("adult_tuning", False))
+                    adult_tuning = requested_adult_tuning and adult_allowed
+                    if requested_adult_tuning and not adult_allowed:
+                        print("[SYNAPSE] Adult-tuned video requested but not authorized this turn (no toggle/explicit prompt) - downgrading to general-brand-safe LoRA config.")
                     vid_res = comfy_bridge.generate_image_to_video_minimax(
                         source_image_path=img_path,
                         prompt=prompt,
@@ -1274,6 +1279,8 @@ class AIOperatorEngine:
                         lora_config=None if adult_tuning else []
                     )
                     engine_label = "MiniMax H3" + (" (adult-tuned)" if adult_tuning else "")
+                    if requested_adult_tuning and not adult_tuning:
+                        engine_label += " - adult tuning blocked, not authorized this turn"
                 else:
                     vid_res = comfy_bridge.generate_image_to_video(
                         source_image_path=img_path,
@@ -1589,8 +1596,26 @@ class AIOperatorEngine:
         ]
         return "\n".join(lines)
 
-    def chat(self, message: str, model=None, web_search=False, attached_files=None, session_id: Optional[str] = None):
+    def _detect_explicit_adult_request(self, message: str) -> bool:
+        """Returns True if the Commander's OWN message (not the model's tool-call JSON)
+        explicitly asks for adult/NSFW content, so the adult-tuned MiniMax H3 engine can
+        be authorized for that one turn even with the Adult Content Mode toggle off."""
+        if not message:
+            return False
+        msg_lower = message.lower()
+        explicit_markers = [
+            "nsfw", "adult content", "adult video", "boudoir", "nude", "naked",
+            "explicit", "xxx", "erotic", "lingerie", "fetish", "minimax", "hailuo",
+            "onlyfans", "fansly", "cam girl", "camgirl"
+        ]
+        return any(marker in msg_lower for marker in explicit_markers)
+
+    def chat(self, message: str, model=None, web_search=False, attached_files=None, session_id: Optional[str] = None, adult_mode: bool = False):
         chosen_model = model or DEFAULT_TEXT_MODEL
+        # Adult-tuned video generation (MiniMax H3's boudoir LoRAs) is only ever authorized
+        # for this turn if the Commander flipped on Adult Content Mode, or their own message
+        # explicitly asked for it - never just because the model's tool-call JSON says so.
+        adult_allowed = bool(adult_mode) or self._detect_explicit_adult_request(message)
         
         # Comprehensive Auto-Detection for Vision Mode
         is_vision, reason, detected_images, resolved_vl_model = self.detect_vision_requirement(
@@ -1807,7 +1832,7 @@ class AIOperatorEngine:
                 try:
                     tool_data = json.loads(block)
                     if "tool" in tool_data:
-                        exec_res = self.run_tool_and_log(tool_data)
+                        exec_res = self.run_tool_and_log(tool_data, adult_allowed=adult_allowed)
                         executed_actions.append(exec_res)
                         executed_tool_signatures.add(json.dumps(tool_data, sort_keys=True))
                 except Exception:
@@ -1820,7 +1845,7 @@ class AIOperatorEngine:
                     tool_data = json.loads(block)
                     sig = json.dumps(tool_data, sort_keys=True)
                     if "tool" in tool_data and sig not in executed_tool_signatures:
-                        exec_res = self.run_tool_and_log(tool_data)
+                        exec_res = self.run_tool_and_log(tool_data, adult_allowed=adult_allowed)
                         executed_actions.append(exec_res)
                         executed_tool_signatures.add(sig)
                 except Exception:

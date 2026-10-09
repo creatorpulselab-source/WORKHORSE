@@ -9,7 +9,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/css/style.css?v=20261007_v12">
   <link rel="stylesheet" href="/static/css/factory.css">
-  <link rel="stylesheet" href="/static/css/operator_layout.css?v=20261007_v3">
+  <link rel="stylesheet" href="/static/css/operator_layout.css?v=20261008_v2">
 </head>
 <body>
 
@@ -302,6 +302,11 @@
                 <label class="web-search-toggle-label" title="Enable DuckDuckGo Real-Time Web Search Context">
                   <input type="checkbox" id="operator-web-search" checked>
                   <span>🌐 Live Web Search</span>
+                </label>
+
+                <label class="web-search-toggle-label" id="adult-mode-toggle-label" title="When OFF, SYNAPSE will only generate adult/boudoir-tuned video if your message explicitly asks for it. When ON, she's authorized to use the adult-tuned engine without that explicit ask.">
+                  <input type="checkbox" id="operator-adult-mode">
+                  <span>🔞 Adult Content Mode</span>
                 </label>
 
                 <button type="button" class="btn-operator-clear" id="operator-clear-btn" title="Clear Conversation History">

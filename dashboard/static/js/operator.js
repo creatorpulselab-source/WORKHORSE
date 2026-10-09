@@ -52,6 +52,7 @@ class AIOperatorUI {
     this.sendBtn = document.getElementById('operator-send-btn');
     this.modelSelect = document.getElementById('operator-model-select');
     this.webSearchToggle = document.getElementById('operator-web-search');
+    this.adultModeToggle = document.getElementById('operator-adult-mode');
     this.fileInput = document.getElementById('operator-file-input');
     this.attachBtn = document.getElementById('operator-attach-btn');
     this.filesPreview = document.getElementById('operator-files-preview');
@@ -341,6 +342,7 @@ class AIOperatorUI {
     formData.append('message', text || 'Please inspect attached client files.');
     formData.append('model', this.modelSelect ? this.modelSelect.value : 'huihui_ai/qwen3-abliterated:14b');
     formData.append('web_search', this.webSearchToggle ? this.webSearchToggle.checked : false);
+    formData.append('adult_mode', this.adultModeToggle ? this.adultModeToggle.checked : false);
 
     this.attachedFiles.forEach(file => {
       formData.append('files', file);

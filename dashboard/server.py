@@ -1206,6 +1206,7 @@ async def operator_chat_endpoint(
     message: str = Form(...),
     model: str = Form("huihui_ai/qwen3-abliterated:14b"),
     web_search: bool = Form(False),
+    adult_mode: bool = Form(False),
     files: List[UploadFile] = File(default=[])
 ):
     saved_paths = []
@@ -1228,7 +1229,8 @@ async def operator_chat_endpoint(
             model=model,
             web_search=web_search,
             attached_files=saved_paths,
-            session_id=session_id
+            session_id=session_id,
+            adult_mode=adult_mode
         )
     )
     return res
