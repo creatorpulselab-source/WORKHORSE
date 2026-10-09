@@ -443,6 +443,7 @@ async def retouch_photo_shoot(payload: Dict[str, Any]):
     preset = payload.get("preset", "moody_boudoir")
     strength = float(payload.get("smooth_strength", 0.5))
     watermark = payload.get("watermark_text", "@ExclusiveDrop")
+    edit_style = payload.get("edit_style")  # "glamour"|"natural"|"concert_stage"|"family_event"
 
     photos_dir = BASE_DIR / "workspace" / "photos_input"
     image_exts = {".jpg", ".jpeg", ".png", ".webp"}
@@ -456,7 +457,8 @@ async def retouch_photo_shoot(payload: Dict[str, Any]):
         shoot_name=shoot_name,
         preset=preset,
         smooth_strength=strength,
-        watermark_text=watermark
+        watermark_text=watermark,
+        edit_style=edit_style
     )
     return res
 

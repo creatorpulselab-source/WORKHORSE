@@ -248,7 +248,7 @@ When the user asks you to inspect, check, or execute a task, you can invoke:
 - {"tool": "trend_radar_sweep"}: Runs morning web search across Google News RSS for fresh trends.
 - {"tool": "incident_log"}: Retrieves the recent self-healing incident history (auto-detected issues and what was done about them).
 - {"tool": "generate_tip_menu", "title": "...", "theme": "...", "layout_style": "vip_showcase|table|cards|obs_overlay", "items": [{"tokens": "...", "action": "..."}], "avatar_url": "...", "banner_url": "...", "top_tipper": "...", "schedule": "...", "goal_text": "..."}: Builds and bundles a client's custom tip menu / cam profile.
-- {"tool": "aura_retouch", "files": ["..."], "style": "moody_boudoir|natural|...", "shoot_name": "...", "smooth_strength": 0.5, "watermark_text": "..."}: Aura [79 Au] runs real skin-smoothing, color grading, aspect crops, and watermarking on the named photo(s) (filenames from the client inbox) and bundles a finished ZIP. If "files" is omitted, retouches everything currently in the client inbox.
+- {"tool": "aura_retouch", "files": ["..."], "edit_style": "glamour|natural|concert_stage|family_event", "style": "moody_boudoir|natural_true_to_life|...", "shoot_name": "...", "smooth_strength": 0.5, "watermark_text": "..."}: Aura [79 Au] runs real skin-smoothing, color grading, aspect crops, print-ready 16-bit TIFF export, and watermarking on the named photo(s) (filenames resolve within THIS upload batch, or fall back to the client inbox) and bundles a finished ZIP. Prefer "edit_style" - it's the full named profile (glamour/boudoir = the original heavy-retouch look with watermark; natural = light-touch true-to-life everyday photos, no watermark; concert_stage = live performer/stage photography, corrects colored stage-light cast on skin tone without flattening the venue's lighting mood, minimal smoothing to preserve energy; family_event = warm authentic wedding/birthday/family-gathering look, gentle smoothing, no watermark). Only fall back to the raw "style"/"smooth_strength" params for a one-off custom combination edit_style doesn't cover. If "files" is omitted, retouches everything in the current upload batch.
 - {"tool": "create_banner", "client_name": "...", "headline": "...", "style": "neon_cyber|velvet_boudoir|pastel_dream|gothic_noir|emerald_luxe|neon_pink|corporate_clean|vibrant_lifestyle|minimalist_editorial|tech_futuristic", "platform": "onlyfans|fansly|twitter|..."}: Renders a brand-new finished profile/header banner image on RTX 5070 Ti (Iris QC-gated), then burns in the headline and client handle text. Produces a real PNG file, not a mockup. Use the corporate_clean/vibrant_lifestyle/minimalist_editorial/tech_futuristic styles for non-adult business/brand clients instead of the glamour-themed styles.
 - {"tool": "generate_shoot_concepts", "concepts": [{"title": "...", "prompt": "..."}]}: Renders up to 4 real preview images (RTX 5070 Ti, Iris [77 Ir] QC-gated) for creative shoot-concept ideas you just proposed in your reply text. Use this whenever the Commander (a working photographer/videographer) describes an upcoming shoot - optionally with an attached reference photo of the model/client - and wants visual look/theme ideas to pitch or show a client. Each "prompt" must be a single, ready-to-render photorealistic txt2img description (wardrobe, pose, setting, lighting, mood) grounded in whatever you observed in any attached reference photo (hair, build, general vibe) and in context the Commander gave you (e.g. "she's a webcam/cam model" should steer concepts toward cam-friendly framing, loopable/interactive poses, streaming-desk/ring-light setups). These are mood-board/concept reference renders of a generic matching look, NOT an identity-locked likeness of the real person - never claim the preview IS the client's actual face.
 - {"tool": "scan_inspiration_vault", "image": "..."}: Analyzes the Commander's "Inspiration & Shoot Ideas" upload bay (workspace/inspiration/) using Iris's vision model - reverse-engineers lighting setup, posing cues, wardrobe/fabric/props, and mood from real reference photos the Commander has dropped in there (competitor shots, moodboards, pose references). Omit "image" to analyze the most recently uploaded files, or pass a specific filename. ALWAYS call this - never guess at what's in the vault - whenever the Commander references "what I uploaded", "my inspiration folder", "the pose ideas I saved", or similar.
@@ -968,7 +968,17 @@ class AIOperatorEngine:
 
         elif tool_name == "aura_retouch":
             files = tool_call.get("files", [])
-            style = tool_call.get("style", "natural")
+            # "edit_style" (glamour/natural/concert_stage/family_event) is the preferred,
+            # full-profile interface - it drives the color preset, smoothing strength,
+            # which professional retouch passes run, and the watermark convention all
+            # at once. Falls back to the raw "style" preset name for one-off custom
+            # combinations, defaulting to "natural" (previously this default silently
+            # fell through to NO color grade at all, since "natural" was never actually
+            # a registered preset name - edit_style fixes that for real now).
+            edit_style = tool_call.get("edit_style")
+            style = tool_call.get("style")
+            if not edit_style and not style:
+                edit_style = "natural"
             try:
                 resolved_paths = []
                 for fn in files:
@@ -1006,12 +1016,14 @@ class AIOperatorEngine:
                 retouch_res = retoucher.process_photo_batch(
                     image_paths=resolved_paths,
                     shoot_name=tool_call.get("shoot_name", "operator_shoot"),
-                    preset=style,
+                    preset=style or "natural_true_to_life",
                     smooth_strength=float(tool_call.get("smooth_strength", 0.5)),
                     watermark_text=tool_call.get("watermark_text", "@ExclusiveDrop"),
-                    source_batch=batch_dir.name if batch_dir else None
+                    source_batch=batch_dir.name if batch_dir else None,
+                    edit_style=edit_style
                 )
-                result["message"] = f"Aura [79 Au]: Frequency separation & '{style}' color grade complete for {len(resolved_paths)} image(s). Bundle: {retouch_res.get('zip_name')}."
+                style_label = edit_style or style
+                result["message"] = f"Aura [79 Au]: '{style_label}' edit complete for {len(resolved_paths)} image(s) - skin retouch, color grade, social crops, and a print-ready 16-bit master. Bundle: {retouch_res.get('zip_name')}."
                 result["details"] = retouch_res
             except Exception as e:
                 result["status"] = "error"
