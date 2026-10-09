@@ -1386,6 +1386,134 @@ class ComfyUIBridge:
             "host_used": f"{self.host}:{self.port}"
         }
 
+    def build_minimax_h3_i2v_workflow(self,
+                                      source_image_name: str,
+                                      prompt: str,
+                                      duration_seconds: float = 10.0,
+                                      seed: Optional[int] = None,
+                                      filename_prefix: Optional[str] = None,
+                                      lora_config: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
+        """
+        Builds a ComfyUI API graph for MiniMax H3 image-to-video generation, based on the
+        user's own confirmed-working local workflow template. A custom "AI Video
+        Cinematography Director" node auto-generates the actual motion prompt from the
+        source image and style settings - the caller's prompt is fed into its
+        extra_custom_tags field rather than a plain prompt widget.
+
+        The template ships with 3 chained LoRAs tuned for adult/boudoir content by
+        default. LoRAs can be freely swapped or disabled on any ComfyUI workflow, so
+        pass lora_config (a list of up to 3 {"lora_name":..., "strength_model":...}
+        dicts) to override them - e.g. an empty list zeroes out all 3 for clean,
+        general-brand/SFW generation. Leaving lora_config=None keeps the shipped adult
+        defaults, which must ONLY ever be used for the adult_creator_brand content line.
+        """
+        template_path = WORKFLOW_TEMPLATES_DIR / "minimax_h3_i2v_template.json"
+        with open(template_path, "r", encoding="utf-8") as f:
+            workflow = json.load(f)
+
+        seed_val = seed if seed is not None else int(time.time() * 1000) % (2**31 - 1)
+
+        workflow["114"]["inputs"]["image"] = source_image_name
+        workflow["141"]["inputs"]["extra_custom_tags"] = prompt
+        # The exported template's Director node (141) had several fields land in the wrong
+        # slot - confirmed via ComfyUI's own validation errors (an IP under lighting_preset,
+        # a port number under secondary_pc_ip, a model name under port, a small int under
+        # model_name), almost certainly from the custom node's widget order shifting after
+        # an update post-dating when this workflow was last saved. Patch them to valid
+        # values so the graph actually passes validation.
+        workflow["141"]["inputs"]["lighting_preset"] = "Auto-Match Original Image"
+        workflow["141"]["inputs"]["secondary_pc_ip"] = "192.168.1.50"
+        workflow["141"]["inputs"]["port"] = 11434
+        workflow["141"]["inputs"]["model_name"] = "huihui_ai/qwen3-vl-abliterated:8b-instruct"
+        workflow["141"]["inputs"]["idle_vram_timeout_min"] = 5
+        workflow["141"]["inputs"]["seed"] = seed_val
+        workflow["105:111"]["inputs"]["value"] = duration_seconds
+        workflow["105:15"]["inputs"]["noise_seed"] = seed_val
+        workflow["92"]["inputs"]["filename_prefix"] = filename_prefix or "video/WORKHORSE_MiniMax_H3"
+
+        # LoRA chain (model flows 105:140 -> 105:138 -> 105:137). lora_config=None keeps
+        # the template's shipped defaults; an explicit list lets the caller replace or
+        # disable (strength 0) each slot.
+        lora_node_ids = ["105:140", "105:138", "105:137"]
+        if lora_config is not None:
+            for i, node_id in enumerate(lora_node_ids):
+                if i < len(lora_config):
+                    cfg = lora_config[i]
+                    workflow[node_id]["inputs"]["lora_name"] = cfg.get("lora_name", workflow[node_id]["inputs"]["lora_name"])
+                    workflow[node_id]["inputs"]["strength_model"] = cfg.get("strength_model", 0)
+                else:
+                    workflow[node_id]["inputs"]["strength_model"] = 0
+
+        return workflow
+
+    def generate_image_to_video_minimax(self,
+                                        source_image_path: Union[str, Path],
+                                        prompt: str,
+                                        duration_seconds: float = 10.0,
+                                        lora_config: Optional[List[Dict[str, Any]]] = None,
+                                        timeout_seconds: int = 900) -> Dict[str, Any]:
+        """
+        End-to-end MiniMax H3 image-to-video: uploads the source photo, builds the graph
+        from the user's proven local template, renders, and saves the result video.
+        Rendering is GPU/length dependent and can take several minutes.
+        """
+        conn = self.check_connection()
+        if not conn.get("online"):
+            return {
+                "success": False,
+                "error": f"ComfyUI on Main PC is offline ({conn.get('host')}:{conn.get('port')}).",
+                "details": conn
+            }
+
+        source_image_path = Path(source_image_path)
+        if not source_image_path.exists():
+            return {"success": False, "error": f"Source image not found: {source_image_path}"}
+
+        try:
+            uploaded_name = self.upload_image_to_comfy(source_image_path)
+        except Exception as e:
+            return {"success": False, "error": f"Failed to upload source image to ComfyUI: {e}"}
+
+        workflow = self.build_minimax_h3_i2v_workflow(
+            source_image_name=uploaded_name,
+            prompt=prompt,
+            duration_seconds=duration_seconds,
+            lora_config=lora_config
+        )
+
+        try:
+            queued = self.queue_prompt(workflow)
+            prompt_id = queued.get("prompt_id")
+            if not prompt_id:
+                return {"success": False, "error": f"No prompt_id returned by ComfyUI. node_errors: {queued.get('node_errors')}"}
+
+            videos = self.wait_for_video_execution(prompt_id, timeout_seconds=timeout_seconds)
+            if not videos:
+                return {"success": False, "error": "ComfyUI MiniMax H3 image-to-video generation timed out or yielded no video output"}
+
+            first_vid = videos[0]
+            staged_path = self.download_video(
+                filename=first_vid["filename"],
+                subfolder=first_vid.get("subfolder", ""),
+                folder_type=first_vid.get("type", "output")
+            )
+        except RuntimeError as e:
+            return {"success": False, "error": f"ComfyUI MiniMax H3 image-to-video generation failed: {e}"}
+        except Exception as e:
+            return {"success": False, "error": f"ComfyUI MiniMax H3 image-to-video generation failed: {e}"}
+
+        dest_path = VIDEO_RENDERS_DIR / staged_path.name
+        staged_path.rename(dest_path)
+
+        return {
+            "success": True,
+            "file_path": str(dest_path),
+            "filename": dest_path.name,
+            "url_path": f"/static/brand_assets/comfy_video_renders/{dest_path.name}",
+            "source_image": str(source_image_path),
+            "host_used": f"{self.host}:{self.port}"
+        }
+
     def build_subject_swap_workflow(self,
                                     source_image_name: str,
                                     reference_face_image_name: str,

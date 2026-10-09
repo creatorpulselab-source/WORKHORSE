@@ -143,7 +143,7 @@ When the user asks you to inspect, check, or execute a task, you can invoke:
 - {"tool": "gpu_guardrails_status"}: Live check of Dual RTX 3060 utilization, VRAM, and all hardware circuit breakers.
 - {"tool": "comfy_generate_glb", "agent": "synapse|iris|aura|echo|forge|cipher|herald|mercury|scribe"}: Renders an interactive 3D GLB model on RTX 5070 Ti for the dashboard card.
 - {"tool": "comfy_background_change", "image": "...", "prompt": "...", "negative_prompt": "..."}: Auto-segments the subject (SAM3) out of an uploaded photo and swaps in a brand-new background from a text prompt.
-- {"tool": "comfy_image_to_video", "image": "...", "prompt": "...", "negative_prompt": "...", "width": 720, "height": 1280, "num_frames": 300, "fps": 30}: Animates a still photo into a short video clip on RTX 5070 Ti using the local LTX 2.3 image-to-video pipeline (SageAttention-optimized). Takes several minutes - warn the Commander it will take a while before calling this.
+- {"tool": "comfy_image_to_video", "image": "...", "prompt": "...", "negative_prompt": "...", "width": 720, "height": 1280, "num_frames": 300, "fps": 30, "engine": "ltx2.3|minimax_h3", "duration_seconds": 10, "adult_tuning": false}: Animates a still photo into a short video clip on RTX 5070 Ti. "engine" picks the model: "ltx2.3" (default) is the SageAttention-optimized general-purpose pipeline, safe for any brand. "minimax_h3" is a separate locally-installed engine tuned specifically for adult/boudoir motion - only ever set "adult_tuning": true for the adult_creator_brand ("creatorpulselab"); leave it false (the default) for CreatorMediaLab/TheCreatorAsset or any mainstream-brand request. Takes several minutes - warn the Commander it will take a while before calling this.
 - {"tool": "comfy_subject_swap", "image": "...", "reference_face_image": "...", "prompt": "...", "negative_prompt": "..."}: Full-subject identity swap (not just face) - keeps the ORIGINAL photo's pose/outfit/composition, replaces the person's identity using a separate reference face photo. Used for tattoo/identity anonymity protection. Requires BOTH a source pose/outfit photo and a separate reference face photo - ask for both if either is missing.
 - {"tool": "comfy_remote_purge"}: Remotely unloads models and frees 16GB VRAM on RTX 5070 Ti (Main PC).
 - {"tool": "comfy_prewarm", "checkpoint": "..."}: Pre-loads checkpoint into 5070 Ti VRAM before scheduled dispatches.
@@ -1245,6 +1245,7 @@ class AIOperatorEngine:
             height = tool_call.get("height", 1280)
             num_frames = tool_call.get("num_frames", 300)
             fps = tool_call.get("fps", 30)
+            engine = (tool_call.get("engine") or "ltx2.3").strip().lower()
             if not filename:
                 return {"status": "error", "error": "No source image provided for image-to-video"}
             if not prompt:
@@ -1259,21 +1260,38 @@ class AIOperatorEngine:
                     return {"status": "error", "error": f"Source image not found: {filename}"}
 
                 from pipeline.stages.comfyui_bridge import comfy_bridge
-                vid_res = comfy_bridge.generate_image_to_video(
-                    source_image_path=img_path,
-                    prompt=prompt,
-                    negative_prompt=negative_prompt,
-                    width=width,
-                    height=height,
-                    num_frames=num_frames,
-                    fps=fps
-                )
+                if engine in ("minimax", "minimax_h3", "minimax-h3", "hailuo"):
+                    duration_seconds = tool_call.get("duration_seconds", 10.0)
+                    # The MiniMax H3 template ships with 3 adult/boudoir-tuned LoRAs loaded by
+                    # default. They are opt-IN (adult_tuning=true), never the default, so a
+                    # plain video-to-video request stays general-brand-safe unless the
+                    # Commander explicitly asks for the adult-tuned engine.
+                    adult_tuning = bool(tool_call.get("adult_tuning", False))
+                    vid_res = comfy_bridge.generate_image_to_video_minimax(
+                        source_image_path=img_path,
+                        prompt=prompt,
+                        duration_seconds=duration_seconds,
+                        lora_config=None if adult_tuning else []
+                    )
+                    engine_label = "MiniMax H3" + (" (adult-tuned)" if adult_tuning else "")
+                else:
+                    vid_res = comfy_bridge.generate_image_to_video(
+                        source_image_path=img_path,
+                        prompt=prompt,
+                        negative_prompt=negative_prompt,
+                        width=width,
+                        height=height,
+                        num_frames=num_frames,
+                        fps=fps
+                    )
+                    engine_label = "LTX 2.3"
+
                 if vid_res.get("success"):
-                    result["message"] = f"SYNAPSE [100 Fm]: Image-to-video render complete on RTX 5070 Ti (LTX 2.3). Saved to: {vid_res.get('filename')}."
+                    result["message"] = f"SYNAPSE [100 Fm]: Image-to-video render complete on RTX 5070 Ti ({engine_label}). Saved to: {vid_res.get('filename')}."
                     result["details"] = vid_res
                 else:
                     result["status"] = "warning"
-                    result["message"] = f"SYNAPSE [100 Fm]: Image-to-video render failed: {vid_res.get('error')}"
+                    result["message"] = f"SYNAPSE [100 Fm]: Image-to-video render failed ({engine_label}): {vid_res.get('error')}"
                     result["details"] = vid_res
             except Exception as e:
                 result["status"] = "error"

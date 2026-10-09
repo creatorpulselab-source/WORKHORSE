@@ -259,6 +259,64 @@ class HeraldScheduler:
         vis_path = self.newsletter.get_latest_comfy_visual(pub_key)
         return str(vis_path) if vis_path else None
 
+    def _maybe_upgrade_to_video(self, handle: str, slot_id: str, still_image_path: str) -> Optional[str]:
+        """
+        For the one designated daily "video slot" (per-brand config), converts the
+        freshly-generated still image into a short video instead of posting a static
+        image. Disabled by default; returns None (keep the still) if video_posting is
+        disabled, misconfigured, this isn't the configured slot, or generation fails/
+        times out - Herald never blocks or fails a scheduled post over this.
+
+        BRAND SAFETY: the MiniMax H3 engine's adult/boudoir-tuned LoRAs are only ever
+        reachable for the adult_creator_brand ("creatorpulselab"), and only when that
+        brand's own config explicitly sets engine="minimax_h3" - creator_media_lab
+        (mainstream/@TheCreatorAsset) can NEVER reach the adult-tuned path, regardless
+        of what any config value says, full stop.
+        """
+        try:
+            with open(self.config_path, "r", encoding="utf-8") as f:
+                cfg = json.load(f)
+        except Exception:
+            return None
+
+        is_pulse = "pulse" in handle.lower()
+        brand_key = "creator_pulse_lab" if is_pulse else "creator_media_lab"
+        brand_cfg_key = "adult_creator_brand" if is_pulse else "main_brand"
+        video_cfg = cfg.get("marketing_channels", {}).get(brand_cfg_key, {}).get("video_posting", {})
+
+        if not video_cfg.get("enabled"):
+            return None
+        if video_cfg.get("slot_id") != slot_id:
+            return None
+
+        engine = (video_cfg.get("engine") or "ltx2.3").strip().lower()
+        duration_seconds = video_cfg.get("duration_seconds", 8)
+        motion_prompt = "subtle natural motion, gentle cinematic movement, high production value, photorealistic"
+
+        try:
+            from pipeline.stages.comfyui_bridge import comfy_bridge
+            if engine in ("minimax_h3", "minimax") and brand_key == "creator_pulse_lab":
+                vid_res = comfy_bridge.generate_image_to_video_minimax(
+                    source_image_path=still_image_path,
+                    prompt=motion_prompt,
+                    duration_seconds=duration_seconds,
+                    lora_config=None  # keep the brand's configured adult-tuned LoRAs
+                )
+            else:
+                vid_res = comfy_bridge.generate_image_to_video(
+                    source_image_path=still_image_path,
+                    prompt=motion_prompt,
+                    num_frames=int(duration_seconds * 24),
+                    fps=24
+                )
+            if vid_res.get("success"):
+                print(f"[Herald Scheduler] Upgraded @{handle} {slot_id} post to video: {vid_res.get('filename')}")
+                return vid_res.get("file_path")
+            print(f"[Herald Scheduler] Video generation failed for @{handle}, keeping static image: {vid_res.get('error')}")
+        except Exception as e:
+            print(f"[Herald Scheduler] Video generation error for @{handle}, keeping static image: {e}")
+        return None
+
     def _load_state(self) -> Dict[str, Any]:
         if STATE_FILE.exists():
             try:
@@ -391,6 +449,10 @@ class HeraldScheduler:
                         if vis_path and Path(vis_path).exists():
                             media_paths = [str(vis_path)]
                             print(f"[Herald Scheduler] Brand visual attached for @{handle} -> {Path(vis_path).name}")
+
+                            video_path = self._maybe_upgrade_to_video(handle, slot_id, vis_path)
+                            if video_path:
+                                media_paths = [video_path]
                     except Exception as ve:
                         print(f"[Herald Scheduler] Visual lookup notice: {ve}")
 

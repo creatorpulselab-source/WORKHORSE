@@ -160,6 +160,12 @@
         "enabled": false,
         "default_board_id": "",
         "daily_slot_time": "12:00"
+      },
+      "video_posting": {
+        "enabled": false,
+        "slot_id": "slot_4_evening",
+        "engine": "ltx2.3",
+        "duration_seconds": 8
       }
     },
     "adult_creator_brand": {
@@ -175,7 +181,13 @@
         "creator_pulse"
       ],
       "fiverr_video_reels_url": "http://www.fiverr.com/s/emmRYZm",
-      "fiverr_tip_menus_url": "http://www.fiverr.com/s/GPPxKB3"
+      "fiverr_tip_menus_url": "http://www.fiverr.com/s/GPPxKB3",
+      "video_posting": {
+        "enabled": false,
+        "slot_id": "slot_4_evening",
+        "engine": "ltx2.3",
+        "duration_seconds": 8
+      }
     }
   },
   "comfyui": {

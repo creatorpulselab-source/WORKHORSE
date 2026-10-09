@@ -12,6 +12,8 @@ from typing import Dict, Any, List, Optional
 import time
 import tweepy
 
+VIDEO_EXTENSIONS = {".mp4", ".mov", ".m4v", ".webm"}
+
 class TwitterPoster:
     def __init__(self, config_path: str = "F:/WORKHORSE/config.json", secrets_path: str = "F:/WORKHORSE/secrets.json"):
         self.config_path = Path(config_path)
@@ -153,14 +155,43 @@ class TwitterPoster:
                     api_v1 = tweepy.API(auth)
                     for mp in media_paths:
                         p = Path(mp)
-                        if p.exists():
-                            # SCRUBBER [82 Pb] Pre-flight EXIF scrub
+                        if not p.exists():
+                            continue
+
+                        is_video = p.suffix.lower() in VIDEO_EXTENSIONS
+                        if not is_video:
+                            # SCRUBBER [82 Pb] Pre-flight EXIF scrub (images only - the
+                            # scrubber targets EXIF, not video container metadata)
                             try:
                                 from pipeline.stages.scrubber import metadata_scrubber
                                 metadata_scrubber.scrub_image(p)
                             except Exception:
                                 pass
-                            print(f"[TwitterPoster] Uploading visual media to X: {p.name}...")
+
+                        if is_video:
+                            # X requires chunked upload + media_category=tweet_video for
+                            # video, and processes it asynchronously server-side -
+                            # attaching a still-processing media_id to a tweet fails, so
+                            # poll STATUS until it reports succeeded/failed.
+                            print(f"[TwitterPoster] Uploading video media to X (chunked): {p.name}...")
+                            up_res = api_v1.media_upload(filename=str(p), chunked=True, media_category="tweet_video")
+                            media_id = up_res.media_id
+                            processing_info = getattr(up_res, "processing_info", None)
+                            if processing_info:
+                                deadline = time.time() + 180
+                                state = processing_info.get("state")
+                                while state not in ("succeeded", "failed") and time.time() < deadline:
+                                    wait_secs = processing_info.get("check_after_secs", 3)
+                                    time.sleep(wait_secs)
+                                    status = api_v1.get_media_upload_status(media_id)
+                                    processing_info = getattr(status, "processing_info", None) or {}
+                                    state = processing_info.get("state", "succeeded")
+                                if state == "failed":
+                                    print(f"[TwitterPoster] X rejected video processing for {p.name}: {processing_info}")
+                                    continue
+                            media_ids.append(media_id)
+                        else:
+                            print(f"[TwitterPoster] Uploading image media to X: {p.name}...")
                             up_res = api_v1.media_upload(filename=str(p))
                             media_ids.append(up_res.media_id)
             except Exception as me:
