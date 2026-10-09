@@ -1,4 +1,6 @@
 import os
+import json
+import datetime
 import cv2
 import numpy as np
 from pathlib import Path
@@ -143,9 +145,16 @@ class PhotoRetoucher:
         preset: str = "moody_boudoir",
         smooth_strength: float = 0.5,
         watermark_text: str = "@ExclusiveDrop",
-        progress_cb: Optional[Callable[[str, int], None]] = None
+        progress_cb: Optional[Callable[[str, int], None]] = None,
+        source_batch: Optional[str] = None
     ) -> Dict[str, Any]:
-        """Process batch of photos with retouching, crops, and export bundle."""
+        """Process batch of photos with retouching, crops, and export bundle.
+
+        source_batch: the isolated client_inbox/batch_.../ folder name these source
+        photos came from, if known. Recorded in the package's manifest.json so this
+        CLIENT deliverable is unambiguously tagged by its origin and can never be
+        mistaken for marketing/postable content or mixed up with a different client's
+        package."""
         pkg_dir = self.output_base / f"{shoot_name}_RETOUCHED_PACKAGE"
         pkg_dir.mkdir(parents=True, exist_ok=True)
 
@@ -207,6 +216,23 @@ class PhotoRetoucher:
         if progress_cb:
             progress_cb("Compressing retouched photo bundle into ZIP...", 90)
 
+        # Tag this package unambiguously as a CLIENT DELIVERABLE, with its source batch
+        # and original filenames recorded, so it's never confused with marketing/postable
+        # content or a different client's package - addresses "tag what each character
+        # is calling to be made so there's no confusion" directly for client work.
+        manifest = {
+            "package_type": "CLIENT_DELIVERABLE",
+            "shoot_name": shoot_name,
+            "preset": preset,
+            "source_batch": source_batch,
+            "created_at": datetime.datetime.now().isoformat(),
+            "source_filenames": [p["original"] for p in processed_photos],
+            "warning": "This package contains client-sourced photos. Do not post, repurpose, "
+                       "or mix with any other client's files or marketing/brand content."
+        }
+        with open(pkg_dir / "manifest.json", "w", encoding="utf-8") as mf:
+            json.dump(manifest, mf, indent=2)
+
         zip_path = self.output_base / f"{shoot_name}_PHOTO_PACKAGE.zip"
         with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
             for root, dirs, files in os.walk(pkg_dir):
@@ -225,6 +251,7 @@ class PhotoRetoucher:
             "zip_name": zip_path.name,
             "zip_size_mb": round(zip_path.stat().st_size / (1024**2), 2),
             "total_processed": len(processed_photos),
+            "source_batch": source_batch,
             "photos": processed_photos
         }
 

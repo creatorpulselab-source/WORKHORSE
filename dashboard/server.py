@@ -47,7 +47,7 @@ from pipeline.stages.omni_marketer import OmniMarketer
 from pipeline.stages.newsletter_manager import NewsletterManager
 from pipeline.stages.twitter_poster import TwitterPoster
 from pipeline.stages.pinterest_poster import PinterestPoster
-from pipeline.stages.ai_operator import ai_operator, CLIENT_INBOX_DIR, CLIENT_OUTPUTS_DIR
+from pipeline.stages.ai_operator import ai_operator, CLIENT_INBOX_DIR, CLIENT_OUTPUTS_DIR, create_client_batch, register_batch_files
 from pipeline.stages.herald_scheduler import herald_scheduler
 
 main_loop = None
@@ -1210,17 +1210,26 @@ async def operator_chat_endpoint(
     files: List[UploadFile] = File(default=[])
 ):
     saved_paths = []
+    session_id = _get_request_session_id(request)
     if files:
+        # Every file-drop event gets its own isolated client_inbox/batch_.../ subfolder
+        # instead of landing directly in the flat shared root - so this client's/session's
+        # files can never be mixed with a different client's or an older/newer drop when
+        # Synapse's tools later default to "whatever was just uploaded".
+        batch_dir = create_client_batch(session_id=session_id)
+        batch_filenames = []
         for f in files:
             if f.filename:
                 safe_name = Path(f.filename).name  # strip any path components from the client-supplied filename
-                dest = CLIENT_INBOX_DIR / safe_name
+                dest = batch_dir / safe_name
                 content = await f.read()
                 with open(dest, "wb") as out:
                     out.write(content)
                 saved_paths.append(str(dest))
+                batch_filenames.append(safe_name)
+        if batch_filenames:
+            register_batch_files(batch_dir, batch_filenames)
 
-    session_id = _get_request_session_id(request)
     loop = asyncio.get_event_loop()
     res = await loop.run_in_executor(
         None,
@@ -1242,10 +1251,17 @@ async def operator_clear_endpoint(request: Request):
     return {"status": "ok", "message": "Operator history cleared"}
 
 @app.get("/api/operator/client-files")
-async def get_client_inbox_files():
+async def get_client_inbox_files(request: Request):
+    """Lists files in THIS session's most recent upload batch (falling back to any
+    legacy files sitting directly in the flat client_inbox/ root), rather than every
+    file across every client's batches."""
+    from pipeline.stages.ai_operator import get_latest_client_batch_dir
     files = []
-    if CLIENT_INBOX_DIR.exists():
-        for f in CLIENT_INBOX_DIR.iterdir():
+    session_id = _get_request_session_id(request)
+    batch_dir = get_latest_client_batch_dir(session_id)
+    scan_dir = batch_dir if batch_dir and batch_dir.exists() else CLIENT_INBOX_DIR
+    if scan_dir.exists():
+        for f in scan_dir.iterdir():
             if f.is_file():
                 files.append({
                     "name": f.name,
@@ -1338,7 +1354,14 @@ async def trigger_iris_qc_audit(payload: Dict[str, Any]):
     if not img_path.is_absolute():
         img_path = Path("F:/WORKHORSE/workspace/brand_assets/comfy_renders") / filename
         if not img_path.exists():
-            img_path = Path("F:/WORKHORSE/workspace/client_inbox") / filename
+            candidate = Path("F:/WORKHORSE/workspace/client_inbox") / filename
+            if candidate.exists():
+                img_path = candidate
+            else:
+                # Files now live in per-upload batch_.../ subfolders rather than the flat
+                # inbox root - fall back to searching those for a same-name match.
+                matches = list(Path("F:/WORKHORSE/workspace/client_inbox").glob(f"batch_*/{filename}"))
+                img_path = matches[0] if matches else candidate
 
     if not img_path.exists():
         raise HTTPException(status_code=404, detail="Image file not found")

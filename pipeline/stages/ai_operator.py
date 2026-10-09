@@ -12,6 +12,7 @@ import asyncio
 import datetime
 import shutil
 import time
+import uuid
 import zipfile
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple
@@ -41,9 +42,104 @@ MAX_DAILY_HEALTH_ENTRIES = 90
 OPERATOR_CHAT_SESSIONS_DIR = WORKSPACE_DIR / "operator_chat_sessions"
 OPERATOR_CHAT_SESSIONS_DIR.mkdir(parents=True, exist_ok=True)
 MAX_CHAT_HISTORY_ENTRIES = 200
+CLIENT_BATCHES_FILE = WORKSPACE_DIR / "client_batches.json"
+MAX_CLIENT_BATCHES_TRACKED = 200
 
 for d in (CLIENT_INBOX_DIR, CLIENT_OUTPUTS_DIR):
     d.mkdir(parents=True, exist_ok=True)
+
+
+def _load_client_batches() -> List[Dict[str, Any]]:
+    if CLIENT_BATCHES_FILE.exists():
+        try:
+            with open(CLIENT_BATCHES_FILE, "r", encoding="utf-8") as f:
+                return json.load(f).get("batches", [])
+        except Exception:
+            return []
+    return []
+
+
+def _save_client_batches(batches: List[Dict[str, Any]]) -> None:
+    try:
+        with open(CLIENT_BATCHES_FILE, "w", encoding="utf-8") as f:
+            json.dump({"batches": batches[-MAX_CLIENT_BATCHES_TRACKED:]}, f, indent=2)
+    except Exception as e:
+        print(f"[WORKHORSE] Failed to persist client_batches.json: {e}")
+
+
+def create_client_batch(session_id: Optional[str] = None) -> Path:
+    """Creates a brand-new, isolated upload-batch subfolder under client_inbox/ for a
+    single file-drop event, so one Commander's client files are never scanned alongside
+    another client's files (or a different upload) just because they all happen to land
+    in the same flat folder. No client name is required upfront - the batch is
+    registered in client_batches.json and can be tagged with a client_name at any later
+    point (upload time, packaging time, or never), matching how the Commander actually
+    works."""
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    batch_id = f"batch_{timestamp}_{uuid.uuid4().hex[:6]}"
+    batch_dir = CLIENT_INBOX_DIR / batch_id
+    batch_dir.mkdir(parents=True, exist_ok=True)
+
+    batches = _load_client_batches()
+    batches.append({
+        "batch_id": batch_id,
+        "folder": str(batch_dir),
+        "session_id": session_id,
+        "client_name": None,
+        "created_at": datetime.datetime.now().isoformat(),
+        "files": []
+    })
+    _save_client_batches(batches)
+    return batch_dir
+
+
+def register_batch_files(batch_dir: Path, filenames: List[str]) -> None:
+    """Records which filenames were dropped into a given upload batch, for traceability."""
+    batches = _load_client_batches()
+    batch_str = str(batch_dir)
+    for b in batches:
+        if b["folder"] == batch_str:
+            existing = set(b.get("files", []))
+            for fn in filenames:
+                if fn not in existing:
+                    b.setdefault("files", []).append(fn)
+            break
+    _save_client_batches(batches)
+
+
+def get_latest_client_batch_dir(session_id: Optional[str] = None) -> Optional[Path]:
+    """Returns the most recently created upload-batch folder, scoped to this session_id
+    when given, so resolving "the files the Commander just dropped in" for one browser
+    session/tab can never silently pick up a different concurrent session's (or a
+    different client's) batch. Falls back to the newest batch across all sessions only
+    when no session-scoped batch exists."""
+    batches = _load_client_batches()
+    if not batches:
+        return None
+    if session_id:
+        scoped = [b for b in batches if b.get("session_id") == session_id]
+        if scoped:
+            p = Path(scoped[-1]["folder"])
+            return p if p.exists() else None
+    p = Path(batches[-1]["folder"])
+    return p if p.exists() else None
+
+
+def tag_client_batch(batch_id_or_dir, client_name: str) -> bool:
+    """Tags an existing upload batch with a client name at any point after upload -
+    lets the Commander name the client later (e.g. at packaging time) instead of
+    requiring it upfront, since that's how the workflow actually varies."""
+    batches = _load_client_batches()
+    target = str(batch_id_or_dir)
+    found = False
+    for b in batches:
+        if b["batch_id"] == target or b["folder"] == target or Path(b["folder"]).name == target:
+            b["client_name"] = client_name
+            found = True
+            break
+    if found:
+        _save_client_batches(batches)
+    return found
 
 from shared.vram_manager import vram_manager
 
@@ -601,12 +697,12 @@ class AIOperatorEngine:
         except Exception as e:
             return {"status": "error", "message": f"Repair failed: {e}"}
 
-    def run_tool_and_log(self, tool_call: Dict[str, Any], adult_allowed: bool = False) -> Dict[str, Any]:
+    def run_tool_and_log(self, tool_call: Dict[str, Any], adult_allowed: bool = False, batch_dir: Optional[Path] = None) -> Dict[str, Any]:
         """Executes a SYNAPSE tool call and transparently records any failure to the
         persistent error log, so tool errors stay reviewable even after their chat
         bubble scrolls out of view. This wraps every execute_internal_tool() call site
         instead of patching each tool's individual except block."""
-        exec_res = self.execute_internal_tool(tool_call, adult_allowed=adult_allowed)
+        exec_res = self.execute_internal_tool(tool_call, adult_allowed=adult_allowed, batch_dir=batch_dir)
         if isinstance(exec_res, dict) and exec_res.get("status") == "error":
             self.log_error(
                 component=exec_res.get("tool") or tool_call.get("tool", "unknown_tool"),
@@ -615,8 +711,30 @@ class AIOperatorEngine:
             )
         return exec_res
 
-    def execute_internal_tool(self, tool_call, adult_allowed: bool = False):
-        """Execute built-in WORKHORSE actions & self-healing functions."""
+    @staticmethod
+    def _resolve_marketing_source_image(filename: str) -> Path:
+        """Resolves a bare filename for tools that produce POSTABLE marketing content
+        (image-to-video, background swap, subject swap) ONLY against the marketing
+        brand_assets folder - deliberately NEVER against the flat client_inbox root or
+        any client batch folder. This prevents a client's uploaded photo (e.g. a generic
+        camera filename like IMG_1234.jpg) from ever being silently picked up as source
+        material for a postable video/image just because the names happen to collide.
+        An explicit ABSOLUTE path is still honored unchanged - so deliberately pointing
+        at a client_inbox file is possible, but never an implicit filename guess."""
+        p = Path(filename)
+        if p.is_absolute():
+            return p
+        return Path("F:/WORKHORSE/workspace/brand_assets/comfy_renders") / filename
+
+    def execute_internal_tool(self, tool_call, adult_allowed: bool = False, batch_dir: Optional[Path] = None):
+        """Execute built-in WORKHORSE actions & self-healing functions.
+
+        batch_dir: the isolated client_inbox/batch_<...>/ subfolder for THIS upload
+        session, if one exists (per-request context - never cached on self, since
+        ai_operator is a shared singleton across concurrent chat sessions). Client-
+        file tools (aura_retouch, apex_package) scope to this folder instead of the
+        flat client_inbox/ root so one Commander's/client's files are never mixed
+        with another's."""
         tool_name = tool_call.get("tool")
         result = {"status": "ok", "tool": tool_name}
 
@@ -856,12 +974,28 @@ class AIOperatorEngine:
                 for fn in files:
                     p = Path(fn)
                     if not p.is_absolute():
-                        p = CLIENT_INBOX_DIR / fn
+                        # Prefer this upload session's isolated batch folder so a bare
+                        # filename can never accidentally resolve to a different
+                        # client's/session's file of the same name sitting in the flat
+                        # client_inbox/ root.
+                        candidates = []
+                        if batch_dir:
+                            candidates.append(batch_dir / fn)
+                        candidates.append(CLIENT_INBOX_DIR / fn)
+                        p = next((c for c in candidates if c.exists()), candidates[-1])
                     if p.exists():
                         resolved_paths.append(p)
                 if not resolved_paths and not files:
-                    # No specific files named - default to everything the Commander just dropped in
-                    resolved_paths = [f for f in CLIENT_INBOX_DIR.iterdir() if f.is_file()]
+                    # No specific files named - default to everything the Commander just
+                    # dropped in THIS upload batch, never the entire shared inbox, so a
+                    # different client's/session's leftover files can't get swept in.
+                    if batch_dir and batch_dir.exists():
+                        resolved_paths = [f for f in batch_dir.iterdir() if f.is_file()]
+                    if not resolved_paths:
+                        # Legacy fallback for files sitting directly in the flat root
+                        # (pre-dating batching) - iterdir() naturally skips batch_*
+                        # subfolders here since is_file() excludes directories.
+                        resolved_paths = [f for f in CLIENT_INBOX_DIR.iterdir() if f.is_file()]
                 if not resolved_paths:
                     result["status"] = "error"
                     result["error"] = "No matching source photo(s) found to retouch"
@@ -874,7 +1008,8 @@ class AIOperatorEngine:
                     shoot_name=tool_call.get("shoot_name", "operator_shoot"),
                     preset=style,
                     smooth_strength=float(tool_call.get("smooth_strength", 0.5)),
-                    watermark_text=tool_call.get("watermark_text", "@ExclusiveDrop")
+                    watermark_text=tool_call.get("watermark_text", "@ExclusiveDrop"),
+                    source_batch=batch_dir.name if batch_dir else None
                 )
                 result["message"] = f"Aura [79 Au]: Frequency separation & '{style}' color grade complete for {len(resolved_paths)} image(s). Bundle: {retouch_res.get('zip_name')}."
                 result["details"] = retouch_res
@@ -1025,7 +1160,20 @@ class AIOperatorEngine:
             pkg_name = f"Delivery_{client}_{timestamp}.zip"
             pkg_path = CLIENT_OUTPUTS_DIR / pkg_name
             try:
-                deliverable_files = [f for f in CLIENT_INBOX_DIR.iterdir() if f.is_file()]
+                # Package only THIS upload batch's files, never the entire shared
+                # client_inbox/ root, so one client's package can never pick up another
+                # client's (or an unrelated earlier/later) files that merely happen to
+                # be sitting in the same flat folder.
+                deliverable_files = []
+                if batch_dir and batch_dir.exists():
+                    deliverable_files = [f for f in batch_dir.iterdir() if f.is_file()]
+                    if client and client != "Client":
+                        tag_client_batch(batch_dir, client)
+                if not deliverable_files:
+                    # Legacy fallback for files sitting directly in the flat root
+                    # (pre-dating batching) - batch_* subfolders are skipped here since
+                    # iterdir()+is_file() excludes directories.
+                    deliverable_files = [f for f in CLIENT_INBOX_DIR.iterdir() if f.is_file()]
                 if not deliverable_files:
                     result["status"] = "error"
                     result["error"] = "No deliverable files found in the client inbox to package"
@@ -1117,11 +1265,7 @@ class AIOperatorEngine:
             if not new_background_prompt:
                 return {"status": "error", "error": "No new-background prompt provided"}
             try:
-                img_path = Path(filename)
-                if not img_path.is_absolute():
-                    img_path = Path("F:/WORKHORSE/workspace/client_inbox") / filename
-                    if not img_path.exists():
-                        img_path = Path("F:/WORKHORSE/workspace/brand_assets/comfy_renders") / filename
+                img_path = self._resolve_marketing_source_image(filename)
                 if not img_path.exists():
                     return {"status": "error", "error": f"Source image not found: {filename}"}
 
@@ -1155,16 +1299,8 @@ class AIOperatorEngine:
             if not prompt:
                 return {"status": "error", "error": "No scene/identity prompt provided for subject swap"}
             try:
-                def _resolve(fn):
-                    p = Path(fn)
-                    if not p.is_absolute():
-                        p = Path("F:/WORKHORSE/workspace/client_inbox") / fn
-                        if not p.exists():
-                            p = Path("F:/WORKHORSE/workspace/brand_assets/comfy_renders") / fn
-                    return p
-
-                img_path = _resolve(filename)
-                ref_path = _resolve(ref_filename)
+                img_path = self._resolve_marketing_source_image(filename)
+                ref_path = self._resolve_marketing_source_image(ref_filename)
                 if not img_path.exists():
                     return {"status": "error", "error": f"Source image not found: {filename}"}
                 if not ref_path.exists():
@@ -1251,11 +1387,7 @@ class AIOperatorEngine:
             if not prompt:
                 return {"status": "error", "error": "No motion/scene prompt provided for image-to-video"}
             try:
-                img_path = Path(filename)
-                if not img_path.is_absolute():
-                    img_path = Path("F:/WORKHORSE/workspace/client_inbox") / filename
-                    if not img_path.exists():
-                        img_path = Path("F:/WORKHORSE/workspace/brand_assets/comfy_renders") / filename
+                img_path = self._resolve_marketing_source_image(filename)
                 if not img_path.exists():
                     return {"status": "error", "error": f"Source image not found: {filename}"}
 
@@ -1416,7 +1548,7 @@ class AIOperatorEngine:
                 print(f"[SYNAPSE Vision] Failed to read {path}: {e}")
                 return None
 
-    def detect_vision_requirement(self, message: str, attached_files: Optional[List[str]] = None) -> Tuple[bool, str, List[str], Optional[str]]:
+    def detect_vision_requirement(self, message: str, attached_files: Optional[List[str]] = None, batch_dir: Optional[Path] = None) -> Tuple[bool, str, List[str], Optional[str]]:
         """
         Comprehensive Auto-Detection Engine for Synapse Vision:
         Detects if a query requires Vision (Qwen-VL on GPU 0) based on:
@@ -1425,6 +1557,10 @@ class AIOperatorEngine:
         3. Image URLs in the message text
         4. Recent client inbox images when user asks visual questions
         5. Semantic visual intent keywords (inspect, analyze photo, OCR, etc.)
+
+        batch_dir: this request's isolated upload-batch folder (if any), checked ahead
+        of the flat client_inbox/ root so "the image I just sent" can't resolve to a
+        different client's/session's file of the same name.
         """
         detected_images = []
         reasons = []
@@ -1449,7 +1585,10 @@ class AIOperatorEngine:
             matches = re.findall(pat, message, re.IGNORECASE)
             for m in matches:
                 clean_path = m.strip(" '\"`(),:;")
-                candidates = [
+                candidates = []
+                if batch_dir:
+                    candidates.append(batch_dir / Path(clean_path).name)
+                candidates += [
                     Path(clean_path),
                     CLIENT_INBOX_DIR / Path(clean_path).name,
                     Path("F:/WORKHORSE") / clean_path,
@@ -1498,13 +1637,23 @@ class AIOperatorEngine:
         matched_intent = [kw for kw in vision_keywords if kw in msg_lower]
         if matched_intent:
             reasons.append(f"Visual intent: '{matched_intent[0]}'")
-            
-            # If visual intent is present but no image was found yet, check client_inbox
-            if not detected_images and CLIENT_INBOX_DIR.exists():
-                inbox_images = [
-                    f for f in CLIENT_INBOX_DIR.iterdir()
-                    if f.is_file() and f.suffix.lower() in [".jpg", ".jpeg", ".png", ".webp"]
-                ]
+
+            # If visual intent is present but no image was found yet, check THIS
+            # upload batch first (so "look at this" always means the image from the
+            # Commander's current session, never a different client's leftover file),
+            # then fall back to the flat inbox root for legacy/un-batched files.
+            if not detected_images:
+                inbox_images = []
+                if batch_dir and batch_dir.exists():
+                    inbox_images = [
+                        f for f in batch_dir.iterdir()
+                        if f.is_file() and f.suffix.lower() in [".jpg", ".jpeg", ".png", ".webp"]
+                    ]
+                if not inbox_images and CLIENT_INBOX_DIR.exists():
+                    inbox_images = [
+                        f for f in CLIENT_INBOX_DIR.iterdir()
+                        if f.is_file() and f.suffix.lower() in [".jpg", ".jpeg", ".png", ".webp"]
+                    ]
                 if inbox_images:
                     latest_img = max(inbox_images, key=lambda f: f.stat().st_mtime)
                     b64 = self._encode_image_file(latest_img)
@@ -1616,11 +1765,27 @@ class AIOperatorEngine:
         # for this turn if the Commander flipped on Adult Content Mode, or their own message
         # explicitly asked for it - never just because the model's tool-call JSON says so.
         adult_allowed = bool(adult_mode) or self._detect_explicit_adult_request(message)
-        
+
+        # This request's isolated upload batch, if any files were attached this turn
+        # (server.py saves uploads into a fresh client_inbox/batch_.../ subfolder per
+        # drop) - otherwise fall back to this SAME session's most recent batch, so
+        # client-file tools (aura_retouch, apex_package) never need to scan the whole
+        # shared inbox and can't cross-contaminate a different client's/session's files.
+        # Computed per-call, never cached on self - ai_operator is a shared singleton
+        # across concurrent chat sessions.
+        batch_dir = None
+        if attached_files:
+            first_parent = Path(attached_files[0]).parent
+            if first_parent.name.startswith("batch_"):
+                batch_dir = first_parent
+        if batch_dir is None:
+            batch_dir = get_latest_client_batch_dir(session_id)
+
         # Comprehensive Auto-Detection for Vision Mode
         is_vision, reason, detected_images, resolved_vl_model = self.detect_vision_requirement(
             message=message,
-            attached_files=attached_files
+            attached_files=attached_files,
+            batch_dir=batch_dir
         )
         
         if is_vision:
@@ -1832,7 +1997,7 @@ class AIOperatorEngine:
                 try:
                     tool_data = json.loads(block)
                     if "tool" in tool_data:
-                        exec_res = self.run_tool_and_log(tool_data, adult_allowed=adult_allowed)
+                        exec_res = self.run_tool_and_log(tool_data, adult_allowed=adult_allowed, batch_dir=batch_dir)
                         executed_actions.append(exec_res)
                         executed_tool_signatures.add(json.dumps(tool_data, sort_keys=True))
                 except Exception:
@@ -1845,7 +2010,7 @@ class AIOperatorEngine:
                     tool_data = json.loads(block)
                     sig = json.dumps(tool_data, sort_keys=True)
                     if "tool" in tool_data and sig not in executed_tool_signatures:
-                        exec_res = self.run_tool_and_log(tool_data, adult_allowed=adult_allowed)
+                        exec_res = self.run_tool_and_log(tool_data, adult_allowed=adult_allowed, batch_dir=batch_dir)
                         executed_actions.append(exec_res)
                         executed_tool_signatures.add(sig)
                 except Exception:

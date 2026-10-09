@@ -37,9 +37,23 @@ BRAND_VIBES = {
             "Seductive cam-studio glamour shot, moody warm rim lighting, lace and satin lingerie texture, confident alluring gaze, cinematic shadow play, high-end boudoir editorial, photorealistic, 85mm portrait lens",
             "Moody neon-lit boudoir scene, magenta and cyan gel rim lighting, sheer mesh and satin fabric, confident over-the-shoulder pose, cinematic nightclub glamour atmosphere, photorealistic, 50mm lens, shallow depth of field",
             "Sunset-lit penthouse boudoir portrait, warm amber window light, silk robe and velvet chaise, relaxed intimate pose, soft golden haze, editorial glamour photography, photorealistic, 85mm lens",
-            "High-contrast chiaroscuro boudoir studio shot, single hard key light with deep black shadows, black lace and leather textures, dramatic confident pose, moody gothic glamour editorial, photorealistic, 85mm lens"
+            "High-contrast chiaroscuro boudoir studio shot, single hard key light with deep black shadows, black lace and leather textures, dramatic confident pose, moody gothic glamour editorial, photorealistic, 85mm lens",
+            "Rainy window loft boudoir portrait, cool blue-grey ambient light with warm practical lamp fill, oversized sweater slipping off shoulder, candid intimate mood, photorealistic, 50mm lens, shallow depth of field",
+            "Vintage Hollywood glamour portrait, classic butterfly lighting with beauty dish, silk charmeuse robe, soft glossy waves, timeless pin-up elegance, photorealistic, 85mm lens",
+            "Poolside resort glamour shot, bright tropical daylight, wet-look skin sheen, vibrant turquoise water reflections, confident playful pose, photorealistic, 35mm lens",
+            "Red velvet boudoir studio set, deep crimson and gold tones, dramatic single-source lighting, luxurious satin sheets, sultry reclining pose, photorealistic, 85mm lens, shallow depth of field",
+            "Minimalist all-white boudoir studio, soft diffused high-key lighting, sheer white fabric, clean airy aesthetic, serene confident expression, photorealistic, 50mm lens",
+            "Smoky backstage dressing-room glamour portrait, warm vanity bulb lighting, mirror reflections, silk robe and feather trim, candid behind-the-scenes energy, photorealistic, 85mm lens"
         ],
-        "negative_prompt": "extra limbs, deformed hands, mutated fingers, bad anatomy, blurry, low quality, watermark, text, cartoon, illustration"
+        "negative_prompt": "extra limbs, deformed hands, mutated fingers, bad anatomy, blurry, low quality, watermark, text, cartoon, illustration",
+        "video_motion_prompts": [
+            "slow sensual turn toward camera, gentle hair movement in a soft breeze, subtle breathing motion, cinematic 24fps, high production value, photorealistic",
+            "gentle hip sway with a slow confident walk toward camera, fabric flowing naturally, soft rim light flicker, cinematic motion, photorealistic",
+            "soft hand trailing through hair, slow eyes-to-camera reveal, subtle candle-light flicker in background, cinematic 24fps, photorealistic",
+            "gentle reclining shift with fabric settling naturally, slow seductive gaze hold, soft ambient light drift, cinematic motion, photorealistic",
+            "slow cinematic push-in with subtle hip and shoulder sway, natural fabric movement, soft bokeh shimmer, photorealistic, high production value",
+            "playful over-the-shoulder glance with a slow hair flip, gentle neon light pulse in background, cinematic 24fps, photorealistic"
+        ]
     },
     "creator_media_lab": {
         "brand_target": "creator_media_lab",
@@ -49,9 +63,23 @@ BRAND_VIBES = {
             "Professional studio headshot photography, three-point lighting, film emulation color grade, magazine cover composition, polished commercial aesthetic, photorealistic, 50mm lens",
             "Natural window-light studio portrait, soft diffused daylight, Fujifilm color science, clean editorial backdrop, relaxed candid composition, photorealistic, 35mm lens, shallow depth of field",
             "Dramatic rembrandt-lit studio portrait, single key light with reflector fill, Cinestill 800T color grade, moody dark backdrop, confident editorial pose, photorealistic, 85mm lens",
-            "Outdoor golden-hour environmental portrait, warm backlit rim glow, Kodak Gold film emulation, bokeh-rich natural backdrop, candid lifestyle composition, photorealistic, 50mm lens"
+            "Outdoor golden-hour environmental portrait, warm backlit rim glow, Kodak Gold film emulation, bokeh-rich natural backdrop, candid lifestyle composition, photorealistic, 50mm lens",
+            "Urban rooftop editorial portrait, cool blue-hour city skyline backdrop, soft LED panel key light, modern fashion-forward styling, photorealistic, 35mm lens",
+            "Clean product-style flat lay of camera gear and film rolls, soft overhead diffused light, minimalist neutral backdrop, crisp commercial composition, photorealistic, 50mm macro",
+            "Black-and-white fine art portrait, dramatic Fresnel spotlight, deep shadow contrast, timeless studio aesthetic, photorealistic, 85mm lens",
+            "Behind-the-scenes studio setup shot, softbox and reflector visible, warm practical lighting, candid working-photographer energy, photorealistic, 35mm lens",
+            "Autumn outdoor portrait session, warm golden foliage backdrop, soft diffused overcast light, cozy editorial styling, photorealistic, 50mm lens, shallow depth of field",
+            "Minimalist grey seamless backdrop studio portrait, Profoto beauty dish key light, crisp commercial headshot composition, photorealistic, 85mm lens"
         ],
-        "negative_prompt": "extra limbs, deformed hands, mutated fingers, bad anatomy, blurry, low quality, watermark, text, cartoon, illustration"
+        "negative_prompt": "extra limbs, deformed hands, mutated fingers, bad anatomy, blurry, low quality, watermark, text, cartoon, illustration",
+        "video_motion_prompts": [
+            "subtle natural head turn toward camera, gentle breathing motion, soft ambient light drift, cinematic 24fps, high production value, photorealistic",
+            "slow cinematic push-in, gentle hair movement in a light breeze, natural blinking and micro-expressions, photorealistic, cinematic motion",
+            "gentle walk-and-turn toward camera, fabric and hair moving naturally, soft rim light shift, cinematic 24fps, photorealistic",
+            "subtle confident nod with a slow smile forming, soft practical light flicker in background, cinematic motion, photorealistic",
+            "gentle hand adjusting camera/gear with natural micro-movements, soft studio light drift, documentary-style cinematic motion, photorealistic",
+            "slow environmental pan feel with subject's gaze following camera, natural outdoor breeze movement, cinematic 24fps, photorealistic"
+        ]
     }
 }
 
@@ -193,6 +221,51 @@ PINTEREST_DAILY_CONTENT = [
         "title": "Lightroom Preset Pack for Studio Portraits",
         "description": "Master studio preset pack (.XMP) for editorial-quality portrait photography and color grading.",
         "link": "https://www.etsy.com/shop/CreatorMediaLab"
+    },
+    {
+        "title": "Rembrandt Lighting for Portrait Photographers",
+        "description": "How to set up classic Rembrandt lighting with a single key light and reflector fill for moody, dimensional portraits. #PortraitLighting",
+        "link": "https://digitalcreatorassets-source.github.io/creatormedialab/?pub=studio_wire"
+    },
+    {
+        "title": "Frequency Separation Retouching Walkthrough",
+        "description": "Non-destructive skin retouching with frequency separation - smooth texture without losing detail. Step-by-step guide for editorial photographers.",
+        "link": "https://www.fiverr.com/s/GPz71VL"
+    },
+    {
+        "title": "Cinestill 800T Color Grade Recipe",
+        "description": "Recreate the Cinestill 800T halation and tungsten-balanced look digitally with tone curve and split-toning adjustments.",
+        "link": "https://digitalcreatorassets-source.github.io/creatormedialab/?pub=studio_wire"
+    },
+    {
+        "title": "Golden Hour Outdoor Portrait Checklist",
+        "description": "Camera settings, positioning, and reflector tips for warm, flattering golden-hour environmental portraits.",
+        "link": "https://www.etsy.com/shop/CreatorMediaLab"
+    },
+    {
+        "title": "Editorial Headshot Posing Guide",
+        "description": "Confident, natural posing cues for studio headshots and editorial portrait sessions - angles, hands, and expression direction.",
+        "link": "https://digitalcreatorassets-source.github.io/creatormedialab/"
+    },
+    {
+        "title": "Beauty Dish vs Softbox: Which Modifier to Use",
+        "description": "A practical comparison of beauty dish and softbox light quality for portrait and editorial photography.",
+        "link": "https://www.fiverr.com/s/GPz71VL"
+    },
+    {
+        "title": "Kodak Gold 200 Film Emulation Preset",
+        "description": "Warm, nostalgic Kodak Gold 200 color grading preset pack for Lightroom - great for outdoor and lifestyle shoots.",
+        "link": "https://www.etsy.com/shop/CreatorMediaLab"
+    },
+    {
+        "title": "Dodge & Burn for Dimensional Portrait Retouching",
+        "description": "Add depth and sculpt light on skin with non-destructive dodge and burn layers - a core editorial retouching technique.",
+        "link": "https://www.fiverr.com/s/GPz71VL"
+    },
+    {
+        "title": "Building a Repeatable Creator Content Workflow",
+        "description": "From shoot planning to multi-platform distribution: a repeatable system for consistent, high-quality creator content output.",
+        "link": "https://digitalcreatorassets-source.github.io/creatormedialab/"
     }
 ]
 
@@ -205,26 +278,39 @@ class HeraldScheduler:
         self.is_running = False
         self._load_state()
 
-    def _pick_image_prompt(self, brand_key: str) -> str:
-        """Selects an image prompt for this brand while avoiding recent repeats - the same
-        prompt won't be reused until every other variant in the pool has had a turn, so a
-        week of daily posts doesn't end up visually samey even though each individual
-        generation is already a fresh render with its own random seed."""
-        prompts = BRAND_VIBES[brand_key]["prompts"]
-        recent_map = self.state.setdefault("recent_image_prompts", {})
+    def _pick_from_pool(self, brand_key: str, pool: list, state_key: str) -> str:
+        """Selects an entry from the given prompt pool for this brand while avoiding
+        recent repeats - the same entry won't be reused until every other variant in
+        the pool has had a turn, so a week of daily posts doesn't end up visually or
+        texturally samey even though each individual generation is already a fresh
+        render with its own random seed. Shared helper for both image prompts and
+        video motion prompts."""
+        recent_map = self.state.setdefault(state_key, {})
         recent = recent_map.setdefault(brand_key, [])
 
-        lookback = max(0, len(prompts) - 1)
+        lookback = max(0, len(pool) - 1)
         recently_used = set(recent[-lookback:]) if lookback else set()
-        available = [i for i in range(len(prompts)) if i not in recently_used]
+        available = [i for i in range(len(pool)) if i not in recently_used]
         if not available:
-            available = list(range(len(prompts)))
+            available = list(range(len(pool)))
 
         chosen_idx = random.choice(available)
         recent.append(chosen_idx)
         recent_map[brand_key] = recent[-20:]
         self._save_state()
-        return prompts[chosen_idx]
+        return pool[chosen_idx]
+
+    def _pick_image_prompt(self, brand_key: str) -> str:
+        """Selects an image prompt for this brand, avoiding recent repeats."""
+        return self._pick_from_pool(brand_key, BRAND_VIBES[brand_key]["prompts"], "recent_image_prompts")
+
+    def _pick_motion_prompt(self, brand_key: str) -> str:
+        """Selects a video motion/camera-movement prompt for this brand, avoiding
+        recent repeats, so daily video upgrades don't all move the same way."""
+        pool = BRAND_VIBES[brand_key].get("video_motion_prompts") or [
+            "subtle natural motion, gentle cinematic movement, high production value, photorealistic"
+        ]
+        return self._pick_from_pool(brand_key, pool, "recent_motion_prompts")
 
     def _get_brand_visual_for_post(self, handle: str) -> Optional[str]:
         """
@@ -291,7 +377,7 @@ class HeraldScheduler:
 
         engine = (video_cfg.get("engine") or "ltx2.3").strip().lower()
         duration_seconds = video_cfg.get("duration_seconds", 8)
-        motion_prompt = "subtle natural motion, gentle cinematic movement, high production value, photorealistic"
+        motion_prompt = self._pick_motion_prompt(brand_key)
 
         try:
             from pipeline.stages.comfyui_bridge import comfy_bridge
