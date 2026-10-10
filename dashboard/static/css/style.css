@@ -4377,6 +4377,104 @@ main.workspace-layout-3col {
   font-family: var(--font-mono);
 }
 
+.output-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 10px;
+}
+.output-card-actions .btn-cyber,
+.output-archive-row .btn-cyber {
+  min-height: 44px;
+  justify-content: center;
+  text-decoration: none;
+}
+.completed-work-preview,
+.output-image-button {
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+.output-image-button {
+  width: 100%;
+  background: transparent;
+}
+.output-viewer {
+  width: min(960px, 94vw);
+  max-height: 92dvh;
+  box-sizing: border-box;
+  padding: 18px;
+  border: 1px solid var(--cyan-glow);
+  border-radius: 12px;
+  background: #0c121e;
+  color: #e2e8f0;
+  overflow-y: auto;
+}
+.output-viewer::backdrop {
+  background: rgba(0, 0, 0, 0.8);
+}
+.output-viewer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.output-viewer-header h3 {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.output-viewer-note,
+.output-viewer-body p {
+  margin: 12px 0;
+  font-size: 12px;
+}
+.output-viewer footer {
+  margin-top: 14px;
+}
+.output-viewer footer a {
+  display: inline-flex;
+  min-height: 44px;
+  text-decoration: none;
+}
+.output-preview-media {
+  display: block;
+  width: 100%;
+  max-height: 65dvh;
+  object-fit: contain;
+  background: #050811;
+}
+model-viewer.output-preview-media,
+iframe.output-preview-media {
+  height: 60dvh;
+  border: 0;
+}
+.output-viewer pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.output-archive-list {
+  max-height: 25dvh;
+  overflow-y: auto;
+  margin-bottom: 14px;
+}
+.output-archive-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.output-archive-row button {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  text-align: left;
+}
+.output-archive-row button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* Synapse chat: collapsible full shoot blueprint returned by scan_inspiration_vault */
 .msg-action-blueprint {
   margin-top: 8px;

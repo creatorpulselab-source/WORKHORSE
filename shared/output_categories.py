@@ -27,6 +27,7 @@ instead of one mixed pile:
 from pathlib import Path
 from typing import Dict, Any, Optional
 import urllib.parse
+from shared.output_preview import preview_format
 
 BASE_DIR = Path("F:/WORKHORSE")
 
@@ -198,6 +199,11 @@ def build_media_entry(abs_path: Path, title: str = "") -> Optional[Dict[str, Any
     return {
         "type": cat["media_type"],
         "url": url,
+        "download_url": url,
+        "preview_url": url.replace("/api/outputs/file?", "/api/outputs/preview?", 1),
+        "preview_type": "archive" if Path(abs_path).suffix.lower() == ".zip" else (
+            preview_format(Path(abs_path).name) or (None, None)
+        )[0],
         "filename": Path(abs_path).name,
         "title": title or Path(abs_path).name,
         "category_label": cat["label"],

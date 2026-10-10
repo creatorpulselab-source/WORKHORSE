@@ -566,34 +566,39 @@ class AIOperatorUI {
     }
   }
 
-  // Renders one finished-work card for a result['media'] entry - image (click to open
-  // full-size), video (inline HTML5 player), or 3D model/zip archive (clear labeled
-  // download card, since those can't be inlined in a chat bubble).
+  // Uses the same View/Download controls as Completed Work, including old history entries.
   renderMediaCard(m) {
-    const caption = `${m.category_label ? m.category_label + ' &middot; ' : ''}${m.title || m.filename || ''}`;
+    const viewer = window.outputViewer;
+    const media = viewer.normalize(m);
+    const esc = value => viewer.escape(value);
+    const caption = `${m.category_label ? esc(m.category_label) + ' &middot; ' : ''}${esc(m.title || m.filename || '')}`;
     if (m.type === 'image') {
       return `
-        <a href="${m.url}" target="_blank" class="msg-generated-image-card" title="${m.title || ''}">
-          <img src="${m.url}" alt="${m.title || 'Generated image'}" loading="lazy">
+        <div class="msg-generated-image-card" title="${esc(m.title || '')}">
+          <button type="button" class="output-image-button" data-workhorse-view="${esc(JSON.stringify(media))}" aria-label="View ${esc(media.filename)}">
+            <img src="${esc(media.preview_url)}" alt="${esc(m.title || 'Generated image')}" loading="lazy">
+          </button>
           <span class="msg-generated-image-caption">${caption}</span>
-        </a>
+          ${viewer.actions(m)}
+        </div>
       `;
     }
     if (m.type === 'video') {
       return `
         <div class="msg-generated-media-card msg-generated-video-card">
-          <video src="${m.url}" controls preload="metadata"></video>
+          <video src="${esc(media.preview_url)}" controls preload="metadata" playsinline></video>
           <span class="msg-generated-image-caption">${caption}</span>
+          ${viewer.actions(m)}
         </div>
       `;
     }
-    // 3D models and zip archives can't be rendered inline - give a clear download card.
     const icon = m.type === 'model_3d' ? '🧊' : '📦';
     return `
-      <a href="${m.url}" target="_blank" class="msg-generated-media-card msg-generated-download-card" title="${m.title || ''}">
+      <div class="msg-generated-media-card msg-generated-download-card" title="${esc(m.title || '')}">
         <span class="act-icon">${icon}</span>
-        <span class="msg-generated-image-caption">${caption}<br><small>Click to download</small></span>
-      </a>
+        <span class="msg-generated-image-caption">${caption}</span>
+        ${viewer.actions(m)}
+      </div>
     `;
   }
 

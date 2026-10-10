@@ -649,23 +649,27 @@ this.currentBay = initHash || 'command-center';
   }
 
   renderCompletedWorkCard(item) {
+    const viewer = window.outputViewer;
+    const media = viewer.normalize(item);
+    const esc = value => viewer.escape(value);
     const isClient = item.category.startsWith('client_');
     const sizeLabel = item.size_kb >= 1024 ? `${(item.size_kb / 1024).toFixed(1)} MB` : `${item.size_kb} KB`;
     let preview = `<span class="act-icon" style="font-size: 32px;">${item.media_type === 'archive' ? '📦' : '🧊'}</span>`;
     if (item.media_type === 'image') {
-      preview = `<img src="${item.download_url}" alt="${item.filename}" loading="lazy">`;
+      preview = `<img src="${esc(media.preview_url)}" alt="${esc(item.filename)}" loading="lazy">`;
     } else if (item.media_type === 'video') {
-      preview = `<video src="${item.download_url}" preload="metadata" muted></video>`;
+      preview = `<video src="${esc(media.preview_url)}" preload="metadata" muted playsinline></video>`;
     }
     return `
-      <a href="${item.download_url}" target="_blank" class="completed-work-card ${isClient ? 'client-tagged' : ''}" title="${item.filename}">
-        <div class="completed-work-preview">${preview}</div>
+      <div class="completed-work-card ${isClient ? 'client-tagged' : ''}" title="${esc(item.filename)}">
+        <button type="button" class="completed-work-preview" data-workhorse-view="${esc(JSON.stringify(media))}" aria-label="View ${esc(item.filename)}">${preview}</button>
         <div class="completed-work-info">
-          <span class="completed-work-label">${item.label}</span>
-          <span class="completed-work-filename">${item.filename}</span>
+          <span class="completed-work-label">${esc(item.label)}</span>
+          <span class="completed-work-filename">${esc(item.filename)}</span>
           <span class="completed-work-meta">${sizeLabel} &middot; ${new Date(item.created * 1000).toLocaleString()}</span>
         </div>
-      </a>
+        ${viewer.actions(item)}
+      </div>
     `;
   }
 

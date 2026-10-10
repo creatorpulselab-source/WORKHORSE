@@ -19,7 +19,9 @@ import time
 import shutil
 import subprocess
 import urllib.parse
-from pathlib import Path
+import tempfile
+import zipfile
+from pathlib import Path, PurePath
 from typing import Dict, Any, List, Optional
 from contextlib import asynccontextmanager
 
@@ -27,6 +29,8 @@ from fastapi import FastAPI, UploadFile, File, Form, HTTPException, WebSocket, W
 from fastapi.responses import HTMLResponse, FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.background import BackgroundTask
+from starlette.concurrency import run_in_threadpool
 import uvicorn
 
 BASE_DIR = Path("F:/WORKHORSE")
@@ -1398,6 +1402,9 @@ async def get_comfy_audit_log():
 # deliverables, so every file read goes through this authenticated endpoint
 # instead, matching the rest of the dashboard's auth model.
 from shared.output_categories import OUTPUT_CATEGORIES, DEFAULT_MEDIA_EXTENSIONS, GROUP_LABELS
+from shared.output_preview import (
+    MAX_PREVIEW_BYTES, MAX_ARCHIVE_ENTRIES, preview_format, safe_archive_member,
+)
 
 
 def _resolve_output_file(category: str, rel_path: str) -> Path:
@@ -1418,11 +1425,104 @@ def _resolve_output_file(category: str, rel_path: str) -> Path:
 
 
 @app.get("/api/outputs/file")
-async def download_output_file(category: str, path: str):
-    """Authenticated download/view endpoint for any generated output - requires
-    login (this route is NOT in PUBLIC_PREFIXES), unlike /static/ which has none."""
+async def download_output_file(category: str, path: str, member: Optional[str] = None):
+    """Explicit authenticated download; viewing uses /api/outputs/preview."""
     file_path = _resolve_output_file(category, path)
+    if member is not None:
+        return await run_in_threadpool(_archive_member_response, file_path, member, download=True)
     return FileResponse(file_path, filename=file_path.name)
+
+
+def _archive_member_response(file_path: Path, member: str, download: bool = False):
+    if file_path.suffix.lower() != ".zip":
+        raise HTTPException(status_code=400, detail="This output is not a ZIP package")
+    temp_dir = tempfile.TemporaryDirectory(prefix="workhorse-preview-")
+    try:
+        with zipfile.ZipFile(file_path) as archive:
+            try:
+                info = archive.getinfo(member)
+            except KeyError:
+                raise HTTPException(status_code=404, detail="Package file not found")
+            if not safe_archive_member(info):
+                raise HTTPException(status_code=400, detail="Package file is unsafe or encrypted")
+            if info.file_size > MAX_PREVIEW_BYTES:
+                raise HTTPException(status_code=413, detail="Package file exceeds the 256 MiB viewing limit; download the original ZIP instead")
+            fmt = preview_format(info.filename)
+            if not download and not fmt:
+                raise HTTPException(status_code=415, detail="This file format cannot be viewed in WORKHORSE")
+            target = Path(temp_dir.name) / "member"
+            with archive.open(info) as source, target.open("wb") as dest:
+                remaining = MAX_PREVIEW_BYTES
+                while chunk := source.read(min(1024 * 1024, remaining + 1)):
+                    remaining -= len(chunk)
+                    if remaining < 0:
+                        raise HTTPException(status_code=413, detail="Package file exceeds the 256 MiB viewing limit")
+                    dest.write(chunk)
+        headers = {} if download else _preview_headers()
+        return FileResponse(
+            target, filename=PurePath(member.replace("\\", "/")).name,
+            media_type=fmt[1] if fmt else "application/octet-stream",
+            content_disposition_type="attachment" if download else "inline",
+            headers=headers, background=BackgroundTask(temp_dir.cleanup),
+        )
+    except (zipfile.BadZipFile, RuntimeError, NotImplementedError) as exc:
+        temp_dir.cleanup()
+        raise HTTPException(status_code=422, detail="ZIP package is damaged or uses unsupported compression") from exc
+    except BaseException:
+        temp_dir.cleanup()
+        raise
+
+
+def _preview_headers():
+    # HTML deliverables must not execute scripts or access the dashboard session.
+    return {
+        "X-Content-Type-Options": "nosniff",
+        "Content-Security-Policy": "sandbox; default-src 'none'; style-src 'unsafe-inline'; img-src data:; media-src data:",
+    }
+
+
+@app.get("/api/outputs/preview")
+def preview_output_file(category: str, path: str, member: Optional[str] = None):
+    """Authenticated inline viewing, separate from the explicit download action."""
+    file_path = _resolve_output_file(category, path)
+    if member is not None:
+        return _archive_member_response(file_path, member)
+    fmt = preview_format(file_path.name)
+    if not fmt:
+        raise HTTPException(status_code=415, detail="This file format cannot be viewed in WORKHORSE")
+    return FileResponse(
+        file_path, filename=file_path.name, media_type=fmt[1],
+        content_disposition_type="inline", headers=_preview_headers(),
+    )
+
+
+@app.get("/api/outputs/archive")
+def list_output_archive(category: str, path: str):
+    """Lists package contents without downloading or extracting the entire ZIP."""
+    file_path = _resolve_output_file(category, path)
+    if file_path.suffix.lower() != ".zip":
+        raise HTTPException(status_code=400, detail="This output is not a ZIP package")
+    try:
+        with zipfile.ZipFile(file_path) as archive:
+            entries = archive.infolist()
+            if len(entries) > MAX_ARCHIVE_ENTRIES:
+                raise HTTPException(status_code=413, detail="Package contains more than 2000 entries; download the ZIP to inspect it")
+            items = []
+            for info in entries:
+                if not safe_archive_member(info):
+                    continue
+                fmt = preview_format(info.filename)
+                query = urllib.parse.urlencode({"category": category, "path": path, "member": info.filename})
+                viewable = bool(fmt) and info.file_size <= MAX_PREVIEW_BYTES
+                items.append({
+                    "filename": info.filename, "size_kb": round(info.file_size / 1024, 1),
+                    "preview_type": fmt[0] if viewable else None,
+                    "preview_url": f"/api/outputs/preview?{query}" if viewable else None,
+                    "download_url": f"/api/outputs/file?{query}" if info.file_size <= MAX_PREVIEW_BYTES else None,
+                })
+    except zipfile.BadZipFile as exc:
+        raise HTTPException(status_code=422, detail="ZIP package is damaged") from exc
+    return {"status": "ok", "items": items}
 
 
 @app.get("/api/outputs/categories")
@@ -1481,6 +1581,8 @@ async def get_outputs_gallery(category: Optional[str] = None, group: Optional[st
                 "filename": f.name,
                 "rel_path": rel_path,
                 "download_url": f"/api/outputs/file?category={urllib.parse.quote(cat_key)}&path={urllib.parse.quote(rel_path)}",
+                "preview_url": f"/api/outputs/preview?category={urllib.parse.quote(cat_key)}&path={urllib.parse.quote(rel_path)}",
+                "preview_type": "archive" if f.suffix.lower() == ".zip" else (preview_format(f.name) or (None, None))[0],
                 "size_kb": round(f.stat().st_size / 1024, 1),
                 "created": f.stat().st_mtime
             })

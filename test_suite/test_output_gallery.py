@@ -108,6 +108,9 @@ def test_build_media_entry_full_shape(patched_categories):
     assert entry == {
         "type": "video",
         "url": "/api/outputs/file?category=marketing_videos&path=clip.mp4",
+        "download_url": "/api/outputs/file?category=marketing_videos&path=clip.mp4",
+        "preview_url": "/api/outputs/preview?category=marketing_videos&path=clip.mp4",
+        "preview_type": "video",
         "filename": "clip.mp4",
         "title": "A Test Clip",
         "category_label": OUTPUT_CATEGORIES["marketing_videos"]["label"],
@@ -310,6 +313,99 @@ def test_resolve_output_file_rejects_missing_file(patched_categories):
     with pytest.raises(HTTPException) as exc_info:
         _resolve_output_file("marketing_images", "does_not_exist.png")
     assert exc_info.value.status_code == 404
+
+
+@pytest.fixture
+def output_http_client(monkeypatch):
+    from fastapi.testclient import TestClient
+    from dashboard import server
+    monkeypatch.setattr(server, "_get_session_secret", lambda: "test-output-preview-secret")
+    # No context manager: do not start real GPU/scheduler lifespan tasks.
+    with_cookie = TestClient(server.app)
+    from shared.auth import make_session_token
+    with_cookie.cookies.set(server.SESSION_COOKIE, make_session_token("test-output-preview-secret"))
+    yield with_cookie
+    with_cookie.close()
+
+
+def test_view_is_inline_download_is_attachment_and_video_supports_ranges(patched_categories, output_http_client):
+    file = patched_categories["marketing_videos"] / "clip.mp4"
+    file.write_bytes(b"0123456789")
+    query = {"category": "marketing_videos", "path": file.name}
+    view = output_http_client.get("/api/outputs/preview", params=query)
+    assert view.status_code == 200
+    assert view.headers["content-disposition"].startswith("inline;")
+    assert view.headers["content-type"] == "video/mp4"
+    assert view.content == file.read_bytes()
+    download = output_http_client.get("/api/outputs/file", params=query)
+    assert download.headers["content-disposition"].startswith("attachment;")
+    partial = output_http_client.get("/api/outputs/preview", params=query, headers={"Range": "bytes=2-5"})
+    assert partial.status_code == 206
+    assert partial.content == b"2345"
+
+
+def test_zip_contents_viewable_without_extracting_and_html_is_sandboxed(patched_categories, output_http_client):
+    from zipfile import ZipFile
+    package = patched_categories["fiverr_deliveries"] / "order.zip"
+    with ZipFile(package, "w") as archive:
+        archive.writestr("folder/my image.png", b"png")
+        archive.writestr("preview.html", "<h1>Work</h1><script>alert(1)</script>")
+        archive.writestr("notes.txt", "Created work notes")
+        archive.writestr("unknown.bin", b"binary")
+        archive.writestr("../unsafe.png", b"unsafe")
+    query = {"category": "fiverr_deliveries", "path": package.name}
+    listing = output_http_client.get("/api/outputs/archive", params=query)
+    assert listing.status_code == 200
+    items = {item["filename"]: item for item in listing.json()["items"]}
+    assert "../unsafe.png" not in items
+    assert items["unknown.bin"]["preview_url"] is None
+    image = output_http_client.get(items["folder/my image.png"]["preview_url"])
+    assert image.content == b"png"
+    assert image.headers["content-type"] == "image/png"
+    assert image.headers["content-disposition"].startswith("inline;")
+    html = output_http_client.get(items["preview.html"]["preview_url"])
+    assert "sandbox;" in html.headers["content-security-policy"]
+    assert html.headers["x-content-type-options"] == "nosniff"
+    assert output_http_client.get(items["notes.txt"]["preview_url"]).text == "Created work notes"
+    download = output_http_client.get(items["folder/my image.png"]["download_url"])
+    assert download.content == b"png"
+    assert download.headers["content-disposition"].startswith("attachment;")
+    assert list(package.parent.iterdir()) == [package]
+    assert output_http_client.get("/api/outputs/preview", params={**query, "member": "../unsafe.png"}).status_code == 400
+    assert output_http_client.get("/api/outputs/preview", params={**query, "member": "missing.png"}).status_code == 404
+
+
+def test_preview_endpoints_require_login(patched_categories, output_http_client):
+    output_http_client.cookies.clear()
+    for route in ("preview", "archive", "file"):
+        response = output_http_client.get(f"/api/outputs/{route}", params={"category": "banners", "path": "a.png"})
+        assert response.status_code == 401
+
+
+def test_archive_limits_and_corruption_are_explicit(patched_categories, output_http_client, monkeypatch):
+    from zipfile import ZipFile
+    from dashboard import server
+    package = patched_categories["etsy_bundles"] / "bundle.zip"
+    query = {"category": "etsy_bundles", "path": package.name}
+    with ZipFile(package, "w") as archive:
+        archive.writestr("big.txt", "12345")
+    monkeypatch.setattr(server, "MAX_PREVIEW_BYTES", 4)
+    item = output_http_client.get("/api/outputs/archive", params=query).json()["items"][0]
+    assert item["preview_url"] is None
+    assert output_http_client.get("/api/outputs/preview", params={**query, "member": "big.txt"}).status_code == 413
+    monkeypatch.setattr(server, "MAX_ARCHIVE_ENTRIES", 0)
+    assert output_http_client.get("/api/outputs/archive", params=query).status_code == 413
+    package.write_bytes(b"not a zip")
+    assert output_http_client.get("/api/outputs/archive", params=query).status_code == 422
+
+
+def test_gallery_provides_separate_view_and_download_urls(patched_categories):
+    from dashboard.server import get_outputs_gallery
+    (patched_categories["marketing_3d_models"] / "character.glb").write_bytes(b"glb")
+    item = asyncio.run(get_outputs_gallery(category="marketing_3d_models"))["items"][0]
+    assert item["preview_type"] == "model_3d"
+    assert item["preview_url"].startswith("/api/outputs/preview?")
+    assert item["download_url"].startswith("/api/outputs/file?")
 
 
 def test_outputs_gallery_filters_by_category_and_sorts_by_recency(patched_categories):
