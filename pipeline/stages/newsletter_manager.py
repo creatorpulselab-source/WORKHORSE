@@ -169,6 +169,18 @@ class NewsletterManager:
             return cached_entry["content"]
 
         pub = self.publications.get(pub_id, self.publications["creator_pulse"])
+
+        # Ground today's content in real researched headlines where this
+        # publication's niche has research coverage (creator_pulse/studio_wire/
+        # creator_blueprint) - dispensary_deals has no research mapping yet (it's a
+        # separate scraper-driven business), so this is just an empty list for it.
+        research_articles = []
+        try:
+            from pipeline.stages.trend_researcher import trend_researcher
+            research_articles = trend_researcher.get_research_articles_for_pub(pub_id)
+        except Exception as e:
+            print(f"[NewsletterManager] Could not load research context for {pub_id}: {e}")
+
         result = None
         last_error = None
         for attempt in range(2):
@@ -179,7 +191,8 @@ class NewsletterManager:
                     pub_name=pub["name"],
                     audience=pub["audience"],
                     funnel_blurb=pub["funnel"],
-                    today_str=datetime.now().strftime("%A, %B %d, %Y")
+                    today_str=datetime.now().strftime("%A, %B %d, %Y"),
+                    research_articles=research_articles
                 )
                 if result and result.get("success"):
                     break
@@ -197,6 +210,25 @@ class NewsletterManager:
         cache[pub_id] = {"date": today_key, "content": result}
         atomic_write_json(self.scribe_cache_path, cache)
         return result
+
+    def _get_daily_issue_number(self, pub_id: str, start_at: int) -> int:
+        """Returns a real, persistently-incrementing issue number for pub_id - was
+        previously a hardcoded string (e.g. 'ISSUE #042') that never changed. Bumps
+        by 1 the first time this is called on a new calendar day for this
+        publication, and stays stable across repeated same-day preview/dispatch
+        calls."""
+        today_key = datetime.now().strftime("%Y-%m-%d")
+        cache = safe_read_json(self.scribe_cache_path, default={})
+        counters = cache.setdefault("issue_counters", {})
+        entry = counters.get(pub_id)
+
+        if entry and entry.get("date") == today_key:
+            return entry["number"]
+
+        new_number = (entry["number"] + 1) if entry else start_at
+        counters[pub_id] = {"date": today_key, "number": new_number}
+        atomic_write_json(self.scribe_cache_path, cache)
+        return new_number
 
     def load_config(self) -> Dict[str, Any]:
         with self._lock:
@@ -873,9 +905,63 @@ class NewsletterManager:
         img_src = visual_info["src"]
         caption = visual_info["caption"]
         subcaption = visual_info["subcaption"]
-        scribe_content = self._get_daily_scribe_content("creator_pulse")
-        lead_headline = html.escape((scribe_content or {}).get("lead_headline") or "Why Tight Face-Framing Crops Are Beating Full-Body Feeds")
-        lead_body = html.escape((scribe_content or {}).get("lead_body") or "Short-form recommendation engines (TikTok, IG Reels, and Twitter/X) are heavily penalizing wide glamour shots that resemble sensitive content. Top-earning creators are seeing a 3.4x lift in organic reach by using tight 4:5 portrait crops focusing strictly on eye contact, lips, and subtle expressions.")
+        scribe_content = self._get_daily_scribe_content("creator_pulse") or {}
+        issue_number = self._get_daily_issue_number("creator_pulse", start_at=42)
+        lead_headline = html.escape(scribe_content.get("lead_headline") or "Why Tight Face-Framing Crops Are Beating Full-Body Feeds")
+        lead_body = html.escape(scribe_content.get("lead_body") or "Short-form recommendation engines (TikTok, IG Reels, and Twitter/X) are heavily penalizing wide glamour shots that resemble sensitive content. Top-earning creators are seeing a 3.4x lift in organic reach by using tight 4:5 portrait crops focusing strictly on eye contact, lips, and subtle expressions.")
+
+        # Dynamic Section 1 metric cards - fall back to the original static stats
+        # per-field if Scribe's response is missing/malformed, rather than losing
+        # the whole section.
+        metric1 = scribe_content.get("metric_card_1") or {}
+        metric1_label = html.escape(metric1.get("label") or "Organic Retention Benchmark")
+        metric1_value = html.escape(metric1.get("value") or "78.4% at 3 Seconds")
+        metric1_note = html.escape(metric1.get("note") or "With natural editorial eye contact")
+        metric2 = scribe_content.get("metric_card_2") or {}
+        metric2_label = html.escape(metric2.get("label") or "Feed Shadowban Risk")
+        metric2_value = html.escape(metric2.get("value") or "Reduced by 62%")
+        metric2_note = html.escape(metric2.get("note") or "Bypasses aggressive AI moderation")
+
+        # Dynamic Section 2 PPV scripts - exactly 3 cards, each with its own static
+        # fallback (reused verbatim from the original hardcoded copy) if the model
+        # returned fewer than 3 or a malformed entry.
+        ppv_headline = html.escape(scribe_content.get("ppv_headline") or "3 Swipe-File Teasers That Out-Converted Explicit Photos")
+        ppv_intro = html.escape(scribe_content.get("ppv_intro") or "Curiosity and perceived intimacy convert locked mass messages at a significantly higher percentage than explicit descriptions. Use these 3 tested formulas tonight:")
+        default_scripts = [
+            {"label": '🎧 Script 1: The "Midnight Audio" Teaser ($18 - $25 Unlock)',
+             "quote": "Put your headphones on before you press play... 🎧 Whispered voice memo from yesterday's studio shoot. Unlocked for my top 5% only.",
+             "insight": "Insight: Audio triggers intense 1-on-1 emotional connection without devaluing your visual media set."},
+            {"label": '🔒 Script 2: The "Curiosity Gap" Vault ($35 - $50 Unlock)',
+             "quote": "My photographer told me not to post these 4 frames anywhere on the public feed... Too unfiltered. Unlocking the raw set in DMs for the next 2 hours only.",
+             "insight": "Insight: Artificial scarcity plus behind-the-scenes taboos drive urgency among whale spenders."},
+            {"label": '🗳️ Script 3: The "Color Grade Choice" Poll ($5 - $10 Tip)',
+             "quote": "Which color grade should I post on my public feed tomorrow: Golden Hour Glow or Dark Boudoir? Tip $5 with your vote and I will send you the unreleased outtake.",
+             "insight": "Insight: Low-friction micro-tipping activates non-spending subscribers into active purchasers."}
+        ]
+        raw_scripts = scribe_content.get("ppv_scripts")
+        scripts = raw_scripts if isinstance(raw_scripts, list) and len(raw_scripts) >= 3 else default_scripts
+        scripts = scripts[:3]
+        ppv_script_blocks = []
+        for idx, s in enumerate(scripts):
+            default = default_scripts[idx]
+            label = html.escape(str(s.get("label") or default["label"]))
+            quote = html.escape(str(s.get("quote") or default["quote"]))
+            insight = html.escape(str(s.get("insight") or default["insight"]))
+            border_style = "border-top:1px solid rgba(255,255,255,0.05);border-right:1px solid rgba(255,255,255,0.05);border-bottom:1px solid rgba(255,255,255,0.05);" if idx > 0 else ""
+            margin_style = "margin-bottom:12px;" if idx < 2 else ""
+            ppv_script_blocks.append(f"""        <div style='background:#090d18;border-left:4px solid #f72585;padding:14px 18px;border-radius:0 8px 8px 0;{margin_style}{border_style}'>
+          <strong style='color:#f72585;font-size:13.5px;'>{label}</strong>
+          <p style='margin:6px 0 4px 0;font-size:13.5px;color:#f8fafc;font-style:italic;'>
+            "{quote}"
+          </p>
+          <span style='font-size:11.5px;color:#94a3b8;'>{insight}</span>
+        </div>""")
+        ppv_scripts_html = "\n".join(ppv_script_blocks)
+
+        ladder_headline = html.escape(scribe_content.get("ladder_headline") or 'The "Ladder Milestone" System For Cam & Live Streams')
+        ladder_intro = html.escape(scribe_content.get("ladder_intro") or "Static tip menus hit donation ceilings quickly because viewers feel like they are purchasing an isolated item. Replacing static lists with a Progressive Ladder creates collective room momentum:")
+        retention_headline = html.escape(scribe_content.get("retention_headline") or 'The "First 60 Minutes" Renewal Rule')
+        retention_body = html.escape(scribe_content.get("retention_body") or "82% of subscriber churn happens silently when a fan's rebill fails or they toggle off auto-renew. Setting a daily morning habit to send a personalized 1-sentence DM (\"Saw you've been here since March, unlocking today's set on your profile as a thank you\") recovers up to 28% of expired fans before they delete the app.")
         return f"""<!DOCTYPE html>
 <html>
 <head>
@@ -913,7 +999,7 @@ class NewsletterManager:
         <table width='100%' cellspacing='0' cellpadding='0'>
           <tr>
             <td>
-              <span style='display:inline-block;background:#f72585;color:#ffffff;font-size:10.5px;font-weight:800;letter-spacing:1.2px;padding:4px 12px;border-radius:12px;text-transform:uppercase;'>ISSUE #042 &bull; CREATOR MONETIZATION PLAYBOOK</span>
+              <span style='display:inline-block;background:#f72585;color:#ffffff;font-size:10.5px;font-weight:800;letter-spacing:1.2px;padding:4px 12px;border-radius:12px;text-transform:uppercase;'>ISSUE #{issue_number} &bull; CREATOR MONETIZATION PLAYBOOK</span>
               <h1 style='margin:12px 0 6px 0;font-size:28px;font-weight:900;color:#ffffff;letter-spacing:-0.5px;'>💋 The Daily Creator Pulse</h1>
               <p style='margin:0;font-size:13.5px;color:#cbd5e1;line-height:1.5;'>Daily Organic Traffic, High-Converting PPV Formulas & Stream Monetization &bull; {today_str}</p>
             </td>
@@ -938,14 +1024,14 @@ class NewsletterManager:
         <!-- 2-COLUMN HORIZONTAL METRIC CARDS ON PC, VERTICAL ON MOBILE -->
         <div class='row-fluid' style='font-size:0;text-align:left;'>
           <div class='col-half col-pad-right' style='display:inline-block;width:100%;max-width:364px;vertical-align:top;box-sizing:border-box;margin-right:16px;background:#090d18;border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:14px 18px;'>
-            <span style='font-size:11px;color:#94a3b8;text-transform:uppercase;font-weight:bold;letter-spacing:0.5px;'>Organic Retention Benchmark</span>
-            <div style='font-size:22px;font-weight:bold;color:#10b981;margin-top:4px;'>78.4% at 3 Seconds</div>
-            <span style='font-size:12px;color:#64748b;'>With natural editorial eye contact</span>
+            <span style='font-size:11px;color:#94a3b8;text-transform:uppercase;font-weight:bold;letter-spacing:0.5px;'>{metric1_label}</span>
+            <div style='font-size:22px;font-weight:bold;color:#10b981;margin-top:4px;'>{metric1_value}</div>
+            <span style='font-size:12px;color:#64748b;'>{metric1_note}</span>
           </div>
           <div class='col-half' style='display:inline-block;width:100%;max-width:364px;vertical-align:top;box-sizing:border-box;background:#090d18;border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:14px 18px;'>
-            <span style='font-size:11px;color:#94a3b8;text-transform:uppercase;font-weight:bold;letter-spacing:0.5px;'>Feed Shadowban Risk</span>
-            <div style='font-size:22px;font-weight:bold;color:#f72585;margin-top:4px;'>Reduced by 62%</div>
-            <span style='font-size:12px;color:#64748b;'>Bypasses aggressive AI moderation</span>
+            <span style='font-size:11px;color:#94a3b8;text-transform:uppercase;font-weight:bold;letter-spacing:0.5px;'>{metric2_label}</span>
+            <div style='font-size:22px;font-weight:bold;color:#f72585;margin-top:4px;'>{metric2_value}</div>
+            <span style='font-size:12px;color:#64748b;'>{metric2_note}</span>
           </div>
         </div>
       </td>
@@ -957,37 +1043,12 @@ class NewsletterManager:
         <div style='display:inline-block;background:rgba(247,37,133,0.15);color:#f72585;font-size:11px;font-weight:800;letter-spacing:1px;padding:3px 10px;border-radius:4px;text-transform:uppercase;margin-bottom:8px;'>
           SECTION 2 &bull; PPV & DM TEASER FORMULAS
         </div>
-        <h2 style='margin:0 0 10px 0;font-size:20px;color:#ffffff;'>3 Swipe-File Teasers That Out-Converted Explicit Photos</h2>
+        <h2 style='margin:0 0 10px 0;font-size:20px;color:#ffffff;'>{ppv_headline}</h2>
         <p style='margin:0 0 14px 0;font-size:14px;line-height:1.65;color:#cbd5e1;'>
-          Curiosity and perceived intimacy convert locked mass messages at a significantly higher percentage than explicit descriptions. Use these 3 tested formulas tonight:
+          {ppv_intro}
         </p>
 
-        <!-- Script 1 -->
-        <div style='background:#090d18;border-left:4px solid #f72585;padding:14px 18px;border-radius:0 8px 8px 0;margin-bottom:12px;border-top:1px solid rgba(255,255,255,0.05);border-right:1px solid rgba(255,255,255,0.05);border-bottom:1px solid rgba(255,255,255,0.05);'>
-          <strong style='color:#f72585;font-size:13.5px;'>🎧 Script 1: The "Midnight Audio" Teaser ($18 - $25 Unlock)</strong>
-          <p style='margin:6px 0 4px 0;font-size:13.5px;color:#f8fafc;font-style:italic;'>
-            "Put your headphones on before you press play... 🎧 Whispered voice memo from yesterday's studio shoot. Unlocked for my top 5% only."
-          </p>
-          <span style='font-size:11.5px;color:#94a3b8;'>Insight: Audio triggers intense 1-on-1 emotional connection without devaluing your visual media set.</span>
-        </div>
-
-        <!-- Script 2 -->
-        <div style='background:#090d18;border-left:4px solid #f72585;padding:14px 18px;border-radius:0 8px 8px 0;margin-bottom:12px;border-top:1px solid rgba(255,255,255,0.05);border-right:1px solid rgba(255,255,255,0.05);border-bottom:1px solid rgba(255,255,255,0.05);'>
-          <strong style='color:#f72585;font-size:13.5px;'>🔒 Script 2: The "Curiosity Gap" Vault ($35 - $50 Unlock)</strong>
-          <p style='margin:6px 0 4px 0;font-size:13.5px;color:#f8fafc;font-style:italic;'>
-            "My photographer told me not to post these 4 frames anywhere on the public feed... Too unfiltered. Unlocking the raw set in DMs for the next 2 hours only."
-          </p>
-          <span style='font-size:11.5px;color:#94a3b8;'>Insight: Artificial scarcity plus behind-the-scenes taboos drive urgency among whale spenders.</span>
-        </div>
-
-        <!-- Script 3 -->
-        <div style='background:#090d18;border-left:4px solid #f72585;padding:14px 18px;border-radius:0 8px 8px 0;border-top:1px solid rgba(255,255,255,0.05);border-right:1px solid rgba(255,255,255,0.05);border-bottom:1px solid rgba(255,255,255,0.05);'>
-          <strong style='color:#f72585;font-size:13.5px;'>🗳️ Script 3: The "Color Grade Choice" Poll ($5 - $10 Tip)</strong>
-          <p style='margin:6px 0 4px 0;font-size:13.5px;color:#f8fafc;font-style:italic;'>
-            "Which color grade should I post on my public feed tomorrow: Golden Hour Glow or Dark Boudoir? Tip $5 with your vote and I will send you the unreleased outtake."
-          </p>
-          <span style='font-size:11.5px;color:#94a3b8;'>Insight: Low-friction micro-tipping activates non-spending subscribers into active purchasers.</span>
-        </div>
+{ppv_scripts_html}
       </td>
     </tr>
 
@@ -997,9 +1058,9 @@ class NewsletterManager:
         <div style='display:inline-block;background:rgba(255,209,102,0.15);color:#ffd166;font-size:11px;font-weight:800;letter-spacing:1px;padding:3px 10px;border-radius:4px;text-transform:uppercase;margin-bottom:8px;'>
           SECTION 3 &bull; STREAM & CAM ENGAGEMENT
         </div>
-        <h2 style='margin:0 0 10px 0;font-size:20px;color:#ffffff;'>The "Ladder Milestone" System For Cam & Live Streams</h2>
+        <h2 style='margin:0 0 10px 0;font-size:20px;color:#ffffff;'>{ladder_headline}</h2>
         <p style='margin:0 0 14px 0;font-size:14px;line-height:1.65;color:#cbd5e1;'>
-          Static tip menus hit donation ceilings quickly because viewers feel like they are purchasing an isolated item. Replacing static lists with a <strong>Progressive Ladder</strong> creates collective room momentum:
+          {ladder_intro}
         </p>
 
         <div style='overflow-x:auto;-webkit-overflow-scrolling:touch;width:100%;max-width:100%;margin-bottom:8px;'><table width='100%' class='responsive-table' cellspacing='0' cellpadding='10' style='font-size:13px;color:#cbd5e1;border-collapse:collapse;margin-bottom:8px;'>
@@ -1085,9 +1146,9 @@ class NewsletterManager:
         <div style='display:inline-block;background:rgba(16,185,129,0.15);color:#10b981;font-size:11px;font-weight:800;letter-spacing:1px;padding:3px 10px;border-radius:4px;text-transform:uppercase;margin-bottom:8px;'>
           SECTION 5 &bull; SUBSCRIBER RETENTION HABIT
         </div>
-        <h2 style='margin:0 0 10px 0;font-size:20px;color:#ffffff;'>The "First 60 Minutes" Renewal Rule</h2>
+        <h2 style='margin:0 0 10px 0;font-size:20px;color:#ffffff;'>{retention_headline}</h2>
         <p style='margin:0;font-size:14px;line-height:1.65;color:#cbd5e1;'>
-          82% of subscriber churn happens silently when a fan's rebill fails or they toggle off auto-renew. Setting a daily morning habit to send a personalized 1-sentence DM ("Saw you've been here since March, unlocking today's set on your profile as a thank you") recovers up to 28% of expired fans before they delete the app.
+          {retention_body}
         </p>
       </td>
     </tr>
@@ -1155,9 +1216,55 @@ class NewsletterManager:
         img_src = visual_info["src"]
         caption = visual_info["caption"]
         subcaption = visual_info["subcaption"]
-        scribe_content = self._get_daily_scribe_content("studio_wire")
-        lead_headline = html.escape((scribe_content or {}).get("lead_headline") or "Why Digital Sensor Highlights Look Brittle (And How To Fix It)")
-        lead_body = html.escape((scribe_content or {}).get("lead_body") or "Digital CMOS sensors capture light linearly: when a highlight clips, it truncates instantly to pure #FFFFFF with zero chromatic transition. Analog film, by contrast, has a natural chemical S-curve with soft silver halide shoulder compression. In portraiture, this is why digital forehead highlights look greasy while editorial magazine film looks velvety.")
+        scribe_content = self._get_daily_scribe_content("studio_wire") or {}
+        issue_number = self._get_daily_issue_number("studio_wire", start_at=88)
+        lead_headline = html.escape(scribe_content.get("lead_headline") or "Why Digital Sensor Highlights Look Brittle (And How To Fix It)")
+        lead_body = html.escape(scribe_content.get("lead_body") or "Digital CMOS sensors capture light linearly: when a highlight clips, it truncates instantly to pure #FFFFFF with zero chromatic transition. Analog film, by contrast, has a natural chemical S-curve with soft silver halide shoulder compression. In portraiture, this is why digital forehead highlights look greasy while editorial magazine film looks velvety.")
+
+        recipe_headline = html.escape(scribe_content.get("recipe_headline") or "The Exact Sliders For The Kodak Portra 400 Tone Curve")
+        recipe_intro = html.escape(scribe_content.get("recipe_intro") or "Replicating Kodak Portra 400 does not require heavy destructive filters. It comes down to 3 precise slider adjustments in your RAW develop module:")
+        default_recipe_rows = [
+            {"module": "RGB Tone Curve", "setting": "Lift Black Point to 18-22", "characteristic": "Creates creamy, matte shadow roll-off"},
+            {"module": "HSL Orange", "setting": "Sat: -4% | Lum: +8%", "characteristic": "Luminous skin tones without orange mask"},
+            {"module": "Color Wheels", "setting": "Midtones Hue 42 (6%) | Shadows 215 (4%)", "characteristic": "Classic warm/cool editorial split toning"}
+        ]
+        raw_rows = scribe_content.get("recipe_rows")
+        recipe_rows = raw_rows if isinstance(raw_rows, list) and len(raw_rows) >= 3 else default_recipe_rows
+        recipe_rows = recipe_rows[:3]
+        recipe_row_blocks = []
+        for idx, r in enumerate(recipe_rows):
+            default = default_recipe_rows[idx]
+            module = html.escape(str(r.get("module") or default["module"]))
+            setting = html.escape(str(r.get("setting") or default["setting"]))
+            characteristic = html.escape(str(r.get("characteristic") or default["characteristic"]))
+            row_bg = " style='background:rgba(255,255,255,0.02);'" if idx % 2 == 1 else ""
+            recipe_row_blocks.append(f"""            <tr{row_bg}>
+              <td style='padding:10px;border:1px solid rgba(255,255,255,0.08);font-weight:bold;'>{module}</td>
+              <td style='padding:10px;border:1px solid rgba(255,255,255,0.08);color:#00f2fe;'>{setting}</td>
+              <td style='padding:10px;border:1px solid rgba(255,255,255,0.08);'>{characteristic}</td>
+            </tr>""")
+        recipe_rows_html = "\n".join(recipe_row_blocks)
+
+        directing_headline = html.escape(scribe_content.get("directing_headline") or "3 Micro-Cues That Eliminate Client Stiffness Instantly")
+        directing_intro = html.escape(scribe_content.get("directing_intro") or 'Never tell a client or model to "smile naturally" or "relax" - it immediately makes them conscious of their posture. Instead, direct micro-movements:')
+        default_cues = [
+            {"cue": "Breathe out through parted lips", "explanation": "Automatically releases jaw tension and prevents tight, clenched smiles."},
+            {"cue": "Shift 70% of your weight to your rear foot", "explanation": "Creates an S-curve through the hip line and prevents square, boxy stances."},
+            {"cue": "Drop your front shoulder 1 inch", "explanation": "Creates diagonal asymmetry across the clavicle, producing instant high-fashion lines."}
+        ]
+        raw_cues = scribe_content.get("directing_cues")
+        cues = raw_cues if isinstance(raw_cues, list) and len(raw_cues) >= 3 else default_cues
+        cues = cues[:3]
+        cue_items = []
+        for idx, c in enumerate(cues):
+            default = default_cues[idx]
+            cue = html.escape(str(c.get("cue") or default["cue"]))
+            explanation = html.escape(str(c.get("explanation") or default["explanation"]))
+            cue_items.append(f'<li><strong>"{cue}":</strong> {explanation}</li>')
+        directing_cues_html = "\n          ".join(cue_items)
+
+        pricing_headline = html.escape(scribe_content.get("pricing_headline") or "Why Delivering 300 Unedited RAW Photos Kills Referrals")
+        pricing_body = html.escape(scribe_content.get("pricing_body") or "Clients do not want data dumps; they want curated glamour. Photographers who deliver 300 unretouched files force clients into decision fatigue. Delivering a tight, fully color-graded gallery of 25-40 master photos within 24 hours justifies charging $350-$750 per session and generates immediate word-of-mouth client referrals.")
         return f"""<!DOCTYPE html>
 <html>
 <head>
@@ -1195,7 +1302,7 @@ class NewsletterManager:
         <table width='100%' cellspacing='0' cellpadding='0'>
           <tr>
             <td>
-              <span style='display:inline-block;background:#00f2fe;color:#04172a;font-size:10.5px;font-weight:800;letter-spacing:1.2px;padding:4px 12px;border-radius:12px;text-transform:uppercase;'>ISSUE #088 &bull; COLOR SCIENCE & STUDIO LIGHTING</span>
+              <span style='display:inline-block;background:#00f2fe;color:#04172a;font-size:10.5px;font-weight:800;letter-spacing:1.2px;padding:4px 12px;border-radius:12px;text-transform:uppercase;'>ISSUE #{issue_number} &bull; COLOR SCIENCE & STUDIO LIGHTING</span>
               <h1 style='margin:12px 0 6px 0;font-size:28px;font-weight:900;color:#ffffff;letter-spacing:-0.5px;'>📸 The Shutter & Studio Wire</h1>
               <p style='margin:0;font-size:13.5px;color:#cbd5e1;line-height:1.5;'>Lightroom Film Science, Lighting Schematics & Client Growth &bull; {today_str}</p>
             </td>
@@ -1225,9 +1332,9 @@ class NewsletterManager:
         <div style='display:inline-block;background:rgba(16,185,129,0.15);color:#10b981;font-size:11px;font-weight:800;letter-spacing:1px;padding:3px 10px;border-radius:4px;text-transform:uppercase;margin-bottom:8px;'>
           SECTION 2 &bull; LIGHTROOM RECIPE OF THE DAY
         </div>
-        <h2 style='margin:0 0 10px 0;font-size:20px;color:#ffffff;'>The Exact Sliders For The Kodak Portra 400 Tone Curve</h2>
+        <h2 style='margin:0 0 10px 0;font-size:20px;color:#ffffff;'>{recipe_headline}</h2>
         <p style='margin:0 0 14px 0;font-size:14px;line-height:1.65;color:#cbd5e1;'>
-          Replicating Kodak Portra 400 does not require heavy destructive filters. It comes down to 3 precise slider adjustments in your RAW develop module:
+          {recipe_intro}
         </p>
 
         <div style='overflow-x:auto;-webkit-overflow-scrolling:touch;width:100%;max-width:100%;margin-bottom:8px;'><table width='100%' class='responsive-table' cellspacing='0' cellpadding='10' style='font-size:13px;color:#cbd5e1;border-collapse:collapse;margin-bottom:8px;'>
@@ -1236,21 +1343,7 @@ class NewsletterManager:
               <th align='left' style='padding:10px;border:1px solid rgba(255,255,255,0.08);'>Exact Setting</th>
               <th align='left' style='padding:10px;border:1px solid rgba(255,255,255,0.08);'>Film Characteristic</th>
             </tr>
-            <tr>
-              <td style='padding:10px;border:1px solid rgba(255,255,255,0.08);font-weight:bold;'>RGB Tone Curve</td>
-              <td style='padding:10px;border:1px solid rgba(255,255,255,0.08);color:#00f2fe;'>Lift Black Point to 18-22</td>
-              <td style='padding:10px;border:1px solid rgba(255,255,255,0.08);'>Creates creamy, matte shadow roll-off</td>
-            </tr>
-            <tr style='background:rgba(255,255,255,0.02);'>
-              <td style='padding:10px;border:1px solid rgba(255,255,255,0.08);font-weight:bold;'>HSL Orange</td>
-              <td style='padding:10px;border:1px solid rgba(255,255,255,0.08);color:#00f2fe;'>Sat: -4% | Lum: +8%</td>
-              <td style='padding:10px;border:1px solid rgba(255,255,255,0.08);'>Luminous skin tones without orange mask</td>
-            </tr>
-            <tr>
-              <td style='padding:10px;border:1px solid rgba(255,255,255,0.08);font-weight:bold;'>Color Wheels</td>
-              <td style='padding:10px;border:1px solid rgba(255,255,255,0.08);color:#00f2fe;'>Midtones Hue 42 (6%) | Shadows 215 (4%)</td>
-              <td style='padding:10px;border:1px solid rgba(255,255,255,0.08);'>Classic warm/cool editorial split toning</td>
-            </tr>
+{recipe_rows_html}
           </table>
         </div>
       </td>
@@ -1307,14 +1400,12 @@ class NewsletterManager:
         <div style='display:inline-block;background:rgba(234,179,8,0.15);color:#facc15;font-size:11px;font-weight:800;letter-spacing:1px;padding:3px 10px;border-radius:4px;text-transform:uppercase;margin-bottom:8px;'>
           SECTION 4 &bull; MODEL DIRECTING PLAYBOOK
         </div>
-        <h2 style='margin:0 0 10px 0;font-size:20px;color:#ffffff;'>3 Micro-Cues That Eliminate Client Stiffness Instantly</h2>
+        <h2 style='margin:0 0 10px 0;font-size:20px;color:#ffffff;'>{directing_headline}</h2>
         <p style='margin:0 0 12px 0;font-size:14px;line-height:1.65;color:#cbd5e1;'>
-          Never tell a client or model to "smile naturally" or "relax" &mdash; it immediately makes them conscious of their posture. Instead, direct micro-movements:
+          {directing_intro}
         </p>
         <ul style='margin:0 0 6px 0;padding-left:20px;font-size:13.5px;line-height:1.7;color:#cbd5e1;'>
-          <li><strong>"Breathe out through parted lips":</strong> Automatically releases jaw tension and prevents tight, clenched smiles.</li>
-          <li><strong>"Shift 70% of your weight to your rear foot":</strong> Creates an S-curve through the hip line and prevents square, boxy stances.</li>
-          <li><strong>"Drop your front shoulder 1 inch":</strong> Creates diagonal asymmetry across the clavicle, producing instant high-fashion lines.</li>
+          {directing_cues_html}
         </ul>
       </td>
     </tr>
@@ -1325,9 +1416,9 @@ class NewsletterManager:
         <div style='display:inline-block;background:rgba(16,185,129,0.15);color:#10b981;font-size:11px;font-weight:800;letter-spacing:1px;padding:3px 10px;border-radius:4px;text-transform:uppercase;margin-bottom:8px;'>
           SECTION 5 &bull; STUDIO PRICING & DELIVERY HACK
         </div>
-        <h2 style='margin:0 0 10px 0;font-size:20px;color:#ffffff;'>Why Delivering 300 Unedited RAW Photos Kills Referrals</h2>
+        <h2 style='margin:0 0 10px 0;font-size:20px;color:#ffffff;'>{pricing_headline}</h2>
         <p style='margin:0;font-size:14px;line-height:1.65;color:#cbd5e1;'>
-          Clients do not want data dumps; they want curated glamour. Photographers who deliver 300 unretouched files force clients into decision fatigue. Delivering a tight, fully color-graded gallery of 25&ndash;40 master photos within 24 hours justifies charging $350&ndash;$750 per session and generates immediate word-of-mouth client referrals.
+          {pricing_body}
         </p>
       </td>
     </tr>
@@ -1391,9 +1482,14 @@ class NewsletterManager:
 
     # ── 3. THE CREATOR BLUEPRINT ─────────────────────────────────────────────
     def _build_creator_blueprint_html(self, today_str: str) -> str:
-        scribe_content = self._get_daily_scribe_content("creator_blueprint")
-        lead_headline = html.escape((scribe_content or {}).get("lead_headline") or "The Micro-Asset Shift: Why $15 Digital Downloads Outsell $500 Courses")
-        lead_body = html.escape((scribe_content or {}).get("lead_body") or "Creator monetization has permanently shifted away from bloated 10-hour video masterclasses toward instant, tangible micro-assets. Modern buyers want immediate utility: Lightroom .XMP presets, stream bio kits, prompt cheat sheets, and editing templates. These digital downloads have 100% gross margins, zero fulfillment labor, and instant gratification.")
+        scribe_content = self._get_daily_scribe_content("creator_blueprint") or {}
+        issue_number = self._get_daily_issue_number("creator_blueprint", start_at=19)
+        lead_headline = html.escape(scribe_content.get("lead_headline") or "The Micro-Asset Shift: Why $15 Digital Downloads Outsell $500 Courses")
+        lead_body = html.escape(scribe_content.get("lead_body") or "Creator monetization has permanently shifted away from bloated 10-hour video masterclasses toward instant, tangible micro-assets. Modern buyers want immediate utility: Lightroom .XMP presets, stream bio kits, prompt cheat sheets, and editing templates. These digital downloads have 100% gross margins, zero fulfillment labor, and instant gratification.")
+        pipeline_headline = html.escape(scribe_content.get("pipeline_headline") or 'The "Create Once, Syndicate 4x" Pipeline')
+        pipeline_intro = html.escape(scribe_content.get("pipeline_intro") or "Never write content for a single platform. Every time you develop one piece of visual knowledge (e.g. a color grading tip), dispatch it through this 4-way pipeline:")
+        math_headline = html.escape(scribe_content.get("math_headline") or "You Only Need 200 Targeted Clicks A Month For $1,000")
+        math_body = html.escape(scribe_content.get("math_body") or "Creators often think they need 100,000 viral views to make money. With a $25 average order value on Etsy and a 2.5% landing page conversion rate, exactly 7 sales per week generates $700-$1,000/month in passive profit. That requires only 6 to 7 visitors per day clicking your Linktree from Twitter/X. Consistency in daily automated posting beats viral lottery tickets every single time.")
         return f"""<!DOCTYPE html>
 <html>
 <head>
@@ -1431,7 +1527,7 @@ class NewsletterManager:
         <table width='100%' cellspacing='0' cellpadding='0'>
           <tr>
             <td>
-              <span style='display:inline-block;background:#eab308;color:#04172a;font-size:10.5px;font-weight:800;letter-spacing:1.2px;padding:4px 12px;border-radius:12px;text-transform:uppercase;'>ISSUE #019 &bull; MEDIA AUTOMATION & GROWTH</span>
+              <span style='display:inline-block;background:#eab308;color:#04172a;font-size:10.5px;font-weight:800;letter-spacing:1.2px;padding:4px 12px;border-radius:12px;text-transform:uppercase;'>ISSUE #{issue_number} &bull; MEDIA AUTOMATION & GROWTH</span>
               <h1 style='margin:12px 0 6px 0;font-size:28px;font-weight:900;color:#ffffff;letter-spacing:-0.5px;'>⚡ The Creator Blueprint</h1>
               <p style='margin:0;font-size:13.5px;color:#cbd5e1;line-height:1.5;'>Media Automation, Organic Traffic Engines & Digital Product Scaling &bull; {today_str}</p>
             </td>
@@ -1516,9 +1612,9 @@ class NewsletterManager:
         <div style='display:inline-block;background:rgba(59,130,246,0.15);color:#60a5fa;font-size:11px;font-weight:800;letter-spacing:1px;padding:3px 10px;border-radius:4px;text-transform:uppercase;margin-bottom:8px;'>
           SECTION 3 &bull; WORKFLOW AUTOMATION
         </div>
-        <h2 style='margin:0 0 10px 0;font-size:20px;color:#ffffff;'>The "Create Once, Syndicate 4x" Pipeline</h2>
+        <h2 style='margin:0 0 10px 0;font-size:20px;color:#ffffff;'>{pipeline_headline}</h2>
         <p style='margin:0 0 14px 0;font-size:14px;line-height:1.65;color:#cbd5e1;'>
-          Never write content for a single platform. Every time you develop one piece of visual knowledge (e.g. a color grading tip), dispatch it through this 4-way pipeline:
+          {pipeline_intro}
         </p>
 
         <div style='overflow-x:auto;-webkit-overflow-scrolling:touch;width:100%;max-width:100%;margin-bottom:8px;'><table width='100%' class='responsive-table' cellspacing='0' cellpadding='10' style='font-size:13px;color:#cbd5e1;border-collapse:collapse;margin-bottom:8px;'>
@@ -1572,9 +1668,9 @@ class NewsletterManager:
         <div style='display:inline-block;background:rgba(247,37,133,0.15);color:#f72585;font-size:11px;font-weight:800;letter-spacing:1px;padding:3px 10px;border-radius:4px;text-transform:uppercase;margin-bottom:8px;'>
           SECTION 5 &bull; THE REAL MONETIZATION MATH
         </div>
-        <h2 style='margin:0 0 10px 0;font-size:20px;color:#ffffff;'>You Only Need 200 Targeted Clicks A Month For $1,000</h2>
+        <h2 style='margin:0 0 10px 0;font-size:20px;color:#ffffff;'>{math_headline}</h2>
         <p style='margin:0;font-size:14px;line-height:1.65;color:#cbd5e1;'>
-          Creators often think they need 100,000 viral views to make money. With a $25 average order value on Etsy and a 2.5% landing page conversion rate, exactly <strong>7 sales per week generates $700&ndash;$1,000/month in passive profit</strong>. That requires only 6 to 7 visitors per day clicking your Linktree from Twitter/X. Consistency in daily automated posting beats viral lottery tickets every single time.
+          {math_body}
         </p>
       </td>
     </tr>

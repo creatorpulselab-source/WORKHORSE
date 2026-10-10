@@ -252,7 +252,18 @@ Respond ONLY with valid JSON.
         for q in creator_queries:
             creator_articles.extend(self.search_live_trends(q, max_results=3))
 
-        # 3. Build synthesis prompt
+        # 3. Gather live news for Niche C (Digital Business / Media Automation - powers
+        # The Creator Blueprint newsletter's sections, which previously had no real
+        # research grounding at all)
+        business_queries = [
+            "digital creator business automation tools 2026",
+            "passive income digital products side hustle trends"
+        ]
+        business_articles = []
+        for q in business_queries:
+            business_articles.extend(self.search_live_trends(q, max_results=3))
+
+        # 4. Build synthesis prompt
         prompt = f"""You are SYNAPSE [100 Fm] & RADAR [47 Ag], Market Scout for Creator Media Lab.
 Today is {today_str}. Here are breaking articles discovered in our daily radar:
 
@@ -349,11 +360,28 @@ Respond ONLY with valid JSON.
         vault["last_radar_sweep"] = datetime.now().isoformat()
         vault["photo_articles"] = photo_articles
         vault["creator_articles"] = creator_articles
+        vault["business_articles"] = business_articles
         vault["daily_synthesis"] = synth
         self.save_vault(vault)
 
         print(f"[TrendAgent] Daily radar sweep complete! Saved to {self.vault_file}")
         return vault
+
+    def get_research_articles_for_pub(self, pub_id: str) -> List[Dict[str, str]]:
+        """Returns today's real researched article headlines relevant to one
+        publication, so its daily editorial content can be grounded in actual current
+        news instead of pure free-form AI invention. Returns an empty list (never
+        raises) if the vault is stale/missing/doesn't cover this publication's niche."""
+        vault = self.load_vault()
+        if vault.get("today_date") != date.today().isoformat():
+            return []
+        mapping = {
+            "creator_pulse": "creator_articles",
+            "studio_wire": "photo_articles",
+            "creator_blueprint": "business_articles",
+        }
+        key = mapping.get(pub_id)
+        return vault.get(key, []) if key else []
 
     def load_vault(self) -> Dict[str, Any]:
         """Loads daily trends vault JSON from disk."""

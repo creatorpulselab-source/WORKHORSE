@@ -239,6 +239,47 @@ Respond in STRICT, VALID JSON format with no markdown wrappers or extra commenta
 
         return parsed_kit
 
+    # Per-publication JSON schema additions for the sections beyond the lead story -
+    # each publication's newsletter has a different fixed section layout (see
+    # newsletter_manager.py's _build_*_html methods), so each needs its own
+    # additional fields. Keeping the section TOPICS/labels fixed (matching the
+    # existing HTML) while making the actual insights/scripts/data within them fresh
+    # daily - same principle as a real newspaper's named columns running new stories
+    # under the same column header every day. Each block ends with a trailing comma
+    # since it's always followed by "markdown_article" in the assembled prompt.
+    SECTION_SCHEMAS: Dict[str, str] = {
+        "creator_pulse": """  "metric_card_1": {"label": "short stat label for an organic-reach/retention metric", "value": "a punchy stat value, e.g. '78.4% at 3 Seconds'", "note": "one short supporting phrase"},
+  "metric_card_2": {"label": "short stat label for a shadowban/algorithm-risk metric", "value": "a punchy stat value", "note": "one short supporting phrase"},
+  "ppv_headline": "headline for a PPV/DM teaser-script section (what the 3 scripts below accomplish)",
+  "ppv_intro": "1 sentence intro for that section",
+  "ppv_scripts": [
+    {"label": "short title with an emoji and a price range in parentheses, e.g. 'Script 1: The X Teaser ($18 - $25 Unlock)'", "quote": "a ready-to-send first-person DM/caption script in quotes", "insight": "one sentence explaining WHY this script converts"}
+  ],
+  "ladder_headline": "headline for a progressive tip-ladder/milestone engagement section",
+  "ladder_intro": "1-2 sentence intro for that section",
+  "retention_headline": "headline for a subscriber-retention tip section",
+  "retention_body": "2-3 sentences of genuinely new retention advice",
+""",
+        "studio_wire": """  "recipe_headline": "headline for today's Lightroom/color-grading 'recipe of the day'",
+  "recipe_intro": "1-2 sentence intro",
+  "recipe_rows": [
+    {"module": "a Lightroom/editing module or panel name", "setting": "the exact slider/value setting", "characteristic": "what film/look characteristic it produces"}
+  ],
+  "directing_headline": "headline for a model/client posing-direction tip section",
+  "directing_intro": "1 sentence intro",
+  "directing_cues": [
+    {"cue": "a short spoken direction in quotes", "explanation": "what it physically does/why it works"}
+  ],
+  "pricing_headline": "headline for a studio pricing/delivery business tip",
+  "pricing_body": "2-3 sentences of genuinely new business/pricing advice",
+""",
+        "creator_blueprint": """  "pipeline_headline": "headline for a content syndication/distribution workflow tip",
+  "pipeline_intro": "1 sentence intro",
+  "math_headline": "headline for a monetization-math/conversion-rate example section",
+  "math_body": "2-3 sentences walking through a genuinely new, specific numeric example",
+"""
+    }
+
     def generate_daily_publication_content(
         self,
         pub_id: str,
@@ -246,31 +287,57 @@ Respond in STRICT, VALID JSON format with no markdown wrappers or extra commenta
         audience: str,
         funnel_blurb: str,
         today_str: str,
+        research_articles: Optional[List[Dict[str, str]]] = None,
         progress_cb: Optional[Callable[[str, int], None]] = None
     ) -> Dict[str, Any]:
         """Generates genuinely fresh daily editorial content for one WORKHORSE publication:
-        a new lead-story headline+body for the newsletter HTML, a full markdown blog article,
-        and a fresh Twitter/X thread - so Herald never dispatches the same canned copy twice.
-        Returns {"success": False, ...} on any failure so callers can fall back to static copy."""
+        a new lead-story headline+body, section-by-section content for every dynamic
+        section of that publication's actual newsletter template (not just the lead -
+        see SECTION_SCHEMAS), a full markdown blog article, and a fresh Twitter/X
+        thread - so Herald never dispatches the same canned copy twice, in ANY section.
+
+        research_articles: today's real researched headlines for this publication's
+        niche (from trend_researcher.get_research_articles_for_pub), so content is
+        grounded in actual current news/trends instead of pure free-form invention.
+        Optional - an empty list still produces fresh (just less externally-grounded)
+        content rather than failing.
+
+        Returns {"success": False, ...} on any failure so callers can fall back to
+        static copy, per-field, exactly as before."""
         if progress_cb:
             progress_cb(f"Scribe Agent: Writing fresh daily editorial for {pub_name}...", 10)
 
         persona = (
             "You are Scribe, a high-converting copywriter and editorial strategist for the "
             f"'{pub_name}' daily publication, written for {audience}. Everything runs 100% "
-            "locally and privately. Your job today is to write a GENUINELY NEW angle or insight "
-            "- never reuse generic filler or repeat an idea you'd expect to see in a stale template."
+            "locally and privately. Your job today is to write GENUINELY NEW angles and "
+            "insights for EVERY section below - never reuse generic filler or repeat an "
+            "idea you'd expect to see in a stale template. Every section must read as if "
+            "written fresh today, not a recycled evergreen placeholder."
         )
+
+        research_context = ""
+        if research_articles:
+            headlines = [a.get("title", "") for a in research_articles if a.get("title")]
+            if headlines:
+                research_context = (
+                    "\n\nToday's real researched headlines in this publication's niche "
+                    "(use these to ground your angles in what's ACTUALLY happening right now "
+                    "- reference or riff on them where relevant, don't just ignore them):\n"
+                    + "\n".join(f"- {h}" for h in headlines)
+                )
+
+        section_schema = self.SECTION_SCHEMAS.get(pub_id, "")
 
         prompt = f"""{persona}
 
-Today is {today_str}. Write fresh daily editorial content for today's issue. This publication promotes: {funnel_blurb}.
+Today is {today_str}. Write fresh daily editorial content for today's issue. This publication promotes: {funnel_blurb}.{research_context}
 
 Respond in STRICT, VALID JSON (no markdown wrappers, no commentary). Use \\n for line breaks inside string values - never use literal newlines inside a JSON string. Follow this exact schema:
 {{
   "lead_headline": "A punchy, specific headline for today's #1 lead story (under 90 characters), different from anything generic.",
   "lead_body": "2-4 sentences of genuinely new, specific, non-generic insight/advice/data expanding on the headline.",
-  "markdown_article": "A complete ~5-section Markdown article body (use ## headers and bullet points, bold where useful) covering fresh angles relevant to {audience} for today's issue. Do not include a title or date line - start directly with the first ## section heading.",
+{section_schema}  "markdown_article": "A complete ~5-section Markdown article body (use ## headers and bullet points, bold where useful) covering fresh angles relevant to {audience} for today's issue. Do not include a title or date line - start directly with the first ## section heading.",
   "tweet_thread": ["1/4 opening hook tweet with an emoji and a question or bold claim", "2/4 supporting point", "3/4 supporting point or proof", "4/4 call-to-action tweet"]
 }}"""
 
@@ -297,13 +364,23 @@ Respond in STRICT, VALID JSON (no markdown wrappers, no commentary). Use \\n for
             if progress_cb:
                 progress_cb(f"Scribe Agent: Fresh daily editorial ready for {pub_name}.", 100)
 
-            return {
+            result = {
                 "success": True,
                 "lead_headline": (parsed.get("lead_headline") or "").strip(),
                 "lead_body": (parsed.get("lead_body") or "").strip(),
                 "markdown_article": (parsed.get("markdown_article") or "").strip(),
                 "tweet_thread": [str(t).strip() for t in tweet_thread if str(t).strip()]
             }
+            # Carry through whatever extra per-publication section fields the model
+            # returned (metric_card_1, ppv_scripts, recipe_rows, etc.) exactly as
+            # parsed - newsletter_manager.py's builders apply their own per-field
+            # fallback defaults for anything missing/malformed, so a partial/odd
+            # response here degrades gracefully rather than invalidating the whole day.
+            known_keys = {"lead_headline", "lead_body", "markdown_article", "tweet_thread"}
+            for k, v in parsed.items():
+                if k not in known_keys:
+                    result[k] = v
+            return result
         except Exception as e:
             return {"success": False, "error": str(e), "raw_response": raw_response[:500]}
 
