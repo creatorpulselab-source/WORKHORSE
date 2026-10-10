@@ -270,11 +270,24 @@ PINTEREST_DAILY_CONTENT = [
 ]
 
 class HeraldScheduler:
-    def __init__(self, config_path: str = "F:/WORKHORSE/config.json"):
+    def __init__(self, config_path: str = "F:/WORKHORSE/config.json",
+                 newsletter_workspace_base: Optional[str] = None,
+                 state_file: Optional[str] = None):
         self.config_path = config_path
         self.twitter = TwitterPoster(config_path)
         self.pinterest = PinterestPoster(config_path)
-        self.newsletter = NewsletterManager()
+        # Optional override so a test (or any future caller) can fully isolate this
+        # scheduler's newsletter sub-dispatcher from the real F:/WORKHORSE/workspace -
+        # without this, constructing a HeraldScheduler always touched the real
+        # newsletter_logs dir and subscribers file regardless of config_path.
+        self.newsletter = (
+            NewsletterManager(workspace_base=newsletter_workspace_base)
+            if newsletter_workspace_base else NewsletterManager()
+        )
+        # Same isolation need for the daily-schedule-state file, which previously was
+        # only ever the hardcoded module-level STATE_FILE constant with no per-instance
+        # override at all.
+        self.state_file = Path(state_file) if state_file else STATE_FILE
         self.is_running = False
         self._load_state()
 
@@ -406,9 +419,9 @@ class HeraldScheduler:
         return None
 
     def _load_state(self) -> Dict[str, Any]:
-        if STATE_FILE.exists():
+        if self.state_file.exists():
             try:
-                with open(STATE_FILE, "r", encoding="utf-8") as f:
+                with open(self.state_file, "r", encoding="utf-8") as f:
                     self.state = json.load(f)
                 for pub_id in ALL_MONITORED_PUBLICATIONS:
                     self.state.setdefault(f"{pub_id}_attempts", 0)
@@ -439,7 +452,7 @@ class HeraldScheduler:
 
     def _save_state(self):
         try:
-            with open(STATE_FILE, "w", encoding="utf-8") as f:
+            with open(self.state_file, "w", encoding="utf-8") as f:
                 json.dump(self.state, f, indent=2)
         except Exception as e:
             logger.error(f"Failed to save schedule state: {e}")

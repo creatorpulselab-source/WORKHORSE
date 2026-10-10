@@ -1692,5 +1692,12 @@ async def prune_staging_endpoint(hours: int = 48):
     return res
 
 if __name__ == "__main__":
-
-    uvicorn.run("dashboard.server:app", host="0.0.0.0", port=8800, reload=False)
+    # Pass the already-constructed `app` object directly rather than the string
+    # reference "dashboard.server:app". The string form forces uvicorn to import this
+    # entire module a SECOND time under a different module name ("dashboard.server"
+    # vs this process's "__main__"), which silently re-ran every singleton
+    # constructor (order_radar, herald_scheduler, ai_operator, comfy_bridge, etc.) and
+    # their real file I/O twice on every `python dashboard/server.py` launch - the
+    # first copy was just wasted work, not even the one serving requests. Only valid
+    # because reload=False; uvicorn's reload mode requires the string form.
+    uvicorn.run(app, host="0.0.0.0", port=8800, reload=False)
