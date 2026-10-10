@@ -559,20 +559,70 @@ this.currentBay = initHash || 'command-center';
 
   // --------------------------------------------------------------------------
   // COMPLETED WORK GALLERY — unified, authenticated view of everything any bot
-  // has generated (/api/outputs/gallery). Client-specific categories keep a red
-  // border accent in the filter bar and a '🎭'/'📦' tag on every card so they
-  // can never be visually mistaken for postable marketing content.
+  // has generated (/api/outputs/gallery), fully separated into the Commander's 4
+  // real business lines (Fiverr / Etsy / Social Media / Synapse) as distinct top-
+  // level tabs - never mixed into one pile. Client-specific categories within the
+  // Synapse tab keep a red border accent and a '🎭'/'📦' tag so they can never be
+  // visually mistaken for postable marketing content.
   // --------------------------------------------------------------------------
+  async initCompletedWorkCategoryRegistry() {
+    if (this._completedWorkCategoryRegistry) return this._completedWorkCategoryRegistry;
+    try {
+      const res = await fetch('/api/outputs/categories');
+      const data = await res.json();
+      this._completedWorkCategoryRegistry = data.categories || [];
+    } catch (e) {
+      this._completedWorkCategoryRegistry = [];
+    }
+    return this._completedWorkCategoryRegistry;
+  }
+
+  async switchCompletedWorkGroup(group) {
+    this.completedWorkGroup = group;
+    this.completedWorkCategory = '';
+    document.querySelectorAll('.completed-work-group-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.getAttribute('data-group') === group);
+    });
+    await this.renderCompletedWorkCategoryFilters();
+    this.refreshCompletedWork();
+  }
+
+  async renderCompletedWorkCategoryFilters() {
+    const bar = document.getElementById('completed-work-filters');
+    if (!bar) return;
+    const registry = await this.initCompletedWorkCategoryRegistry();
+    const group = this.completedWorkGroup || 'fiverr';
+    const groupCategories = registry.filter(c => c.group === group);
+
+    const isClientCat = (cat) => cat.startsWith('client_');
+    let html = `<button type="button" class="btn-cyber completed-work-filter-btn active" data-category="" onclick="window.workBaysManager.filterCompletedWork('')" style="font-size: 11px; padding: 5px 12px;">All</button>`;
+    html += groupCategories.map(c => `
+      <button type="button" class="btn-cyber completed-work-filter-btn" data-category="${c.category}" onclick="window.workBaysManager.filterCompletedWork('${c.category}')" style="font-size: 11px; padding: 5px 12px;${isClientCat(c.category) ? ' border-color: rgba(255,100,100,0.4);' : ''}">${c.label}</button>
+    `).join('');
+    bar.innerHTML = html;
+  }
+
   async refreshCompletedWork(category) {
     const grid = document.getElementById('completed-work-grid');
     const totalPill = document.getElementById('completed-work-total-pill');
     const navPill = document.getElementById('completed-work-count-pill');
     if (!grid) return;
+    this.completedWorkGroup = this.completedWorkGroup || 'fiverr';
     this.completedWorkCategory = category !== undefined ? category : (this.completedWorkCategory || '');
 
+    // First load of this bay - make sure the group's category sub-filters exist.
+    if (!document.querySelector('#completed-work-filters .completed-work-filter-btn')) {
+      await this.renderCompletedWorkCategoryFilters();
+    }
+
     try {
-      const url = '/api/outputs/gallery' + (this.completedWorkCategory ? `?category=${encodeURIComponent(this.completedWorkCategory)}` : '');
-      const res = await fetch(url);
+      const params = new URLSearchParams();
+      if (this.completedWorkCategory) {
+        params.set('category', this.completedWorkCategory);
+      } else {
+        params.set('group', this.completedWorkGroup);
+      }
+      const res = await fetch(`/api/outputs/gallery?${params.toString()}`);
       if (!res.ok) throw new Error(`Gallery request failed (${res.status})`);
       const data = await res.json();
       const items = data.items || [];
@@ -581,7 +631,7 @@ this.currentBay = initHash || 'command-center';
       if (navPill) navPill.innerText = `${data.total_found || items.length} TOTAL`;
 
       if (!items.length) {
-        grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; color: var(--text-dim); padding: 30px; font-size: 11px;">Nothing finished yet in this category. Ask Synapse to generate something!</div>';
+        grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; color: var(--text-dim); padding: 30px; font-size: 11px;">Nothing finished yet here. Ask Synapse to generate something, or let the automation run!</div>';
         return;
       }
 

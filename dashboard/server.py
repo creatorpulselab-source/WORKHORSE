@@ -1397,7 +1397,7 @@ async def get_comfy_audit_log():
 # auth) - this content can include adult-brand material and client-specific
 # deliverables, so every file read goes through this authenticated endpoint
 # instead, matching the rest of the dashboard's auth model.
-from shared.output_categories import OUTPUT_CATEGORIES, DEFAULT_MEDIA_EXTENSIONS
+from shared.output_categories import OUTPUT_CATEGORIES, DEFAULT_MEDIA_EXTENSIONS, GROUP_LABELS
 
 
 def _resolve_output_file(category: str, rel_path: str) -> Path:
@@ -1425,30 +1425,58 @@ async def download_output_file(category: str, path: str):
     return FileResponse(file_path, filename=file_path.name)
 
 
+@app.get("/api/outputs/categories")
+async def get_outputs_categories():
+    """Lightweight registry listing for the 'Completed Work' gallery UI - lets the
+    frontend build its per-business-line (Fiverr/Etsy/Social Media/Synapse) category
+    filter buttons dynamically from shared/output_categories.py, instead of a
+    hardcoded list that could drift out of sync with the real registry."""
+    return {
+        "status": "ok",
+        "groups": GROUP_LABELS,
+        "categories": [
+            {"category": key, "label": cat["label"], "group": cat["group"], "group_label": GROUP_LABELS.get(cat["group"], cat["group"])}
+            for key, cat in OUTPUT_CATEGORIES.items()
+        ]
+    }
+
+
 @app.get("/api/outputs/gallery")
-async def get_outputs_gallery(category: Optional[str] = None, limit: int = 60):
+async def get_outputs_gallery(category: Optional[str] = None, group: Optional[str] = None, limit: int = 60):
     """Unified 'Completed Work' gallery across every output category - images,
     videos, 3D models, banners, client character test renders, and client
     packages - each clearly tagged by category/type so client deliverables are
     never visually confused with postable marketing content. Addresses the
     Commander's 'I need a folder where all completed work goes that I can get to
-    from in WORKHORSE' request directly."""
+    from in WORKHORSE' request directly.
+
+    Results are also tagged/filterable by 'group' - one of the Commander's 4 real
+    business lines (fiverr / etsy / social / synapse, see shared/output_categories.py)
+    - so the gallery can present them as fully separate sections rather than one
+    mixed pile."""
     items = []
     categories_to_scan = [category] if category else list(OUTPUT_CATEGORIES.keys())
+    if group:
+        categories_to_scan = [k for k in categories_to_scan if OUTPUT_CATEGORIES.get(k, {}).get("group") == group]
 
     for cat_key in categories_to_scan:
         cat = OUTPUT_CATEGORIES.get(cat_key)
         if not cat or not cat["dir"].exists():
             continue
         extensions = cat.get("extensions", DEFAULT_MEDIA_EXTENSIONS.get(cat["media_type"], ()))
+        exclude_prefixes = tuple(cat.get("exclude_prefixes", ()))
         file_iter = cat["dir"].rglob("*") if cat.get("recursive") else cat["dir"].iterdir()
         for f in file_iter:
             if not f.is_file() or f.suffix.lower() not in extensions:
+                continue
+            if exclude_prefixes and f.name.startswith(exclude_prefixes):
                 continue
             rel_path = str(f.relative_to(cat["dir"]))
             items.append({
                 "category": cat_key,
                 "label": cat["label"],
+                "group": cat["group"],
+                "group_label": GROUP_LABELS.get(cat["group"], cat["group"]),
                 "media_type": cat["media_type"],
                 "filename": f.name,
                 "rel_path": rel_path,

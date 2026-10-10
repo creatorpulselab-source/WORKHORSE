@@ -1585,12 +1585,19 @@ class ComfyUIBridge:
                                 height: int = 1280,
                                 num_frames: int = 300,
                                 fps: int = 30,
-                                timeout_seconds: int = 900) -> Dict[str, Any]:
+                                timeout_seconds: int = 900,
+                                dest_subdir: Optional[str] = None) -> Dict[str, Any]:
         """
         End-to-end LTX 2.3 image-to-video: uploads the source photo, builds the graph
         from the proven local template, renders, and saves the result video. Rendering
         is GPU/length/resolution dependent and can take several minutes - no Iris QC
         pass is run on video output (QC gate is vision/image-based only, v1).
+
+        dest_subdir: optional brand subfolder (e.g. "creator_pulse_lab") under
+        comfy_video_renders/ - used by Herald's scheduled social posts so those videos
+        land in a dedicated per-brand folder, cleanly separated from ad-hoc Synapse
+        chat-requested videos (which keep the default top-level location). Never set
+        by the chat tool itself.
         """
         conn = self.check_connection()
         if not conn.get("online"):
@@ -1640,14 +1647,16 @@ class ComfyUIBridge:
         except Exception as e:
             return {"success": False, "error": f"ComfyUI image-to-video generation failed: {e}"}
 
-        dest_path = VIDEO_RENDERS_DIR / staged_path.name
+        video_dir = (VIDEO_RENDERS_DIR / dest_subdir) if dest_subdir else VIDEO_RENDERS_DIR
+        video_dir.mkdir(parents=True, exist_ok=True)
+        dest_path = video_dir / staged_path.name
         staged_path.rename(dest_path)
 
         return {
             "success": True,
             "file_path": str(dest_path),
             "filename": dest_path.name,
-            "url_path": f"/static/brand_assets/comfy_video_renders/{dest_path.name}",
+            "url_path": f"/static/brand_assets/comfy_video_renders/{(dest_subdir + '/') if dest_subdir else ''}{dest_path.name}",
             "source_image": str(source_image_path),
             "host_used": f"{self.host}:{self.port}"
         }
@@ -1717,11 +1726,15 @@ class ComfyUIBridge:
                                         prompt: str,
                                         duration_seconds: float = 10.0,
                                         lora_config: Optional[List[Dict[str, Any]]] = None,
-                                        timeout_seconds: int = 900) -> Dict[str, Any]:
+                                        timeout_seconds: int = 900,
+                                        dest_subdir: Optional[str] = None) -> Dict[str, Any]:
         """
         End-to-end MiniMax H3 image-to-video: uploads the source photo, builds the graph
         from the user's proven local template, renders, and saves the result video.
         Rendering is GPU/length dependent and can take several minutes.
+
+        dest_subdir: see generate_image_to_video() - same per-brand social-post folder
+        separation, never set by the chat tool itself.
         """
         conn = self.check_connection()
         if not conn.get("online"):
@@ -1768,14 +1781,16 @@ class ComfyUIBridge:
         except Exception as e:
             return {"success": False, "error": f"ComfyUI MiniMax H3 image-to-video generation failed: {e}"}
 
-        dest_path = VIDEO_RENDERS_DIR / staged_path.name
+        video_dir = (VIDEO_RENDERS_DIR / dest_subdir) if dest_subdir else VIDEO_RENDERS_DIR
+        video_dir.mkdir(parents=True, exist_ok=True)
+        dest_path = video_dir / staged_path.name
         staged_path.rename(dest_path)
 
         return {
             "success": True,
             "file_path": str(dest_path),
             "filename": dest_path.name,
-            "url_path": f"/static/brand_assets/comfy_video_renders/{dest_path.name}",
+            "url_path": f"/static/brand_assets/comfy_video_renders/{(dest_subdir + '/') if dest_subdir else ''}{dest_path.name}",
             "source_image": str(source_image_path),
             "host_used": f"{self.host}:{self.port}"
         }

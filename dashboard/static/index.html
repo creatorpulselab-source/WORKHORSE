@@ -2584,7 +2584,7 @@
             ✅ Completed Work
           </h3>
           <div style="font-size: 11px; color: var(--green-neon); font-family: var(--font-mono); margin-top: 2px;">
-            Every finished piece any bot has generated, in one place to view or download
+            Every finished piece any bot has generated, separated by business line, to view or download
           </div>
         </div>
         <div style="display: flex; align-items: center; gap: 8px;">
@@ -2593,15 +2593,17 @@
         </div>
       </div>
 
+      <!-- Top-level business-line separation: Fiverr / Etsy / Social Media / Synapse
+           are never mixed into one pile - each is its own fully separate section. -->
+      <div id="completed-work-group-tabs" class="completed-work-group-tabs">
+        <button type="button" class="completed-work-group-btn active" data-group="fiverr" onclick="window.workBaysManager.switchCompletedWorkGroup('fiverr')">💼 Fiverr</button>
+        <button type="button" class="completed-work-group-btn" data-group="etsy" onclick="window.workBaysManager.switchCompletedWorkGroup('etsy')">🛒 Etsy</button>
+        <button type="button" class="completed-work-group-btn" data-group="social" onclick="window.workBaysManager.switchCompletedWorkGroup('social')">📱 Social Media</button>
+        <button type="button" class="completed-work-group-btn" data-group="synapse" onclick="window.workBaysManager.switchCompletedWorkGroup('synapse')">🤖 Synapse</button>
+      </div>
+
       <div id="completed-work-filters" style="display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px;">
-        <button type="button" class="btn-cyber completed-work-filter-btn active" data-category="" onclick="window.workBaysManager.filterCompletedWork('')" style="font-size: 11px; padding: 5px 12px;">All</button>
-        <button type="button" class="btn-cyber completed-work-filter-btn" data-category="marketing_images" onclick="window.workBaysManager.filterCompletedWork('marketing_images')" style="font-size: 11px; padding: 5px 12px;">🎨 Marketing Images</button>
-        <button type="button" class="btn-cyber completed-work-filter-btn" data-category="marketing_videos" onclick="window.workBaysManager.filterCompletedWork('marketing_videos')" style="font-size: 11px; padding: 5px 12px;">🎥 Marketing Videos</button>
-        <button type="button" class="btn-cyber completed-work-filter-btn" data-category="marketing_3d_models" onclick="window.workBaysManager.filterCompletedWork('marketing_3d_models')" style="font-size: 11px; padding: 5px 12px;">🧊 3D Models</button>
-        <button type="button" class="btn-cyber completed-work-filter-btn" data-category="banners" onclick="window.workBaysManager.filterCompletedWork('banners')" style="font-size: 11px; padding: 5px 12px;">🪧 Banners</button>
-        <button type="button" class="btn-cyber completed-work-filter-btn" data-category="client_character_renders" onclick="window.workBaysManager.filterCompletedWork('client_character_renders')" style="font-size: 11px; padding: 5px 12px; border-color: rgba(255,100,100,0.4);">🎭 Client Character Tests</button>
-        <button type="button" class="btn-cyber completed-work-filter-btn" data-category="client_photo_packages" onclick="window.workBaysManager.filterCompletedWork('client_photo_packages')" style="font-size: 11px; padding: 5px 12px; border-color: rgba(255,100,100,0.4);">📦 Client Photo Packages</button>
-        <button type="button" class="btn-cyber completed-work-filter-btn" data-category="client_deliveries" onclick="window.workBaysManager.filterCompletedWork('client_deliveries')" style="font-size: 11px; padding: 5px 12px; border-color: rgba(255,100,100,0.4);">📦 Client Deliveries</button>
+        <!-- Category sub-filter buttons for the active group are rendered dynamically by bays.js -->
       </div>
 
       <div id="completed-work-grid" class="completed-work-grid">

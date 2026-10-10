@@ -386,14 +386,16 @@ class HeraldScheduler:
                     source_image_path=still_image_path,
                     prompt=motion_prompt,
                     duration_seconds=duration_seconds,
-                    lora_config=None  # keep the brand's configured adult-tuned LoRAs
+                    lora_config=None,  # keep the brand's configured adult-tuned LoRAs
+                    dest_subdir=brand_key  # keeps scheduled social videos out of the ad-hoc Synapse chat folder
                 )
             else:
                 vid_res = comfy_bridge.generate_image_to_video(
                     source_image_path=still_image_path,
                     prompt=motion_prompt,
                     num_frames=int(duration_seconds * 24),
-                    fps=24
+                    fps=24,
+                    dest_subdir=brand_key
                 )
             if vid_res.get("success"):
                 print(f"[Herald Scheduler] Upgraded @{handle} {slot_id} post to video: {vid_res.get('filename')}")

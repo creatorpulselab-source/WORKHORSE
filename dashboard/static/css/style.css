@@ -4277,6 +4277,37 @@ main.workspace-layout-3col {
 }
 
 /* "Completed Work" gallery bay - unified view of every generated output. */
+.completed-work-group-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.completed-work-group-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 18px;
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 8px;
+  border: 1px solid var(--border-highlight);
+  background: var(--bg-glass);
+  color: var(--text-muted, #9aa0a6);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.completed-work-group-btn:hover {
+  color: #fff;
+  border-color: var(--cyan-glow);
+}
+.completed-work-group-btn.active {
+  color: #050811;
+  background: var(--cyan-glow);
+  border-color: var(--cyan-glow);
+}
 .completed-work-filter-btn {
   opacity: 0.6;
 }
