@@ -251,22 +251,45 @@
       if (this.key === 'synapse') {
         charSrc = `/static/img/characters_3d/synapse_card_2x.png?v=20261006_v2`;
         depthSrc = `/static/img/characters_3d/cipher_rig_depth.png?v=20261006_v2`;
+      } else if (this.key === 'scribe') {
+        // scribe_rig_depth.png was never exported - reuse cipher's depth map as a
+        // serviceable substitute (same pattern already used above for synapse)
+        // rather than leaving this card permanently stuck un-rendered.
+        depthSrc = `/static/img/characters_3d/cipher_rig_depth.png?v=20261006_v2`;
       }
 
       let loaded = 0;
+      let charOk = false, depthOk = false;
       const checkDone = () => {
         loaded++;
         if (loaded === 2) {
-          this.texChar = this.createTexture(charImg, 0);
-          this.texDepth = this.createTexture(depthImg, 1);
-          this.ready = true;
+          // Only build a texture from an image that actually loaded - a missing/404'd
+          // asset must not permanently stall this card's "ready" state forever (the
+          // scribe depth-map gap above was exactly this: onload never fires for a
+          // 404, so the old code's loaded-count check never reached 2).
+          if (charOk) this.texChar = this.createTexture(charImg, 0);
+          if (depthOk) {
+            this.texDepth = this.createTexture(depthImg, 1);
+          } else {
+            // Never leave texDepth undefined when ready=true - the draw loop always
+            // binds it unconditionally, which would throw on an undefined texture.
+            // A flat mid-gray 1x1 substitute renders the character without real
+            // parallax instead of crashing the draw call.
+            this.texDepth = this.createFlatDepthTexture(1);
+          }
+          // A parallax card with no character texture at all has nothing useful to
+          // render; one with a character but no depth map still renders flat/2D
+          // rather than staying invisible.
+          this.ready = charOk;
         }
       };
 
       charImg.crossOrigin = 'anonymous';
       depthImg.crossOrigin = 'anonymous';
-      charImg.onload = checkDone;
-      depthImg.onload = checkDone;
+      charImg.onload = () => { charOk = true; checkDone(); };
+      depthImg.onload = () => { depthOk = true; checkDone(); };
+      charImg.onerror = () => { console.warn(`[character3d] Failed to load character texture: ${charSrc}`); checkDone(); };
+      depthImg.onerror = () => { console.warn(`[character3d] Failed to load depth texture: ${depthSrc}`); checkDone(); };
       charImg.src = charSrc;
       depthImg.src = depthSrc;
     }
@@ -281,6 +304,22 @@
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+      return tex;
+    }
+
+    createFlatDepthTexture(unit) {
+      // 1x1 mid-gray pixel - a safe, valid texture to bind when the real depth map
+      // failed to load, so the shader's parallax math gets a neutral (no-op) depth
+      // value instead of the draw call failing on an undefined texture.
+      const gl = this.gl;
+      const tex = gl.createTexture();
+      gl.activeTexture(gl.TEXTURE0 + unit);
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([128, 128, 128, 255]));
       return tex;
     }
 
