@@ -470,8 +470,9 @@ class AIOperatorUI {
       // full-size pop-out modal instead of a cramped inline <details> dropdown.
       const blueprintActions = msg.actions.filter(act => act.blueprint);
       const imageActions = msg.actions.filter(act => act.images && act.images.length > 0);
+      const mediaActions = msg.actions.filter(act => act.media && act.media.length > 0);
 
-      if (blueprintActions.length > 0 || imageActions.length > 0) {
+      if (blueprintActions.length > 0 || imageActions.length > 0 || mediaActions.length > 0) {
         bodyHtml += `<div class="msg-actions-list">`;
 
         blueprintActions.forEach(act => {
@@ -499,6 +500,18 @@ class AIOperatorUI {
                   <span class="msg-generated-image-caption">${img.title || 'Concept'} failed</span>
                 </div>
               `).join('')}
+            </div>
+          `;
+        });
+
+        // Unified rendering for every finished-work item (images, videos, 3D models,
+        // zip archives) any tool attached via result['media'] - so anything Synapse is
+        // asked to make shows up directly in the chat to view/download, instead of only
+        // a text filename the Commander has to go hunting for on disk.
+        mediaActions.forEach(act => {
+          bodyHtml += `
+            <div class="msg-generated-media-grid">
+              ${act.media.map(m => this.renderMediaCard(m)).join('')}
             </div>
           `;
         });
@@ -551,6 +564,37 @@ class AIOperatorUI {
     if (targetContainer === this.chatContainer) {
       this.scrollToBottom();
     }
+  }
+
+  // Renders one finished-work card for a result['media'] entry - image (click to open
+  // full-size), video (inline HTML5 player), or 3D model/zip archive (clear labeled
+  // download card, since those can't be inlined in a chat bubble).
+  renderMediaCard(m) {
+    const caption = `${m.category_label ? m.category_label + ' &middot; ' : ''}${m.title || m.filename || ''}`;
+    if (m.type === 'image') {
+      return `
+        <a href="${m.url}" target="_blank" class="msg-generated-image-card" title="${m.title || ''}">
+          <img src="${m.url}" alt="${m.title || 'Generated image'}" loading="lazy">
+          <span class="msg-generated-image-caption">${caption}</span>
+        </a>
+      `;
+    }
+    if (m.type === 'video') {
+      return `
+        <div class="msg-generated-media-card msg-generated-video-card">
+          <video src="${m.url}" controls preload="metadata"></video>
+          <span class="msg-generated-image-caption">${caption}</span>
+        </div>
+      `;
+    }
+    // 3D models and zip archives can't be rendered inline - give a clear download card.
+    const icon = m.type === 'model_3d' ? '🧊' : '📦';
+    return `
+      <a href="${m.url}" target="_blank" class="msg-generated-media-card msg-generated-download-card" title="${m.title || ''}">
+        <span class="act-icon">${icon}</span>
+        <span class="msg-generated-image-caption">${caption}<br><small>Click to download</small></span>
+      </a>
+    `;
   }
 
   // Generic pop-out for long-form content (currently shoot blueprints) that's too large/

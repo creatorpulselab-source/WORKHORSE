@@ -728,6 +728,29 @@ class AIOperatorEngine:
             return p
         return Path("F:/WORKHORSE/workspace/brand_assets/comfy_renders") / filename
 
+    @staticmethod
+    def _attach_media(result: Dict[str, Any], file_path, title: str = "") -> Dict[str, Any]:
+        """Attaches a result['media'] entry (type/download-url/filename) for any
+        content-producing tool, so the dashboard chat UI can render it as a viewable/
+        downloadable card directly in the conversation instead of only reporting a
+        filesystem path in text - addresses 'all things asked for in chat should come
+        to the chat where it can be viewed and or downloaded'. Silently no-ops if the
+        file doesn't exist or isn't under one of the registered output directories
+        (shared/output_categories.py), so this never raises on an unexpected path."""
+        try:
+            if not file_path:
+                return result
+            fp = Path(file_path)
+            if not fp.exists():
+                return result
+            from shared.output_categories import build_media_entry
+            entry = build_media_entry(fp, title=title)
+            if entry:
+                result.setdefault("media", []).append(entry)
+        except Exception as e:
+            print(f"[SYNAPSE] Non-fatal: failed to attach media entry for {file_path}: {e}")
+        return result
+
     def execute_internal_tool(self, tool_call, adult_allowed: bool = False, batch_dir: Optional[Path] = None):
         """Execute built-in WORKHORSE actions & self-healing functions.
 
@@ -1027,6 +1050,7 @@ class AIOperatorEngine:
                 style_label = edit_style or style
                 result["message"] = f"Aura [79 Au]: '{style_label}' edit complete for {len(resolved_paths)} image(s) - skin retouch, color grade, social crops, and a print-ready 16-bit master. Bundle: {retouch_res.get('zip_name')}."
                 result["details"] = retouch_res
+                self._attach_media(result, retouch_res.get("zip_file"), title=f"{style_label} retouch bundle")
             except Exception as e:
                 result["status"] = "error"
                 result["error"] = str(e)
@@ -1106,6 +1130,7 @@ class AIOperatorEngine:
                 result["file_path"] = str(banner_path)
                 result["background_render"] = gen_res.get("file_path")
                 result["qc_audit"] = qc_audit
+                self._attach_media(result, banner_path, title=f"{client} {platform.upper()} banner")
                 if qc_audit.get("passed"):
                     result["message"] = f"SYNAPSE [100 Fm]: Finished {platform.upper()} banner generated & QC-approved by Iris [77 Ir] for {client}: {banner_name}."
                 else:
@@ -1200,6 +1225,7 @@ class AIOperatorEngine:
                 result["message"] = f"Apex [78 Pt]: Master delivery archive generated: {pkg_name} ({len(deliverable_files)} file(s))."
                 result["download_path"] = str(pkg_path)
                 result["files"] = [f.name for f in deliverable_files]
+                self._attach_media(result, pkg_path, title=f"{client} delivery archive")
             except Exception as e:
                 result["status"] = "error"
                 result["error"] = str(e)
@@ -1293,6 +1319,7 @@ class AIOperatorEngine:
                 if bg_res.get("success"):
                     result["message"] = f"SYNAPSE [100 Fm]: Background swapped on RTX 5070 Ti. Saved to: {bg_res.get('filename')}."
                     result["details"] = bg_res
+                    self._attach_media(result, bg_res.get("file_path"), title="Background change render")
                 else:
                     result["status"] = "warning"
                     result["message"] = f"SYNAPSE [100 Fm]: Background change failed: {bg_res.get('error')}"
@@ -1330,6 +1357,7 @@ class AIOperatorEngine:
                 if swap_res.get("success"):
                     result["message"] = f"SYNAPSE [100 Fm]: Full-subject swap rendered on RTX 5070 Ti. Saved to: {swap_res.get('filename')}."
                     result["details"] = swap_res
+                    self._attach_media(result, swap_res.get("file_path"), title="Subject swap render")
                 else:
                     result["status"] = "warning"
                     result["message"] = f"SYNAPSE [100 Fm]: Subject swap failed: {swap_res.get('error')}"
@@ -1379,6 +1407,7 @@ class AIOperatorEngine:
                         result["status"] = "warning"
                         result["message"] = f"SYNAPSE [100 Fm]: Image rendered on RTX 5070 Ti but NOT approved by Iris [77 Ir] after max retries (QC Score: {score}/10, Notes: {notes}). Saved for manual review only: {gen_res.get('filename')}."
                     result["details"] = gen_res
+                    self._attach_media(result, gen_res.get("file_path"), title="Generated image")
                 else:
                     result["status"] = "warning"
                     result["message"] = f"SYNAPSE [100 Fm]: ComfyUI generation attempt failed: {gen_res.get('error') or gen_res.get('warning')}"
@@ -1442,6 +1471,7 @@ class AIOperatorEngine:
                 if vid_res.get("success"):
                     result["message"] = f"SYNAPSE [100 Fm]: Image-to-video render complete on RTX 5070 Ti ({engine_label}). Saved to: {vid_res.get('filename')}."
                     result["details"] = vid_res
+                    self._attach_media(result, vid_res.get("file_path"), title=f"{engine_label} video")
                 else:
                     result["status"] = "warning"
                     result["message"] = f"SYNAPSE [100 Fm]: Image-to-video render failed ({engine_label}): {vid_res.get('error')}"
@@ -1469,6 +1499,7 @@ class AIOperatorEngine:
                 if pbr_res.get("success"):
                     result["message"] = f"SYNAPSE [100 Fm]: Full-PBR 3D model generated on RTX 5070 Ti (baked base color/metallic/roughness/normal/AO maps). Saved to: {pbr_res.get('glb_path')}."
                     result["details"] = pbr_res
+                    self._attach_media(result, pbr_res.get("glb_path"), title="3D PBR model")
                 else:
                     result["status"] = "warning"
                     result["message"] = f"SYNAPSE [100 Fm]: 3D PBR generation failed: {pbr_res.get('error')}"
@@ -1496,6 +1527,7 @@ class AIOperatorEngine:
                 if char_res.get("success"):
                     result["message"] = f"SYNAPSE [100 Fm]: Client character render complete for '{character_name}' on RTX 5070 Ti. Saved to: {char_res.get('image_path')}. Tagged CLIENT_CHARACTER_ASSET - this is a client-specific test asset, never postable/marketing content."
                     result["details"] = char_res
+                    self._attach_media(result, char_res.get("image_path"), title=f"Client character: {character_name}")
                 else:
                     result["status"] = "warning"
                     result["message"] = f"SYNAPSE [100 Fm]: Client character generation failed: {char_res.get('error')}"
@@ -2094,6 +2126,8 @@ class AIOperatorEngine:
                     reply_text = "Here's the shoot blueprint you asked for, Commander."
                 elif any(a.get("images") for a in executed_actions):
                     reply_text = "Here are the generated concepts, Commander."
+                elif any(a.get("media") for a in executed_actions):
+                    reply_text = "Here's the finished piece, Commander - view or download it below."
                 else:
                     reply_text = "Done, Commander."
 

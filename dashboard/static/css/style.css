@@ -4233,6 +4233,119 @@ main.workspace-layout-3col {
   color: #ff6b6b;
 }
 
+/* Synapse chat: unified finished-work media cards (any tool's result['media']) -
+   images, inline video players, and 3D-model/archive download cards. */
+.msg-generated-media-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 10px;
+  margin-top: 8px;
+}
+.msg-generated-media-card {
+  display: flex;
+  flex-direction: column;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid var(--border-highlight);
+  background: var(--bg-glass);
+  text-decoration: none;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.msg-generated-media-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5), 0 0 16px rgba(0, 242, 254, 0.3);
+}
+.msg-generated-video-card video {
+  width: 100%;
+  max-height: 260px;
+  background: #000;
+  display: block;
+}
+.msg-generated-download-card {
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 18px 10px;
+  cursor: pointer;
+}
+.msg-generated-download-card .act-icon {
+  font-size: 28px;
+}
+.msg-generated-download-card small {
+  color: var(--text-muted, #9aa0a6);
+  font-weight: 400;
+}
+
+/* "Completed Work" gallery bay - unified view of every generated output. */
+.completed-work-filter-btn {
+  opacity: 0.6;
+}
+.completed-work-filter-btn.active {
+  opacity: 1;
+  border-color: var(--cyan-glow);
+  color: var(--cyan-glow);
+}
+.completed-work-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 14px;
+}
+.completed-work-card {
+  display: flex;
+  flex-direction: column;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid var(--border-highlight);
+  background: var(--bg-glass);
+  text-decoration: none;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.completed-work-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5), 0 0 16px rgba(0, 242, 254, 0.3);
+}
+.completed-work-card.client-tagged {
+  border-color: rgba(255, 100, 100, 0.45);
+}
+.completed-work-preview {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  background: #050811;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.completed-work-preview img,
+.completed-work-preview video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.completed-work-info {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 10px;
+  gap: 2px;
+}
+.completed-work-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--cyan-glow);
+}
+.completed-work-filename {
+  font-size: 10px;
+  color: #e2e8f0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.completed-work-meta {
+  font-size: 9px;
+  color: var(--text-muted, #9aa0a6);
+  font-family: var(--font-mono);
+}
+
 /* Synapse chat: collapsible full shoot blueprint returned by scan_inspiration_vault */
 .msg-action-blueprint {
   margin-top: 8px;

@@ -18,6 +18,7 @@ import asyncio
 import time
 import shutil
 import subprocess
+import urllib.parse
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 from contextlib import asynccontextmanager
@@ -1386,20 +1387,79 @@ async def get_comfy_audit_log():
             pass
     return {"status": "ok", "records": []}
 
-@app.get("/api/comfy/gallery")
-async def get_comfy_gallery():
-    gallery_dir = Path("F:/WORKHORSE/workspace/brand_assets/comfy_renders")
-    images = []
-    if gallery_dir.exists():
-        for f in sorted(gallery_dir.iterdir(), key=lambda x: x.stat().st_mtime, reverse=True):
-            if f.suffix.lower() in (".png", ".jpg", ".jpeg", ".webp"):
-                images.append({
-                    "filename": f.name,
-                    "url": f"/static/brand_assets/comfy_renders/{f.name}",
-                    "size_kb": round(f.stat().st_size / 1024, 1),
-                    "created": f.stat().st_mtime
-                })
-    return {"status": "ok", "images": images[:30]}
+# ==============================================================================
+# UNIFIED OUTPUT GALLERY & AUTHENTICATED FILE DOWNLOADS
+# ==============================================================================
+# Registry lives in shared/output_categories.py (single source of truth, also
+# used by ai_operator.py to tag each tool result with a media entry) so the
+# "Completed Work" gallery and in-chat media rendering can never drift out of
+# sync. Deliberately NOT served via the public /static/ mount (which has zero
+# auth) - this content can include adult-brand material and client-specific
+# deliverables, so every file read goes through this authenticated endpoint
+# instead, matching the rest of the dashboard's auth model.
+from shared.output_categories import OUTPUT_CATEGORIES, DEFAULT_MEDIA_EXTENSIONS
+
+
+def _resolve_output_file(category: str, rel_path: str) -> Path:
+    """Resolves a category+relative-path pair to an absolute file path, rejecting
+    anything that isn't actually inside that category's registered directory (path
+    traversal protection) - the only way callers can reach a file through this
+    system is via a path this server itself already listed in the gallery."""
+    cat = OUTPUT_CATEGORIES.get(category)
+    if not cat:
+        raise HTTPException(status_code=404, detail=f"Unknown output category: {category}")
+    base_dir = cat["dir"].resolve()
+    candidate = (base_dir / rel_path).resolve()
+    if base_dir not in candidate.parents and candidate != base_dir:
+        raise HTTPException(status_code=403, detail="Invalid path")
+    if not candidate.is_file():
+        raise HTTPException(status_code=404, detail="File not found")
+    return candidate
+
+
+@app.get("/api/outputs/file")
+async def download_output_file(category: str, path: str):
+    """Authenticated download/view endpoint for any generated output - requires
+    login (this route is NOT in PUBLIC_PREFIXES), unlike /static/ which has none."""
+    file_path = _resolve_output_file(category, path)
+    return FileResponse(file_path, filename=file_path.name)
+
+
+@app.get("/api/outputs/gallery")
+async def get_outputs_gallery(category: Optional[str] = None, limit: int = 60):
+    """Unified 'Completed Work' gallery across every output category - images,
+    videos, 3D models, banners, client character test renders, and client
+    packages - each clearly tagged by category/type so client deliverables are
+    never visually confused with postable marketing content. Addresses the
+    Commander's 'I need a folder where all completed work goes that I can get to
+    from in WORKHORSE' request directly."""
+    items = []
+    categories_to_scan = [category] if category else list(OUTPUT_CATEGORIES.keys())
+
+    for cat_key in categories_to_scan:
+        cat = OUTPUT_CATEGORIES.get(cat_key)
+        if not cat or not cat["dir"].exists():
+            continue
+        extensions = cat.get("extensions", DEFAULT_MEDIA_EXTENSIONS.get(cat["media_type"], ()))
+        file_iter = cat["dir"].rglob("*") if cat.get("recursive") else cat["dir"].iterdir()
+        for f in file_iter:
+            if not f.is_file() or f.suffix.lower() not in extensions:
+                continue
+            rel_path = str(f.relative_to(cat["dir"]))
+            items.append({
+                "category": cat_key,
+                "label": cat["label"],
+                "media_type": cat["media_type"],
+                "filename": f.name,
+                "rel_path": rel_path,
+                "download_url": f"/api/outputs/file?category={urllib.parse.quote(cat_key)}&path={urllib.parse.quote(rel_path)}",
+                "size_kb": round(f.stat().st_size / 1024, 1),
+                "created": f.stat().st_mtime
+            })
+
+    items.sort(key=lambda x: x["created"], reverse=True)
+    return {"status": "ok", "items": items[:limit], "total_found": len(items)}
+
 
 
 

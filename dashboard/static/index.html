@@ -232,6 +232,15 @@
             <span class="bay-pill">4 PUBS</span>
           </button>
 
+          <button class="bay-tab-btn" data-bay="completed-work">
+            <span class="bay-icon">✅</span>
+            <div class="bay-btn-info">
+              <span class="bay-name">Completed Work</span>
+              <span class="bay-sub">All Finished Media</span>
+            </div>
+            <span class="bay-pill" id="completed-work-count-pill">GALLERY</span>
+          </button>
+
           <div class="nav-col-heading">EXTERNAL FULFILLMENT</div>
 
           <button class="bay-tab-btn" data-bay="fiverr-bot" style="grid-column: span 2;">
@@ -2561,6 +2570,44 @@
         </div>
       </div>
     </div>
+  </div>
+
+  <!-- COMPLETED WORK GALLERY — every finished image/video/3D-model/archive any
+       bot has produced, in one authenticated, downloadable view, clearly tagged
+       by category so client-specific files are never mistaken for postable
+       marketing content. -->
+  <div class="bay-view-panel" id="view-completed-work">
+    <section class="glass-panel" style="padding: 20px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 14px;">
+        <div>
+          <h3 style="font-size: 15px; font-weight: 800; color: #fff; text-transform: uppercase; letter-spacing: 0.5px;">
+            ✅ Completed Work
+          </h3>
+          <div style="font-size: 11px; color: var(--green-neon); font-family: var(--font-mono); margin-top: 2px;">
+            Every finished piece any bot has generated, in one place to view or download
+          </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span class="bay-pill" id="completed-work-total-pill" style="color: var(--cyan-glow); border: 1px solid var(--cyan-glow);">0 items</span>
+          <button type="button" class="btn-cyber" onclick="window.workBaysManager.refreshCompletedWork()" style="font-size: 11px; padding: 5px 12px;">🔄 Refresh</button>
+        </div>
+      </div>
+
+      <div id="completed-work-filters" style="display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px;">
+        <button type="button" class="btn-cyber completed-work-filter-btn active" data-category="" onclick="window.workBaysManager.filterCompletedWork('')" style="font-size: 11px; padding: 5px 12px;">All</button>
+        <button type="button" class="btn-cyber completed-work-filter-btn" data-category="marketing_images" onclick="window.workBaysManager.filterCompletedWork('marketing_images')" style="font-size: 11px; padding: 5px 12px;">🎨 Marketing Images</button>
+        <button type="button" class="btn-cyber completed-work-filter-btn" data-category="marketing_videos" onclick="window.workBaysManager.filterCompletedWork('marketing_videos')" style="font-size: 11px; padding: 5px 12px;">🎥 Marketing Videos</button>
+        <button type="button" class="btn-cyber completed-work-filter-btn" data-category="marketing_3d_models" onclick="window.workBaysManager.filterCompletedWork('marketing_3d_models')" style="font-size: 11px; padding: 5px 12px;">🧊 3D Models</button>
+        <button type="button" class="btn-cyber completed-work-filter-btn" data-category="banners" onclick="window.workBaysManager.filterCompletedWork('banners')" style="font-size: 11px; padding: 5px 12px;">🪧 Banners</button>
+        <button type="button" class="btn-cyber completed-work-filter-btn" data-category="client_character_renders" onclick="window.workBaysManager.filterCompletedWork('client_character_renders')" style="font-size: 11px; padding: 5px 12px; border-color: rgba(255,100,100,0.4);">🎭 Client Character Tests</button>
+        <button type="button" class="btn-cyber completed-work-filter-btn" data-category="client_photo_packages" onclick="window.workBaysManager.filterCompletedWork('client_photo_packages')" style="font-size: 11px; padding: 5px 12px; border-color: rgba(255,100,100,0.4);">📦 Client Photo Packages</button>
+        <button type="button" class="btn-cyber completed-work-filter-btn" data-category="client_deliveries" onclick="window.workBaysManager.filterCompletedWork('client_deliveries')" style="font-size: 11px; padding: 5px 12px; border-color: rgba(255,100,100,0.4);">📦 Client Deliveries</button>
+      </div>
+
+      <div id="completed-work-grid" class="completed-work-grid">
+        <div style="grid-column: 1/-1; text-align: center; color: var(--text-dim); padding: 30px; font-size: 11px;">Loading completed work...</div>
+      </div>
+    </section>
   </div>
 
   

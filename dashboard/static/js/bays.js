@@ -110,6 +110,8 @@ this.currentBay = initHash || 'command-center';
       this.initMarketingHub();
     } else if (bayId === 'newsletter-hub') {
       this.initNewsletterHub();
+    } else if (bayId === 'completed-work') {
+      this.refreshCompletedWork();
     }
   }
 
@@ -553,6 +555,68 @@ this.currentBay = initHash || 'command-center';
         `).join('');
       }
     } catch (e) {}
+  }
+
+  // --------------------------------------------------------------------------
+  // COMPLETED WORK GALLERY — unified, authenticated view of everything any bot
+  // has generated (/api/outputs/gallery). Client-specific categories keep a red
+  // border accent in the filter bar and a '🎭'/'📦' tag on every card so they
+  // can never be visually mistaken for postable marketing content.
+  // --------------------------------------------------------------------------
+  async refreshCompletedWork(category) {
+    const grid = document.getElementById('completed-work-grid');
+    const totalPill = document.getElementById('completed-work-total-pill');
+    const navPill = document.getElementById('completed-work-count-pill');
+    if (!grid) return;
+    this.completedWorkCategory = category !== undefined ? category : (this.completedWorkCategory || '');
+
+    try {
+      const url = '/api/outputs/gallery' + (this.completedWorkCategory ? `?category=${encodeURIComponent(this.completedWorkCategory)}` : '');
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`Gallery request failed (${res.status})`);
+      const data = await res.json();
+      const items = data.items || [];
+
+      if (totalPill) totalPill.innerText = `${items.length} item${items.length === 1 ? '' : 's'}`;
+      if (navPill) navPill.innerText = `${data.total_found || items.length} TOTAL`;
+
+      if (!items.length) {
+        grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; color: var(--text-dim); padding: 30px; font-size: 11px;">Nothing finished yet in this category. Ask Synapse to generate something!</div>';
+        return;
+      }
+
+      grid.innerHTML = items.map(item => this.renderCompletedWorkCard(item)).join('');
+    } catch (e) {
+      grid.innerHTML = `<div style="grid-column: 1/-1; text-align: center; color: #ff6b6b; padding: 30px; font-size: 11px;">Failed to load completed work: ${e.message}</div>`;
+    }
+  }
+
+  filterCompletedWork(category) {
+    document.querySelectorAll('.completed-work-filter-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.getAttribute('data-category') === category);
+    });
+    this.refreshCompletedWork(category);
+  }
+
+  renderCompletedWorkCard(item) {
+    const isClient = item.category.startsWith('client_');
+    const sizeLabel = item.size_kb >= 1024 ? `${(item.size_kb / 1024).toFixed(1)} MB` : `${item.size_kb} KB`;
+    let preview = `<span class="act-icon" style="font-size: 32px;">${item.media_type === 'archive' ? '📦' : '🧊'}</span>`;
+    if (item.media_type === 'image') {
+      preview = `<img src="${item.download_url}" alt="${item.filename}" loading="lazy">`;
+    } else if (item.media_type === 'video') {
+      preview = `<video src="${item.download_url}" preload="metadata" muted></video>`;
+    }
+    return `
+      <a href="${item.download_url}" target="_blank" class="completed-work-card ${isClient ? 'client-tagged' : ''}" title="${item.filename}">
+        <div class="completed-work-preview">${preview}</div>
+        <div class="completed-work-info">
+          <span class="completed-work-label">${item.label}</span>
+          <span class="completed-work-filename">${item.filename}</span>
+          <span class="completed-work-meta">${sizeLabel} &middot; ${new Date(item.created * 1000).toLocaleString()}</span>
+        </div>
+      </a>
+    `;
   }
 
   async generateComfyUIPrompts() {
