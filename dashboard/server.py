@@ -667,24 +667,46 @@ async def fulfill_fiverr_order(payload: Dict[str, Any]):
     client_name = payload.get("client_name", "Valued Client")
     order_number = payload.get("order_number", "FO_1001")
     notes = payload.get("notes", "")
+    # Optional explicit filename (no path components - resolved within the gig's own
+    # asset directory only) so the Commander/Synapse can bind delivery to a SPECIFIC
+    # file instead of relying on an auto-guess. Strongly recommended whenever more than
+    # one client's package could be sitting in the same shared folder.
+    requested_asset = payload.get("asset_filename")
 
-    # Collect any relevant files to include in delivery
+    gig_dirs = {
+        "gig_retouch": BASE_DIR / "workspace" / "photos_output",
+        "gig_teaser": BASE_DIR / "workspace" / "output",
+        "gig_copy": BASE_DIR / "workspace" / "cam_templates",
+        "gig_banner": BASE_DIR / "workspace" / "cam_templates",
+    }
+    asset_dir = gig_dirs.get(gig_id)
+
     assets = []
-    if gig_id == "gig_retouch":
-        photos_dir = BASE_DIR / "workspace" / "photos_output"
-        zips = list(photos_dir.glob("*.zip"))
-        if zips:
-            assets.append(str(zips[-1]))
-    elif gig_id == "gig_teaser":
-        output_dir = BASE_DIR / "workspace" / "output"
-        zips = list(output_dir.glob("*.zip"))
-        if zips:
-            assets.append(str(zips[-1]))
-    elif gig_id in ("gig_copy", "gig_banner"):
-        cam_dir = BASE_DIR / "workspace" / "cam_templates"
-        zips = list(cam_dir.glob("*.zip"))
-        if zips:
-            assets.append(str(zips[-1]))
+    warning = None
+    if asset_dir and asset_dir.exists():
+        if requested_asset:
+            candidate = asset_dir / Path(requested_asset).name
+            if candidate.exists() and candidate.is_file():
+                assets.append(str(candidate))
+            else:
+                return {"status": "error", "error": f"Requested asset '{Path(requested_asset).name}' was not found in {asset_dir}"}
+        else:
+            zips = [f for f in asset_dir.glob("*.zip") if f.is_file()]
+            if zips:
+                # Previously picked list(glob())[-1] - alphabetical/directory order, NOT
+                # recency, and with zero binding to this client/order. That let a
+                # completely different client's package get delivered here. Now: true
+                # newest-by-modification-time, and if more than one candidate exists,
+                # the response says so explicitly instead of silently guessing.
+                newest = max(zips, key=lambda f: f.stat().st_mtime)
+                assets.append(str(newest))
+                if len(zips) > 1:
+                    warning = (
+                        f"No asset_filename was specified and {len(zips)} ZIP files exist in "
+                        f"{asset_dir.name}/ - auto-selected the newest ('{newest.name}'). "
+                        f"Verify this is really {client_name}'s file before sending, or re-run "
+                        f"with an explicit asset_filename."
+                    )
 
     res = fiverr_bot.fulfill_order(
         gig_id=gig_id,
@@ -693,6 +715,8 @@ async def fulfill_fiverr_order(payload: Dict[str, Any]):
         assets=assets,
         notes=notes
     )
+    if warning:
+        res["warning"] = warning
     return res
 
 @app.get("/api/download/fiverr/{order_number}")
@@ -742,9 +766,12 @@ async def update_webhook_config(payload: Dict[str, Any]):
     cfg = order_radar.update_config(
         stripe_webhook_secret=payload.get("stripe_webhook_secret"),
         gumroad_seller_id=payload.get("gumroad_seller_id"),
-        webhook_product_map=payload.get("webhook_product_map")
+        webhook_product_map=payload.get("webhook_product_map"),
+        public_download_base_url=payload.get("public_download_base_url")
     )
-    return {"status": "ok", "config": {k: v for k, v in cfg.items() if k != "app_password"}}
+    # update_config() already returns a redacted view (secrets reduced to booleans) -
+    # no additional filtering needed here.
+    return {"status": "ok", "config": cfg}
 
 @app.get("/api/download/order/{token}")
 async def download_order_by_token(token: str):
@@ -1207,6 +1234,42 @@ async def get_operator_history(request: Request):
     session_id = _get_request_session_id(request)
     return {"status": "ok", "history": ai_operator.get_history(session_id)}
 
+def _extract_zip_uploads_into_batch(batch_dir: Path, zip_path: Path) -> List[str]:
+    """If a client-uploaded file is itself a ZIP archive (e.g. a full photo-shoot
+    export), extracts its image contents directly into the same upload batch so
+    aura_retouch/apex_package can see the real photos instead of silently treating
+    the opaque .zip as zero matching images (PhotoRetoucher's cv2.imread() returns
+    None for a .zip and just skips it with no error - this is what let an entire
+    client job go through as a no-op). The original zip is left in place untouched;
+    this only adds sibling image files. Returns the newly extracted filenames."""
+    extracted: List[str] = []
+    try:
+        with zipfile.ZipFile(zip_path) as archive:
+            for info in archive.infolist():
+                if not safe_archive_member(info):
+                    continue
+                fmt = preview_format(info.filename)
+                if not fmt or fmt[0] != "image":
+                    continue
+                safe_name = PurePath(info.filename.replace("\\", "/")).name
+                if not safe_name:
+                    continue
+                dest = batch_dir / safe_name
+                counter = 1
+                while dest.exists():
+                    stem_path = PurePath(safe_name)
+                    dest = batch_dir / f"{stem_path.stem}_{counter}{stem_path.suffix}"
+                    counter += 1
+                with archive.open(info) as source, open(dest, "wb") as out:
+                    shutil.copyfileobj(source, out)
+                extracted.append(dest.name)
+    except zipfile.BadZipFile:
+        print(f"[WORKHORSE] Uploaded file '{zip_path.name}' has a .zip extension but is not a valid archive - left as-is.")
+    except Exception as e:
+        print(f"[WORKHORSE] Failed to extract images from uploaded zip '{zip_path.name}': {e}")
+    return extracted
+
+
 @app.post("/api/operator/chat")
 async def operator_chat_endpoint(
     request: Request,
@@ -1234,6 +1297,11 @@ async def operator_chat_endpoint(
                     out.write(content)
                 saved_paths.append(str(dest))
                 batch_filenames.append(safe_name)
+                if dest.suffix.lower() == ".zip":
+                    extracted_names = _extract_zip_uploads_into_batch(batch_dir, dest)
+                    for name in extracted_names:
+                        saved_paths.append(str(batch_dir / name))
+                    batch_filenames.extend(extracted_names)
         if batch_filenames:
             register_batch_files(batch_dir, batch_filenames)
 

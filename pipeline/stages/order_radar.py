@@ -8,6 +8,7 @@ import re
 import hmac
 import hashlib
 import secrets as secrets_lib
+import threading
 import time
 from pathlib import Path
 from typing import Dict, Any, List, Optional
@@ -19,6 +20,12 @@ import random
 # unauthenticated for real buyers without letting anyone enumerate other orders.
 DOWNLOAD_TOKEN_BYTES = 24
 DOWNLOAD_TOKEN_TTL_DAYS = 14
+
+# Stripe recommends rejecting a webhook signature whose timestamp is too old, even if
+# the HMAC itself is otherwise valid - without this, a captured valid request (e.g. from
+# a proxy log, browser history, or a compromised intermediary) could be replayed to
+# trigger fulfillment again at any point in the future.
+STRIPE_SIGNATURE_TOLERANCE_SECONDS = 300
 
 class OrderRadar:
     """
@@ -37,6 +44,12 @@ class OrderRadar:
         self.load_config()
         self.load_orders()
         self.load_download_tokens()
+        # Guards the duplicate-order check + record-and-save sequence in
+        # _fulfill_web_order() so two near-simultaneous webhook deliveries for the
+        # same checkout session (a real retry/replay scenario, not just a theoretical
+        # one - Stripe/Gumroad both retry on slow responses) can't both pass the
+        # "not already fulfilled" check and double-fulfill the same order.
+        self._fulfillment_lock = threading.Lock()
 
     def load_config(self) -> Dict[str, Any]:
         default_config = {
@@ -56,7 +69,12 @@ class OrderRadar:
             # Maps an external product identifier (Stripe Price metadata.product_type, or
             # Gumroad product_permalink) to one of etsy_store's existing bundle IDs
             # (presets/contracts/posing/templates/all). Unknown keys fall back to "all".
-            "webhook_product_map": {}
+            "webhook_product_map": {},
+            # Base URL a real external buyer's browser can actually reach to download
+            # their purchase. Left blank until configured - a previous hardcoded private
+            # Tailscale IP (https://100.66.45.48:8800) meant real customers likely could
+            # not reach their download link at all. See _public_download_base_url().
+            "public_download_base_url": ""
         }
         if self.config_file.exists():
             try:
@@ -71,10 +89,24 @@ class OrderRadar:
 
     def save_config(self):
         try:
-            with open(self.config_file, "w", encoding="utf-8") as f:
-                json.dump(self.config, f, indent=2)
+            atomic_write_json(self.config_file, self.config)
         except Exception as e:
             print(f"Error saving radar config: {e}")
+
+    def _public_download_base_url(self) -> str:
+        """Resolves the base URL used in customer-facing fulfillment emails. Must be
+        explicitly configured to a real, externally-reachable address (a public domain,
+        port-forwarded address, or tunnel like Tailscale Funnel/Cloudflare/ngrok) -
+        there is no safe way to guess this from inside the server, and shipping a wrong
+        guess here means a paying customer silently can't download what they bought."""
+        configured = (self.config.get("public_download_base_url") or "").strip().rstrip("/")
+        if configured:
+            return configured
+        print("[OrderRadar] WARNING: public_download_base_url is not configured - "
+              "fulfillment emails cannot include a working download link until this is "
+              "set via /api/radar/webhook/config. Falling back to a placeholder that "
+              "will NOT work for real customers.")
+        return "http://CONFIGURE-PUBLIC-DOWNLOAD-BASE-URL:8800"
 
     def load_orders(self) -> List[Dict[str, Any]]:
         if self.orders_file.exists():
@@ -113,7 +145,8 @@ class OrderRadar:
 
     def update_config(self, app_password: Optional[str] = None, auto_check: Optional[bool] = None,
                        stripe_webhook_secret: Optional[str] = None, gumroad_seller_id: Optional[str] = None,
-                       webhook_product_map: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
+                       webhook_product_map: Optional[Dict[str, str]] = None,
+                       public_download_base_url: Optional[str] = None) -> Dict[str, Any]:
         if app_password is not None:
             self.config["app_password"] = app_password.replace(" ", "").strip()
         if auto_check is not None:
@@ -124,8 +157,31 @@ class OrderRadar:
             self.config["gumroad_seller_id"] = gumroad_seller_id.strip()
         if webhook_product_map is not None:
             self.config["webhook_product_map"] = webhook_product_map
+        if public_download_base_url is not None:
+            self.config["public_download_base_url"] = public_download_base_url.strip()
         self.save_config()
-        return self.config
+        return self.get_redacted_config()
+
+    def get_redacted_config(self) -> Dict[str, Any]:
+        """Safe-to-return view of the radar config for API responses - every secret
+        (IMAP app password, Stripe webhook signing secret) is reduced to a boolean
+        presence flag instead of being echoed back in plaintext. Gumroad seller_id and
+        the download base URL aren't secrets (they're public-facing identifiers), so
+        they're returned as-is."""
+        return {
+            "email": self.config.get("email", ""),
+            "has_app_password": bool(self.config.get("app_password")),
+            "imap_server": self.config.get("imap_server", ""),
+            "imap_port": self.config.get("imap_port"),
+            "check_interval_seconds": self.config.get("check_interval_seconds"),
+            "auto_check": self.config.get("auto_check", False),
+            "sound_alerts": self.config.get("sound_alerts", True),
+            "last_checked": self.config.get("last_checked"),
+            "has_stripe_webhook_secret": bool(self.config.get("stripe_webhook_secret")),
+            "gumroad_seller_id": self.config.get("gumroad_seller_id", ""),
+            "webhook_product_map": self.config.get("webhook_product_map", {}),
+            "public_download_base_url": self.config.get("public_download_base_url", ""),
+        }
 
     def check_inbox(self) -> Dict[str, Any]:
         """Connect to Gmail via IMAP and scan for incoming Fiverr or Etsy orders."""
@@ -309,7 +365,12 @@ class OrderRadar:
     # =====================================================================
     def verify_stripe_signature(self, payload: bytes, sig_header: str) -> bool:
         """Manually verifies Stripe's documented webhook signature scheme
-        (HMAC-SHA256 of 'timestamp.payload') - no stripe SDK dependency needed."""
+        (HMAC-SHA256 of 'timestamp.payload') - no stripe SDK dependency needed.
+
+        Also enforces Stripe's recommended timestamp tolerance: a signature whose
+        't' is more than STRIPE_SIGNATURE_TOLERANCE_SECONDS away from now is rejected
+        even if the HMAC matches, so a captured valid request from months ago can't be
+        replayed later to trigger fulfillment again."""
         secret = self.config.get("stripe_webhook_secret", "")
         if not secret or not sig_header:
             return False
@@ -318,6 +379,10 @@ class OrderRadar:
             timestamp = parts.get("t")
             signature = parts.get("v1")
             if not timestamp or not signature:
+                return False
+            if abs(time.time() - int(timestamp)) > STRIPE_SIGNATURE_TOLERANCE_SECONDS:
+                print(f"[OrderRadar] Stripe webhook rejected: timestamp {timestamp} is outside the "
+                      f"{STRIPE_SIGNATURE_TOLERANCE_SECONDS}s tolerance window (possible replay).")
                 return False
             signed_payload = f"{timestamp}.{payload.decode('utf-8')}".encode("utf-8")
             expected = hmac.new(secret.encode("utf-8"), signed_payload, hashlib.sha256).hexdigest()
@@ -344,6 +409,19 @@ class OrderRadar:
         buyer_email = (session.get("customer_details") or {}).get("email") or session.get("customer_email")
         if not buyer_email:
             return {"success": False, "error": "No buyer email present in Stripe session payload"}
+
+        # checkout.session.completed can fire for a session whose payment hasn't
+        # actually settled yet (e.g. async payment methods like bank debits/vouchers) -
+        # Stripe's own guidance is to check payment_status before fulfilling. A missing
+        # field (older/test payloads) is treated as paid for backward compatibility;
+        # an explicitly present, non-"paid" value blocks fulfillment.
+        payment_status = session.get("payment_status")
+        if payment_status is not None and payment_status != "paid":
+            return {
+                "success": True, "ignored": True,
+                "reason": f"Checkout session payment_status is '{payment_status}', not 'paid' - "
+                           f"not fulfilling yet. Stripe will send a follow-up event once payment settles."
+            }
 
         product_type = (session.get("metadata") or {}).get("product_type", "all")
         product_type = self.config.get("webhook_product_map", {}).get(product_type, product_type)
@@ -392,18 +470,33 @@ class OrderRadar:
     def _fulfill_web_order(self, source: str, external_id: str, buyer_email: str, product_type: str, amount: str) -> Dict[str, Any]:
         """Apex [78 Pt]-style packaging: builds the digital bundle zip, mints a
         single-use capability download link, emails the buyer instantly, and
-        records the order - mirrors the existing Etsy/Fiverr fulfillment pattern."""
-        if any(o.get("id") == external_id for o in self.orders):
-            return {"success": True, "ignored": True, "reason": "Duplicate webhook delivery (order already recorded)"}
+        records the order - mirrors the existing Etsy/Fiverr fulfillment pattern.
+
+        The duplicate-check-and-reserve step runs under self._fulfillment_lock so two
+        near-simultaneous webhook deliveries for the same checkout session (a real
+        scenario - Stripe/Gumroad both retry on slow responses, and a captured request
+        could be replayed) can never both pass the check and double-fulfill the same
+        order (double ZIP build, double email, double download token)."""
+        with self._fulfillment_lock:
+            if any(o.get("id") == external_id for o in self.orders):
+                return {"success": True, "ignored": True, "reason": "Duplicate webhook delivery (order already recorded)"}
+            received_at = datetime.now().isoformat()
+            self.orders.insert(0, {
+                "id": external_id, "platform": source, "buyer": buyer_email,
+                "status": "processing", "received_at": received_at,
+            })
+            self.save_orders()
 
         try:
             from pipeline.stages.etsy_digital_store import EtsyDigitalStore
             etsy_store = EtsyDigitalStore()
             bundle_res = etsy_store.bundle_etsy_product(product_type=product_type)
         except Exception as e:
+            self._discard_processing_reservation(external_id)
             return {"success": False, "error": f"Failed to build fulfillment ZIP: {e}"}
 
         if bundle_res.get("status") != "ok":
+            self._discard_processing_reservation(external_id)
             return {"success": False, "error": f"Bundle build failed: {bundle_res}"}
 
         zip_path = bundle_res["zip_path"]
@@ -416,7 +509,7 @@ class OrderRadar:
         }
         self.save_download_tokens()
 
-        download_url = f"https://100.66.45.48:8800/api/download/order/{token}"
+        download_url = f"{self._public_download_base_url()}/api/download/order/{token}"
         email_res = self.send_fulfillment_email(buyer_email, bundle_res["bundle_name"], download_url)
 
         order_data = {
@@ -425,14 +518,20 @@ class OrderRadar:
             "buyer": buyer_email,
             "title": bundle_res["bundle_name"],
             "amount": amount,
-            "received_at": datetime.now().isoformat(),
+            "received_at": received_at,
             "status": "fulfilled_auto",
             "deadline": "Instant Digital Delivery (Webhook Auto-Fulfillment)",
             "download_url": download_url,
             "email_sent": email_res.get("success", False)
         }
-        self.orders.insert(0, order_data)
-        self.save_orders()
+        with self._fulfillment_lock:
+            for i, o in enumerate(self.orders):
+                if o.get("id") == external_id:
+                    self.orders[i] = order_data
+                    break
+            else:
+                self.orders.insert(0, order_data)
+            self.save_orders()
 
         return {
             "success": True,
@@ -440,6 +539,17 @@ class OrderRadar:
             "download_url": download_url,
             "email_result": email_res
         }
+
+    def _discard_processing_reservation(self, external_id: str) -> None:
+        """Removes a "processing" placeholder order after its bundle build/fulfillment
+        failed, so a legitimate Stripe/Gumroad retry for the same order isn't
+        permanently blocked by the duplicate-id check above."""
+        with self._fulfillment_lock:
+            self.orders = [
+                o for o in self.orders
+                if not (o.get("id") == external_id and o.get("status") == "processing")
+            ]
+            self.save_orders()
 
     def send_fulfillment_email(self, recipient: str, product_title: str, download_url: str) -> Dict[str, Any]:
         """Sends a one-off purchase delivery email, reusing the same SMTP credentials

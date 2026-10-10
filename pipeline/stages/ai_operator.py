@@ -125,6 +125,39 @@ def get_latest_client_batch_dir(session_id: Optional[str] = None) -> Optional[Pa
     return p if p.exists() else None
 
 
+def _find_retouched_package_for_batch(batch_dir: Optional[Path]):
+    """Looks for an Aura photo-retoucher output package (workspace/photos_output/
+    *_RETOUCHED_PACKAGE/manifest.json) whose recorded source_batch matches this exact
+    upload batch, so apex_package can tell the difference between 'the Commander's raw
+    client upload' and 'Aura's finished, color-corrected deliverable' instead of
+    conflating the two (previously apex_package only ever looked at the raw inbox
+    folder, so it could NEVER include retouched output even when aura_retouch had
+    succeeded). Returns (zip_path, manifest) for the newest matching package, or
+    (None, None) if this batch was never successfully retouched."""
+    if not batch_dir:
+        return None, None
+    photos_output_dir = WORKSPACE_DIR / "photos_output"
+    if not photos_output_dir.exists():
+        return None, None
+    matches = []
+    for manifest_path in photos_output_dir.glob("*_RETOUCHED_PACKAGE/manifest.json"):
+        try:
+            with open(manifest_path, "r", encoding="utf-8") as f:
+                manifest = json.load(f)
+        except Exception:
+            continue
+        if manifest.get("source_batch") != batch_dir.name:
+            continue
+        zip_path = photos_output_dir / f"{manifest.get('shoot_name')}_PHOTO_PACKAGE.zip"
+        if zip_path.exists():
+            matches.append((zip_path.stat().st_mtime, zip_path, manifest))
+    if not matches:
+        return None, None
+    matches.sort(key=lambda m: m[0])
+    _, zip_path, manifest = matches[-1]
+    return zip_path, manifest
+
+
 def tag_client_batch(batch_id_or_dir, client_name: str) -> bool:
     """Tags an existing upload batch with a client name at any point after upload -
     lets the Commander name the client later (e.g. at packaging time) instead of
@@ -1032,8 +1065,20 @@ class AIOperatorEngine:
                         # subfolders here since is_file() excludes directories.
                         resolved_paths = [f for f in CLIENT_INBOX_DIR.iterdir() if f.is_file()]
                 if not resolved_paths:
+                    # Make this diagnosable at a glance instead of a bare "not found" -
+                    # this exact gap (requested filenames that don't match what's
+                    # actually in the batch, e.g. a client's photos uploaded as a single
+                    # .zip) previously failed silently with no indication of what was
+                    # actually available to retouch.
+                    available = []
+                    if batch_dir and batch_dir.exists():
+                        available = sorted(f.name for f in batch_dir.iterdir() if f.is_file())
                     result["status"] = "error"
-                    result["error"] = "No matching source photo(s) found to retouch"
+                    result["error"] = (
+                        f"No matching source photo(s) found to retouch. Requested: "
+                        f"{files or '(none specified - defaulted to the whole batch)'}. "
+                        f"Actually in this upload batch: {available or '(empty)'}."
+                    )
                     return result
 
                 from pipeline.stages.photo_retoucher import PhotoRetoucher
@@ -1048,9 +1093,16 @@ class AIOperatorEngine:
                     edit_style=edit_style
                 )
                 style_label = edit_style or style
-                result["message"] = f"Aura [79 Au]: '{style_label}' edit complete for {len(resolved_paths)} image(s) - skin retouch, color grade, social crops, and a print-ready 16-bit master. Bundle: {retouch_res.get('zip_name')}."
-                result["details"] = retouch_res
-                self._attach_media(result, retouch_res.get("zip_file"), title=f"{style_label} retouch bundle")
+                if retouch_res.get("status") != "completed":
+                    # Zero photos actually got retouched (e.g. a .zip/non-image file was
+                    # passed in) - never report this as a finished edit.
+                    result["status"] = "error"
+                    result["error"] = retouch_res.get("error", "Retouching failed - zero photos were processed.")
+                    result["details"] = retouch_res
+                else:
+                    result["message"] = f"Aura [79 Au]: '{style_label}' edit complete for {len(resolved_paths)} image(s) - skin retouch, color grade, social crops, and a print-ready 16-bit master. Bundle: {retouch_res.get('zip_name')}."
+                    result["details"] = retouch_res
+                    self._attach_media(result, retouch_res.get("zip_file"), title=f"{style_label} retouch bundle")
             except Exception as e:
                 result["status"] = "error"
                 result["error"] = str(e)
@@ -1199,6 +1251,13 @@ class AIOperatorEngine:
             pkg_name = f"Delivery_{client}_{timestamp}.zip"
             pkg_path = CLIENT_OUTPUTS_DIR / pkg_name
             try:
+                # Prefer Aura's actual retouched/color-corrected output for this exact
+                # upload batch over the raw client upload - previously apex_package only
+                # ever looked at the raw inbox folder, so it could package (and report as
+                # "done") an entirely un-edited client job even after aura_retouch had
+                # run, or even after aura_retouch had failed outright.
+                retouched_zip, retouch_manifest = _find_retouched_package_for_batch(batch_dir)
+
                 # Package only THIS upload batch's files, never the entire shared
                 # client_inbox/ root, so one client's package can never pick up another
                 # client's (or an unrelated earlier/later) files that merely happen to
@@ -1208,23 +1267,48 @@ class AIOperatorEngine:
                     deliverable_files = [f for f in batch_dir.iterdir() if f.is_file()]
                     if client and client != "Client":
                         tag_client_batch(batch_dir, client)
-                if not deliverable_files:
+                if not deliverable_files and not retouched_zip:
                     # Legacy fallback for files sitting directly in the flat root
                     # (pre-dating batching) - batch_* subfolders are skipped here since
                     # iterdir()+is_file() excludes directories.
                     deliverable_files = [f for f in CLIENT_INBOX_DIR.iterdir() if f.is_file()]
-                if not deliverable_files:
+                if not deliverable_files and not retouched_zip:
                     result["status"] = "error"
                     result["error"] = "No deliverable files found in the client inbox to package"
                     return result
 
                 with zipfile.ZipFile(pkg_path, "w", zipfile.ZIP_DEFLATED) as zipf:
-                    for f in deliverable_files:
-                        zipf.write(f, arcname=f.name)
+                    if retouched_zip:
+                        with zipfile.ZipFile(retouched_zip) as src:
+                            for info in src.infolist():
+                                zipf.writestr(info, src.read(info.filename))
+                    else:
+                        for f in deliverable_files:
+                            zipf.write(f, arcname=f.name)
 
-                result["message"] = f"Apex [78 Pt]: Master delivery archive generated: {pkg_name} ({len(deliverable_files)} file(s))."
+                if retouched_zip:
+                    style_label = retouch_manifest.get("edit_style") or retouch_manifest.get("preset")
+                    photo_count = len(retouch_manifest.get("source_filenames", []))
+                    result["message"] = (
+                        f"Apex [78 Pt]: Master delivery archive generated with Aura's "
+                        f"'{style_label}' edit already applied: {pkg_name} ({photo_count} photo(s))."
+                    )
+                    result["files"] = retouch_manifest.get("source_filenames", [])
+                    result["edited"] = True
+                else:
+                    # No matching retouched output exists for this batch - this is a raw,
+                    # un-edited passthrough. Say so explicitly instead of letting this look
+                    # like a finished, color-corrected deliverable.
+                    result["status"] = "warning"
+                    result["message"] = (
+                        f"⚠️ Apex [78 Pt]: Packaged {len(deliverable_files)} file(s) AS-IS - "
+                        f"no retouched/edited output was found for this upload batch. If "
+                        f"these photos need color correction or retouching, run aura_retouch "
+                        f"on them FIRST, then re-run apex_package."
+                    )
+                    result["files"] = [f.name for f in deliverable_files]
+                    result["edited"] = False
                 result["download_path"] = str(pkg_path)
-                result["files"] = [f.name for f in deliverable_files]
                 self._attach_media(result, pkg_path, title=f"{client} delivery archive")
             except Exception as e:
                 result["status"] = "error"

@@ -1293,7 +1293,14 @@ this.currentBay = initHash || 'command-center';
       });
 
       const data = await res.json();
-      if (status) status.innerText = `✓ Order ${orderNum} fulfilled! ${data.delivery_zip_name} (${data.delivery_zip_size_kb} KB)`;
+      if (data.status === 'error') {
+        if (status) status.innerText = `✗ Fulfillment failed: ${data.error || 'Unknown error'}`;
+        return;
+      }
+      if (status) {
+        const warningText = data.warning ? ` ⚠️ ${data.warning}` : '';
+        status.innerText = `✓ Order ${orderNum} fulfilled! ${data.delivery_zip_name} (${data.delivery_zip_size_kb} KB)${warningText}`;
+      }
 
       const outBox = document.getElementById('fiverr-delivery-output');
       if (outBox) outBox.style.display = 'block';

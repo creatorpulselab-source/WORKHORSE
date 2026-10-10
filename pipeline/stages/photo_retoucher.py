@@ -521,6 +521,23 @@ class PhotoRetoucher:
 
             processed_photos.append(photo_entry)
 
+        if not processed_photos:
+            # Every input path failed cv2.imread() (e.g. a .zip archive or other
+            # non-image file got passed in instead of actual photos) - previously
+            # this fell through to "completed" with an empty package, which let a
+            # whole client job silently produce a finished-looking but unedited
+            # delivery. Fail loudly instead so the caller (and the Commander) knows
+            # nothing was actually retouched.
+            return {
+                "status": "failed",
+                "error": f"None of the {total} input file(s) could be read as images "
+                         f"(unsupported format, corrupt file, or a .zip/archive was "
+                         f"passed in instead of individual photos) - zero photos were retouched.",
+                "total_processed": 0,
+                "source_batch": source_batch,
+                "edit_style": edit_style,
+            }
+
         # Compress bundle into ZIP
         if progress_cb:
             progress_cb("Compressing retouched photo bundle into ZIP...", 90)
