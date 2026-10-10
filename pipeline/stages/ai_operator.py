@@ -240,6 +240,8 @@ When the user asks you to inspect, check, or execute a task, you can invoke:
 - {"tool": "comfy_generate_glb", "agent": "synapse|iris|aura|echo|forge|cipher|herald|mercury|scribe"}: Renders an interactive 3D GLB model on RTX 5070 Ti for the dashboard card.
 - {"tool": "comfy_background_change", "image": "...", "prompt": "...", "negative_prompt": "..."}: Auto-segments the subject (SAM3) out of an uploaded photo and swaps in a brand-new background from a text prompt.
 - {"tool": "comfy_image_to_video", "image": "...", "prompt": "...", "negative_prompt": "...", "width": 720, "height": 1280, "num_frames": 300, "fps": 30, "engine": "ltx2.3|minimax_h3", "duration_seconds": 10, "adult_tuning": false}: Animates a still photo into a short video clip on RTX 5070 Ti. "engine" picks the model: "ltx2.3" (default) is the SageAttention-optimized general-purpose pipeline, safe for any brand. "minimax_h3" is a separate locally-installed engine tuned specifically for adult/boudoir motion - only ever set "adult_tuning": true for the adult_creator_brand ("creatorpulselab"); leave it false (the default) for CreatorMediaLab/TheCreatorAsset or any mainstream-brand request. IMPORTANT: even if you set "adult_tuning": true, it will only actually take effect if the Commander's own message explicitly asked for adult/NSFW content, or their "Adult Content Mode" toggle is on - this is enforced in code, not just by your judgment, so don't be surprised if it silently renders general-brand-safe instead. Takes several minutes - warn the Commander it will take a while before calling this.
+- {"tool": "comfy_generate_3d_pbr", "image": "...", "output_name": "...", "texture_resolution": 4096, "use_trellis2": true}: Converts a still image into a real full-PBR-textured 3D model (.glb) on RTX 5070 Ti - bakes actual base color, metallic, roughness, normal, and ambient occlusion maps onto the mesh (not just a flat tint), via the Pixal3D/Trellis2 pipeline. Takes several minutes - warn the Commander. General-purpose capability, no adult-content restriction.
+- {"tool": "comfy_generate_client_character", "character_name": "charlette|margo|melissa", "prompt": "..."}: Generates an image using one of the Commander's own pre-trained, pre-tested client-identity LoRAs (his own licensed clients, for his own testing only - never postable/marketing content, never for a different client's use). "prompt" is optional - omit it to use that character's existing tuned default. ADULT-GATED: only ever actually runs if the Commander's Adult Content Mode toggle is on or his own message explicitly requested adult content this turn - enforced in code, not just by your judgment, so don't be surprised if it's refused even when you call it.
 - {"tool": "comfy_subject_swap", "image": "...", "reference_face_image": "...", "prompt": "...", "negative_prompt": "..."}: Full-subject identity swap (not just face) - keeps the ORIGINAL photo's pose/outfit/composition, replaces the person's identity using a separate reference face photo. Used for tattoo/identity anonymity protection. Requires BOTH a source pose/outfit photo and a separate reference face photo - ask for both if either is missing.
 - {"tool": "comfy_remote_purge"}: Remotely unloads models and frees 16GB VRAM on RTX 5070 Ti (Main PC).
 - {"tool": "comfy_prewarm", "checkpoint": "..."}: Pre-loads checkpoint into 5070 Ti VRAM before scheduled dispatches.
@@ -1444,6 +1446,60 @@ class AIOperatorEngine:
                     result["status"] = "warning"
                     result["message"] = f"SYNAPSE [100 Fm]: Image-to-video render failed ({engine_label}): {vid_res.get('error')}"
                     result["details"] = vid_res
+            except Exception as e:
+                result["status"] = "error"
+                result["error"] = str(e)
+
+        elif tool_name == "comfy_generate_3d_pbr":
+            filename = tool_call.get("image", "").strip()
+            if not filename:
+                return {"status": "error", "error": "No source image provided for 3D PBR generation"}
+            try:
+                img_path = self._resolve_marketing_source_image(filename)
+                if not img_path.exists():
+                    return {"status": "error", "error": f"Source image not found: {filename}"}
+
+                from pipeline.stages.comfyui_bridge import comfy_bridge
+                pbr_res = comfy_bridge.generate_image_to_3d_pbr(
+                    source_image_path=img_path,
+                    output_name=tool_call.get("output_name"),
+                    texture_resolution=int(tool_call.get("texture_resolution", 4096)),
+                    use_trellis2=bool(tool_call.get("use_trellis2", True))
+                )
+                if pbr_res.get("success"):
+                    result["message"] = f"SYNAPSE [100 Fm]: Full-PBR 3D model generated on RTX 5070 Ti (baked base color/metallic/roughness/normal/AO maps). Saved to: {pbr_res.get('glb_path')}."
+                    result["details"] = pbr_res
+                else:
+                    result["status"] = "warning"
+                    result["message"] = f"SYNAPSE [100 Fm]: 3D PBR generation failed: {pbr_res.get('error')}"
+                    result["details"] = pbr_res
+            except Exception as e:
+                result["status"] = "error"
+                result["error"] = str(e)
+
+        elif tool_name == "comfy_generate_client_character":
+            character_name = tool_call.get("character_name", "").strip()
+            prompt = tool_call.get("prompt")
+            if not character_name:
+                return {"status": "error", "error": "No character_name provided (available: charlette, margo, melissa)"}
+            try:
+                from pipeline.stages.comfyui_bridge import comfy_bridge
+                # adult_allowed is computed upstream in chat() from the Commander's actual
+                # Adult Content Mode toggle or an explicit request in his own message -
+                # never trusted from this tool call's JSON alone. These are licensed
+                # client identity LoRAs for the Commander's own testing only.
+                char_res = comfy_bridge.generate_client_character_image(
+                    character_name=character_name,
+                    prompt=prompt,
+                    adult_allowed=adult_allowed
+                )
+                if char_res.get("success"):
+                    result["message"] = f"SYNAPSE [100 Fm]: Client character render complete for '{character_name}' on RTX 5070 Ti. Saved to: {char_res.get('image_path')}. Tagged CLIENT_CHARACTER_ASSET - this is a client-specific test asset, never postable/marketing content."
+                    result["details"] = char_res
+                else:
+                    result["status"] = "warning"
+                    result["message"] = f"SYNAPSE [100 Fm]: Client character generation failed: {char_res.get('error')}"
+                    result["details"] = char_res
             except Exception as e:
                 result["status"] = "error"
                 result["error"] = str(e)

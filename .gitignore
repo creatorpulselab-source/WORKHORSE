@@ -18,3 +18,15 @@ _grid_debug/
 Thumbs.db
 .pytest_cache/
 standalone_apps/
+
+# Client-specific character LoRA workflows (contain real clients' names/identity LoRA
+# filenames/explicit prompts) - kept local-only, never pushed to GitHub even though
+# this repo is private. The integration code that references them (comfyui_bridge.py)
+# is still committed; only the files themselves containing client-identifying data
+# are excluded.
+comfyui_workflows/flux_dev_charlette_charater.json
+comfyui_workflows/flux_dev_margo_character.json
+comfyui_workflows/flux_dev_melissa_character.json
+pipeline/stages/workflow_templates/client_character_charlette_template.json
+pipeline/stages/workflow_templates/client_character_margo_template.json
+pipeline/stages/workflow_templates/client_character_melissa_template.json

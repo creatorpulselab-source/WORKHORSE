@@ -18,12 +18,32 @@ WORKSPACE_DIR = Path("F:/WORKHORSE/workspace")
 STAGING_DIR = WORKSPACE_DIR / "comfy_staging"
 RENDERS_DIR = WORKSPACE_DIR / "brand_assets" / "comfy_renders"
 VIDEO_RENDERS_DIR = WORKSPACE_DIR / "brand_assets" / "comfy_video_renders"
+PBR_3D_RENDERS_DIR = WORKSPACE_DIR / "brand_assets" / "comfy_3d_pbr_renders"
 AUDIT_LOG_FILE = WORKSPACE_DIR / "comfy_qc_audit.json"
 WORKFLOW_TEMPLATES_DIR = BASE_DIR / "pipeline" / "stages" / "workflow_templates"
 
 STAGING_DIR.mkdir(parents=True, exist_ok=True)
 RENDERS_DIR.mkdir(parents=True, exist_ok=True)
 VIDEO_RENDERS_DIR.mkdir(parents=True, exist_ok=True)
+PBR_3D_RENDERS_DIR.mkdir(parents=True, exist_ok=True)
+
+# Client-specific character LoRA generation workflows (flux_dev + a trained identity LoRA
+# per client, provided and pre-tested by the Commander himself in ComfyUI - submitted
+# exactly as exported, no node changes). CLIENT_CHARACTER_RENDERS_DIR is deliberately
+# separate from brand_assets/comfy_renders (the marketing/postable content folder) and
+# from client_inbox (customer-uploaded files) - these are the Commander's own test
+# generations of his clients' licensed likenesses, and must never be mistaken for
+# postable content, swept into Herald's posting pipeline, or mixed between clients.
+# Gated behind explicit Adult Mode authorization in ai_operator.py, enforced in code,
+# not just by the tool description - same non-bypassable pattern as the MiniMax H3
+# adult-tuned video LoRAs.
+CLIENT_CHARACTER_RENDERS_DIR = WORKSPACE_DIR / "client_character_renders"
+CLIENT_CHARACTER_RENDERS_DIR.mkdir(parents=True, exist_ok=True)
+CLIENT_CHARACTER_PROFILES: Dict[str, str] = {
+    "charlette": "client_character_charlette_template.json",
+    "margo": "client_character_margo_template.json",
+    "melissa": "client_character_melissa_template.json",
+}
 
 # Expert-level quality boosters, keyed by style_preset - injected into every render
 # so "high-end realistic images" is the default output, not an opt-in.
@@ -382,6 +402,252 @@ class ComfyUIBridge:
                 f.write(resp.read())
 
         return dest_path
+
+    def build_pixal3d_trellis2_workflow(self,
+                                        source_image_name: str,
+                                        texture_resolution: int = 4096,
+                                        use_trellis2: bool = True,
+                                        filename_prefix: Optional[str] = None,
+                                        seed: Optional[int] = None) -> Dict[str, Any]:
+        """
+        Builds a ComfyUI API graph for full-PBR image-to-3D generation, based on the
+        Commander's own exported "Pixal3D & TRELLIS.2" workflow template - a far more
+        capable pipeline than the Hunyuan3D path (generate_3d_character_mesh/
+        build_image_to_3d_mesh_workflow): it bakes REAL multi-channel PBR texture maps
+        (base color, metallic, roughness, normal, ambient occlusion) onto the mesh via
+        MoGe geometry estimation + a 3-stage Trellis2 shape/texture/upsample pipeline,
+        instead of tinting the whole mesh with one flat color.
+
+        use_trellis2=True (the template's own default) routes through the Trellis2
+        conditioning/model path; False falls back to the simpler Pixal3DConditioning
+        path already present as a secondary branch in the same graph (useful if a
+        Trellis2-specific model/VAE ever goes missing on the Main PC).
+
+        Only patches the handful of fields that actually need to vary per-call (source
+        image, texture resolution, engine switch, output name, and randomized sampler
+        seeds for generation variety) - the rest of this 60+ node graph is submitted
+        exactly as exported, matching the same minimal-patch philosophy already used
+        for the MiniMax H3 template rather than hand-rebuilding an intricate graph.
+        """
+        template_path = WORKFLOW_TEMPLATES_DIR / "pixal3d_trellis2_img23d_template.json"
+        with open(template_path, "r", encoding="utf-8") as f:
+            workflow = json.load(f)
+
+        seed_base = seed if seed is not None else int(time.time() * 1000) % (2**31 - 1)
+
+        workflow["122"]["inputs"]["image"] = source_image_name
+        workflow["288"]["inputs"]["value"] = texture_resolution
+        workflow["316"]["inputs"]["value"] = use_trellis2
+        workflow["322"]["inputs"]["filename_prefix"] = filename_prefix or f"3D/WORKHORSE_PBR_{seed_base}"
+        # Randomize all 4 KSampler stages (shape, texture, upsample, and the
+        # Pixal3D/Trellis2-conditioning first pass) together from one seed so a
+        # fresh generation doesn't reuse the template's hardcoded example seeds
+        # (56/43/42/42) every single time.
+        for node_id, offset in (("3", 0), ("12", 1), ("18", 2), ("23", 2)):
+            workflow[node_id]["inputs"]["seed"] = (seed_base + offset) % (2**31 - 1)
+
+        return workflow
+
+    def generate_image_to_3d_pbr(self,
+                                 source_image_path: Union[str, Path],
+                                 output_name: Optional[str] = None,
+                                 texture_resolution: int = 4096,
+                                 use_trellis2: bool = True,
+                                 timeout_seconds: int = 900) -> Dict[str, Any]:
+        """
+        End-to-end full-PBR image-to-3D conversion: uploads a reference image, runs it
+        through the Pixal3D/Trellis2 pipeline on the Main PC (RTX 5070 Ti), and saves
+        the resulting textured .glb (with real baked base color/metallic/roughness/
+        normal/AO maps) to workspace/brand_assets/comfy_3d_pbr_renders/.
+        """
+        conn = self.check_connection()
+        if not conn.get("online"):
+            return {"success": False, "error": f"ComfyUI on Main PC is offline ({conn.get('host')}:{conn.get('port')})."}
+
+        source_image_path = Path(source_image_path)
+        if not source_image_path.exists():
+            return {"success": False, "error": f"Source image not found: {source_image_path}"}
+
+        template_path = WORKFLOW_TEMPLATES_DIR / "pixal3d_trellis2_img23d_template.json"
+        if not template_path.exists():
+            return {"success": False, "error": f"Workflow template not found: {template_path}"}
+
+        try:
+            uploaded_name = self.upload_image_to_comfy(source_image_path)
+        except Exception as e:
+            return {"success": False, "error": f"Failed to upload source image to ComfyUI: {e}"}
+
+        clean_name = (output_name or source_image_path.stem).strip().replace(" ", "_")
+        workflow = self.build_pixal3d_trellis2_workflow(
+            source_image_name=uploaded_name,
+            texture_resolution=texture_resolution,
+            use_trellis2=use_trellis2,
+            filename_prefix=f"3D/WORKHORSE_PBR_{clean_name}"
+        )
+
+        try:
+            queued = self.queue_prompt(workflow)
+            prompt_id = queued.get("prompt_id")
+            if not prompt_id:
+                return {"success": False, "error": f"No prompt_id returned by ComfyUI. node_errors: {queued.get('node_errors')}"}
+
+            mesh_ref = self.wait_for_mesh_execution(prompt_id, timeout_seconds=timeout_seconds)
+            if not mesh_ref:
+                return {"success": False, "error": "ComfyUI PBR 3D generation timed out or yielded no .glb output"}
+
+            staged_path = self.download_mesh(
+                filename=mesh_ref["filename"],
+                subfolder=mesh_ref.get("subfolder", ""),
+                folder_type=mesh_ref.get("type", "output")
+            )
+        except RuntimeError as e:
+            return {"success": False, "error": f"ComfyUI PBR 3D generation failed: {e}"}
+        except Exception as e:
+            return {"success": False, "error": f"ComfyUI PBR 3D generation failed: {e}"}
+
+        dest_path = PBR_3D_RENDERS_DIR / f"{clean_name}_{int(time.time())}.glb"
+        staged_path.rename(dest_path)
+
+        return {
+            "success": True,
+            "glb_path": str(dest_path),
+            "source_image": str(source_image_path),
+            "engine": "trellis2" if use_trellis2 else "pixal3d",
+            "texture_resolution": texture_resolution,
+            "host_used": f"{self.host}:{self.port}"
+        }
+
+    def build_client_character_workflow(self,
+                                        character_name: str,
+                                        prompt: Optional[str] = None,
+                                        seed: Optional[int] = None,
+                                        filename_prefix: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Loads one of the Commander's own pre-tested, pre-tuned flux_dev + client-identity-
+        LoRA workflows (Charlette/Margo/Melissa) exactly as exported - every node, LoRA
+        stack, and sampler setting is left untouched per the Commander's explicit
+        instruction, since he already validated these directly in ComfyUI. Only patches
+        the prompt text (if a new one is given - otherwise keeps the template's own),
+        the generation seed (for variety across calls), and both SaveImage nodes'
+        filename_prefix, tagged CLIENT_CHARACTER_<name> so this is never mistaken for
+        postable marketing content or mixed up with a different client's renders.
+        """
+        template_name = CLIENT_CHARACTER_PROFILES.get(character_name.lower().strip())
+        if not template_name:
+            raise ValueError(
+                f"Unknown client character '{character_name}'. Available: "
+                f"{', '.join(CLIENT_CHARACTER_PROFILES.keys())}"
+            )
+        template_path = WORKFLOW_TEMPLATES_DIR / template_name
+        with open(template_path, "r", encoding="utf-8") as f:
+            workflow = json.load(f)
+
+        if prompt:
+            workflow["41:45"]["inputs"]["text"] = prompt
+
+        seed_base = seed if seed is not None else int(time.time() * 1000) % (2**31 - 1)
+        workflow["41:31"]["inputs"]["seed"] = seed_base
+        workflow["41:54"]["inputs"]["seed"] = (seed_base + 1) % (2**31 - 1)
+
+        tag = filename_prefix or f"CLIENT_CHARACTER_{character_name.upper()}"
+        workflow["9"]["inputs"]["filename_prefix"] = f"{tag}_base"
+        workflow["42"]["inputs"]["filename_prefix"] = f"{tag}_final"
+
+        return workflow
+
+    def generate_client_character_image(self,
+                                        character_name: str,
+                                        prompt: Optional[str] = None,
+                                        seed: Optional[int] = None,
+                                        adult_allowed: bool = False,
+                                        timeout_seconds: int = 240) -> Dict[str, Any]:
+        """
+        Generates an image of one of the Commander's own licensed client character
+        LoRAs (Charlette/Margo/Melissa) for his own testing - NEVER for posting, and
+        NEVER usable without adult_allowed=True. This flag must be computed upstream
+        from the Commander's actual Adult Content Mode toggle or an explicit request in
+        his own message (see ai_operator.py's chat()/_detect_explicit_adult_request) -
+        never trusted from a tool-call's JSON alone. Hard-gated here in code (not just
+        omitted from a tool description) so this can never fire by accident.
+        """
+        if not adult_allowed:
+            return {
+                "success": False,
+                "error": "Client character generation requires Adult Content Mode to be "
+                         "on (or an explicit adult-content request this turn) - these are "
+                         "licensed client identity LoRAs, not general-purpose content."
+            }
+
+        clean_name = character_name.lower().strip()
+        if clean_name not in CLIENT_CHARACTER_PROFILES:
+            return {
+                "success": False,
+                "error": f"Unknown client character '{character_name}'. Available: "
+                         f"{', '.join(CLIENT_CHARACTER_PROFILES.keys())}"
+            }
+
+        conn = self.check_connection()
+        if not conn.get("online"):
+            return {"success": False, "error": f"ComfyUI on Main PC is offline ({conn.get('host')}:{conn.get('port')})."}
+
+        try:
+            workflow = self.build_client_character_workflow(clean_name, prompt=prompt, seed=seed)
+        except ValueError as e:
+            return {"success": False, "error": str(e)}
+
+        try:
+            queued = self.queue_prompt(workflow)
+            prompt_id = queued.get("prompt_id")
+            if not prompt_id:
+                return {"success": False, "error": f"No prompt_id returned by ComfyUI. node_errors: {queued.get('node_errors')}"}
+
+            # Pull the final hi-res/refined pass (SaveImage node "42") specifically,
+            # rather than the generic "first image found anywhere" collector - this
+            # graph has two SaveImage nodes (base pass + upscale-refine pass) and the
+            # refined one is the actual deliverable.
+            history_url = f"{self.get_base_url()}/history/{prompt_id}"
+            start_time = time.time()
+            image_ref = None
+            while time.time() - start_time < timeout_seconds:
+                req = urllib.request.Request(history_url)
+                with urllib.request.urlopen(req, timeout=5) as resp:
+                    history = json.loads(resp.read().decode("utf-8"))
+                if prompt_id in history:
+                    outputs = history[prompt_id].get("outputs", {})
+                    final_images = outputs.get("42", {}).get("images", [])
+                    base_images = outputs.get("9", {}).get("images", [])
+                    if final_images:
+                        image_ref = final_images[0]
+                        break
+                    if base_images and not outputs.get("42"):
+                        # Final refine node hasn't produced output for some reason but
+                        # the base pass has - fall back to it rather than hanging.
+                        image_ref = base_images[0]
+                time.sleep(1.5)
+
+            if not image_ref:
+                return {"success": False, "error": "ComfyUI client character generation timed out or yielded no image output"}
+
+            staged_path = self.download_image(
+                filename=image_ref["filename"],
+                subfolder=image_ref.get("subfolder", ""),
+                folder_type=image_ref.get("type", "output")
+            )
+        except Exception as e:
+            return {"success": False, "error": f"ComfyUI client character generation failed: {e}"}
+
+        char_dir = CLIENT_CHARACTER_RENDERS_DIR / clean_name
+        char_dir.mkdir(parents=True, exist_ok=True)
+        dest_path = char_dir / f"{clean_name}_{int(time.time())}.png"
+        staged_path.rename(dest_path)
+
+        return {
+            "success": True,
+            "character": clean_name,
+            "image_path": str(dest_path),
+            "tag": "CLIENT_CHARACTER_ASSET",
+            "host_used": f"{self.host}:{self.port}"
+        }
 
     def generate_3d_character_mesh(self,
                                    agent_name: str,

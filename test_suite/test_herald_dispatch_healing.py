@@ -73,9 +73,23 @@ def test_dispatch_slot_does_not_mark_executed_on_exception(scheduler):
 
 # --- Twitter watchdog: retry then alert exactly once ---
 
-def test_twitter_watchdog_retries_up_to_max_then_alerts_once(scheduler):
+def test_twitter_watchdog_retries_up_to_max_then_alerts_once(scheduler, monkeypatch):
+    """Freezes the clock to just after slot_1's target time (and before slot_2's) so
+    exactly one slot is due, regardless of what time of day this test actually runs -
+    without this, every slot whose target_time has already passed "today" (which, late
+    in the day, can be all 5 of them) would independently retry/alert, making the
+    "alerted exactly once" assertion below flaky depending on wall-clock time."""
     slot_id = _first_slot_id()
     scheduler.state["last_date"] = __import__("datetime").date.today().isoformat()  # skip rollover reset mid-test
+
+    fixed_now = __import__("datetime").datetime.combine(__import__("datetime").date.today(), __import__("datetime").time(9, 30))
+
+    class _FrozenDateTime(__import__("datetime").datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return fixed_now
+
+    monkeypatch.setattr("pipeline.stages.herald_scheduler.datetime", _FrozenDateTime)
 
     with patch.object(scheduler.twitter, "post_thread", return_value={"success": False, "error": "boom"}), \
          patch("pipeline.stages.ai_operator.ai_operator.log_incident") as mock_log, \
