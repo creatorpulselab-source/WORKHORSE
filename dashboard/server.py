@@ -471,7 +471,7 @@ async def upload_photos(files: List[UploadFile] = File(...)):
 @app.post("/api/photos/retouch")
 async def retouch_photo_shoot(payload: Dict[str, Any]):
     shoot_name = payload.get("shoot_name", "glamour_shoot")
-    preset = payload.get("preset", "moody_boudoir")
+    preset = payload.get("preset", "pro_natural")
     strength = float(payload.get("smooth_strength", 0.5))
     watermark = payload.get("watermark_text", "@ExclusiveDrop")
     edit_style = payload.get("edit_style")  # "glamour"|"natural"|"concert_stage"|"family_event"
@@ -483,15 +483,121 @@ async def retouch_photo_shoot(payload: Dict[str, Any]):
     if not files:
         raise HTTPException(status_code=400, detail="No photos found in workspace/photos_input/")
 
+    print_master = bool(payload.get("print_master", False))
     res = photo_retoucher.process_photo_batch(
         image_paths=files,
         shoot_name=shoot_name,
         preset=preset,
         smooth_strength=strength,
         watermark_text=watermark,
-        edit_style=edit_style
+        edit_style=edit_style,
+        print_master=print_master
     )
     return res
+
+@app.get("/api/photos/packages")
+async def list_photo_packages():
+    """Lists all available retouched photo packages on disk."""
+    out_dir = BASE_DIR / "workspace" / "photos_output"
+    if not out_dir.exists():
+        return {"packages": []}
+    packages = []
+    for p in out_dir.iterdir():
+        if p.is_dir() and p.name.endswith("_RETOUCHED_PACKAGE"):
+            manifest_file = p / "manifest.json"
+            created_at = None
+            total_photos = 0
+            if manifest_file.exists():
+                try:
+                    with open(manifest_file, "r", encoding="utf-8") as mf:
+                        m_data = json.load(mf)
+                        created_at = m_data.get("created_at")
+                        total_photos = len(m_data.get("source_filenames", []))
+                except Exception:
+                    pass
+            if not total_photos:
+                master_dir = p / "01_master_fullres"
+                if master_dir.exists():
+                    total_photos = len([f for f in master_dir.iterdir() if f.is_file()])
+
+            shoot_stem = p.name.replace("_RETOUCHED_PACKAGE", "")
+            client_zip = out_dir / f"{shoot_stem}_CLIENT_PACKAGE.zip"
+            photo_zip = out_dir / f"{shoot_stem}_PHOTO_PACKAGE.zip"
+            zip_file = client_zip if client_zip.exists() else (photo_zip if photo_zip.exists() else None)
+            zip_size_mb = round(zip_file.stat().st_size / (1024**2), 1) if zip_file else 0
+
+            packages.append({
+                "package_name": p.name,
+                "shoot_name": shoot_stem,
+                "total_photos": total_photos,
+                "created_at": created_at,
+                "zip_name": zip_file.name if zip_file else None,
+                "zip_size_mb": zip_size_mb,
+                "mtime": p.stat().st_mtime
+            })
+    packages.sort(key=lambda x: x.get("mtime", 0), reverse=True)
+    return {"packages": packages}
+
+
+@app.get("/api/photos/latest-retouched")
+async def get_latest_retouched_package(package_name: Optional[str] = None):
+    """Loads a retouched package from disk so the UI gallery displays all retouched images."""
+    out_dir = BASE_DIR / "workspace" / "photos_output"
+    if not out_dir.exists():
+        return {"status": "none", "photos": []}
+
+    target_pkg = None
+    if package_name:
+        candidate = out_dir / package_name
+        if candidate.exists() and candidate.is_dir():
+            target_pkg = candidate
+
+    if not target_pkg:
+        dirs = [p for p in out_dir.iterdir() if p.is_dir() and p.name.endswith("_RETOUCHED_PACKAGE")]
+        if not dirs:
+            return {"status": "none", "photos": []}
+        dirs.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+        target_pkg = dirs[0]
+
+    shoot_name = target_pkg.name.replace("_RETOUCHED_PACKAGE", "")
+    master_dir = target_pkg / "01_master_fullres"
+    teasers_dir = target_pkg / "02_social_teasers"
+    crops_4x5_dir = target_pkg / "03_instagram_4x5"
+    crops_9x16_dir = target_pkg / "04_stories_9x16"
+
+    photos = []
+    if master_dir.exists():
+        image_exts = {".jpg", ".jpeg", ".png", ".webp"}
+        master_files = sorted([f for f in master_dir.iterdir() if f.is_file() and f.suffix.lower() in image_exts])
+        for mf in master_files:
+            stem = mf.stem.replace("_retouched", "")
+            orig_name = f"{stem}.jpg"
+            teaser_file = teasers_dir / f"{stem}_teaser_preview.jpg" if teasers_dir.exists() else None
+            c45_file = crops_4x5_dir / f"{stem}_4x5.jpg" if crops_4x5_dir.exists() else None
+            c916_file = crops_9x16_dir / f"{stem}_9x16.jpg" if crops_9x16_dir.exists() else None
+
+            photos.append({
+                "original": orig_name,
+                "master": str(mf.relative_to(out_dir)).replace("\\", "/"),
+                "teaser": str(teaser_file.relative_to(out_dir)).replace("\\", "/") if (teaser_file and teaser_file.exists()) else str(mf.relative_to(out_dir)).replace("\\", "/"),
+                "crop_4x5": str(c45_file.relative_to(out_dir)).replace("\\", "/") if (c45_file and c45_file.exists()) else str(mf.relative_to(out_dir)).replace("\\", "/"),
+                "crop_9x16": str(c916_file.relative_to(out_dir)).replace("\\", "/") if (c916_file and c916_file.exists()) else str(mf.relative_to(out_dir)).replace("\\", "/"),
+            })
+
+    client_zip = out_dir / f"{shoot_name}_CLIENT_PACKAGE.zip"
+    photo_zip = out_dir / f"{shoot_name}_PHOTO_PACKAGE.zip"
+    zip_file = client_zip if client_zip.exists() else (photo_zip if photo_zip.exists() else None)
+    zip_size_mb = round(zip_file.stat().st_size / (1024**2), 1) if zip_file else 0
+
+    return {
+        "status": "completed",
+        "shoot_name": shoot_name,
+        "package_name": target_pkg.name,
+        "zip_name": zip_file.name if zip_file else None,
+        "zip_size_mb": zip_size_mb,
+        "total_processed": len(photos),
+        "photos": photos
+    }
 
 # =========================================================================
 # INSPIRATION & SHOOT IDEAS BAY APIS
@@ -881,10 +987,14 @@ async def serve_media(file_path: str):
 
 @app.get("/api/download/photos-zip/{shoot_name}")
 async def download_photos_bundle(shoot_name: str):
-    zip_path = BASE_DIR / "workspace" / "photos_output" / f"{shoot_name}_PHOTO_PACKAGE.zip"
-    if not zip_path.exists():
-        raise HTTPException(status_code=404, detail="Photo bundle zip not found")
-    return FileResponse(zip_path, filename=zip_path.name, media_type="application/zip")
+    out_dir = BASE_DIR / "workspace" / "photos_output"
+    client_zip = out_dir / f"{shoot_name}_CLIENT_PACKAGE.zip"
+    if client_zip.exists():
+        return FileResponse(client_zip, filename=client_zip.name, media_type="application/zip")
+    zip_path = out_dir / f"{shoot_name}_PHOTO_PACKAGE.zip"
+    if zip_path.exists():
+        return FileResponse(zip_path, filename=zip_path.name, media_type="application/zip")
+    raise HTTPException(status_code=404, detail="Photo bundle zip not found")
 
 @app.get("/api/download/zip/{job_id}")
 async def download_bundle_zip(job_id: str):

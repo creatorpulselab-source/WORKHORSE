@@ -146,6 +146,10 @@ MEDIA INFO:
 For the Instagram "caption_variants" array, write exactly {len(resolved_styles)} DIFFERENT caption variants, one per style below, each tagged with its exact style name:
 {style_guide_str}
 
+CRITICAL COPYWRITING RULES:
+- Never write teasers or rhetorical questions that leave the audience without context or payoff. Deliver real narrative hook and aesthetic value first. If asking an engagement question, position it at the end to drive comments after providing a strong hook.
+- If mentioning lists or tips (e.g. '3 poses', 'Top 5'), enumerate the specific items.
+
 Respond in STRICT, VALID JSON format with no markdown wrappers or extra commentary. Follow this JSON schema:
 {schema_block}"""
 
@@ -318,13 +322,27 @@ Respond in STRICT, VALID JSON format with no markdown wrappers or extra commenta
 
         research_context = ""
         if research_articles:
-            headlines = [a.get("title", "") for a in research_articles if a.get("title")]
-            if headlines:
+            items_str = []
+            for a in research_articles:
+                title = (a.get("title") or "").strip()
+                snippet = (a.get("snippet") or a.get("summary") or "").strip()
+                url = (a.get("url") or "").strip()
+                if title and snippet:
+                    ref_str = f" [Ref: {url}]" if url else ""
+                    items_str.append(f"- **{title}**: {snippet}{ref_str}")
+                elif title:
+                    ref_str = f" [Ref: {url}]" if url else ""
+                    items_str.append(f"- **{title}**{ref_str}")
+            if items_str:
                 research_context = (
-                    "\n\nToday's real researched headlines in this publication's niche "
-                    "(use these to ground your angles in what's ACTUALLY happening right now "
-                    "- reference or riff on them where relevant, don't just ignore them):\n"
-                    + "\n".join(f"- {h}" for h in headlines)
+                    "\n\nTODAY'S GROUND-TRUTH RESEARCH & LIVE INDUSTRY DATA IN THIS PUBLICATION'S NICHE:\n"
+                    + "\n".join(items_str)
+                    + "\n\nCRITICAL EDITORIAL & CONVERSION RULES (MANDATORY):\n"
+                    + "1. GROUNDED IN REALITY: Ground your angles, lead story, and takeaways directly in the verified research and industry facts above.\n"
+                    + "2. NO UNANSWERED QUESTIONS / CLIFFHANGERS: Never post rhetorical questions or teasers without immediately delivering the answer, data, or solution in full.\n"
+                    + "3. COMPLETE LISTS & FRAMEWORKS: If you refer to a numbered list (e.g. '3 Formulas', '5 Mistakes', 'Top 4 Tools'), YOU MUST FULLY ENUMERATE AND EXPLAIN EVERY SINGLE ITEM. Never stop at a partial list or cliffhanger.\n"
+                    + "4. ACTIONABLE SPECIFICITY: Provide exact percentages, slider settings, lighting setups, or verbatim script wording so the reader receives immediate, practical value.\n"
+                    + "5. FRESHNESS: Every section must read as if written fresh today, not recycled or generic filler.\n"
                 )
 
         section_schema = self.SECTION_SCHEMAS.get(pub_id, "")

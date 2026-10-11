@@ -6,6 +6,7 @@ import numpy as np
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Callable
 import zipfile
+from pipeline.stages.color_science import process_image, to_uint8_dithered
 
 # Named edit-style profiles bundling a color grade preset, retouch-pass settings, and
 # delivery conventions (watermark on/off) for a given use case - lets callers (Synapse's
@@ -14,6 +15,12 @@ import zipfile
 # original heavy-retouch behavior; the newer styles cover the other work the Commander
 # actually shoots (plain/everyday photos, live performers on stage, family/event candids).
 STYLE_PROFILES: Dict[str, Dict[str, Any]] = {
+    "pro_natural": {
+        "preset": "pro_natural",
+        "smooth_strength": 0.35,
+        "engine": "pro",
+        "watermark": True
+    },
     "glamour": {
         "preset": "moody_boudoir",
         "smooth_strength": 0.55,
@@ -101,7 +108,11 @@ class PhotoRetoucher:
         """Apply cinematic creator color grades using matrix transforms and curves."""
         img_float = img.astype(np.float32) / 255.0
 
-        if preset == "moody_boudoir":
+        if preset == "pro_natural":
+            out_f32, _ = process_image(img, smooth_strength=0.0)
+            return to_uint8_dithered(out_f32)
+
+        elif preset == "moody_boudoir":
             # Boost warm shadow tones, increase contrast, deep rich blacks
             b, g, r = cv2.split(img_float)
             r = np.clip(r * 1.08 + 0.02, 0, 1)
@@ -332,6 +343,34 @@ class PhotoRetoucher:
         except Exception:
             return img
 
+    @staticmethod
+    def _save_master_jpeg(img_u8_bgr: np.ndarray, out_path: Path, src_path: Optional[Path] = None, quality: int = 95):
+        """Save master JPEG with embedded sRGB ICC profile and 4:4:4 chroma subsampling,
+        preserving original EXIF metadata if present."""
+        try:
+            from PIL import Image, ImageCms
+            rgb = cv2.cvtColor(img_u8_bgr, cv2.COLOR_BGR2RGB)
+            pil_img = Image.fromarray(rgb)
+            srgb = ImageCms.createProfile("sRGB")
+            icc_bytes = ImageCms.ImageCmsProfile(srgb).tobytes()
+            exif = None
+            if src_path and Path(src_path).exists():
+                try:
+                    with Image.open(src_path) as s_im:
+                        exif = s_im.info.get("exif")
+                except Exception:
+                    pass
+            save_kwargs = {
+                "quality": quality,
+                "subsampling": 0,
+                "icc_profile": icc_bytes,
+            }
+            if exif:
+                save_kwargs["exif"] = exif
+            pil_img.save(str(out_path), **save_kwargs)
+        except Exception:
+            cv2.imwrite(str(out_path), img_u8_bgr, [int(cv2.IMWRITE_JPEG_QUALITY), quality])
+
     def export_print_master(self, img: np.ndarray, out_path: Path, dpi: int = 300) -> Optional[Path]:
         """Writes a print-ready 16-bit-per-channel TIFF with an embedded sRGB ICC color
         profile and a real DPI tag, using lossless LZW compression - zero additional
@@ -344,8 +383,10 @@ class PhotoRetoucher:
             import tifffile
             from PIL import ImageCms
             rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-            # Scale 8-bit (0-255) up to the full 16-bit (0-65535) range
-            rgb_16 = (rgb.astype(np.uint16) * 257)
+            if rgb.dtype in (np.float32, np.float64):
+                rgb_16 = np.clip(rgb * 65535.0 + 0.5, 0, 65535).astype(np.uint16)
+            else:
+                rgb_16 = (rgb.astype(np.uint16) * 257)
             srgb_profile = ImageCms.createProfile("sRGB")
             icc_bytes = ImageCms.ImageCmsProfile(srgb_profile).tobytes()
             out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -411,7 +452,7 @@ class PhotoRetoucher:
         progress_cb: Optional[Callable[[str, int], None]] = None,
         source_batch: Optional[str] = None,
         edit_style: Optional[str] = None,
-        print_master: bool = True
+        print_master: bool = False
     ) -> Dict[str, Any]:
         """Process batch of photos with retouching, crops, and export bundle.
 
@@ -437,6 +478,7 @@ class PhotoRetoucher:
         active_preset = profile.get("preset", preset)
         active_smooth_strength = profile.get("smooth_strength", smooth_strength)
         apply_watermark = profile.get("watermark", True) if edit_style else True
+        is_pro = (profile.get("engine") == "pro") or (active_preset == "pro_natural")
 
         pkg_dir = self.output_base / f"{shoot_name}_RETOUCHED_PACKAGE"
         pkg_dir.mkdir(parents=True, exist_ok=True)
@@ -465,32 +507,36 @@ class PhotoRetoucher:
             if img is None:
                 continue
 
-            # 1. Skin smoothing (true frequency separation)
-            retouched = self.apply_skin_smoothing(img, strength=active_smooth_strength)
+            float_master = None
+            if is_pro:
+                # Expert-level color science: adaptive skin model, bounded cast correction,
+                # linear-light white point & highlight shoulder, shadow lift, shine compression,
+                # and frequency-separated masked retouch.
+                float_master, report = process_image(img, smooth_strength=active_smooth_strength)
+                graded = to_uint8_dithered(float_master)
+            else:
+                # Legacy pipeline for backward compatibility with existing styles/presets
+                retouched = self.apply_skin_smoothing(img, strength=active_smooth_strength)
+                if profile.get("heal"):
+                    retouched = self.heal_blemishes(retouched)
+                if profile.get("skin_tone"):
+                    retouched = self.correct_skin_tone(retouched)
+                if profile.get("mattify"):
+                    retouched = self.reduce_shine(retouched)
+                if profile.get("portrait_volumes"):
+                    retouched = self.enhance_portrait_volumes(retouched)
+                if profile.get("eye_vessels"):
+                    retouched = self.reduce_eye_redness(retouched)
 
-            # 1b. Professional retouch suite passes - only those this edit_style profile
-            # calls for (glamour runs the full suite; natural/concert/family run a much
-            # lighter subset, or none, to stay true-to-life rather than "polished").
-            if profile.get("heal"):
-                retouched = self.heal_blemishes(retouched)
-            if profile.get("skin_tone"):
-                retouched = self.correct_skin_tone(retouched)
-            if profile.get("mattify"):
-                retouched = self.reduce_shine(retouched)
-            if profile.get("portrait_volumes"):
-                retouched = self.enhance_portrait_volumes(retouched)
-            if profile.get("eye_vessels"):
-                retouched = self.reduce_eye_redness(retouched)
-
-            # 2. Color grading
-            graded_raw = self.apply_color_grade(retouched, preset=active_preset)
-            # 3. Clarity/sharpen finishing pass
-            graded = self.apply_clarity_sharpen(graded_raw)
+                # 2. Color grading
+                graded_raw = self.apply_color_grade(retouched, preset=active_preset)
+                # 3. Clarity/sharpen finishing pass
+                graded = self.apply_clarity_sharpen(graded_raw)
 
             stem = img_path.stem
-            # Save master fullres
+            # Save master fullres with sRGB ICC & EXIF
             out_master = fullres_dir / f"{stem}_retouched.jpg"
-            cv2.imwrite(str(out_master), graded, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
+            self._save_master_jpeg(graded, out_master, src_path=img_path, quality=95)
 
             # Save social crops
             crop_4x5 = self.crop_aspect_ratio(graded, 4, 5)
@@ -516,7 +562,7 @@ class PhotoRetoucher:
 
             if print_master:
                 out_print = print_master_dir / f"{stem}_print_master.tiff"
-                if self.export_print_master(graded, out_print):
+                if self.export_print_master(float_master if float_master is not None else graded, out_print):
                     photo_entry["print_master"] = str(out_print.relative_to(self.output_base))
 
             processed_photos.append(photo_entry)
@@ -563,7 +609,12 @@ class PhotoRetoucher:
         zip_path = self.output_base / f"{shoot_name}_PHOTO_PACKAGE.zip"
         with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
             for root, dirs, files in os.walk(pkg_dir):
+                # Never include the massive 16-bit print TIFF folder in standard client deliverable zip
+                if "05_print_master_16bit" in root:
+                    continue
                 for file in files:
+                    if file.lower().endswith((".tiff", ".tif")):
+                        continue
                     file_path = Path(root) / file
                     arcname = file_path.relative_to(pkg_dir)
                     zipf.write(file_path, arcname=str(arcname))

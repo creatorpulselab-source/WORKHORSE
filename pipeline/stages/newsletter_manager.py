@@ -178,6 +178,18 @@ class NewsletterManager:
         try:
             from pipeline.stages.trend_researcher import trend_researcher
             research_articles = trend_researcher.get_research_articles_for_pub(pub_id)
+            if not research_articles:
+                matrix = trend_researcher.get_static_trend_matrix()
+                if pub_id == "studio_wire":
+                    research_articles = [
+                        {"title": t["name"], "snippet": f"Aesthetic trend: {t['vibe']}. High-end commercial studio color grading and lighting setup."}
+                        for t in matrix.get("photo_retouching", {}).get("aesthetic_trends", [])
+                    ]
+                elif pub_id == "creator_pulse":
+                    research_articles = [
+                        {"title": f"Monetization Strategy: {t['tier']}", "snippet": f"Objective: {t['purpose']}. Strategic architecture for maximizing retention and average tip volume."}
+                        for t in matrix.get("creator_monetization", {}).get("token_pricing_sweet_spots", [])
+                    ]
         except Exception as e:
             print(f"[NewsletterManager] Could not load research context for {pub_id}: {e}")
 
@@ -660,7 +672,12 @@ class NewsletterManager:
         if not recipients:
             return {"success": False, "error": f"No active subscribers for '{pub_id}'", "sent": 0}
 
-        subject = pub["subject"]
+        # Dynamic subject line: bind to today's Scribe headline so emails never look identical
+        scribe_content = self._get_daily_scribe_content(pub_id)
+        if scribe_content and scribe_content.get("lead_headline"):
+            subject = f"{pub['name']}: {scribe_content['lead_headline']}"
+        else:
+            subject = pub["subject"]
         html_body = self.get_html_preview(pub_id)
         sent: List[str] = []
         failed: List[Dict[str, str]] = []
@@ -707,7 +724,12 @@ class NewsletterManager:
             return {"success": False, "error": "Email dispatch is disabled in config"}
 
         pub = self.publications.get(pub_id, self.publications["creator_pulse"])
-        subject = f"[TEST ISSUE] {pub['subject']}"
+        scribe_content = self._get_daily_scribe_content(pub_id)
+        if scribe_content and scribe_content.get("lead_headline"):
+            base_subj = f"{pub['name']}: {scribe_content['lead_headline']}"
+        else:
+            base_subj = pub["subject"]
+        subject = f"[TEST ISSUE] {base_subj}"
         html_body = self.get_html_preview(pub_id)
 
         try:
@@ -827,7 +849,7 @@ class NewsletterManager:
         except Exception:
             pass
 
-    def get_publication_visual_embed(self, pub_id: str = "creator_pulse") -> Dict[str, str]:
+    def get_publication_visual_embed(self, pub_id: str = "creator_pulse", topic_text: Optional[str] = None) -> Dict[str, str]:
         """
         Returns image src and captions for newsletters.
         If an approved ComfyUI 5070 Ti render exists, embeds it dynamically.
@@ -843,11 +865,12 @@ class NewsletterManager:
                 data_uri = f"data:{mime};base64,{b64}"
                 url_path = f"/static/brand_assets/comfy_renders/{visual_path.name}"
                 is_pulse = any(k in pub_id.lower() for k in ["pulse", "boudoir", "cam", "adult", "cpl"])
+                topic_clean = html.escape(topic_text[:65]) if topic_text else None
                 if is_pulse:
-                    caption = "💋 Figure 4.1 &bull; Luxury Boudoir & Monetization Styling (RTX 5070 Ti &bull; Iris [77 Ir] Verified)"
+                    caption = f"💋 Figure 4.1 &bull; {topic_clean} (RTX 5070 Ti &bull; Iris [77 Ir] Verified)" if topic_clean else "💋 Figure 4.1 &bull; Luxury Boudoir & Monetization Styling (RTX 5070 Ti &bull; Iris [77 Ir] Verified)"
                     subcaption = "Warm Rim Lighting &bull; Intimate Velvet & Satin Texture"
                 else:
-                    caption = "📸 Figure 4.1 &bull; Editorial Studio Masterclass (RTX 5070 Ti &bull; Iris [77 Ir] Verified)"
+                    caption = f"📸 Figure 4.1 &bull; {topic_clean} (RTX 5070 Ti &bull; Iris [77 Ir] Verified)" if topic_clean else "📸 Figure 4.1 &bull; Editorial Studio Masterclass (RTX 5070 Ti &bull; Iris [77 Ir] Verified)"
                     subcaption = "5600K Key + Kodak Portra 400 Calibration &bull; Magazine Depth of Field"
 
                 return {
@@ -901,13 +924,13 @@ class NewsletterManager:
 
     # ── 1. THE DAILY CREATOR PULSE ──────────────────────────────────────────
     def _build_creator_pulse_html(self, today_str: str) -> str:
-        visual_info = self.get_publication_visual_embed("creator_pulse")
-        img_src = visual_info["src"]
-        caption = visual_info["caption"]
-        subcaption = visual_info["subcaption"]
         scribe_content = self._get_daily_scribe_content("creator_pulse") or {}
         issue_number = self._get_daily_issue_number("creator_pulse", start_at=42)
         lead_headline = html.escape(scribe_content.get("lead_headline") or "Why Tight Face-Framing Crops Are Beating Full-Body Feeds")
+        visual_info = self.get_publication_visual_embed("creator_pulse", topic_text=lead_headline)
+        img_src = visual_info["src"]
+        caption = visual_info["caption"]
+        subcaption = visual_info["subcaption"]
         lead_body = html.escape(scribe_content.get("lead_body") or "Short-form recommendation engines (TikTok, IG Reels, and Twitter/X) are heavily penalizing wide glamour shots that resemble sensitive content. Top-earning creators are seeing a 3.4x lift in organic reach by using tight 4:5 portrait crops focusing strictly on eye contact, lips, and subtle expressions.")
 
         # Dynamic Section 1 metric cards - fall back to the original static stats
@@ -1212,13 +1235,13 @@ class NewsletterManager:
 
     # ── 2. THE SHUTTER & STUDIO WIRE ─────────────────────────────────────────
     def _build_studio_wire_html(self, today_str: str) -> str:
-        visual_info = self.get_publication_visual_embed("studio_wire")
-        img_src = visual_info["src"]
-        caption = visual_info["caption"]
-        subcaption = visual_info["subcaption"]
         scribe_content = self._get_daily_scribe_content("studio_wire") or {}
         issue_number = self._get_daily_issue_number("studio_wire", start_at=88)
         lead_headline = html.escape(scribe_content.get("lead_headline") or "Why Digital Sensor Highlights Look Brittle (And How To Fix It)")
+        visual_info = self.get_publication_visual_embed("studio_wire", topic_text=lead_headline)
+        img_src = visual_info["src"]
+        caption = visual_info["caption"]
+        subcaption = visual_info["subcaption"]
         lead_body = html.escape(scribe_content.get("lead_body") or "Digital CMOS sensors capture light linearly: when a highlight clips, it truncates instantly to pure #FFFFFF with zero chromatic transition. Analog film, by contrast, has a natural chemical S-curve with soft silver halide shoulder compression. In portraiture, this is why digital forehead highlights look greasy while editorial magazine film looks velvety.")
 
         recipe_headline = html.escape(scribe_content.get("recipe_headline") or "The Exact Sliders For The Kodak Portra 400 Tone Curve")

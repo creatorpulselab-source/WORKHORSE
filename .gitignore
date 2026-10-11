@@ -31,3 +31,5 @@ comfyui_workflows/flux_dev_melissa_character.json
 pipeline/stages/workflow_templates/client_character_charlette_template.json
 pipeline/stages/workflow_templates/client_character_margo_template.json
 pipeline/stages/workflow_templates/client_character_melissa_template.json
+
+dashboard/static/models_backup_pre_anim/

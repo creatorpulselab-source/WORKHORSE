@@ -84,10 +84,13 @@ class TrendResearchAgent:
                     title = it.find("title").text if it.find("title") is not None else ""
                     link = it.find("link").text if it.find("link") is not None else ""
                     pub = it.find("pubDate").text if it.find("pubDate") is not None else ""
-                    # Clean source name from title (e.g., 'Article Title - Source Name')
+                    desc = it.find("description").text if it.find("description") is not None else ""
+                    # Strip any HTML tags from RSS description to extract readable snippet
+                    clean_desc = re.sub(r"<[^>]+>", "", desc).strip() if desc else ""
                     clean_title = title.split(" - ")[0] if " - " in title else title
                     results.append({
                         "title": clean_title,
+                        "snippet": clean_desc,
                         "url": link,
                         "published": pub,
                         "raw_title": title
@@ -263,22 +266,31 @@ Respond ONLY with valid JSON.
         for q in business_queries:
             business_articles.extend(self.search_live_trends(q, max_results=3))
 
-        # 4. Build synthesis prompt
-        prompt = f"""You are SYNAPSE [100 Fm] & RADAR [47 Ag], Market Scout for Creator Media Lab.
-Today is {today_str}. Here are breaking articles discovered in our daily radar:
+        # 4. Build synthesis prompt with article summaries & strict editorial rules
+        photo_summary = [{"title": a["title"], "summary": a.get("snippet", "")} for a in photo_articles]
+        creator_summary = [{"title": a["title"], "summary": a.get("snippet", "")} for a in creator_articles]
 
-PHOTOGRAPHY & STUDIO NEWS:
-{json.dumps([a['title'] for a in photo_articles], indent=2)}
+        prompt = f"""You are SYNAPSE [100 Fm] & HERALD [33 As], Expert Social Media Director & Editor for Creator Media Lab.
+Today is {today_str}. Here are verified breaking articles discovered in our daily radar:
 
-CREATOR ECONOMY & MONETIZATION NEWS:
-{json.dumps([a['title'] for a in creator_articles], indent=2)}
+PHOTOGRAPHY & STUDIO NEWS (with article summaries):
+{json.dumps(photo_summary, indent=2)}
+
+CREATOR ECONOMY & MONETIZATION NEWS (with article summaries):
+{json.dumps(creator_summary, indent=2)}
+
+STRICT EDITORIAL RULES (CRITICAL):
+1. NO UNANSWERED QUESTIONS / CLIFFHANGERS: If you pose a question (e.g. "Which platform pays the most in 2026?"), you MUST provide the direct answer, comparison numbers, and takeaway in that tweet/thread.
+2. NO PHANTOM LISTS: NEVER write "Top 5" or "Top 7" or "3 secrets" unless you explicitly list every single item/name/step directly in the tweet strings.
+3. STANDALONE ACTIONABLE VALUE: Every post must give concrete value: exact slider settings, proven script quotes, payout breakdown percentages, or specific posing cues.
+4. EXPERT TONE: High-authority, concise, native to X/Twitter (under 280 chars per tweet, threads formatted 1/N, 2/N, etc.).
 
 Generate today's dynamic content drop payload in valid JSON with:
 1. "top_themes_today": Exactly 3 high-impact industry themes for today.
 2. "daily_slots": A dictionary with keys "slot_1_morning", "slot_2_midday", "slot_3_afternoon", "slot_4_evening", "slot_5_latenight".
    For EACH slot, provide:
-   - "creatorpulselab": List of 2 to 4 tweet strings for @creatorpulselab.
-   - "TheCreatorAsset": List of 2 to 4 tweet strings for @TheCreatorAsset.
+   - "creatorpulselab": List of 2 to 4 tweet strings for @creatorpulselab (Adult Creators, PPV, Bio Kits).
+   - "TheCreatorAsset": List of 2 to 4 tweet strings for @TheCreatorAsset (Studio Photographers, Color Grading, Presets).
 3. "newsletter_topics":
    - "creator_pulse": A punchy topic title & 2-sentence teaser for today's creator newsletter.
    - "creator_asset": A punchy topic title & 2-sentence teaser for today's photography digest.

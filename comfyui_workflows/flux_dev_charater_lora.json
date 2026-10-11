@@ -1,0 +1,310 @@
+{
+  "9": {
+    "inputs": {
+      "filename_prefix": "ComfyUI",
+      "images": [
+        "41:57",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "Save Image"
+    }
+  },
+  "42": {
+    "inputs": {
+      "filename_prefix": "ComfyUI",
+      "images": [
+        "41:50",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "Save Image"
+    }
+  },
+  "41:45": {
+    "inputs": {
+      "text": "8K RAW ultra-realistic wide angle, full-body, cinematic--realistic photo--rule of thirds shots--nikon d850. She sits on a rock on the beach shore. She wears a short white tunic which reveals her magnificent figure. She is a beautiful, very buxom tattooed fashion model with a slim waist, an hourglass figure, shapely thighs, 37 years old. Her hair is long, straight, and chestnut brown. She has a heart-shaped face with high cheekbones, almond-shaped green eyes, and glossy pink lipstick with subtle makeup. She is looking at the waves and is thinking deeply. She is unaware of the camera. The background is a superb beach with palm trees. It is late evening.",
+      "clip": [
+        "41:60",
+        0
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Prompt)"
+    }
+  },
+  "41:27": {
+    "inputs": {
+      "width": 768,
+      "height": 1344,
+      "batch_size": 1
+    },
+    "class_type": "EmptySD3LatentImage",
+    "_meta": {
+      "title": "EmptySD3LatentImage"
+    }
+  },
+  "41:53": {
+    "inputs": {
+      "model_name": "4x_NMKD-Siax_200k.pth"
+    },
+    "class_type": "UpscaleModelLoader",
+    "_meta": {
+      "title": "Load Upscale Model"
+    }
+  },
+  "41:47": {
+    "inputs": {
+      "upscale_model": [
+        "41:53",
+        0
+      ],
+      "image": [
+        "41:57",
+        0
+      ]
+    },
+    "class_type": "ImageUpscaleWithModel",
+    "_meta": {
+      "title": "Upscale Image (using Model)"
+    }
+  },
+  "41:49": {
+    "inputs": {
+      "samples": [
+        "41:54",
+        0
+      ],
+      "vae": [
+        "41:39",
+        0
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE Decode"
+    }
+  },
+  "41:48": {
+    "inputs": {
+      "upscale_method": "lanczos",
+      "scale_by": 0.5,
+      "image": [
+        "41:47",
+        0
+      ]
+    },
+    "class_type": "ImageScaleBy",
+    "_meta": {
+      "title": "Upscale Image By"
+    }
+  },
+  "41:54": {
+    "inputs": {
+      "seed": 500,
+      "steps": 2,
+      "cfg": 1,
+      "sampler_name": "euler_ancestral",
+      "scheduler": "simple",
+      "denoise": 0.1,
+      "model": [
+        "41:46",
+        0
+      ],
+      "positive": [
+        "41:45",
+        0
+      ],
+      "negative": [
+        "41:62",
+        0
+      ],
+      "latent_image": [
+        "41:59",
+        0
+      ]
+    },
+    "class_type": "KSampler",
+    "_meta": {
+      "title": "KSampler"
+    }
+  },
+  "41:59": {
+    "inputs": {
+      "pixels": [
+        "41:48",
+        0
+      ],
+      "vae": [
+        "41:39",
+        0
+      ]
+    },
+    "class_type": "VAEEncode",
+    "_meta": {
+      "title": "VAE Encode"
+    }
+  },
+  "41:50": {
+    "inputs": {
+      "anything": [
+        "41:49",
+        0
+      ]
+    },
+    "class_type": "easy cleanGpuUsed",
+    "_meta": {
+      "title": "Clean VRAM Used"
+    }
+  },
+  "41:57": {
+    "inputs": {
+      "samples": [
+        "41:31",
+        0
+      ],
+      "vae": [
+        "41:39",
+        0
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE Decode"
+    }
+  },
+  "41:60": {
+    "inputs": {
+      "clip_name1": "clip_l.safetensors",
+      "clip_name2": "t5xxl_fp16.safetensors",
+      "type": "flux",
+      "device": "default"
+    },
+    "class_type": "DualCLIPLoader",
+    "_meta": {
+      "title": "Load CLIP (Dual)"
+    }
+  },
+  "41:39": {
+    "inputs": {
+      "vae_name": "ae.safetensors"
+    },
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "Load VAE"
+    }
+  },
+  "41:31": {
+    "inputs": {
+      "seed": 212314880216166,
+      "steps": 20,
+      "cfg": 1,
+      "sampler_name": "euler",
+      "scheduler": "beta",
+      "denoise": 1,
+      "model": [
+        "41:63",
+        0
+      ],
+      "positive": [
+        "41:45",
+        0
+      ],
+      "negative": [
+        "41:62",
+        0
+      ],
+      "latent_image": [
+        "41:27",
+        0
+      ]
+    },
+    "class_type": "KSampler",
+    "_meta": {
+      "title": "KSampler"
+    }
+  },
+  "41:38": {
+    "inputs": {
+      "unet_name": "flux1-krea-dev_fp8_scaled.safetensors",
+      "weight_dtype": "default"
+    },
+    "class_type": "UNETLoader",
+    "_meta": {
+      "title": "Load Diffusion Model"
+    }
+  },
+  "41:62": {
+    "inputs": {
+      "conditioning": [
+        "41:45",
+        0
+      ]
+    },
+    "class_type": "ConditioningZeroOut",
+    "_meta": {
+      "title": "Conditioning Zero Out"
+    }
+  },
+  "41:63": {
+    "inputs": {
+      "lora_name": "WarmFix_FLUXKrea_V1.safetensors",
+      "strength_model": 0.8,
+      "model": [
+        "41:64",
+        0
+      ]
+    },
+    "class_type": "LoraLoaderModelOnly",
+    "_meta": {
+      "title": "Load LoRA"
+    }
+  },
+  "41:64": {
+    "inputs": {
+      "lora_name": "flux_realism_lora.safetensors",
+      "strength_model": 0.9,
+      "model": [
+        "41:46",
+        0
+      ]
+    },
+    "class_type": "LoraLoaderModelOnly",
+    "_meta": {
+      "title": "Load LoRA"
+    }
+  },
+  "41:46": {
+    "inputs": {
+      "lora_name": "ML_FLUX_V2.safetensors",
+      "strength_model": 0.65,
+      "model": [
+        "41:65",
+        0
+      ]
+    },
+    "class_type": "LoraLoaderModelOnly",
+    "_meta": {
+      "title": "Load LoRA"
+    }
+  },
+  "41:65": {
+    "inputs": {
+      "sage_attention": "disabled",
+      "allow_compile": true,
+      "model": [
+        "41:38",
+        0
+      ]
+    },
+    "class_type": "PathchSageAttentionKJ",
+    "_meta": {
+      "title": "Patch Sage Attention KJ"
+    }
+  }
+}

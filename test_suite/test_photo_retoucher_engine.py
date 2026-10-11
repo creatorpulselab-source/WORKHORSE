@@ -154,7 +154,8 @@ def test_process_photo_batch_every_style_produces_valid_package(retoucher_with_t
 
     profile = STYLE_PROFILES[style]
     photo = res["photos"][0]
-    assert "print_master" in photo  # print master always produced regardless of style
+    # print master is strictly opt-in and defaults to False to prevent massive bloat
+    assert "print_master" not in photo
     assert ("teaser" in photo) == profile["watermark"]  # watermark only when the style calls for it
 
 
@@ -173,3 +174,18 @@ def test_process_photo_batch_without_edit_style_keeps_legacy_behavior(retoucher_
     assert res["status"] == "completed"
     assert res["edit_style"] is None
     assert "teaser" in res["photos"][0]  # legacy default always watermarks
+
+
+def test_process_photo_batch_with_opt_in_print_master(retoucher_with_tmp_output, test_portrait, tmp_path):
+    img_path = tmp_path / "source.jpg"
+    cv2.imwrite(str(img_path), test_portrait, [cv2.IMWRITE_JPEG_QUALITY, 95])
+    res = retoucher_with_tmp_output.process_photo_batch(
+        image_paths=[img_path],
+        shoot_name="test_opt_in_tiff",
+        edit_style="natural",
+        print_master=True
+    )
+    assert res["status"] == "completed"
+    photo = res["photos"][0]
+    assert "print_master" in photo
+    assert Path(retoucher_with_tmp_output.output_base / photo["print_master"]).exists()

@@ -313,6 +313,44 @@ class HeraldScheduler:
         self._save_state()
         return pool[chosen_idx]
 
+    def _craft_topic_visual_prompt(self, brand_key: str, topic_text: Optional[str] = None) -> str:
+        """
+        Dynamically crafts an on-brand, high-fidelity visual prompt that DIRECTLY MATCHES
+        the subject matter of today's post or newsletter, rather than rolling a generic prompt.
+        Preserves strict brand boundaries (boudoir/glamour for pulse vs studio/lighting for asset).
+        """
+        if not topic_text or len(topic_text.strip()) < 8:
+            return self._pick_image_prompt(brand_key)
+
+        txt_lower = topic_text.lower()
+        if brand_key == "creator_pulse_lab":
+            # Adult / boudoir brand visual nuances
+            if any(k in txt_lower for k in ["midnight", "dark", "vault", "banned", "secret", "lights"]):
+                core = "Moody intimate boudoir shoot, deep chiaroscuro lighting, dark satin sheets, dim candlelight and warm amber backlight, sensual confident gaze"
+            elif any(k in txt_lower for k in ["cam", "tip", "stream", "live", "menu", "chaturbate"]):
+                core = "High-end creator studio portrait, soft warm ambient neon rim light, silk robe slipping off shoulder, intimate alluring camera eye contact"
+            elif any(k in txt_lower for k in ["vintage", "retro", "hollywood", "35mm", "film"]):
+                core = "Timeless Hollywood boudoir glamour, vintage softbox lighting, silk lingerie, soft warm film grain, elegant sensual expression"
+            elif any(k in txt_lower for k in ["sun", "morning", "golden", "natural", "day"]):
+                core = "Sunlit morning penthouse boudoir portrait, warm amber sunbeams, sheer curtains, velvet chaise, glowing natural skin tones"
+            else:
+                core = "Luxury boudoir portrait, intimate warm rim lighting, satin and velvet textures, confident sensual pose, editorial glamour atmosphere"
+            return f"{core}, photorealistic, 85mm portrait lens, shallow depth of field, 8k resolution, raw photo quality"
+
+        else:
+            # Mainstream studio / photography brand visual nuances
+            if any(k in txt_lower for k in ["portra", "film", "analog", "kodak", "curve", "hsl"]):
+                core = "Cinematic studio editorial portrait, Kodak Portra 400 film color science, velvety matte shadows, luminous natural skin tones, warm key light"
+            elif any(k in txt_lower for k in ["light", "softbox", "beauty dish", "45", "feather", "rembrandt"]):
+                core = "Professional studio photography setup, Profoto beauty dish key light with 45-degree feathering, crisp commercial lighting, silver reflector fill"
+            elif any(k in txt_lower for k in ["retouch", "skin", "pore", "frequency separation", "edit"]):
+                core = "High-fashion beauty close-up, authentic textured skin with natural pores, sharp eye catchlights, clean commercial studio lighting"
+            elif any(k in txt_lower for k in ["gear", "camera", "rust", "lightcraft", "workflow", "flywheel"]):
+                core = "Creative photo studio workspace, professional photographer session, clean minimalist aesthetic, modern editorial composition"
+            else:
+                core = "Editorial studio photography, 5600K key light, professional color grading, magazine cover depth of field, polished commercial aesthetic"
+            return f"{core}, photorealistic, 50mm lens, crisp clean composition, 8k resolution"
+
     def _pick_image_prompt(self, brand_key: str) -> str:
         """Selects an image prompt for this brand, avoiding recent repeats."""
         return self._pick_from_pool(brand_key, BRAND_VIBES[brand_key]["prompts"], "recent_image_prompts")
@@ -325,10 +363,10 @@ class HeraldScheduler:
         ]
         return self._pick_from_pool(brand_key, pool, "recent_motion_prompts")
 
-    def _get_brand_visual_for_post(self, handle: str) -> Optional[str]:
+    def _get_brand_visual_for_post(self, handle: str, topic_text: Optional[str] = None) -> Optional[str]:
         """
-        Generates a FRESH, on-brand image for this specific post (each account has its
-        own distinct vibe/audience) rather than reusing a leftover render. The render
+        Generates a FRESH, on-brand image that MATCHES the specific post topic (each account
+        has its own distinct vibe/audience) rather than reusing a leftover render. The render
         goes through the standard Iris QC gate; only a passed image is ever returned.
         Falls back to the latest already-verified render for this brand if ComfyUI is
         offline or the fresh generation fails/fails QC - never returns an unverified file.
@@ -340,7 +378,7 @@ class HeraldScheduler:
 
         try:
             from pipeline.stages.comfyui_bridge import comfy_bridge
-            prompt = self._pick_image_prompt(brand_key)
+            prompt = self._craft_topic_visual_prompt(brand_key, topic_text)
             gen_res = comfy_bridge.generate_and_audit(
                 positive_prompt=prompt,
                 negative_prompt=vibe["negative_prompt"],
@@ -525,26 +563,40 @@ class HeraldScheduler:
         results = {"slot_id": slot_id, "timestamp": datetime.now().isoformat(), "accounts": {}}
         tweets_dict = dict(slot.get("tweets", {}))
 
-        # Dynamically inject today's synthesized trend tweets from daily_trends_vault.json
-        try:
-            from pipeline.stages.trend_researcher import trend_researcher
-            vault = trend_researcher.load_vault()
-            if vault.get("today_date") != str(date.today()):
-                # Vault predates today (e.g. this morning's radar sweep hasn't run/completed
-                # yet) - never silently reuse a prior day's "dynamic" tweets as if they were
-                # fresh. Fall through to the static slot content instead.
-                print(f"[Herald Scheduler] Trend vault is stale (today_date={vault.get('today_date')!r}, expected {date.today()}) - using static content for {slot_id}.")
-            else:
-                daily_synth = vault.get("daily_synthesis", {})
-                dynamic_slots = daily_synth.get("daily_slots", {})
-                if slot_id in dynamic_slots:
-                    dyn = dynamic_slots[slot_id]
-                    for handle, dyn_tweets in dyn.items():
-                        if dyn_tweets and len(dyn_tweets) > 0:
-                            tweets_dict[handle] = dyn_tweets
-                            print(f"[Herald Scheduler] Using dynamic trending tweets for @{handle} in {slot_id}")
-        except Exception as e:
-            print(f"[Herald Scheduler] Error reading dynamic tweets from vault: {e}")
+        # 1. For slot_1_morning, cross-pollinate directly with today's morning newsletter lead story
+        # so the daily newsletter drop and Twitter drop look unified and come from the exact same source
+        if slot_id == "slot_1_morning":
+            try:
+                pulse_content = self.newsletter._get_daily_scribe_content("creator_pulse")
+                if pulse_content and pulse_content.get("tweet_thread"):
+                    tweets_dict["creatorpulselab"] = pulse_content["tweet_thread"]
+                    print(f"[Herald Scheduler] Synchronized slot_1 for @creatorpulselab with Creator Pulse newsletter thread.")
+
+                wire_content = self.newsletter._get_daily_scribe_content("studio_wire")
+                if wire_content and wire_content.get("tweet_thread"):
+                    tweets_dict["TheCreatorAsset"] = wire_content["tweet_thread"]
+                    print(f"[Herald Scheduler] Synchronized slot_1 for @TheCreatorAsset with Studio Wire newsletter thread.")
+            except Exception as e:
+                print(f"[Herald Scheduler] Notice: could not bind slot_1 to newsletter thread: {e}")
+
+        # 2. For other slots (midday, afternoon, evening, latenight), inject today's synthesized trend tweets
+        else:
+            try:
+                from pipeline.stages.trend_researcher import trend_researcher
+                vault = trend_researcher.load_vault()
+                if vault.get("today_date") != str(date.today()):
+                    print(f"[Herald Scheduler] Trend vault is stale (today_date={vault.get('today_date')!r}, expected {date.today()}) - using static content for {slot_id}.")
+                else:
+                    daily_synth = vault.get("daily_synthesis", {})
+                    dynamic_slots = daily_synth.get("daily_slots", {})
+                    if slot_id in dynamic_slots:
+                        dyn = dynamic_slots[slot_id]
+                        for handle, dyn_tweets in dyn.items():
+                            if dyn_tweets and len(dyn_tweets) > 0:
+                                tweets_dict[handle] = dyn_tweets
+                                print(f"[Herald Scheduler] Using dynamic trending tweets for @{handle} in {slot_id}")
+            except Exception as e:
+                print(f"[Herald Scheduler] Error reading dynamic tweets from vault: {e}")
 
         all_succeeded = True
         for handle, tweets in tweets_dict.items():
@@ -552,10 +604,11 @@ class HeraldScheduler:
                 try:
                     media_paths = None
                     try:
-                        vis_path = self._get_brand_visual_for_post(handle)
+                        post_topic = tweets[0] if (tweets and len(tweets) > 0) else None
+                        vis_path = self._get_brand_visual_for_post(handle, topic_text=post_topic)
                         if vis_path and Path(vis_path).exists():
                             media_paths = [str(vis_path)]
-                            print(f"[Herald Scheduler] Brand visual attached for @{handle} -> {Path(vis_path).name}")
+                            print(f"[Herald Scheduler] Topic-matched visual attached for @{handle} -> {Path(vis_path).name}")
 
                             video_path = self._maybe_upgrade_to_video(handle, slot_id, vis_path)
                             if video_path:

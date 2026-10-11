@@ -92,6 +92,9 @@ this.currentBay = initHash || 'command-center';
 
     if (bayId === 'photo-bay') {
       this.refreshInputPhotos();
+      if (!this.retouchedPhotos || !this.retouchedPhotos.length) {
+        this.loadLatestRetouchedPackage();
+      }
     } else if (bayId === 'inspiration-lab') {
       this.refreshInspirationVault();
     } else if (bayId === 'etsy-empire') {
@@ -180,6 +183,9 @@ this.currentBay = initHash || 'command-center';
         this.renderPhotoGallery();
       });
     }
+
+    // Auto-load the latest finished retouching package into the gallery on start
+    this.loadLatestRetouchedPackage();
   }
 
   async uploadPhotos(files) {
@@ -218,7 +224,7 @@ this.currentBay = initHash || 'command-center';
 
   async runPhotoRetouch() {
     const shootName = document.getElementById('photo-shoot-name')?.value.trim() || 'glamour_shoot';
-    const preset = document.getElementById('photo-preset-select')?.value || 'moody_boudoir';
+    const preset = document.getElementById('photo-preset-select')?.value || 'pro_natural';
     const smoothStrength = document.getElementById('photo-smooth-slider')?.value || '0.5';
     const watermark = document.getElementById('photo-watermark-text')?.value.trim() || '@ExclusiveDrop';
     const btnRetouch = document.getElementById('btn-start-retouch');
@@ -264,6 +270,36 @@ this.currentBay = initHash || 'command-center';
     }
   }
 
+  async loadLatestRetouchedPackage(pkgName = '') {
+    const statusText = document.getElementById('photo-retouch-status');
+    const shootNameInput = document.getElementById('photo-shoot-name');
+    const zipBtn = document.getElementById('btn-download-photos-zip');
+    try {
+      const url = pkgName ? `/api/photos/latest-retouched?package_name=${encodeURIComponent(pkgName)}` : '/api/photos/latest-retouched';
+      const res = await fetch(url);
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.status === 'completed' && data.photos && data.photos.length) {
+        this.retouchedPhotos = data.photos;
+        if (shootNameInput && data.shoot_name) {
+          shootNameInput.value = data.shoot_name;
+        }
+        if (statusText) {
+          statusText.innerText = `✓ Loaded "${data.package_name}" (${data.total_processed} photos • ZIP: ${data.zip_size_mb} MB)`;
+        }
+        if (zipBtn && data.shoot_name) {
+          zipBtn.style.display = 'inline-flex';
+          zipBtn.onclick = () => {
+            window.location.href = `/api/download/photos-zip/${data.shoot_name}`;
+          };
+        }
+        this.renderPhotoGallery();
+      }
+    } catch (e) {
+      console.warn('Could not load latest retouched photos:', e);
+    }
+  }
+
   renderPhotoGallery() {
     const grid = document.getElementById('photo-gallery-grid');
     if (!grid) return;
@@ -273,7 +309,10 @@ this.currentBay = initHash || 'command-center';
       return;
     }
 
-    grid.innerHTML = this.retouchedPhotos.map((p) => {
+    const maxToShow = this._showAllRetouched ? this.retouchedPhotos.length : 60;
+    const items = this.retouchedPhotos.slice(0, maxToShow);
+
+    let cards = items.map((p) => {
       const imgSrc = this.viewMode === 'master' ? `/api/media/${p.master}` : `/api/media/${p.teaser}`;
       const badge = this.viewMode === 'master' ? 'MASTER 4K' : 'WATERMARKED TEASER (4:5)';
       const badgeColor = this.viewMode === 'master' ? 'var(--cyan-glow)' : 'var(--amber-warm)';
@@ -296,6 +335,17 @@ this.currentBay = initHash || 'command-center';
         </div>
       `;
     }).join('');
+
+    if (this.retouchedPhotos.length > maxToShow) {
+      cards += `
+        <div style="grid-column: 1/-1; text-align: center; padding: 20px;">
+          <button type="button" class="btn-cyber" onclick="window.workBaysManager._showAllRetouched = true; window.workBaysManager.renderPhotoGallery();" style="padding: 10px 24px; font-size: 12px; border-color: var(--cyan-glow); color: var(--cyan-glow);">
+            Show All ${this.retouchedPhotos.length} Retouched Photos (${this.retouchedPhotos.length - maxToShow} more)
+          </button>
+        </div>
+      `;
+    }
+    grid.innerHTML = cards;
   }
 
   // --------------------------------------------------------------------------
