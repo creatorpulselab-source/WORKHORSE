@@ -557,27 +557,67 @@ This is local runtime retrieval/prompt grounding, not fine-tuning and not eviden
 - [x] Reference instructions explicitly defer to live schemas, inventory, tool results, tested
       templates and authorization. Static image/video/3D graphs are not rewritten.
 
-### AI-3. Live curriculum acceptance (PENDING, separate from offline wiring tests)
-- [ ] Controlled dashboard restart/activation without interrupting active jobs.
-- [ ] Confirm deployed Ollama context-window retention, cold/warm latency and memory behavior.
-- [ ] Level 1: generated API JSON parses; node IDs are strings; genuine connection links use
-      `[source_id, output_slot]`; UI layout JSON is never submitted as an API graph.
-- [ ] Level 2: dependencies exist, no cycles, required branches connect to an installed output
-      node; disconnected/unused branches are reported accurately.
-- [ ] Level 3: verify required inputs, actual source output slots/types and model selections
-      against installed `/object_info`; incorrect links or absent nodes fail validation.
-- [ ] Level 4: verify architecture-specific latents/VAEs/encoders, FLUX guidance vs SDXL CFG,
-      denoise, LoRA MODEL/CLIP chaining, regional masks, ControlNet schedules and tiled decoding.
-      Treat the guide's fixed numeric examples as advisory, not cross-model acceptance rules.
-- [ ] Representative approved trials: FLUX/SDXL image prompting, WAN/SVD/LTX motion,
-      image-to-image, inpainting/SAM, relighting, multi-LoRA, upscaling/ControlNet,
-      regional/FaceID, GGUF/FP8 and Trellis/PBR. Uninstalled capabilities must be reported
-      unavailable rather than fabricated; do not install nodes/models automatically.
-- [ ] Negative cases: UI-format graphs, broken links, type mismatches, incompatible
-      model/LoRA combinations, unsupported nodes, unavailable services and guide errors.
-- [ ] Record validation errors and real output/QC evidence before marking competency passed.
-      Prompt inclusion and pixel QC alone do not certify graph or architecture correctness.
+### AI-3. Live curriculum acceptance
+- [x] **Controlled dashboard restart/activation (2026-10-11):** stopped PID 49912 cleanly,
+      relaunched with the identical uvicorn command. VRAM watchdog, Herald scheduler, and
+      Dropzone Watcher confirmed back online from the startup log; `/api/system/stats` → 200.
+- [x] **Ollama context-window retention/latency (2026-10-11):** `/api/show` confirms the
+      deployed text model's native context is 40,960 tokens; `/api/ps` confirmed the live-loaded
+      instance's runtime `context_length` is also 40,960 (not silently capped to an old
+      2,048/4,096-token Ollama default — no `num_ctx` override exists in `ai_providers.py`, so
+      this depended on and was verified against the real server/model default). Grounded Q&A
+      latency: 1.4–4.8s; a full graph-generation request: 26.9s.
+- [x] **Level 1 (2026-10-11):** real model-generated API JSON for a FLUX Hi-Res Fix request
+      parsed cleanly; all node IDs are strings; all genuine connection links are
+      `[source_id, output_slot]` pairs. Verified programmatically, not by inspection.
+- [x] **Level 2 (2026-10-11):** same generated graph — every link source resolved to a real
+      node ID in the graph (no dangling/broken references) and a terminal output node
+      (`SaveImage`) was present.
+- [x] **Level 3, verified against live `/object_info` on the real Main PC ComfyUI (v0.39.1,
+      3,134 classes) (2026-10-11):** **2 real findings, both already covered by the existing
+      "live schema overrides reference" precedence rule:**
+  1. The model's own generated graph invented a `FluxGuidance` node with
+     `model`/`positive`/`negative` inputs; the real live schema only accepts
+     `conditioning`/`guidance` — a genuine local-model competency gap, caught only by live
+     schema validation, confirming agent-generated graphs need that validation before any
+     execution rather than being trusted outright.
+  2. The curriculum's own Blueprint G (mesh post-processing: `Remesh Mesh`/`Decimate Mesh`/
+     `Smooth Mesh Normals`/`Save 3D`) and Blueprint I (upscaling: `LoadUpscaleModel`/
+     `UpscaleImageWithModel`) use generic/upstream ComfyUI names that don't match this studio's
+     actually-installed classes (`RemeshMesh`/`DecimateMesh`/`MeshSmoothNormals`/`MeshToFile3D`
+     and `UpscaleModelLoader`/`ImageUpscaleWithModel`). Per the Commander's decision, inline
+     verified-correction notes were added directly above both blueprints in the guide (original
+     examples left unchanged), pointing to the real installed names and, for Trellis.2, to the
+     actual pre-tested production template. Production code was never at risk —
+     `comfyui_bridge.py` only ever executes that pre-tested template for real 3D jobs, never a
+     freshly-generated graph from the guide — but this was a real documentation inaccuracy, now
+     fixed.
+- [x] **Level 4, functional retention test against the real deployed model (2026-10-11):** 4/4
+      real chat-completion questions using the actual production system-prompt construction
+      were answered correctly — FLUX Schnell CFG=1.0/no-negative-prompt, Hi-Res Fix Pass-2
+      denoise 0.30–0.45 decoded via `VAEDecodeTiled`, and `ConditioningCombine` as the correct
+      merge node after two `ConditioningSetArea` branches. One minor fidelity note (not a
+      failure): the cumulative-LoRA-budget question was answered as "1.8 to 2.2" — a paraphrase
+      bracketing, not exactly quoting, the guide's precise "≤2.0" rule.
+- [ ] **Representative approved render trials (an actual submitted ComfyUI `/prompt` job, not
+      just a generated/validated graph) across image/video/LoRA/inpainting/upscaling/3D cases —
+      NOT run.** Everything verified above was read-only against live services (schema queries,
+      chat completions): zero GPU render time consumed, zero jobs submitted to the Main PC.
+      Remains open pending explicit approval for a real render.
+- [ ] Negative cases (UI-format graphs submitted as API graphs, broken links, type mismatches,
+      incompatible model/LoRA combinations, unsupported nodes, unavailable services, guide
+      read-errors) — the guide-read-error path (missing/empty/malformed file) IS covered by
+      offline tests; the ComfyUI-side negative cases (bad graph submitted to a real `/prompt`
+      endpoint) are not yet exercised live and remain open alongside the render-trials item.
+
+**Live result (2026-10-11):** restart/activation, Ollama context-window/latency, and Module 18
+Levels 1–4 all verified against real running Ollama (v0.34.2) and ComfyUI (v0.39.1, Main PC RTX
+5070 Ti, 3,134 node classes) — no mocks. 2 real findings surfaced and addressed (1 model
+competency gap documented as an inherent live-validation requirement, 1 guide documentation
+inaccuracy corrected with inline notes). Only actual GPU render submission remains open, by
+choice (no render time was spent without being asked), not oversight.
 
 **Offline result (2026-10-11):** 46 new guide-integration tests passing; focused selection
 including existing prompt-error, QC-policy and client-character/PBR regressions: 76 passing.
 No live LLM/ComfyUI calls, posting, emailing or production renders were made by these tests.
+

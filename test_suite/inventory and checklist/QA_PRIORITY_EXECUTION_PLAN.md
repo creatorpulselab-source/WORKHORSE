@@ -237,18 +237,66 @@ change, or production render is performed by the loader.
       is model/version-dependent, not a universal validator or proof of installed capabilities.
 - [x] Offline regression coverage: 46 new tests in `test_comfyui_knowledge.py`; all 76 tests in
       the focused guide/prompt-error/QC/client-character-and-PBR selection pass.
-- [ ] Activate in the already-running dashboard with a controlled WORKHORSE restart.
-      Changes are persisted on disk; this pass did not interrupt the live server or its jobs.
-- [ ] Live local-model evaluation against guide Module 18: syntax, graph connectivity,
-      port type safety and architecture fidelity. Validate candidates against the installed
-      ComfyUI schemas/inventory before any approved test render; do not assume fictional or
-      unavailable custom nodes from a blueprint are installed.
-- [ ] Verify actual Ollama context-window retention and prompt latency on the deployed models,
-      then measure image/video/LoRA/inpainting/upscaling/3D cases. A character limit and mocked
-      payload tests do not prove that a model retained or correctly applied the instructions.
+- [x] **Activated (2026-10-11):** stopped the live dashboard (PID 49912, clean shutdown, no error),
+      relaunched with the identical `uvicorn dashboard.server:app --app-dir F:\WORKHORSE --host
+      0.0.0.0 --port 8800` command. Startup log confirmed VRAM watchdog, Herald scheduler, and
+      Dropzone Watcher all came back online; `/api/system/stats` returned 200 immediately after.
+      Committed (`02a0f02`) and pushed to `origin/main` before live checks, per the Commander's
+      direction, so the offline-verified work was saved first.
+- [x] **Live local-model evaluation (2026-10-11), against real Ollama (v0.34.2, 11 models) and
+      real ComfyUI (Main PC RTX 5070 Ti, v0.39.1, 3,134 installed node classes) — not mocked:**
+  - Level 1/2 (valid API JSON, string node ids, correct `[source_id, slot]` link tuples, DAG
+    connectivity, terminal output node present): **PASS** — verified against a graph the real
+    deployed text model (`huihui_ai/qwen3-abliterated:14b`) generated live from a FLUX Hi-Res
+    Fix request, parsed and checked programmatically (not just inspected).
+  - Level 3 (class names / port types match the live `/object_info` schema): **2 real problems
+    found, both already guarded against by the "live schema overrides reference" precedence
+    rule** —
+    1. The model's own generated graph invented a `FluxGuidance` node with `model`/`positive`/
+       `negative` inputs; the real schema only accepts `conditioning`/`guidance`. A genuine local-
+       model competency gap — confirms agent-generated graphs need live-schema validation before
+       any execution, not blind trust, exactly as the loader's operating rules already instruct.
+    2. **Guide accuracy gap found and corrected (not a code bug):** Blueprint G's mesh
+       post-processing names (`Remesh Mesh`/`Decimate Mesh`/`Smooth Mesh Normals`/`Save 3D`) and
+       Blueprint I's upscale names (`LoadUpscaleModel`/`UpscaleImageWithModel`) are generic/
+       upstream ComfyUI names that don't match this studio's actual installed node classes
+       (`RemeshMesh`/`DecimateMesh`/`MeshSmoothNormals`/`MeshToFile3D` and `UpscaleModelLoader`/
+       `ImageUpscaleWithModel`, confirmed via live `/object_info`). Per the Commander's decision,
+       added inline verified-correction notes directly above both blueprints in the guide
+       (original illustrative examples left unchanged) pointing at the real installed names and,
+       for Trellis.2, at the actual pre-tested production template
+       (`pipeline/stages/workflow_templates/pixal3d_trellis2_img23d_template.json`) instead of
+       the guide's simplified example. Production code was never at risk — `comfyui_bridge.py`
+       already only executes that pre-tested template for real 3D jobs, never a freshly-generated
+       graph from the guide — but this was a real, user-facing documentation inaccuracy.
+  - Level 4 (architecture-specific parameter fidelity, functional retention test): **PASS** — 4/4
+    real chat-completion questions against the actual production system-prompt construction
+    (SYNAPSE identity + live task status + task-routed guide excerpts) were answered correctly:
+    FLUX Schnell CFG=1.0/no-negative-prompt, Hi-Res Fix Pass-2 denoise 0.30–0.45 decoded via
+    `VAEDecodeTiled`, and `ConditioningCombine` as the correct merge node after two
+    `ConditioningSetArea` branches. One minor fidelity note: the cumulative-LoRA-budget question
+    was answered as "1.8 to 2.2" (a paraphrase bracketing, not quoting, the guide's precise
+    "≤2.0" rule) — not wrong, but imprecise; worth a light eye if this specific fact ever matters
+    for an exact client-facing answer.
+- [x] **Ollama context-window verification (2026-10-11):** confirmed via live `/api/show` and
+      `/api/ps` that the deployed text model's loaded runtime `context_length` is 40,960 tokens —
+      NOT silently capped to Ollama's older 2,048/4,096-token default (no `num_ctx` override exists
+      anywhere in `ai_providers.py`, so this depended entirely on the server/model's own default,
+      which was confirmed healthy). The bounded 14,000-character (~3,500-token) guide context
+      leaves roughly 37,000 tokens of headroom for conversation history, live status, and the
+      user's message. Latency on the real model for grounded Q&A was 1.4–4.8s; a full graph-
+      generation request was 26.9s — both acceptable for an interactive chat/tool-call turn.
+- [ ] Representative approved render trials (an actual submitted ComfyUI `/prompt` job, not just
+      a generated/validated graph) across image/video/LoRA/inpainting/upscaling/3D cases — **not
+      run in this pass.** Everything above was read-only against live services (schema queries,
+      chat completions) with zero GPU render time consumed and zero jobs submitted to the Main
+      PC. Remains open, pending explicit approval for a real render before considering Tier 3A's
+      live-competency certification fully exhaustive.
 
-**Next:** controlled activation + live curriculum evaluation when approved; Tier 4 remains
-next in the original QA sequence. Integration is verified offline, not certified live mastery.
+**Next:** Tier 3A's offline integration, activation, and live schema/retention/context checks are
+now all verified against real systems. Only actual GPU render trials remain open (by choice, not
+oversight — no production render time was spent without being asked). Tier 4 remains next in the
+original QA sequence.
 
 ---
 

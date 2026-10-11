@@ -1400,6 +1400,16 @@ graph LR
 
 ### Blueprint G: Native 3D Mesh Generation & Post-Processing (Trellis.2)
 
+> **Verified correction (2026-10-11, checked against the Commander's live ComfyUI `/object_info`
+> inventory):** the mesh post-processing class names below (`Remesh Mesh`, `Decimate Mesh`,
+> `Smooth Mesh Normals`, `Save 3D`) are illustrative/generic and do NOT match this studio's
+> installed Trellis2 custom-node package. The real installed class names are `RemeshMesh`,
+> `DecimateMesh`, `MeshSmoothNormals`, and `MeshToFile3D`. For any actual production run, use
+> the Commander's pre-tested `pipeline/stages/workflow_templates/pixal3d_trellis2_img23d_template.json`
+> (wired through `comfyui_bridge.py`'s `build_pixal3d_trellis2_workflow()`), not this example
+> verbatim - and always confirm current class names against live `/object_info` before executing
+> any freshly-generated graph.
+
 ```json
 {
   "1": {
@@ -1558,6 +1568,14 @@ graph LR
 ---
 
 ### Blueprint I: Two-Pass Hi-Res Fix with Neural Upscaler & Tiled VAE
+
+> **Verified correction (2026-10-11, checked against the Commander's live ComfyUI `/object_info`
+> inventory):** `LoadUpscaleModel` and `UpscaleImageWithModel` below are the generic/upstream
+> ComfyUI core names and do NOT match this studio's installed version. The real installed class
+> names are `UpscaleModelLoader` and `ImageUpscaleWithModel`. This naming drift (and the one noted
+> above Blueprint G) is exactly why live `/object_info` schemas must always be checked before
+> executing any freshly-generated graph - node names drift across ComfyUI versions and custom-node
+> packs, even for widely-documented core functionality.
 
 ```json
 {
