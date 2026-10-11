@@ -134,18 +134,23 @@ happened. Highest-value testing target after Tier 0/1.
       which could have shipped a paying customer an empty deliverable with no error anywhere. Now
       falls back to `"all"` and reports both the resolved and originally-requested product type.
       9 new tests (`test_etsy_digital_store.py`).
-- [ ] **Client retouch/delivery pipeline:** extend today's new `test_client_retouch_pipeline.py`
-      coverage — this is proven, recent, high-value ground
-- [ ] **Dropzone Watcher/Fulfiller (§N):** this section was flagged "weak" in the evaluation and has
-      the most individually serious defects of any single subsystem:
-  - `dropzone_watcher` is **not launched** by `server.py` or the `.bat` — if you believe
-    hands-off dropzone fulfillment is active, it currently is not running at all
-  - Leftover `_extracting_*` folders after a crash get silently reprocessed as new orders
-  - Flat-copy filename collisions silently overwrite/lose a client's photos
-  - No file-stability check — a half-uploaded zip is processed as if complete
-  - Output filename (`*_FINAL_DELIVERY_PACKAGE.zip`) doesn't match what `/api/download/fiverr/{order_number}` expects
-  - **Decide first:** is dropzone an active part of your workflow, or legacy/unused? This
-    determines whether it's Tier 2 or can be deprioritized entirely.
+- [x] **Client retouch/delivery pipeline:** ✅ DONE (2026-10-10, start of session) — this was the
+      Ashley Esteves incident: a client's ZIP upload was never extracted, the retoucher silently
+      "completed" with zero photos processed, and `apex_package` repackaged the raw unedited upload
+      as if it were a finished delivery. Fixed all three: automatic ZIP-upload extraction,
+      `process_photo_batch()` now fails loudly on zero processed photos instead of returning an
+      empty "completed" package, and `apex_package` now ships Aura's actual retouched output when
+      it exists (or clearly warns "AS-IS, unedited" when it doesn't) instead of silently claiming
+      success either way. 10 tests (`test_client_retouch_pipeline.py`).
+- [x] **Dropzone Watcher/Fulfiller (§N):** ✅ DONE (2026-10-10) — **Decided:** Commander wants this
+      active going forward. Wired into `dashboard/server.py`'s startup as a real background task
+      (previously nothing launched it at all - a live standalone instance left running since Oct 5
+      with the old buggy code was found and stopped during testing). Fixed all 6 identified defects:
+      filename-collision photo loss, miscounted/silently-"succeeded" unreadable files, crash-leftover
+      folders reprocessed as fake new orders, no protection against grabbing a still-copying file,
+      one bad item crashing the whole scan, and the delivery ZIP name not matching
+      `/api/download/fiverr/{order_number}` at all. Verified with a real end-to-end drop, not just
+      unit tests. 7 tests (`test_dropzone_fulfiller.py`).
 
 ---
 
@@ -154,11 +159,16 @@ happened. Highest-value testing target after Tier 0/1.
 Doesn't lose money directly, but determines whether what reaches a client or goes out under your
 brand is actually correct.
 
-- [ ] **IRIS QC fail-open behavior (FLAGGED #2, #6, #7):** a vision-parse failure auto-approves at
-      score 8.0; a failed-QC image after retries is still saved with `success: True`, and
-      `content_engine.py` only checks `success` (not `passed`), so a rejected image can flow into
-      video generation and copy. **Policy decision needed:** should QC failures fail closed
-      (reject/block) instead of fail open? See "Decisions Needed" below.
+- [x] **IRIS QC fail-open behavior (FLAGGED #2, #6, #7):** ✅ DONE (2026-10-10) — **Policy decided:**
+      split behavior. QC stays fail-open ONLY when the check itself couldn't run (vision model
+      offline/timeout/malformed response) - marked distinctly now (`qc_infra_unavailable: true`,
+      `recommendation: "APPROVED_QC_UNAVAILABLE"`) so it's auditable instead of looking identical to
+      a verified pass. A genuine rejection after exhausting retries now fails CLOSED
+      (`success: false`) instead of the prior `success: true` + ignorable `warning` field, and the
+      rejected image is quarantined in `workspace/comfy_staging/qc_rejected/` instead of the same
+      folder (`brand_assets/comfy_renders`) the Completed Work gallery scans as approved content -
+      this directly closes the `content_engine.py` gap (it only ever checked `success`) without
+      needing to touch `content_engine.py` itself. 4 new tests (`test_qc_fail_open_vs_closed.py`).
 - [ ] **Error strings leaking into deliverables:** LLM/Whisper connection-error text (e.g. `"Ollama
       connection error: ..."`, `"[Transcription error: ...]"`) can end up embedded in actual
       generated copy, transcripts, or prompt text instead of being caught as a failure

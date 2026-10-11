@@ -2110,14 +2110,23 @@ If ANY extra limbs, mutated hands, or severe facial defects are found, set "pass
             parsed = json.loads(clean)
         except Exception as e:
             print(f"[Iris QC Gate] Fallback QC heuristic due to: {e}")
+            # Per the Commander's decision: QC stays FAIL-OPEN when the check itself
+            # couldn't run (vision model offline/timeout/malformed response) - this is
+            # different from a genuine rejection (see the retry-exhausted branch in
+            # _execute_generate_and_audit, which fails CLOSED). "qc_infra_unavailable"
+            # and the distinct recommendation value make this auditable/distinguishable
+            # from a real pass in _log_audit_record's history, instead of looking
+            # identical to a verified approval.
             parsed = {
                 "passed": True,
                 "aesthetic_score": 8.0,
                 "extra_limbs_detected": False,
                 "facial_distortion_detected": False,
-                "defects_summary": "Automated vision check complete. No critical anatomical errors flagged.",
-                "anatomy_notes": "Symmetric geometry approved.",
-                "recommendation": "APPROVED"
+                "defects_summary": "Vision QC check could not be completed (model unavailable/error) - approved by fail-open policy, NOT a verified pass.",
+                "anatomy_notes": "Not inspected - QC infrastructure unavailable.",
+                "recommendation": "APPROVED_QC_UNAVAILABLE",
+                "qc_infra_unavailable": True,
+                "qc_infra_error": str(e)
             }
 
         # Apply QC gate thresholds
@@ -2317,16 +2326,26 @@ If ANY extra limbs, mutated hands, or severe facial defects are found, set "pass
             except Exception as e:
                 print(f"[ComfyUIBridge] Error during attempt {attempt}: {e}")
 
-        # If all retries exhausted but we have an image, return with warning
+        # All retries exhausted and Iris genuinely rejected every attempt (this is
+        # different from QC being UNAVAILABLE - see run_iris_qc_audit's except branch
+        # below, which stays fail-open per the Commander's decision). A real,
+        # completed rejection must fail closed: previously this returned success=True
+        # with only a "warning" field, and saved the rejected image into the exact
+        # same folder (RENDERS_DIR = workspace/brand_assets/comfy_renders) the
+        # Completed Work gallery scans as "Synapse Image" - indistinguishable from
+        # genuinely-approved content - and content_engine.py's autonomous pipeline
+        # only checks "success", so it would animate/caption a QC-REJECTED image as
+        # if it had passed. Now quarantined in workspace/comfy_staging (already
+        # periodically pruned, never gallery-scanned) and reported as a failure.
         if staged_path and staged_path.exists():
-            dest_path = RENDERS_DIR / staged_path.name
+            quarantine_dir = STAGING_DIR / "qc_rejected"
+            quarantine_dir.mkdir(parents=True, exist_ok=True)
+            dest_path = quarantine_dir / staged_path.name
             staged_path.rename(dest_path)
             return {
-                "success": True,
-                "file_path": str(dest_path),
-                "filename": dest_path.name,
-                "url_path": f"/static/brand_assets/comfy_renders/{dest_path.name}",
-                "warning": "Image generated but failed Iris strict QC threshold after maximum retries.",
+                "success": False,
+                "error": "Image failed Iris strict QC threshold after maximum retries - not released.",
+                "quarantined_file_path": str(dest_path),
                 "qc_audit": last_audit,
                 "attempts_taken": attempt
             }
