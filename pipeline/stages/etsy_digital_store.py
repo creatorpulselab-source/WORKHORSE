@@ -398,8 +398,22 @@ class EtsyDigitalStore:
     # =========================================================================
     # 5. PACKAGING THE COMPLETE ETSY DIGITAL PRODUCTS BUNDLE
     # =========================================================================
+    KNOWN_PRODUCT_TYPES = ("all", "presets", "contracts", "posing", "templates")
+
     def bundle_etsy_product(self, product_type: str = "all") -> Dict[str, Any]:
         """Bundle full ready-to-sell Etsy digital delivery packages with listing copy & tags."""
+        requested_product_type = product_type
+        if product_type not in self.KNOWN_PRODUCT_TYPES:
+            # An unrecognized product_type previously matched none of the conditional
+            # blocks below, silently producing a near-empty bundle (just the listing
+            # metadata text file, zero actual product content) while still returning
+            # status "ok" - reachable not just from a typo in the dashboard but from
+            # order_radar.py's webhook_product_map, so a paying Stripe/Gumroad customer
+            # could have silently received an empty deliverable. Fail safe toward
+            # giving everything rather than nothing.
+            print(f"[EtsyDigitalStore] Unrecognized product_type '{product_type}' - "
+                  f"falling back to 'all' instead of shipping an empty bundle.")
+            product_type = "all"
         bundle_name = f"ETSY_DIGITAL_CREATOR_{product_type.upper()}_PACK"
         pkg_dir = self.output_base / bundle_name
         pkg_dir.mkdir(parents=True, exist_ok=True)
@@ -513,6 +527,7 @@ Instant digital download delivered immediately upon purchase!
         return {
             "status": "ok",
             "product_type": product_type,
+            "requested_product_type": requested_product_type,
             "bundle_name": bundle_name,
             "zip_path": str(zip_path),
             "zip_name": zip_path.name,

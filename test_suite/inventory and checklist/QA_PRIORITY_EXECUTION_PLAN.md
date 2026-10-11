@@ -125,7 +125,15 @@ happened. Highest-value testing target after Tier 0/1.
       `/api/download/fiverr/{order_number}` is NOT in `PUBLIC_PATHS`/`PUBLIC_PREFIXES`, so it already
       requires a valid WORKHORSE login session, unlike the deliberately-public, token-protected
       Stripe/Gumroad download flow. 7 new tests in `test_fiverr_service_bot.py`.
-- [ ] **Etsy Digital Store (§P):** bundle contents/integrity, ZIP entry paths
+- [x] **Etsy Digital Store (§P):** ✅ DONE (2026-10-10) — bundle contents/integrity verified (5
+      Lightroom presets, 3 legal contracts, posing guide, 2 social templates, listing metadata),
+      ZIP entries confirmed relative (no absolute-path leakage). **Bug found and fixed:**
+      `bundle_etsy_product()` had no validation of `product_type` — an unrecognized value (e.g. a
+      typo in `webhook_product_map`, reachable from the Stripe/Gumroad webhook path) silently
+      produced a near-empty bundle (just the listing text file) while still returning `status:"ok"`,
+      which could have shipped a paying customer an empty deliverable with no error anywhere. Now
+      falls back to `"all"` and reports both the resolved and originally-requested product type.
+      9 new tests (`test_etsy_digital_store.py`).
 - [ ] **Client retouch/delivery pipeline:** extend today's new `test_client_retouch_pipeline.py`
       coverage — this is proven, recent, high-value ground
 - [ ] **Dropzone Watcher/Fulfiller (§N):** this section was flagged "weak" in the evaluation and has
