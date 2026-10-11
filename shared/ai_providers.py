@@ -8,6 +8,38 @@ from typing import List, Optional, Dict, Any
 
 from shared.vram_manager import vram_manager
 
+# Every known prefix call_ollama_text()/call_ollama_vision() themselves return on
+# failure (connection errors, non-200 HTTP responses, timeouts) - since those methods
+# always return a plain string (never raise, never a structured {"success": bool}
+# wrapper), a caller that doesn't check for one of these exact prefixes will silently
+# treat the error text as if it were real generated content. This happened for real in
+# prompt_synthesizer.py (an infra error became the literal FLUX image-generation
+# prompt) and vision_agent.py (an infra error became a client-visible "visual_summary"
+# in package_exporter.py's delivered package). copy_synthesizer.py is NOT vulnerable to
+# this because it always requires valid JSON and falls back otherwise - an error
+# string is never valid JSON, so it already can't be mistaken for real content there.
+AI_ERROR_RESPONSE_PREFIXES = (
+    "Ollama connection error:",
+    "Error from Local Ollama:",
+    "Ollama Vision error:",
+    "Error from Local Ollama Vision:",
+)
+
+
+def is_ai_error_response(text: str) -> bool:
+    """True if `text` is one of ai_providers.py's own failure-string returns rather
+    than real model-generated content. Use this to gate any caller that treats a
+    call_ollama_text()/call_ollama_vision() return value as literal content."""
+    if not isinstance(text, str):
+        return False
+    stripped = text.strip()
+    if stripped.startswith(AI_ERROR_RESPONSE_PREFIXES):
+        return True
+    # The vision timeout path returns a JSON error envelope rather than a plain
+    # prefix - still not real content.
+    return stripped.startswith('{"passed": false, "error": "Vision QC timed out')
+
+
 class AIProviderService:
     def __init__(self, config_path: str = "F:/WORKHORSE/config.json"):
         self.config_path = Path(config_path)

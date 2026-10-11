@@ -169,9 +169,19 @@ brand is actually correct.
       folder (`brand_assets/comfy_renders`) the Completed Work gallery scans as approved content -
       this directly closes the `content_engine.py` gap (it only ever checked `success`) without
       needing to touch `content_engine.py` itself. 4 new tests (`test_qc_fail_open_vs_closed.py`).
-- [ ] **Error strings leaking into deliverables:** LLM/Whisper connection-error text (e.g. `"Ollama
-      connection error: ..."`, `"[Transcription error: ...]"`) can end up embedded in actual
-      generated copy, transcripts, or prompt text instead of being caught as a failure
+- [x] **Error strings leaking into deliverables:** ✅ DONE (2026-10-10) — confirmed `ai_providers.py`'s
+      `call_ollama_text`/`call_ollama_vision` never raise on a connection/HTTP failure, they return a
+      plain error string instead (e.g. `"Ollama connection error: ..."`), so any caller without an
+      explicit check silently treats the error text as real content. Found and fixed 3 vulnerable
+      callers: `prompt_synthesizer.py` (an infra error became the literal FLUX image-generation
+      prompt fed to ComfyUI), `vision_agent.py` (an infra error became a client-visible
+      "visual_summary"/"scene_description" — the latter compounds directly into Muse's prompts too),
+      and `audio_agent.py` (a mid-transcription failure appended `"[Transcription error: ...]"`
+      directly onto the end of already-transcribed real dialogue). Added a shared
+      `is_ai_error_response()` helper in `ai_providers.py` and gated all three callers with it.
+      **Confirmed NOT vulnerable:** `copy_synthesizer.py` already requires valid JSON and falls back
+      to static content otherwise — an error string is never valid JSON, so it was never at risk.
+      14 new tests (`test_ai_error_leak_fixes.py`).
 - [ ] **Scrubber only runs on Herald's QC-passed branch** — verify whether QC-bypassed, failed-QC,
       and video paths should also strip metadata (privacy/client-safety question)
 - [ ] Photo Retoucher (§H), Metadata Scrubber (§I), DaVinci Bridge (§L), Package Exporter (§M) —

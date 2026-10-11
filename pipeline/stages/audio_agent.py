@@ -157,7 +157,15 @@ class AudioAgent:
                     if len(text.split()) >= 3 and len(text.split()) <= 12:
                         hooks.append(text)
         except Exception as e:
-            full_text_parts.append(f"[Transcription error: {e}]")
+            # Previously appended "[Transcription error: {e}]" directly into
+            # full_text_parts - if some segments had already transcribed
+            # successfully before a mid-stream failure (e.g. a CUDA/VRAM error),
+            # this bracketed error text got concatenated onto the end of otherwise-
+            # real spoken dialogue, making it look like part of the actual
+            # transcript rather than a failure notice. Kept separate instead.
+            transcription_error = str(e)
+        else:
+            transcription_error = None
         finally:
             if self.auto_unload:
                 self.unload_model()
@@ -167,12 +175,15 @@ class AudioAgent:
         if progress_cb:
             progress_cb("Echo Agent: Audio transcription finalized!", 100)
 
-        return {
+        result = {
             "has_audio": True,
             "full_text": full_transcript,
             "segments": segments_data,
             "hooks": hooks[:5]
         }
+        if transcription_error:
+            result["transcription_error"] = transcription_error
+        return result
 
 if __name__ == "__main__":
     agent = AudioAgent()

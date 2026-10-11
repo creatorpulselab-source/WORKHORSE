@@ -7,7 +7,7 @@ import sys
 
 # Add parent directory for imports
 sys.path.insert(0, str(Path("F:/WORKHORSE")))
-from shared.ai_providers import AIProviderService
+from shared.ai_providers import AIProviderService, is_ai_error_response
 
 ADULT_CONTENT_KEYWORDS = [
     "adult", "boudoir", "nsfw", "onlyfans", "fansly", "glamour", "lingerie",
@@ -49,6 +49,19 @@ Respond in clean format."""
             # We send up to 3 selected representative poses (e.g. pose 1, 3, 5) to keep inference fast
             sample_poses = [pose_images[0], pose_images[min(2, len(pose_images)-1)], pose_images[min(4, len(pose_images)-1)]]
             response = self.ai.call_ollama_vision(prompt, sample_poses)
+
+            if is_ai_error_response(response):
+                # call_ollama_vision() never raises on a connection/HTTP failure - it
+                # returns a plain error string instead, which the except block below
+                # can never catch. Without this check, a real infra failure (Ollama
+                # down/timeout) would be stored verbatim as "visual_summary", presented
+                # as if it were genuine AI analysis of the shoot.
+                return {
+                    "visual_summary": "Visual analysis unavailable - local AI service error. Retry once Ollama is back online.",
+                    "pose_count": len(pose_images),
+                    "cover_recommendation": "Pose 1",
+                    "error": response
+                }
 
             if progress_cb:
                 progress_cb("Iris Agent: Vision analysis completed!", 95)
@@ -120,6 +133,19 @@ Output as a clean labeled list. Be precise and literal, not creative."""
         try:
             sample_poses = [pose_images[0], pose_images[min(2, len(pose_images)-1)], pose_images[min(4, len(pose_images)-1)]]
             response = self.ai.call_ollama_vision(prompt, sample_poses, num_predict=700)
+
+            if is_ai_error_response(response):
+                # Without this check, an infra failure here would be stored verbatim
+                # as "scene_description" and then fed straight into Muse
+                # (prompt_synthesizer.py) as the "ground-truth scene description" -
+                # compounding a raw connection-error string into the actual image/
+                # video generation prompts.
+                return {
+                    "scene_description": "Forensic scene extraction unavailable - local AI service error. Retry once Ollama is back online.",
+                    "pose_count": len(pose_images),
+                    "content_type": resolved_type,
+                    "error": response
+                }
 
             if progress_cb:
                 progress_cb("Iris Agent: Forensic scene extraction complete!", 60)

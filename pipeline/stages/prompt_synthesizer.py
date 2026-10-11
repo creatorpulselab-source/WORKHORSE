@@ -4,7 +4,7 @@ from typing import Dict, Any, List, Optional, Callable
 import sys
 
 sys.path.insert(0, str(Path("F:/WORKHORSE")))
-from shared.ai_providers import AIProviderService
+from shared.ai_providers import AIProviderService, is_ai_error_response
 
 ADULT_CONTENT_KEYWORDS = [
     "adult", "boudoir", "nsfw", "onlyfans", "fansly", "glamour", "lingerie",
@@ -60,7 +60,10 @@ Using ONLY the ground-truth scene description above, write ONE single-paragraph,
 
 Output ONLY the prompt paragraph, no headers or explanation."""
 
-        flux_prompt = self._clean_response(self.ai.call_ollama_text(flux_request, system_prompt="You are Muse, an expert AI image-prompt engineer for FLUX.1/SDXL."))
+        raw_flux = self.ai.call_ollama_text(flux_request, system_prompt="You are Muse, an expert AI image-prompt engineer for FLUX.1/SDXL.")
+        if is_ai_error_response(raw_flux):
+            return self._error_result(raw_flux, resolved_type)
+        flux_prompt = self._clean_response(raw_flux)
 
         if progress_cb:
             progress_cb("Muse Agent: Crafting WAN video motion prompt...", 40)
@@ -72,7 +75,10 @@ Using ONLY the ground-truth scene description above, write ONE cinematic camera-
 
 Output ONLY the prompt, no headers or explanation."""
 
-        wan_prompt = self._clean_response(self.ai.call_ollama_text(wan_request, system_prompt="You are Muse, an expert AI video-prompt engineer for WAN2.1/2.2."))
+        raw_wan = self.ai.call_ollama_text(wan_request, system_prompt="You are Muse, an expert AI video-prompt engineer for WAN2.1/2.2.")
+        if is_ai_error_response(raw_wan):
+            return self._error_result(raw_wan, resolved_type)
+        wan_prompt = self._clean_response(raw_wan)
 
         if progress_cb:
             progress_cb("Muse Agent: Crafting 6-pose variation series...", 70)
@@ -88,16 +94,36 @@ Format strictly as:
 ...through 6.
 No extra commentary before, between, or after the 6 entries."""
 
-        pose_series_raw = self._clean_response(self.ai.call_ollama_text(pose_request, system_prompt="You are Muse, an expert AI prompt engineer creating pose-series variations."))
+        raw_pose = self.ai.call_ollama_text(pose_request, system_prompt="You are Muse, an expert AI prompt engineer creating pose-series variations.")
+        if is_ai_error_response(raw_pose):
+            return self._error_result(raw_pose, resolved_type)
+        pose_series_raw = self._clean_response(raw_pose)
         pose_variations = self._parse_pose_series(pose_series_raw)
 
         if progress_cb:
             progress_cb("Muse Agent: Prompt kit complete!", 100)
 
         return {
+            "status": "ok",
             "flux_image_prompt": flux_prompt,
             "wan_video_prompt": wan_prompt,
             "pose_series": pose_variations,
+            "content_type": resolved_type
+        }
+
+    def _error_result(self, raw_error: str, resolved_type: str) -> Dict[str, Any]:
+        """Returns a clearly-flagged failure instead of silently embedding an AI
+        provider infrastructure error string (e.g. "Ollama connection error: ...") as
+        if it were real generated prompt content - this previously became the literal
+        prompt fed to image/video generation, and could end up in a client's delivered
+        package via package_exporter.py's markdown summary."""
+        failure_notice = "[Muse prompt generation unavailable - local AI service error. Retry once Ollama is back online.]"
+        return {
+            "status": "error",
+            "error": raw_error,
+            "flux_image_prompt": failure_notice,
+            "wan_video_prompt": failure_notice,
+            "pose_series": [],
             "content_type": resolved_type
         }
 
