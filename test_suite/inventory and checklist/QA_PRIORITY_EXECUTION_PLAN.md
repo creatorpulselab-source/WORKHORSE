@@ -118,8 +118,13 @@ happened. Highest-value testing target after Tier 0/1.
     duplicate-order dedup, `_extract_order_id` regex collision risk (can match plain words like
     "ORDER" and silently dedupe real distinct orders), hardcoded email-order amounts,
     only-last-10-messages IMAP scan limit
-- [ ] **Fiverr Service Bot (§Q):** once Tier 0.4 is fixed, lock in client-bound asset selection with
-      a regression test (mirroring today's `apex_package` fix pattern)
+- [x] **Fiverr Service Bot (§Q):** ✅ DONE (2026-10-10) — asset-selection safety fixed/tested in
+      Tier 0; `fulfill_order()` packaging/delivery flow now covered too (correct ZIP naming,
+      missing-asset handling, delivery note content, gig catalog). **Correction to the original
+      evaluation:** the "guessable filename" concern is lower-severity than stated — confirmed
+      `/api/download/fiverr/{order_number}` is NOT in `PUBLIC_PATHS`/`PUBLIC_PREFIXES`, so it already
+      requires a valid WORKHORSE login session, unlike the deliberately-public, token-protected
+      Stripe/Gumroad download flow. 7 new tests in `test_fiverr_service_bot.py`.
 - [ ] **Etsy Digital Store (§P):** bundle contents/integrity, ZIP entry paths
 - [ ] **Client retouch/delivery pipeline:** extend today's new `test_client_retouch_pipeline.py`
       coverage — this is proven, recent, high-value ground
