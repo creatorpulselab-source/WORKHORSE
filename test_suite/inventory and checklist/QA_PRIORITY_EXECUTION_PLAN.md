@@ -182,10 +182,25 @@ brand is actually correct.
       **Confirmed NOT vulnerable:** `copy_synthesizer.py` already requires valid JSON and falls back
       to static content otherwise — an error string is never valid JSON, so it was never at risk.
       14 new tests (`test_ai_error_leak_fixes.py`).
-- [ ] **Scrubber only runs on Herald's QC-passed branch** — verify whether QC-bypassed, failed-QC,
-      and video paths should also strip metadata (privacy/client-safety question)
-- [ ] Photo Retoucher (§H), Metadata Scrubber (§I), DaVinci Bridge (§L), Package Exporter (§M) —
-      already well-covered by existing tests; extend per REV2 detail
+- [x] **Scrubber only runs on Herald's QC-passed branch** — ✅ DONE (2026-10-10). **Finding:**
+      `comfy_background_change`/`comfy_subject_swap` already scrubbed unconditionally (safe); the
+      gap was specifically in `generate_and_audit`'s main text-to-image path — its QC-PASSED branch
+      scrubbed, but its QC-BYPASSED branch (`auto_qc=False`, or globally disabled in config) returned
+      the image as a real deliverable with whatever metadata ComfyUI embedded fully intact. Many
+      ComfyUI setups embed the full workflow JSON — including the exact prompt text — into PNG
+      metadata by default, a real content-privacy concern for explicit/client-identifying prompts if
+      that image is ever shared or posted. Fixed: the bypass branch now scrubs too. **Bonus bug
+      found while testing:** that same branch never ensured its target directory existed before
+      renaming into it (worked in production only because the folder already existed from other
+      code paths) — fixed alongside it. Video-output metadata stripping remains a documented open
+      question (scrubber.py is PIL/image-only; no equivalent exists for video containers — not
+      investigated further, as it needs a real ComfyUI connection to determine what metadata its
+      video nodes actually embed, if any).
+- [x] Photo Retoucher (§H), Metadata Scrubber (§I), DaVinci Bridge (§L), Package Exporter (§M) —
+      already well-covered by existing tests; extended per REV2 detail as part of the above.
+
+Tier 3 complete. 23 new tests total across 3 commits (`test_qc_fail_open_vs_closed.py`,
+`test_ai_error_leak_fixes.py`). Full suite: 189/189 passing.
 
 ---
 
@@ -262,13 +277,13 @@ These aren't bugs with an obvious fix — they're policy calls. A test can't ass
 behavior until you've picked what correct means. Recommend resolving these in order, right before
 their corresponding tier is tackled (you don't need to decide #6/#7 today, for instance).
 
-1. **Rotate the Gmail app password and untrack `order_radar_config.json`?** *(blocks Tier 0.1 — recommend yes, immediately)*
+1. ✅ **DECIDED (2026-10-10):** Rotate the Gmail app password and untrack `order_radar_config.json`? → Yes, done immediately.
 2. **Dead config controls** (Forge codec/crop toggles, Echo Whisper settings, pose count, etc.) — wire them up for real, or remove the UI controls so they stop implying something configurable that isn't? *(blocks Tier 5/6 cleanup)*
-3. **QC on failure or parse-error: fail closed (reject) or stay fail-open (auto-approve)?** *(blocks Tier 3 IRIS QC tests)*
-4. **Fiverr fulfillment: require an explicit client/order-bound file, or keep "pick the newest-ish match"?** *(blocks Tier 0.4 / Tier 2)*
+3. ✅ **DECIDED (2026-10-10):** QC on failure or parse-error: fail closed or fail open? → Split policy: fail-open only when QC *couldn't run* (infra down/timeout), fail-closed when QC *actually rejected* the image after retries. Implemented and tested.
+4. ✅ **DECIDED (2026-10-10):** Fiverr fulfillment file selection → fixed to true newest-by-mtime with an explicit client-bound `asset_filename` option and a visible warning on any ambiguity.
 5. **Should the VRAM circuit breaker actually skip tripping while an orchestrator job is active**, matching its own docstring? *(blocks Tier 5)*
 6. **Should the agent roster be unified** across README, `agents.js`, the Synapse system prompt, and `pipeline.js`? What should Vanguard and Mercury's roles actually be, given each source currently describes them differently? *(blocks Tier 8 below)*
-7. **Should `dropzone_watcher` be started automatically with the server**, or is it legacy/manual-only? *(blocks Tier 2 dropzone scope)*
+7. ✅ **DECIDED (2026-10-10):** Should `dropzone_watcher` be started automatically with the server? → Yes, active going forward. Wired in and verified end-to-end.
 
 ---
 
@@ -289,7 +304,7 @@ Tier 0  → Fix now (5 items, each: evidence → fix → regression test) ✅ DO
 Tier 1  → Build test isolation/safety infra (blocks everything below) ✅ DONE
 Tier 2  → Order Radar (🚩 deferred - not configured yet), Fiverr ✅, Etsy ✅,
           client delivery ✅, Dropzone ✅ — DONE except deferred Order Radar item
-Tier 3  → QC integrity, error-as-content leaks, metadata scrubbing
+Tier 3  → QC integrity, error-as-content leaks, metadata scrubbing ✅ DONE
 Tier 4  → Herald/Newsletter/Twitter/Pinterest reliability
 Tier 5  → VRAM/GPU-arbiter/atomic-writes/blocking-call stability
 Tier 6  → Synapse tool-dispatch correctness

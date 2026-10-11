@@ -2269,8 +2269,27 @@ If ANY extra limbs, mutated hands, or severe facial defects are found, set "pass
 
                 if not auto_qc or not self.qc_cfg.get("auto_qc_enabled", True):
                     # QC disabled, approve directly
+                    RENDERS_DIR.mkdir(parents=True, exist_ok=True)  # pre-existing gap: unlike the PASSED branch below, this never ensured its target directory existed
                     dest_path = RENDERS_DIR / staged_path.name
                     staged_path.rename(dest_path)
+
+                    # SCRUBBER [82 Pb] Pre-Flight EXIF Scrub (Zero metadata leaks) -
+                    # previously only ran in the QC-PASSED branch below, so a
+                    # QC-bypassed render (auto_qc=False, or globally disabled in
+                    # config) was released as a real deliverable with whatever
+                    # metadata ComfyUI embedded intact - many ComfyUI setups embed
+                    # the full workflow JSON (including the exact prompt text) into
+                    # PNG metadata chunks by default, which is a real content-privacy
+                    # concern for explicit/client-identifying prompts if that image
+                    # is ever shared or posted. comfy_background_change/
+                    # comfy_subject_swap already scrub unconditionally - this brings
+                    # the standard generation path in line with those.
+                    try:
+                        from pipeline.stages.scrubber import metadata_scrubber
+                        metadata_scrubber.scrub_image(dest_path)
+                    except Exception as ce:
+                        print(f"[SCRUBBER] Warning: Metadata scrub failed: {ce}")
+
                     return {
                         "success": True,
                         "file_path": str(dest_path),

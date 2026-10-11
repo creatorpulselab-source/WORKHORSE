@@ -35,6 +35,16 @@ def _make_staged_image(path: Path):
     path.write_bytes(b"fake-png-bytes")
 
 
+def _make_real_image_with_exif(path: Path):
+    from PIL import Image
+    from PIL.ExifTags import Base as ExifBase
+    path.parent.mkdir(parents=True, exist_ok=True)
+    img = Image.new("RGB", (8, 8), color=(120, 40, 200))
+    exif = img.getexif()
+    exif[ExifBase.Make.value] = "ComfyUI-Workflow-Metadata"
+    img.save(path, format="PNG", exif=exif)
+
+
 # --------------------------------------------------------------------------
 # run_iris_qc_audit: fail-open on infra failure, but now auditable/distinguishable
 # --------------------------------------------------------------------------
@@ -133,3 +143,34 @@ def test_genuine_pass_still_succeeds_and_lands_in_renders_dir(bridge, tmp_path):
     assert Path(result["file_path"]).exists()
     import pipeline.stages.comfyui_bridge as bridge_module
     assert str(bridge_module.RENDERS_DIR) in result["file_path"] or "brand_assets" in result["file_path"]
+
+
+# --------------------------------------------------------------------------
+# QC-bypassed path must still scrub metadata (previously only the QC-PASSED
+# branch did) - many ComfyUI setups embed the full workflow JSON, including the
+# exact prompt text, into PNG metadata by default, which is a real content-privacy
+# concern for explicit/client-identifying prompts if that image is ever shared.
+# comfy_background_change/comfy_subject_swap already scrubbed unconditionally.
+# --------------------------------------------------------------------------
+
+def test_qc_bypassed_path_still_scrubs_metadata(bridge, tmp_path):
+    staged_file = tmp_path / "staged_bypassed.png"
+
+    def fake_download_image(filename, subfolder="", folder_type="output"):
+        _make_real_image_with_exif(staged_file)
+        return staged_file
+
+    with patch.object(bridge, "check_connection", return_value={"online": True, "host": "x", "port": 1}), \
+         patch.object(bridge, "build_standard_workflow", return_value={}), \
+         patch.object(bridge, "queue_prompt", return_value={"prompt_id": "abc123"}), \
+         patch.object(bridge, "wait_for_execution", return_value=[{"filename": "staged_bypassed.png", "subfolder": "", "type": "output"}]), \
+         patch.object(bridge, "download_image", side_effect=fake_download_image):
+        result = bridge.generate_and_audit(positive_prompt="test prompt", auto_qc=False)
+
+    assert result["success"] is True
+    assert result["qc_bypassed"] is True
+
+    from PIL import Image
+    with Image.open(result["file_path"]) as img:
+        assert len(img.getexif()) == 0  # metadata must be stripped even though QC was skipped
+
