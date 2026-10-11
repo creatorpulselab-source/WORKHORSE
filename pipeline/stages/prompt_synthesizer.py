@@ -5,6 +5,7 @@ import sys
 
 sys.path.insert(0, str(Path("F:/WORKHORSE")))
 from shared.ai_providers import AIProviderService, is_ai_error_response
+from shared.comfyui_knowledge import get_comfyui_context
 
 ADULT_CONTENT_KEYWORDS = [
     "adult", "boudoir", "nsfw", "onlyfans", "fansly", "glamour", "lingerie",
@@ -60,7 +61,13 @@ Using ONLY the ground-truth scene description above, write ONE single-paragraph,
 
 Output ONLY the prompt paragraph, no headers or explanation."""
 
-        raw_flux = self.ai.call_ollama_text(flux_request, system_prompt="You are Muse, an expert AI image-prompt engineer for FLUX.1/SDXL.")
+        flux_request += "\nUse descriptive natural-language prose for FLUX; do not use CLIP weighting syntax."
+
+        raw_flux = self.ai.call_ollama_text(
+            flux_request,
+            system_prompt="You are Muse, an expert AI image-prompt engineer for FLUX.1/SDXL.\n"
+            + get_comfyui_context("image_prompt")
+        )
         if is_ai_error_response(raw_flux):
             return self._error_result(raw_flux, resolved_type)
         flux_prompt = self._clean_response(raw_flux)
@@ -75,7 +82,11 @@ Using ONLY the ground-truth scene description above, write ONE cinematic camera-
 
 Output ONLY the prompt, no headers or explanation."""
 
-        raw_wan = self.ai.call_ollama_text(wan_request, system_prompt="You are Muse, an expert AI video-prompt engineer for WAN2.1/2.2.")
+        raw_wan = self.ai.call_ollama_text(
+            wan_request,
+            system_prompt="You are Muse, an expert AI video-prompt engineer for WAN2.1/2.2.\n"
+            + get_comfyui_context("video_prompt")
+        )
         if is_ai_error_response(raw_wan):
             return self._error_result(raw_wan, resolved_type)
         wan_prompt = self._clean_response(raw_wan)
@@ -94,7 +105,11 @@ Format strictly as:
 ...through 6.
 No extra commentary before, between, or after the 6 entries."""
 
-        raw_pose = self.ai.call_ollama_text(pose_request, system_prompt="You are Muse, an expert AI prompt engineer creating pose-series variations.")
+        raw_pose = self.ai.call_ollama_text(
+            pose_request,
+            system_prompt="You are Muse, an expert AI prompt engineer creating pose-series variations.\n"
+            + get_comfyui_context("pose_prompt")
+        )
         if is_ai_error_response(raw_pose):
             return self._error_result(raw_pose, resolved_type)
         pose_series_raw = self._clean_response(raw_pose)

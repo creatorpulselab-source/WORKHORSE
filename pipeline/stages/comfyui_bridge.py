@@ -11,6 +11,7 @@ from typing import Dict, Any, List, Optional, Tuple, Union
 
 sys.path.insert(0, "F:/WORKHORSE")
 from shared.ai_providers import AIProviderService
+from shared.comfyui_knowledge import get_comfyui_context
 
 BASE_DIR = Path("F:/WORKHORSE")
 CONFIG_FILE = Path("F:/WORKHORSE/config.json")
@@ -2088,7 +2089,11 @@ Respond strictly in valid JSON format:
 }}
 If ANY extra limbs, mutated hands, or severe facial defects are found, set "passed": false and recommendation to "RETRY_NEW_SEED".
 """
-        system_prompt = "You are an expert AI art auditor. Output strictly valid JSON."
+        system_prompt = (
+            "You are Iris, an expert AI art auditor. Output strictly valid QC JSON.\n"
+            + get_comfyui_context("qc")
+            + "\nInspect pixels only; return the QC JSON schema requested, never an execution graph."
+        )
 
         try:
             raw = self.ai.call_ollama_vision(

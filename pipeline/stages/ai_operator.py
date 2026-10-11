@@ -20,6 +20,7 @@ from typing import List, Dict, Any, Optional, Tuple
 import re
 import requests
 from duckduckgo_search import DDGS
+from shared.comfyui_knowledge import get_comfyui_context
 
 if sys.platform == "win32":
     try:
@@ -2077,6 +2078,7 @@ class AIOperatorEngine:
 
         live_task_context = self.get_live_task_status_context()
         system_content = SYSTEM_PROMPT + "\n\n" + live_task_context
+        system_content += "\n\n" + get_comfyui_context("operator", message)
         if trend_context_str:
             system_content += trend_context_str
         if comfy_context_str:

@@ -11,7 +11,9 @@ against existing `test_suite/` coverage, and updated following the agent ecosyst
 - **[CORRECTED]** = prior checklist statement that conflicted with actual codebase implementation
 
 > **Rev 2 Notice (2026-10-10):**
-> This file is a non-destructive separate checklist created for user review. No application code or existing tests have been modified.
+> Originally created as a non-destructive separate checklist for user review. The dated
+> priority execution plan records subsequent implementation; §AI adds ComfyUI curriculum
+> integration and verification on 2026-10-11.
 > Corrections include FLAGGED #3, Section M, Section Q, Section Z, and Section AD-1/2/4.
 > New additions include FLAGGED #6–#14 and Sections AE (Test Isolation & Safety), AF (Security & Exposure), AG (Dead / Decorative Config Controls), and AH (Agent Roster Consistency).
 
@@ -519,3 +521,63 @@ Each control: decide **wire it** or **remove it**; until then test as xfail or d
 - [ ] Mercury role matches reality (campaign-copy generator; no Reddit/Twitter broadcast)
 - [ ] Cipher described correctly (trend researcher, not "encryption/crawler")
 - [ ] Every pipeline `active_agent` value has a UI pod / highlight
+
+---
+
+## AI. ComfyUI LLM Curriculum & Agent Grounding (added 2026-10-11)
+
+Reference: [ComfyUI LLM learning guide](../../LLM%20training/comfyui_llm_learning_guide.md),
+Modules 1-18, including API blueprints A-M and Module 18's four-level evaluation rubric.
+Implementation: `shared/comfyui_knowledge.py`; offline coverage: `test_comfyui_knowledge.py`.
+This is local runtime retrieval/prompt grounding, not fine-tuning and not evidence of mastery.
+
+### AI-1. Retrieval, freshness and failure visibility
+- [x] Guide path resolved relative to WORKHORSE, independent of process working directory.
+- [x] All six task contexts carry provenance/SHA256 and stay within 14,000 characters.
+- [x] Advanced-topic routing covers inpainting, relighting, image-to-image, LTX/MiniMax,
+      Trellis/PBR, LoRA chains, upscaling, ControlNet, regional conditioning, FaceID,
+      quantization, FreeU/PAG, wildcards and LivePortrait.
+- [x] Each matching blueprint A-M is retrieved whole, not truncated midway through JSON.
+- [x] Edits to the local guide appear on the next call and invalidate Iris's ComfyUI prompt cache.
+- [x] Missing, empty, incomplete, empty-module and invalid-encoding guides produce a logged,
+      explicit unavailable banner; unknown task names raise an explicit programming error.
+- [x] Oversized sections are omitted whole with a context-budget notice.
+
+### AI-2. Agent surfaces and compatibility
+- [x] Assert actual Synapse chat payload contains relevant curriculum, original identity/tool
+      instructions, live status and live inventory; no generation/tool action is triggered by loading.
+- [x] Assert all three Muse calls contain distinct image/video/pose guidance while preserving
+      paragraph/motion/six-pose output contracts and the existing provider-error regressions.
+- [x] Assert Iris inspiration prompt receives curriculum; repeated unchanged requests use cache,
+      but a guide edit forces another call without changing the returned field schema.
+- [x] Assert Iris bridge QC receives type/rubric guidance, not the graph-generation persona,
+      and still rejects extra limbs under configured policy.
+- [x] Related QC-unavailable/rejected, metadata scrubbing, adult authorization, client identity
+      LoRA preservation and PBR source-isolation regressions remain passing.
+- [x] Reference instructions explicitly defer to live schemas, inventory, tool results, tested
+      templates and authorization. Static image/video/3D graphs are not rewritten.
+
+### AI-3. Live curriculum acceptance (PENDING, separate from offline wiring tests)
+- [ ] Controlled dashboard restart/activation without interrupting active jobs.
+- [ ] Confirm deployed Ollama context-window retention, cold/warm latency and memory behavior.
+- [ ] Level 1: generated API JSON parses; node IDs are strings; genuine connection links use
+      `[source_id, output_slot]`; UI layout JSON is never submitted as an API graph.
+- [ ] Level 2: dependencies exist, no cycles, required branches connect to an installed output
+      node; disconnected/unused branches are reported accurately.
+- [ ] Level 3: verify required inputs, actual source output slots/types and model selections
+      against installed `/object_info`; incorrect links or absent nodes fail validation.
+- [ ] Level 4: verify architecture-specific latents/VAEs/encoders, FLUX guidance vs SDXL CFG,
+      denoise, LoRA MODEL/CLIP chaining, regional masks, ControlNet schedules and tiled decoding.
+      Treat the guide's fixed numeric examples as advisory, not cross-model acceptance rules.
+- [ ] Representative approved trials: FLUX/SDXL image prompting, WAN/SVD/LTX motion,
+      image-to-image, inpainting/SAM, relighting, multi-LoRA, upscaling/ControlNet,
+      regional/FaceID, GGUF/FP8 and Trellis/PBR. Uninstalled capabilities must be reported
+      unavailable rather than fabricated; do not install nodes/models automatically.
+- [ ] Negative cases: UI-format graphs, broken links, type mismatches, incompatible
+      model/LoRA combinations, unsupported nodes, unavailable services and guide errors.
+- [ ] Record validation errors and real output/QC evidence before marking competency passed.
+      Prompt inclusion and pixel QC alone do not certify graph or architecture correctness.
+
+**Offline result (2026-10-11):** 46 new guide-integration tests passing; focused selection
+including existing prompt-error, QC-policy and client-character/PBR regressions: 76 passing.
+No live LLM/ComfyUI calls, posting, emailing or production renders were made by these tests.

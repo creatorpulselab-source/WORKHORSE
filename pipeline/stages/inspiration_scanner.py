@@ -9,6 +9,7 @@ import sys
 
 sys.path.insert(0, str(Path("F:/WORKHORSE")))
 from shared.ai_providers import AIProviderService
+from shared.comfyui_knowledge import get_comfyui_context
 
 VAULT_CACHE_FILE = Path("F:/WORKHORSE/workspace/inspiration_vault_cache.json")
 MAX_VAULT_CACHE_ENTRIES = 50
@@ -154,7 +155,9 @@ Provide clear, professional, direct instructions that the photographer can use r
             target_files = files[:3]
 
         cache = self._load_vault_cache()
-        cache_key = "comfyui:" + self._cache_key_for(target_files)
+        knowledge_context = get_comfyui_context("inspiration")
+        knowledge_version = hashlib.sha256(knowledge_context.encode("utf-8")).hexdigest()
+        cache_key = "comfyui:" + knowledge_version + ":" + self._cache_key_for(target_files)
         cached = cache.get(cache_key)
         if cached:
             print(f"[Inspiration Scanner] Cache hit for ComfyUI prompt scan ({len(target_files)} image(s) unchanged since last analysis) - skipping vision call.")
@@ -202,9 +205,18 @@ Provide recommended workflow parameters:
 - Sampling Steps & CFG: (e.g. 28-35 steps, CFG 3.5 - 6.5)
 - Sampler & Scheduler: (e.g. euler_ancestral with karras / dpmpp_2m_sde)
 
+Separate recommendations by model family: FLUX guidance is not SDXL CFG, and negative
+conditioning is not universal. Use descriptive prose for FLUX and identify any SDXL
+tag/weighting alternatives. Do not imply suggested nodes/models are installed without
+live inventory/schema evidence; the curriculum's numeric examples are advisory.
+
 Output clean markdown with clear copyable sections."""
 
-        system_prompt = "You are Iris, an expert ComfyUI and video generative prompt engineer. Provide production-ready, uncensored, copy-paste prompts."
+        system_prompt = (
+            "You are Iris, an expert ComfyUI and video generative prompt engineer. "
+            "Provide production-ready, uncensored, copy-paste prompts.\n"
+            + knowledge_context
+        )
 
         # Same rationale as scan_and_analyze: multi-image prompt generation needs more headroom than the 60s default.
         analysis = self.ai.call_ollama_vision(prompt, target_files, system_prompt=system_prompt, timeout=180)

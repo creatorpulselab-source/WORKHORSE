@@ -10,8 +10,11 @@ down to what's just cosmetic.
 
 **How to use this:** Work top to bottom. Each tier lists concrete action items. Where an item needs
 deeper technical detail than fits here, it points back to the relevant section letter in
-`QA_TEST_CHECKLIST_REV2.md`. Nothing in this document has been implemented yet — it's a plan, same
-as the original checklist was, pending your review.
+`QA_TEST_CHECKLIST_REV2.md`. Checked entries below record implemented and verified work;
+unchecked entries remain planned or explicitly deferred.
+
+**Resumed 2026-10-11:** Commander selected ComfyUI guide integration and its QA first.
+Tier 4 remains the next automation-reliability workstream; it was not included in this pass.
 
 ---
 
@@ -204,6 +207,51 @@ Tier 3 complete. 23 new tests total across 3 commits (`test_qc_fail_open_vs_clos
 
 ---
 
+## TIER 3A — ComfyUI agent curriculum integration (added 2026-10-11)
+
+Source: [ComfyUI LLM learning guide](../../LLM%20training/comfyui_llm_learning_guide.md).
+Detailed acceptance checklist: REV2 §AI.
+
+**Implementation scope:** runtime prompt grounding, NOT model-weight training/fine-tuning.
+The local manual is read on each call. No external upload, model/node installation, GPU-setting
+change, or production render is performed by the loader.
+
+- [x] Shared loader (`shared/comfyui_knowledge.py`) selects task-specific modules and advanced
+      subsections, plus complete matching API blueprints A-M for Synapse workflow requests.
+      Context is capped at 14,000 characters; entire excerpts are omitted rather than cutting
+      JSON in half. Missing/unreadable/malformed curriculum is logged and explicitly marked
+      unavailable in the agent context, never silently presented as loaded.
+- [x] Synapse chat receives the curriculum alongside its existing identity, tool catalog,
+      live task status and ComfyUI inventory.
+- [x] Muse's image, WAN motion and six-pose calls receive separate relevant excerpts;
+      their existing response formats and provider-error handling remain intact.
+- [x] Iris's inspiration-to-ComfyUI call receives model-family-specific prompting guidance.
+      Its cache key includes the knowledge-context fingerprint so older ungrounded results
+      cannot bypass the new instructions, and guide edits invalidate cached prompt results.
+- [x] Iris's bridge QC call receives a smaller type/rubric reference with an explicit pixel-QC
+      JSON-only contract. Configured QC thresholds and the decided unavailable-vs-rejected
+      policy are unchanged. Herald/content-engine callers use this same bridge; deterministic
+      workflow templates and client identity LoRAs are not rewritten by the curriculum.
+- [x] Explicit precedence: live `/object_info`, actual inventory, configured/tested templates,
+      authorization gates and response contracts outrank curriculum examples. Numeric advice
+      is model/version-dependent, not a universal validator or proof of installed capabilities.
+- [x] Offline regression coverage: 46 new tests in `test_comfyui_knowledge.py`; all 76 tests in
+      the focused guide/prompt-error/QC/client-character-and-PBR selection pass.
+- [ ] Activate in the already-running dashboard with a controlled WORKHORSE restart.
+      Changes are persisted on disk; this pass did not interrupt the live server or its jobs.
+- [ ] Live local-model evaluation against guide Module 18: syntax, graph connectivity,
+      port type safety and architecture fidelity. Validate candidates against the installed
+      ComfyUI schemas/inventory before any approved test render; do not assume fictional or
+      unavailable custom nodes from a blueprint are installed.
+- [ ] Verify actual Ollama context-window retention and prompt latency on the deployed models,
+      then measure image/video/LoRA/inpainting/upscaling/3D cases. A character limit and mocked
+      payload tests do not prove that a model retained or correctly applied the instructions.
+
+**Next:** controlled activation + live curriculum evaluation when approved; Tier 4 remains
+next in the original QA sequence. Integration is verified offline, not certified live mastery.
+
+---
+
 ## TIER 4 — Automation reliability (Herald, Newsletter, Social)
 
 Reputational/consistency risk — a missed or duplicated post is embarrassing, not financially
@@ -305,6 +353,7 @@ Tier 1  → Build test isolation/safety infra (blocks everything below) ✅ DONE
 Tier 2  → Order Radar (🚩 deferred - not configured yet), Fiverr ✅, Etsy ✅,
           client delivery ✅, Dropzone ✅ — DONE except deferred Order Radar item
 Tier 3  → QC integrity, error-as-content leaks, metadata scrubbing ✅ DONE
+Tier 3A → ComfyUI guide grounding + offline QA DONE; activation/live competency checks pending
 Tier 4  → Herald/Newsletter/Twitter/Pinterest reliability
 Tier 5  → VRAM/GPU-arbiter/atomic-writes/blocking-call stability
 Tier 6  → Synapse tool-dispatch correctness
