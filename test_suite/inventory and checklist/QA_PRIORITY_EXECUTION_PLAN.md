@@ -265,9 +265,10 @@ their corresponding tier is tackled (you don't need to decide #6/#7 today, for i
 ## Recommended execution order, summarized
 
 ```
-Tier 0  → Fix now (5 items, each: evidence → fix → regression test)
-Tier 1  → Build test isolation/safety infra (blocks everything below)
-Tier 2  → Order Radar, Fiverr, Etsy, client delivery, Dropzone
+Tier 0  → Fix now (5 items, each: evidence → fix → regression test) ✅ DONE
+Tier 1  → Build test isolation/safety infra (blocks everything below) ✅ DONE
+Tier 2  → Order Radar (🚩 deferred - not configured yet), Fiverr ✅, Etsy ✅,
+          client delivery ✅, Dropzone ✅ — DONE except deferred Order Radar item
 Tier 3  → QC integrity, error-as-content leaks, metadata scrubbing
 Tier 4  → Herald/Newsletter/Twitter/Pinterest reliability
 Tier 5  → VRAM/GPU-arbiter/atomic-writes/blocking-call stability
