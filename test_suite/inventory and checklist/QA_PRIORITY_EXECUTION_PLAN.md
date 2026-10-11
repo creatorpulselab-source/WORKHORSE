@@ -108,10 +108,16 @@ boundary and each redirected singleton. Full suite: 147/147 passing. Committed a
 This is where real revenue and client relationships live — and where the Ashley Esteves incident
 happened. Highest-value testing target after Tier 0/1.
 
-- [ ] **Order Radar & webhooks (§O):** Stripe/Gumroad signature & payload validation, download
-      token lifecycle, duplicate-order dedup, `_extract_order_id` regex collision risk (can match
-      plain words like "ORDER" and silently dedupe real distinct orders), hardcoded email-order
-      amounts, only-last-10-messages IMAP scan limit
+- [ ] **Order Radar & webhooks (§O):** 🚩 **FLAGGED — come back to this later.** Not yet configured
+      (Stripe/Gumroad secrets are empty, no real traffic flowing through this path yet) — deferring
+      full test coverage until webhook setup is actually in progress. Tier 0 already fixed the
+      confirmed active bugs (payment_status check, replay protection, race condition, secret
+      redaction, configurable download URL) with regression tests, so this path is safe-by-default
+      even while idle; the remaining items below are the broader test-coverage work, not fixes:
+  - Stripe/Gumroad signature & payload validation edge cases, download token lifecycle,
+    duplicate-order dedup, `_extract_order_id` regex collision risk (can match plain words like
+    "ORDER" and silently dedupe real distinct orders), hardcoded email-order amounts,
+    only-last-10-messages IMAP scan limit
 - [ ] **Fiverr Service Bot (§Q):** once Tier 0.4 is fixed, lock in client-bound asset selection with
       a regression test (mirroring today's `apex_package` fix pattern)
 - [ ] **Etsy Digital Store (§P):** bundle contents/integrity, ZIP entry paths

@@ -138,6 +138,30 @@ async def auto_remediation_loop():
         except Exception as e:
             print(f"[AUTO-REMEDIATION] Error in loop: {e}")
 
+async def dropzone_watcher_loop():
+    """Polls F:\\WORKHORSE\\dropzone every 3s for dropped client photo batches and
+    auto-fulfills them (pipeline.stages.dropzone_fulfiller.DropzoneFulfiller). This was
+    previously only a standalone script (dropzone_watcher.py) that nothing ever
+    actually launched - "hands-off fulfillment" wasn't running at all. Runs as a
+    background task here instead, so it's active for as long as WORKHORSE itself is."""
+    from pipeline.stages.dropzone_fulfiller import DropzoneFulfiller
+    fulfiller = DropzoneFulfiller()
+    loop = asyncio.get_event_loop()
+    print("[DROPZONE WATCHER] Active and monitoring F:\\WORKHORSE\\dropzone...")
+    while True:
+        try:
+            await asyncio.sleep(3)
+            results = await loop.run_in_executor(None, fulfiller.process_dropzone)
+            for r in results:
+                if r.get("status") == "completed":
+                    print(f"[DROPZONE WATCHER] Completed order: {r.get('order_name')} ({r.get('photos_processed')} photos)")
+                elif r.get("status") == "failed":
+                    print(f"[DROPZONE WATCHER] FAILED order: {r.get('order_name')}: {r.get('error')}")
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            print(f"[DROPZONE WATCHER ERROR] {e}")
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global main_loop
@@ -147,6 +171,7 @@ async def lifespan(app: FastAPI):
     herald_task = asyncio.create_task(herald_scheduler.run_loop())
     comfy_health_task = asyncio.create_task(comfy_health_monitor_loop())
     remediation_task = asyncio.create_task(auto_remediation_loop())
+    dropzone_task = asyncio.create_task(dropzone_watcher_loop())
     # Logs today's health snapshot immediately on startup instead of waiting for the
     # first 10-minute auto-remediation cycle (run_daily_health_check is a no-op if
     # today's entry already exists, so this is safe to call on every restart).
@@ -158,6 +183,7 @@ async def lifespan(app: FastAPI):
         herald_task.cancel()
         comfy_health_task.cancel()
         remediation_task.cancel()
+        dropzone_task.cancel()
 
 app = FastAPI(title="WORKHORSE AI Command Center", version="1.2.0", lifespan=lifespan)
 
