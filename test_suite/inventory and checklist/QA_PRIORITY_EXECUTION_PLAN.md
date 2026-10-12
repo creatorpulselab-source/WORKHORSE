@@ -13,7 +13,7 @@ deeper technical detail than fits here, it points back to the relevant section l
 `QA_TEST_CHECKLIST_REV2.md`. Checked entries below record implemented and verified work;
 unchecked entries remain planned or explicitly deferred.
 
-**Resumed 2026-10-12:** Tier 5 (Infrastructure stability & concurrency) completed and locked with 12 regression tests (258/258 tests passing). Commander directed transition to Tier 3A live workflow & LoRA alignment (ensuring no character LoRAs in default workflows; ML_FLUX, CW_FLUX, Margo_FLUX strictly 18+ opt-in).
+**Resumed 2026-10-12:** Tier 5 complete (12 regression tests, 258/258 passing); Tier 3A workflow & LoRA alignment complete (no character LoRAs in default workflows; ML_FLUX, CW_FLUX, Margo_FLUX strictly 18+ opt-in). Commander directed immediate transition to Tier 4 (Automation reliability — Herald, Newsletter, Social).
 
 ---
 
@@ -285,6 +285,12 @@ change, or production render is performed by the loader.
       leaves roughly 37,000 tokens of headroom for conversation history, live status, and the
       user's message. Latency on the real model for grounded Q&A was 1.4–4.8s; a full graph-
       generation request was 26.9s — both acceptable for an interactive chat/tool-call turn.
+- [x] **ComfyUI Workflow & LoRA Alignment (2026-10-12):** Audited all workflows across `comfyui_workflows/`
+      and `pipeline/stages/workflow_templates/`. Enforced strict Commander policy: **ZERO character LoRAs in default workflows**.
+      Replaced `ML_FLUX_V2.safetensors` on node `41:46` in `flux_dev_charater_lora.json` with `fluxtraitFLUX1DEVFor_v10FP16.safetensors`.
+      Replaced `ML_LTX_V1.safetensors` on node `267:274` in `LTX2_3_i2v.json` and `ltx_2_3_i2v_template.json` with `LTX2.3_Crisp_Enhance.safetensors`.
+      Character LoRAs (`ML_FLUX`, `CW_FLUX`, `Margo_FLUX`) confirmed strictly 18+ opt-in and bound exclusively to dedicated,
+      adult-gated client templates (`client_character_*_template.json`).
 - [ ] Representative approved render trials (an actual submitted ComfyUI `/prompt` job, not just
       a generated/validated graph) across image/video/LoRA/inpainting/upscaling/3D cases — **not
       run in this pass.** Everything above was read-only against live services (schema queries,
@@ -462,8 +468,8 @@ Tier 1  → Build test isolation/safety infra (blocks everything below) ✅ DONE
 Tier 2  → Order Radar (🚩 deferred - not configured yet), Fiverr ✅, Etsy ✅,
           client delivery ✅, Dropzone ✅ — DONE except deferred Order Radar item
 Tier 3  → QC integrity, error-as-content leaks, metadata scrubbing ✅ DONE
-Tier 3A → ComfyUI guide grounding + offline QA DONE; activation/live competency checks pending
-Tier 4  → Herald/Newsletter/Twitter/Pinterest reliability
+Tier 3A → ComfyUI guide grounding + offline QA + workflow/LoRA alignment ✅ DONE (2026-10-12)
+Tier 4  → Herald/Newsletter/Twitter/Pinterest reliability ⏳ IN PROGRESS
 Tier 5  → VRAM/GPU-arbiter/atomic-writes/blocking-call stability ✅ DONE (2026-10-12)
 Tier 6  → Synapse tool-dispatch correctness
 Tier 7  → (ongoing) resolve policy decisions as each tier is reached
