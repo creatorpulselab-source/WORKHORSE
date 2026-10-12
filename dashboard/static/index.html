@@ -3033,5 +3033,35 @@
   <script src="/static/js/operator.js?v=20261010_v2"></script>
   <script src="/static/js/character3d.js?v=20261009_v1" defer></script>
   <script type="module" src="/static/js/vendor/model-viewer.min.js" defer></script>
+    <!-- UNIVERSAL WORKSPACE FOLDER EXPLORER MODAL (MOBILE & PC) -->
+    <div class="modal-overlay" id="modal-folder-browser">
+      <div class="modal-card glass-panel" style="max-width: 720px; max-height: 88vh; display: flex; flex-direction: column;">
+        <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(0, 242, 254, 0.2); padding-bottom: 12px; margin-bottom: 12px;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <span style="font-size: 24px;">📂</span>
+            <div>
+              <div id="folder-browser-title" style="font-weight: 800; font-size: 16px; color: var(--cyan-glow); font-family: 'Outfit', sans-serif;">Workspace Folder</div>
+              <div id="folder-browser-subtitle" style="font-size: 11px; color: var(--text-dim); font-family: 'JetBrains Mono', monospace;">0 files • 0 MB total</div>
+            </div>
+          </div>
+          <button class="modal-close-btn" id="btn-close-folder-browser" type="button">&times;</button>
+        </div>
+
+        <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 12px; background: rgba(0,0,0,0.35); padding: 8px 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08);">
+          <span style="font-size: 11px; color: var(--text-dim); font-family: 'JetBrains Mono', monospace; word-break: break-all; flex: 1;" id="folder-browser-path">F:/WORKHORSE/workspace/output</span>
+          <button class="btn-cyber" id="btn-copy-folder-path" type="button" style="font-size: 10px; padding: 4px 10px; flex-shrink: 0;">📋 Copy Path</button>
+        </div>
+
+        <div id="folder-browser-files-list" style="flex: 1; overflow-y: auto; max-height: 52vh; display: flex; flex-direction: column; gap: 6px; padding-right: 4px;">
+          <!-- Dynamically populated files -->
+        </div>
+
+        <div style="margin-top: 12px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.08); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+          <span id="folder-browser-pc-note" style="font-size: 10px; color: var(--text-dim); font-family: 'JetBrains Mono', monospace;">🖥️ On PC, Windows Explorer also opens automatically.</span>
+          <button class="btn-cyber" type="button" onclick="document.getElementById('modal-folder-browser').classList.remove('open')">Close</button>
+        </div>
+      </div>
+    </div>
+
 </body>
 </html>

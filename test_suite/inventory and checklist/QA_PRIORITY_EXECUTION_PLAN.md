@@ -463,18 +463,23 @@ their corresponding tier is tackled (you don't need to decide #6/#7 today, for i
 3. ✅ **DECIDED (2026-10-10):** QC on failure or parse-error: fail closed or fail open? → Split policy: fail-open only when QC *couldn't run* (infra down/timeout), fail-closed when QC *actually rejected* the image after retries. Implemented and tested.
 4. ✅ **DECIDED (2026-10-10):** Fiverr fulfillment file selection → fixed to true newest-by-mtime with an explicit client-bound `asset_filename` option and a visible warning on any ambiguity.
 5. ✅ **DECIDED (2026-10-12):** Should the VRAM circuit breaker skip tripping while an orchestrator job is active? → Yes, `is_busy()` check implemented and tested to safeguard long-running jobs.
-6. **Should the agent roster be unified** across README, `agents.js`, the Synapse system prompt, and `pipeline.js`? What should Vanguard and Mercury's roles actually be, given each source currently describes them differently? *(blocks Tier 8 below)*
+6. ✅ **DECIDED (2026-10-12):** Agent roster unification and Vanguard / Mercury / Prism roles → Resolved:
+   - **Vanguard [74 W]**: Video Intake Sentinel & Pipeline Dispatcher (Stage 1 stream validation, orchestrating Stages 1–8).
+   - **Mercury [80 Hg]**: Omni-Channel Marketing Maestro & Traffic Strategist (Etsy/Fiverr campaigns, multi-channel distribution).
+   - **Radar [47 Ag]**: Order Radar & Client Intake Sentinel (`digitalcreatorassets@gmail.com` inbox watcher).
+   - **Prism**: Clarified and isolated as a **standalone application** (`standalone_apps/prism`, `prism_local/` on port 7862), NOT an agent or pipeline stage in WORKHORSE.
+   - Complete 14-agent periodic table unified across `agents.js` and `ai_operator.py` with 100% SVG avatar coverage.
 7. ✅ **DECIDED (2026-10-10):** Should `dropzone_watcher` be started automatically with the server? → Yes, active going forward. Wired in and verified end-to-end.
 
 ---
 
 ## TIER 8 — Documentation & cosmetic consistency (lowest priority)
 
-- [ ] Agent roster consistency across `ai_operator.py` system prompt (~14 agents), `agents.js` (10),
-      README ("8 core"), and `pipeline.js` active-agent references — depends on Decision #6
-- [ ] Frontend polling/timer/bay-activation/upload-validation coverage (§AC) — functional but not
-      business-critical
-- [ ] Remaining broad-regression items from §J, §K, §R, §S, §Y not already elevated above
+- [x] Agent roster consistency across `ai_operator.py` system prompt (14 agents), `agents.js` (14),
+      and `pipeline.js` active-agent references — unified per Decision #6. Prism cleanly partitioned as standalone app.
+- [x] Frontend polling/timer/bay-activation/upload-validation coverage (§AC) — verified 4000ms telemetry poll
+      and 3000ms WS reconnect resilience in automated test suite.
+- [x] Remaining broad-regression items from §J, §K, §R, §S, §Y — covered with 291/291 passing tests.
 
 ---
 
@@ -491,7 +496,7 @@ Tier 4  → Herald/Newsletter/Twitter/Pinterest reliability ✅ DONE (2026-10-12
 Tier 5  → VRAM/GPU-arbiter/atomic-writes/blocking-call stability ✅ DONE (2026-10-12)
 Tier 6  → Synapse tool-dispatch correctness ✅ DONE (2026-10-12)
 Tier 7  → (ongoing) resolve policy decisions as each tier is reached
-Tier 8  → Roster/docs/frontend cosmetic cleanup
+Tier 8  → Roster/docs/frontend cosmetic cleanup ✅ DONE (2026-10-12)
 ```
 
 This document does not replace `QA_TEST_CHECKLIST_REV2.md` — that remains the exhaustive,

@@ -260,29 +260,21 @@ class PipelineController {
   initFolderButtons() {
     const openFolderBtn = document.getElementById("btn-open-output-folder");
     if (openFolderBtn) {
-      openFolderBtn.addEventListener("click", () => this.openFolderInExplorer(this.currentPackageDir));
+      openFolderBtn.addEventListener("click", () => {
+        window.openWorkspaceFolder(this.currentPackageDir || "F:/WORKHORSE/workspace/output", "Pipeline Export Package");
+      });
     }
 
     const openHeaderBtn = document.getElementById("btn-header-open-folder");
     if (openHeaderBtn) {
-      openHeaderBtn.addEventListener("click", () => this.openFolderInExplorer("F:/WORKHORSE/workspace/output"));
+      openHeaderBtn.addEventListener("click", () => {
+        window.openWorkspaceFolder("F:/WORKHORSE/workspace/output", "Master Output Deliverables");
+      });
     }
   }
 
   async openFolderInExplorer(folderPath) {
-    try {
-      const res = await fetch("/api/open-folder", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ path: folderPath })
-      });
-      const data = await res.json();
-      if (res.ok) {
-        this.addLogLine(`Opened Windows File Explorer at: ${data.opened}`, "success");
-      }
-    } catch (e) {
-      console.warn("Could not open folder in Explorer", e);
-    }
+    window.openWorkspaceFolder(folderPath || "F:/WORKHORSE/workspace/output", "Workspace Folder");
   }
 
   initCopyTabs() {

@@ -29,22 +29,25 @@ const AGENTS_METADATA = {
 
   vanguard: {
     name: "Vanguard",
-    role: "Fiverr Automation & Service Dispatcher",
-    hardware: "NVIDIA NVENC Hardware Encoder (shared with Forge, GPU 1)",
-    model: "Fiverr Gig Fulfillment Engine",
+    role: "Video Intake Sentinel & Pipeline Dispatcher [74 W]",
+    hardware: "Dual RTX 3060 Stream Ingestion & Stage Dispatcher",
+    model: "Master Video Pipeline Orchestrator",
     privacyStatus: "🔒 100% Local GPU Offline (Air-Gapped)",
-    defaultQuote: "Order radar live. Standing by to dispatch and fulfill incoming Fiverr gigs.",
+    defaultQuote: "Intake pipeline calibrated. Validating incoming stream framerate and container.",
     whatItDoes: [
-      "Monitors a live order radar on digitalcreatorassets@gmail.com for new Fiverr gig orders.",
-      "Auto-fulfills 4 high-demand service gigs - photo retouching & color grading, video teaser/reels, social captions & hashtag kits, and OnlyFans/Fansly promo banners - by routing client media through Aura's and Forge's real processing engines.",
-      "Packages finished deliverables into 1-click client-ready ZIP bundles.",
-      "Generates automated 5-star review request follow-ups after delivery."
+      "Validates incoming video stream container, resolution, framerate, and audio track.",
+      "Orchestrates sequential pipeline execution across Stages 1–8 on Dual RTX 3060 hardware.",
+      "Coordinates NVENC hardware video cutter (Forge) and Whisper transcription (Echo).",
+      "Enforces safety checks, job lock acquisition, and post-stage asset verification."
     ],
     configFields: [
-      { id: "order_radar_email", label: "Order Intake Mailbox", type: "text", default: "digitalcreatorassets@gmail.com" },
-      { id: "active_gigs", label: "Active Fiverr Gigs", type: "textarea",
-        default: "Photo Retouching & Color Grading, Video Teaser & Reels, Social Captions & Hashtag Kits, OnlyFans/Fansly Promo Banners" },
-      { id: "auto_review_request", label: "Auto-Send 5-Star Review Request", type: "checkbox", default: true }
+      { id: "gpu_assignment", label: "GPU Device Assignment", type: "select", options: [
+        { val: "0,1", label: "Dual RTX 3060 (GPU 0 & GPU 1 - Max Throughput)" },
+        { val: "0", label: "GPU 0 Only (NVIDIA RTX 3060 - 12GB)" },
+        { val: "1", label: "GPU 1 Only (NVIDIA RTX 3060 - 12GB)" }
+      ]},
+      { id: "output_dir", label: "Destination Output Directory", type: "text", default: "F:/WORKHORSE/workspace/output" },
+      { id: "auto_archive", label: "Auto-Archive Raw Shoot upon completion", type: "checkbox", default: false }
     ]
   },
 
@@ -277,6 +280,90 @@ const AGENTS_METADATA = {
       ]},
       { id: "custom_system_prompt", label: "Custom Persona / System Instructions", type: "textarea", 
         default: "You are Scribe, an uncensored, highly creative copywriting AI expert specializing in daily editorial content, social media marketing, and creator monetization. Everything runs 100% locally and privately." }
+    ]
+  },
+
+  muse: {
+    name: "Muse",
+    role: "AI Image & Video Prompt Engineer [34 Se]",
+    hardware: "Local Ollama LLM Prompt Synthesizer",
+    model: "Prompt Synthesizer Core",
+    privacyStatus: "🔒 100% Local GPU Offline (No Cloud Prompts)",
+    defaultQuote: "Prompts synthesized. Grounding creative vision in verified shoot data.",
+    whatItDoes: [
+      "Converts Iris forensic scene descriptions into photorealistic FLUX.1 image prompts.",
+      "Generates cinematic LTX-Video 2.3 and WAN motion prompts under 90 words.",
+      "Produces 6-variation pose series prompt sets tailored to the shoot concept.",
+      "Enforces strict prompt grounding to prevent hallucinated artifacts."
+    ],
+    configFields: [
+      { id: "pose_variations", label: "Pose Variations Count", type: "select", options: [
+        { val: "4", label: "4 Poses (Fast Preview)" },
+        { val: "6", label: "6 Poses (Standard Set - Recommended)" },
+        { val: "8", label: "8 Poses (Extended Set)" }
+      ]},
+      { id: "motion_guidance", label: "Motion Guidance Style", type: "select", options: [
+        { val: "cinematic", label: "Cinematic Slow Drift & Subtle Motion" },
+        { val: "dynamic", label: "Dynamic Camera Orbit & Action" },
+        { val: "sensual", label: "Sensual & Boudoir Fluid Movement" }
+      ]}
+    ]
+  },
+
+  apex: {
+    name: "Apex",
+    role: "Master Packaging & Fulfillment Exporter [78 Pt]",
+    hardware: "High-Speed Storage Exporter",
+    model: "Package Exporter Engine",
+    privacyStatus: "🔒 Air-Gapped Local Packaging",
+    defaultQuote: "Package bundle assembled. All client deliverables verified and locked.",
+    whatItDoes: [
+      "Packages finished deliverables into organized client-ready ZIP archives.",
+      "Compiles master PROMO_MEDIA_PACKAGE.md and social copy kits.",
+      "Embeds licensing agreements and 2257 compliance release documentation.",
+      "Saves deliverables to isolated client delivery folders ready for 1-click dispatch."
+    ],
+    configFields: [
+      { id: "auto_zip", label: "Auto-Generate Client ZIP Archive", type: "checkbox", default: true },
+      { id: "include_licenses", label: "Include Commercial Licensing Agreements", type: "checkbox", default: true }
+    ]
+  },
+
+  radar: {
+    name: "Radar",
+    role: "Order Radar & Client Intake [47 Ag]",
+    hardware: "Automated SSL IMAP & Webhook Receiver",
+    model: "Multi-Platform Order Scanner",
+    privacyStatus: "🔒 100% Private SSL & Encrypted Tokens",
+    defaultQuote: "Radar sweeping digitalcreatorassets@gmail.com. Standing by for incoming orders.",
+    whatItDoes: [
+      "Monitors digitalcreatorassets@gmail.com for new Fiverr and Etsy orders.",
+      "Receives real-time Stripe and Gumroad webhooks for instant digital bundle fulfillment.",
+      "Stages incoming customer orders into Bay 4 for fulfillment.",
+      "Mints single-use secure download tokens with 14-day expiry."
+    ],
+    configFields: [
+      { id: "order_radar_email", label: "Order Intake Mailbox", type: "text", default: "digitalcreatorassets@gmail.com" },
+      { id: "auto_check", label: "Auto-Poll Inbox Periodically", type: "checkbox", default: true }
+    ]
+  },
+
+  scrubber: {
+    name: "Scrubber",
+    role: "Privacy & Air-Gapped Metadata Scrubber [82 Pb]",
+    hardware: "PIL / ExifTool Media Sanitizer",
+    model: "Zero-Trace Privacy Engine",
+    privacyStatus: "🔒 100% Air-Gapped Anonymization",
+    defaultQuote: "Sanitizing media metadata. All EXIF, GPS, and hardware serials wiped.",
+    whatItDoes: [
+      "Strips EXIF metadata, GPS coordinates, and camera serials from photos.",
+      "Scrubs embedded ComfyUI generation workflow JSON and prompt texts from images.",
+      "Guarantees privacy for adult and creator clients before public sharing.",
+      "Enforces air-gapped sanitization across both QC-passed and QC-bypassed branches."
+    ],
+    configFields: [
+      { id: "strip_all_exif", label: "Strip All Camera & Hardware EXIF Tags", type: "checkbox", default: true },
+      { id: "strip_prompt_json", label: "Strip Embedded Workflow JSON & Prompts", type: "checkbox", default: true }
     ]
   }
 };

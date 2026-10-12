@@ -430,18 +430,54 @@ async def update_agent_config(agent_key: str, payload: Dict[str, Any]):
 async def open_output_folder(payload: Optional[Dict[str, Any]] = None):
     folder_path = BASE_DIR / "workspace" / "output"
     if payload and payload.get("path"):
-        cand = Path(payload["path"])
-        if cand.exists():
-            folder_path = cand
-    folder_path.mkdir(parents=True, exist_ok=True)
+        cand = Path(str(payload["path"]).strip())
+        if not cand.is_absolute():
+            cand = BASE_DIR / cand
+        cand.mkdir(parents=True, exist_ok=True)
+        folder_path = cand
+    else:
+        folder_path.mkdir(parents=True, exist_ok=True)
+
+    opened_ok = False
     try:
         if sys.platform == "win32":
             os.startfile(str(folder_path))
+            opened_ok = True
         else:
             subprocess.Popen(["xdg-open", str(folder_path)])
-        return {"status": "ok", "opened": str(folder_path)}
+            opened_ok = True
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to open Explorer: {e}")
+        print(f"[OPEN-FOLDER] Host OS explorer note: {e}")
+        opened_ok = False
+
+    files = []
+    total_size = 0
+    try:
+        if folder_path.exists():
+            for p in sorted(folder_path.iterdir(), key=lambda x: x.stat().st_mtime if x.is_file() else 0, reverse=True):
+                if p.is_file():
+                    size = p.stat().st_size
+                    total_size += size
+                    files.append({
+                        "name": p.name,
+                        "size_bytes": size,
+                        "size_formatted": f"{size / (1024*1024):.1f} MB" if size >= 1024*1024 else f"{size / 1024:.1f} KB",
+                        "mtime": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(p.stat().st_mtime)),
+                        "url": f"/api/media/{p.name}"
+                    })
+    except Exception as e:
+        print(f"[OPEN-FOLDER] File scan note: {e}")
+
+    return {
+        "status": "ok",
+        "opened": str(folder_path),
+        "folder_name": folder_path.name,
+        "path": str(folder_path).replace("\\", "/"),
+        "files": files[:200],
+        "total_files": len(files),
+        "total_size_mb": round(total_size / (1024 * 1024), 2),
+        "opened_in_os": opened_ok
+    }
 
 # =========================================================================
 # PHOTO SHOOT & RETOUCHING BAY APIS
@@ -975,6 +1011,10 @@ async def serve_media(file_path: str):
         BASE_DIR / "workspace" / "inspiration",
         BASE_DIR / "workspace" / "cam_templates",
         BASE_DIR / "workspace" / "temp",
+        BASE_DIR / "workspace" / "etsy_bundles",
+        BASE_DIR / "workspace" / "fiverr_deliveries",
+        BASE_DIR / "workspace" / "brand_assets",
+        BASE_DIR / "dropzone",
     ]
     for base_dir in search_dirs:
         base_resolved = base_dir.resolve()
@@ -1048,11 +1088,7 @@ async def launch_local_prism():
 # =============================================================================
 @app.post("/api/open-brand-folder")
 async def open_brand_folder():
-    folder = BASE_DIR / "workspace" / "brand_assets"
-    folder.mkdir(parents=True, exist_ok=True)
-    if os.name == "nt":
-        os.startfile(str(folder))
-    return {"status": "ok", "path": str(folder)}
+    return await open_output_folder({"path": str(BASE_DIR / "workspace" / "brand_assets")})
 
 @app.get("/api/radar/status")
 async def get_radar_status():

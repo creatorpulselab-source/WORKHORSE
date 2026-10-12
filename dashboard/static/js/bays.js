@@ -161,11 +161,7 @@ this.currentBay = initHash || 'command-center';
 
     if (btnOpenFolder) {
       btnOpenFolder.addEventListener('click', () => {
-        fetch('/api/open-folder', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ path: 'F:/WORKHORSE/workspace/photos_output' })
-        });
+        window.openWorkspaceFolder('F:/WORKHORSE/workspace/photos_output', 'Photo Retouching Outputs');
       });
     }
 
@@ -430,11 +426,7 @@ this.currentBay = initHash || 'command-center';
 
     if (btnOpenFolder) {
       btnOpenFolder.addEventListener('click', () => {
-        fetch('/api/open-folder', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ path: 'F:/WORKHORSE/workspace/inspiration' })
-        });
+        window.openWorkspaceFolder('F:/WORKHORSE/workspace/inspiration', 'Inspiration & References');
       });
     }
 
@@ -1236,11 +1228,7 @@ this.currentBay = initHash || 'command-center';
   }
 
   openEtsyFolder() {
-    fetch('/api/open-folder', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ path: 'F:/WORKHORSE/workspace/etsy_bundles' })
-    });
+    window.openWorkspaceFolder('F:/WORKHORSE/workspace/etsy_bundles', 'Etsy Digital Bundles');
   }
 
   copyEtsyMetadata() {
@@ -1383,11 +1371,7 @@ this.currentBay = initHash || 'command-center';
   }
 
   openFiverrFolder() {
-    fetch('/api/open-folder', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ path: 'F:/WORKHORSE/workspace/fiverr_deliveries' })
-    });
+    window.openWorkspaceFolder('F:/WORKHORSE/workspace/fiverr_deliveries', 'Fiverr Deliveries & Kits');
   }
 
 

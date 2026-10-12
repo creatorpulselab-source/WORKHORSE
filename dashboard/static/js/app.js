@@ -1,3 +1,25 @@
+// Universal Folder Opener for PC (Windows Explorer) & Mobile (In-Browser Files Modal)
+window.openWorkspaceFolder = async function(folderPath, folderLabel = "Workspace Folder") {
+  try {
+    const res = await fetch("/api/open-folder", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path: folderPath })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      if (window.appController && window.appController.showFolderBrowserModal) {
+        window.appController.showFolderBrowserModal(data, folderLabel);
+      }
+      if (window.pipelineController && data.opened) {
+        window.pipelineController.addLogLine(`📂 Folder: ${folderLabel} (${data.total_files || 0} items)`, "success");
+      }
+    }
+  } catch (e) {
+    console.error("Failed to open folder", e);
+  }
+};
+
 // ==========================================================================
 // WORKHORSE AI COMMAND CENTER — APP MANAGER & SYSTEM TELEMETRY
 // ==========================================================================
@@ -9,6 +31,7 @@ class AppController {
     this.initBrandModal();
     this.initVramManager();
     this.initPrismLauncher();
+    this.initFolderBrowser();
     this.loadSystemModels();
   }
 
@@ -168,9 +191,7 @@ class AppController {
       closeBtn.addEventListener("click", () => modal.classList.remove("open"));
     }
     if (openFolderBtn) {
-      openFolderBtn.addEventListener("click", async () => {
-        try {
-          await fetch("/api/open-brand-folder", { method: "POST" });
+      openFolderBtn.addEventListener("click", () => window.openWorkspaceFolder("F:/WORKHORSE/workspace/brand_assets", "Brand Assets & Banners"));
         } catch (e) {
           console.error("Error opening brand folder", e);
         }
