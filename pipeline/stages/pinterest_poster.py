@@ -51,9 +51,10 @@ PIN_HISTORY_FILE = Path("F:/WORKHORSE/workspace/pinterest_pin_history.json")
 
 
 class PinterestPoster:
-    def __init__(self, config_path: str = "F:/WORKHORSE/config.json", secrets_path: str = "F:/WORKHORSE/secrets.json"):
+    def __init__(self, config_path: str = "F:/WORKHORSE/config.json", secrets_path: str = "F:/WORKHORSE/secrets.json", history_path: Optional[str] = None):
         self.config_path = Path(config_path)
         self.secrets_path = Path(secrets_path)
+        self.pin_history_file = Path(history_path) if history_path else PIN_HISTORY_FILE
 
     def _load_config(self) -> Dict[str, Any]:
         if not self.config_path.exists():
@@ -189,19 +190,25 @@ class PinterestPoster:
 
     def _is_duplicate_pin(self, text: str) -> bool:
         """Checks if an identical title/description was pinned in the last 7 days using SHA-256."""
-        data = safe_read_json(PIN_HISTORY_FILE, default={"hashes": {}})
+        data = safe_read_json(self.pin_history_file, default={"hashes": {}})
         txt_hash = hashlib.sha256(text.strip().encode("utf-8")).hexdigest()
         now = time.time()
         seven_days = 7 * 86400
 
         hashes = {h: ts for h, ts in data.get("hashes", {}).items() if now - ts < seven_days}
-        if txt_hash in hashes:
-            return True
+        return txt_hash in hashes
 
+    def _record_pin(self, text: str) -> None:
+        """Records a successfully published pin into 7-day history."""
+        data = safe_read_json(self.pin_history_file, default={"hashes": {}})
+        txt_hash = hashlib.sha256(text.strip().encode("utf-8")).hexdigest()
+        now = time.time()
+        seven_days = 7 * 86400
+
+        hashes = {h: ts for h, ts in data.get("hashes", {}).items() if now - ts < seven_days}
         hashes[txt_hash] = now
         data["hashes"] = hashes
-        atomic_write_json(PIN_HISTORY_FILE, data)
-        return False
+        atomic_write_json(self.pin_history_file, data)
 
     def create_pin(
         self,
@@ -274,6 +281,7 @@ class PinterestPoster:
                 timeout=30
             )
             if resp.status_code in (200, 201):
+                self._record_pin(f"{title}|{description}")
                 data = resp.json()
                 pin_id = data.get("id")
                 return {

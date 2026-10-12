@@ -15,9 +15,10 @@ import tweepy
 VIDEO_EXTENSIONS = {".mp4", ".mov", ".m4v", ".webm"}
 
 class TwitterPoster:
-    def __init__(self, config_path: str = "F:/WORKHORSE/config.json", secrets_path: str = "F:/WORKHORSE/secrets.json"):
+    def __init__(self, config_path: str = "F:/WORKHORSE/config.json", secrets_path: str = "F:/WORKHORSE/secrets.json", history_path: Optional[str] = None):
         self.config_path = Path(config_path)
         self.secrets_path = Path(secrets_path)
+        self.history_file = Path(history_path) if history_path else Path("F:/WORKHORSE/workspace/tweet_history.json")
 
     def _load_config(self) -> Dict[str, Any]:
         if not self.config_path.exists():
@@ -100,23 +101,33 @@ class TwitterPoster:
     def _is_duplicate_tweet(self, text: str) -> bool:
         """Checks if identical text was posted in the last 7 days using SHA-256."""
         import hashlib
-        from shared.atomic_writer import safe_read_json, atomic_write_json
-        history_file = Path("F:/WORKHORSE/workspace/tweet_history.json")
-        data = safe_read_json(history_file, default={"hashes": {}, "recent": []})
+        from shared.atomic_writer import safe_read_json
+        data = safe_read_json(self.history_file, default={"hashes": {}, "recent": []})
         
         txt_hash = hashlib.sha256(text.strip().encode("utf-8")).hexdigest()
         now = time.time()
         seven_days = 7 * 86400
         
-        # Prune old hashes
         hashes = {h: ts for h, ts in data.get("hashes", {}).items() if now - ts < seven_days}
-        if txt_hash in hashes:
-            return True
-            
+        return txt_hash in hashes
+
+    def _record_tweet(self, text: str) -> None:
+        """Records a successfully posted tweet into 7-day history."""
+        import hashlib
+        from shared.atomic_writer import safe_read_json, atomic_write_json
+        data = safe_read_json(self.history_file, default={"hashes": {}, "recent": []})
+        
+        txt_hash = hashlib.sha256(text.strip().encode("utf-8")).hexdigest()
+        now = time.time()
+        seven_days = 7 * 86400
+        
+        hashes = {h: ts for h, ts in data.get("hashes", {}).items() if now - ts < seven_days}
         hashes[txt_hash] = now
         data["hashes"] = hashes
-        atomic_write_json(history_file, data)
-        return False
+        recent = data.get("recent", [])
+        recent.append({"hash": txt_hash, "timestamp": now, "snippet": text[:80]})
+        data["recent"] = recent[-50:]
+        atomic_write_json(self.history_file, data)
 
     def post_thread(self, handle: str, tweets: List[str], media_paths: Optional[List[str]] = None) -> Dict[str, Any]:
         """
@@ -141,6 +152,15 @@ class TwitterPoster:
 
         if not tweets:
             return {"success": False, "error": "No tweets provided in thread payload."}
+
+        # 7-day duplicate prevention gate
+        if self._is_duplicate_tweet(tweets[0]):
+            return {
+                "success": False,
+                "error": "Duplicate tweet detected: identical text posted within the last 7 days.",
+                "handle": handle,
+                "is_duplicate": True
+            }
 
         # Media upload handling
         media_ids = []
@@ -216,6 +236,9 @@ class TwitterPoster:
                 curr_id = res.data["id"]
                 posted_ids.append(curr_id)
                 prev_id = curr_id
+
+            # Record root tweet hash upon verified success
+            self._record_tweet(tweets[0])
 
             clean_handle = handle.lstrip("@")
             thread_url = f"https://x.com/{clean_handle}/status/{first_id}"

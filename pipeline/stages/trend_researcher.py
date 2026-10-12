@@ -284,6 +284,7 @@ STRICT EDITORIAL RULES (CRITICAL):
 2. NO PHANTOM LISTS: NEVER write "Top 5" or "Top 7" or "3 secrets" unless you explicitly list every single item/name/step directly in the tweet strings.
 3. STANDALONE ACTIONABLE VALUE: Every post must give concrete value: exact slider settings, proven script quotes, payout breakdown percentages, or specific posing cues.
 4. EXPERT TONE: High-authority, concise, native to X/Twitter (under 280 chars per tweet, threads formatted 1/N, 2/N, etc.).
+5. STRATEGIC HASHTAGS: Every standalone tweet and the final closing tweet of every thread MUST include 2 to 3 targeted, high-exposure niche hashtags (#CreatorEconomy #OnlyFansTips #PPVStrategy for @creatorpulselab; #StudioPhotography #LightroomPresets #ColorGrading for @TheCreatorAsset) to maximize search discoverability and algorithmic reach.
 
 Generate today's dynamic content drop payload in valid JSON with:
 1. "top_themes_today": Exactly 3 high-impact industry themes for today.
