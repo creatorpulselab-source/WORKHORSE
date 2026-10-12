@@ -300,6 +300,50 @@ original QA sequence.
 
 ---
 
+## INCIDENT — WORKHORSE outage, diagnosed and fixed (2026-10-11, out of sequence)
+
+**Symptom:** the dashboard stopped responding on port 8800 for several hours. The Python process
+itself was still alive (not crashed at the OS level — confirmed via `Get-Process`, no
+`Application Error` event for `python.exe` in Windows Event Viewer), but used almost no CPU and
+accepted zero new HTTP/WebSocket connections. `Get-NetTCPConnection` showed stale `ESTABLISHED`
+entries on port 8800 but no active `LISTEN` socket — consistent with a frozen single-threaded
+asyncio event loop, not a terminated process.
+
+**Root cause (code-verified, not merely inferred):** `shared/vram_manager.py`'s VRAM circuit
+breaker (`check_and_trip_circuit_breaker()`) is called synchronously, every 5 seconds, directly on
+the event loop thread from `run_watchdog_loop()` — already flagged generically as a Tier 5 risk
+("blocking sync calls inside async code paths"). One specific call inside it had **no timeout at
+all**: `subprocess.run("taskkill /F /IM llama-server.exe", shell=True, capture_output=True)`.
+Force-killing a process with active GPU/CUDA work in flight can itself hang on Windows waiting for
+driver-level termination to complete. With no bound on that call, if it ever stalled, it would
+block the entire single-threaded server indefinitely — exactly matching the observed symptoms.
+Windows Event Viewer showed no NVIDIA driver TDR/reset event and `nvidia-smi` responded in 40ms
+when checked, so the precise trigger moment couldn't be captured retroactively; this is the
+leading, code-confirmed hypothesis, not an absolutely proven traceback.
+
+**Fix applied and tested:**
+1. Added an explicit `timeout=10` to the `taskkill` call, with a clearly logged, non-fatal
+   degradation (`subprocess.TimeoutExpired` caught specifically) if it's ever exceeded, instead of
+   blocking forever.
+2. `run_watchdog_loop()` now runs the entire periodic check via `asyncio.to_thread(...)` instead of
+   inline on the event loop — defense-in-depth so no future blocking call anywhere in that
+   function (nvidia-smi, Ollama unload requests, taskkill) can ever again freeze request handling,
+   regardless of its own individual timeout.
+3. 4 new regression tests in `test_suite/test_vram_circuit_breaker.py`: every `subprocess.run` call
+   in the breaker path is asserted to carry an explicit timeout; a simulated hung `taskkill` is
+   proven to degrade promptly (<1s) instead of blocking; the breaker's 80%/45s trip thresholds are
+   unchanged; and the watchdog loop is proven to run the check on a worker thread, never the main
+   event-loop thread. Full suite: 246/246 passing (242 pre-existing + 4 new).
+4. WORKHORSE was stopped and relaunched with the fix in place; VRAM watchdog, Herald scheduler, and
+   Dropzone Watcher all confirmed back online, `/api/system/stats` → 200.
+
+**Explicitly NOT changed:** the breaker's docstring still claims it skips tripping "without an
+active orchestrator job," but the code still never checks for that — this remains open policy
+Decision #5 in Tier 7 below, untouched by this fix. This incident fix only addressed the proven
+indefinite-hang mechanism, not that separate, already-flagged design question.
+
+---
+
 ## TIER 4 — Automation reliability (Herald, Newsletter, Social)
 
 Reputational/consistency risk — a missed or duplicated post is embarrassing, not financially
@@ -327,7 +371,8 @@ data.
 - [ ] **VRAM circuit breaker:** trips at GPU0 ≥80% for >45s and force-kills `llama-server.exe` — the
       docstring claims it skips this "without an active orchestrator job," but the code never
       actually checks that. **This could kill a legitimate long inference job mid-run.** Policy
-      decision needed (see below).
+      decision still needed (see below) — **unchanged by the 2026-10-11 incident fix above**, which
+      only fixed the un-timed `taskkill` call's indefinite-hang risk, not this separate question.
 - [ ] **GPU1 arbiter PID-lock issues:** all server threads share one PID, so there's no real
       mutual exclusion between concurrent threads in the same process; `release()` uses a loose
       substring match; `acquire()` isn't atomic; Echo ignores the acquire result entirely and Forge
@@ -336,10 +381,17 @@ data.
       log, daily-health log, chat-session history, `client_batches.json`, `orders_history.json`,
       radar config, `daily_schedule_state.json`, and `config.json` all use plain `open('w')` with
       read-modify-write races possible
-- [ ] **Blocking sync calls inside async code paths:** `system_monitor.get_status()`,
+- [x] **Blocking sync calls inside async code paths:** `system_monitor.get_status()`,
       `comfy_bridge.check_connection()` (called synchronously every chat turn), and the VRAM circuit
       breaker all run synchronous `requests`/`subprocess`/`nvidia-smi` calls inside the async event
-      loop — one slow call can stall unrelated requests/websocket traffic
+      loop — one slow call can stall unrelated requests/websocket traffic. **Partially fixed
+      (2026-10-11 incident response, see above):** the VRAM circuit breaker's periodic check is now
+      fully offloaded to a worker thread via `asyncio.to_thread()`, and its previously-un-timed
+      `taskkill` call now has an explicit bound — this was the proven real-world instance that
+      caused an actual multi-hour outage, not just a theoretical stall. `system_monitor.get_status()`
+      and `comfy_bridge.check_connection()` remain synchronous-on-the-event-loop as described (both
+      already carry their own short timeouts — 2–4s and 1.2s respectively — so they stall rather than
+      freeze); still open if the Commander wants those moved to threads too for consistency.
 - [ ] `workspace/temp/<job_id>/` is never pruned (disk leak over time); `/api/system/prune-staging?hours=0`
       or a negative value would delete everything in scope
 

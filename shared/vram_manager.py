@@ -312,8 +312,24 @@ class VramManager:
                         print(f"[CIRCUIT BREAKER] GPU 0 pegged at {gpu0_util}% for {int(elapsed)}s! Tripping breaker to release GPU...")
                         # 1. Unload model from Ollama
                         self.purge_vram(reason="circuit_breaker_runaway_inference")
-                        # 2. Terminate stuck llama-server workers
-                        subprocess.run("taskkill /F /IM llama-server.exe", shell=True, capture_output=True)
+                        # 2. Terminate stuck llama-server workers. MUST have an explicit
+                        # timeout: force-killing a process with active GPU/CUDA work in
+                        # flight can itself hang on Windows waiting for driver-level
+                        # termination to complete. Without a bound here, this call (run
+                        # synchronously every 5s from run_watchdog_loop) can block the
+                        # single-threaded asyncio event loop forever - freezing the
+                        # entire dashboard (no new HTTP/WebSocket connections accepted)
+                        # while the process itself stays alive, with no exception or
+                        # crash log anywhere. This matches the observed symptoms of a
+                        # 2026-10-11 outage (process alive, zero new connections on
+                        # port 8800, no OS-level crash record) and is the leading
+                        # hypothesis for its cause, though no traceback was captured to
+                        # confirm it outright.
+                        try:
+                            subprocess.run("taskkill /F /IM llama-server.exe", shell=True, capture_output=True, timeout=10)
+                        except subprocess.TimeoutExpired:
+                            print("[CIRCUIT BREAKER] taskkill did not return within 10s (GPU driver likely still holding the "
+                                  "process) - abandoning this attempt instead of blocking the event loop indefinitely.")
                         self._high_util_start = None
                         return True
                 else:
@@ -360,7 +376,13 @@ class VramManager:
         while True:
             try:
                 await asyncio.sleep(5)
-                self.check_and_trip_circuit_breaker()
+                # Run in a worker thread, not inline on the event loop: this function's
+                # subprocess/requests calls (nvidia-smi, taskkill, Ollama unload) could
+                # still stall for several seconds under real load even with their
+                # individual timeouts, and this loop fires unconditionally every 5s
+                # independent of any in-flight request - there is no reason for it to
+                # ever share the same thread that serves HTTP/WebSocket traffic.
+                await asyncio.to_thread(self.check_and_trip_circuit_breaker)
                 # Automated Staging Pruning (Every 30 minutes)
                 if not hasattr(self, "_last_prune_time") or (time.time() - self._last_prune_time > 1800):
                     self._last_prune_time = time.time()
