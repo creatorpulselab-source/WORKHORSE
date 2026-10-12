@@ -281,7 +281,7 @@
   },
   "41:46": {
     "inputs": {
-      "lora_name": "ML_FLUX_V2.safetensors",
+      "lora_name": "fluxtraitFLUX1DEVFor_v10FP16.safetensors",
       "strength_model": 0.65,
       "model": [
         "41:65",

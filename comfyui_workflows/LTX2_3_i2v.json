@@ -668,7 +668,7 @@
   },
   "267:274": {
     "inputs": {
-      "lora_name": "ML_LTX_V1.safetensors",
+      "lora_name": "LTX2.3_Crisp_Enhance.safetensors",
       "strength_model": 0.8,
       "model": [
         "267:232",
