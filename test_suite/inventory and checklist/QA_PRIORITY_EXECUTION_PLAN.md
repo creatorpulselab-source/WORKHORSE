@@ -13,8 +13,7 @@ deeper technical detail than fits here, it points back to the relevant section l
 `QA_TEST_CHECKLIST_REV2.md`. Checked entries below record implemented and verified work;
 unchecked entries remain planned or explicitly deferred.
 
-**Resumed 2026-10-11:** Commander selected ComfyUI guide integration and its QA first.
-Tier 4 remains the next automation-reliability workstream; it was not included in this pass.
+**Resumed 2026-10-12:** Tier 5 (Infrastructure stability & concurrency) completed and locked with 12 regression tests (258/258 tests passing). Commander directed transition to Tier 3A live workflow & LoRA alignment (ensuring no character LoRAs in default workflows; ML_FLUX, CW_FLUX, Margo_FLUX strictly 18+ opt-in).
 
 ---
 
@@ -403,6 +402,8 @@ data.
          can never delete active/fresh files.
       Covered by automated tests in `test_tier5_infrastructure_stability.py`.
 
+Tier 5 complete. 12 new regression tests (`test_tier5_infrastructure_stability.py`). Full suite: 258/258 passing. Committed and pushed (commit `545f3fd`).
+
 ---
 
 ## TIER 6 — Synapse chat-operator correctness
@@ -437,7 +438,7 @@ their corresponding tier is tackled (you don't need to decide #6/#7 today, for i
 2. **Dead config controls** (Forge codec/crop toggles, Echo Whisper settings, pose count, etc.) — wire them up for real, or remove the UI controls so they stop implying something configurable that isn't? *(blocks Tier 5/6 cleanup)*
 3. ✅ **DECIDED (2026-10-10):** QC on failure or parse-error: fail closed or fail open? → Split policy: fail-open only when QC *couldn't run* (infra down/timeout), fail-closed when QC *actually rejected* the image after retries. Implemented and tested.
 4. ✅ **DECIDED (2026-10-10):** Fiverr fulfillment file selection → fixed to true newest-by-mtime with an explicit client-bound `asset_filename` option and a visible warning on any ambiguity.
-5. **Should the VRAM circuit breaker actually skip tripping while an orchestrator job is active**, matching its own docstring? *(blocks Tier 5)*
+5. ✅ **DECIDED (2026-10-12):** Should the VRAM circuit breaker skip tripping while an orchestrator job is active? → Yes, `is_busy()` check implemented and tested to safeguard long-running jobs.
 6. **Should the agent roster be unified** across README, `agents.js`, the Synapse system prompt, and `pipeline.js`? What should Vanguard and Mercury's roles actually be, given each source currently describes them differently? *(blocks Tier 8 below)*
 7. ✅ **DECIDED (2026-10-10):** Should `dropzone_watcher` be started automatically with the server? → Yes, active going forward. Wired in and verified end-to-end.
 
@@ -463,7 +464,7 @@ Tier 2  → Order Radar (🚩 deferred - not configured yet), Fiverr ✅, Etsy �
 Tier 3  → QC integrity, error-as-content leaks, metadata scrubbing ✅ DONE
 Tier 3A → ComfyUI guide grounding + offline QA DONE; activation/live competency checks pending
 Tier 4  → Herald/Newsletter/Twitter/Pinterest reliability
-Tier 5  → VRAM/GPU-arbiter/atomic-writes/blocking-call stability
+Tier 5  → VRAM/GPU-arbiter/atomic-writes/blocking-call stability ✅ DONE (2026-10-12)
 Tier 6  → Synapse tool-dispatch correctness
 Tier 7  → (ongoing) resolve policy decisions as each tier is reached
 Tier 8  → Roster/docs/frontend cosmetic cleanup
