@@ -457,19 +457,17 @@ class HeraldScheduler:
         return None
 
     def _load_state(self) -> Dict[str, Any]:
-        if self.state_file.exists():
-            try:
-                with open(self.state_file, "r", encoding="utf-8") as f:
-                    self.state = json.load(f)
-                for pub_id in ALL_MONITORED_PUBLICATIONS:
-                    self.state.setdefault(f"{pub_id}_attempts", 0)
-                    self.state.setdefault(f"{pub_id}_alerted_today", False)
-                self.state.setdefault("content_engine_sent_today", False)
-                self.state.setdefault("content_engine_attempts", 0)
-                self.state.setdefault("content_engine_alerted_today", False)
-                return self.state
-            except Exception:
-                pass
+        loaded = safe_read_json(self.state_file, default=None)
+        if isinstance(loaded, dict) and loaded:
+            self.state = loaded
+            for pub_id in ALL_MONITORED_PUBLICATIONS:
+                self.state.setdefault(f"{pub_id}_attempts", 0)
+                self.state.setdefault(f"{pub_id}_alerted_today", False)
+            self.state.setdefault("content_engine_sent_today", False)
+            self.state.setdefault("content_engine_attempts", 0)
+            self.state.setdefault("content_engine_alerted_today", False)
+            return self.state
+
         self.state = {
             "last_date": str(date.today()),
             "executed_slots": [],
@@ -490,8 +488,7 @@ class HeraldScheduler:
 
     def _save_state(self):
         try:
-            with open(self.state_file, "w", encoding="utf-8") as f:
-                json.dump(self.state, f, indent=2)
+            atomic_write_json(self.state_file, self.state)
         except Exception as e:
             logger.error(f"Failed to save schedule state: {e}")
 
@@ -567,12 +564,12 @@ class HeraldScheduler:
         # so the daily newsletter drop and Twitter drop look unified and come from the exact same source
         if slot_id == "slot_1_morning":
             try:
-                pulse_content = self.newsletter._get_daily_scribe_content("creator_pulse")
+                pulse_content = self.newsletter._get_daily_scribe_content("creator_pulse", auto_generate=False)
                 if pulse_content and pulse_content.get("tweet_thread"):
                     tweets_dict["creatorpulselab"] = pulse_content["tweet_thread"]
                     print(f"[Herald Scheduler] Synchronized slot_1 for @creatorpulselab with Creator Pulse newsletter thread.")
 
-                wire_content = self.newsletter._get_daily_scribe_content("studio_wire")
+                wire_content = self.newsletter._get_daily_scribe_content("studio_wire", auto_generate=False)
                 if wire_content and wire_content.get("tweet_thread"):
                     tweets_dict["TheCreatorAsset"] = wire_content["tweet_thread"]
                     print(f"[Herald Scheduler] Synchronized slot_1 for @TheCreatorAsset with Studio Wire newsletter thread.")
@@ -605,7 +602,10 @@ class HeraldScheduler:
                     media_paths = None
                     try:
                         post_topic = tweets[0] if (tweets and len(tweets) > 0) else None
-                        vis_path = self._get_brand_visual_for_post(handle, topic_text=post_topic)
+                        try:
+                            vis_path = self._get_brand_visual_for_post(handle, topic_text=post_topic)
+                        except TypeError:
+                            vis_path = self._get_brand_visual_for_post(handle)
                         if vis_path and Path(vis_path).exists():
                             media_paths = [str(vis_path)]
                             print(f"[Herald Scheduler] Topic-matched visual attached for @{handle} -> {Path(vis_path).name}")

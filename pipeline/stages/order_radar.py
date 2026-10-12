@@ -76,13 +76,12 @@ class OrderRadar:
             # not reach their download link at all. See _public_download_base_url().
             "public_download_base_url": ""
         }
-        if self.config_file.exists():
-            try:
-                with open(self.config_file, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-                    default_config.update(data)
-            except Exception:
-                pass
+        try:
+            data = safe_read_json(self.config_file, default={})
+            if data:
+                default_config.update(data)
+        except Exception:
+            pass
         self.config = default_config
         self.save_config()
         return self.config
@@ -109,32 +108,17 @@ class OrderRadar:
         return "http://CONFIGURE-PUBLIC-DOWNLOAD-BASE-URL:8800"
 
     def load_orders(self) -> List[Dict[str, Any]]:
-        if self.orders_file.exists():
-            try:
-                with open(self.orders_file, "r", encoding="utf-8") as f:
-                    self.orders = json.load(f)
-                    return self.orders
-            except Exception:
-                pass
-        self.orders = []
+        self.orders = safe_read_json(self.orders_file, default=[])
         return self.orders
 
     def save_orders(self):
         try:
-            with open(self.orders_file, "w", encoding="utf-8") as f:
-                json.dump(self.orders, f, indent=2)
+            atomic_write_json(self.orders_file, self.orders)
         except Exception as e:
             print(f"Error saving orders: {e}")
 
     def load_download_tokens(self) -> Dict[str, Any]:
-        if self.tokens_file.exists():
-            try:
-                with open(self.tokens_file, "r", encoding="utf-8") as f:
-                    self.download_tokens = json.load(f)
-                    return self.download_tokens
-            except Exception:
-                pass
-        self.download_tokens = {}
+        self.download_tokens = safe_read_json(self.tokens_file, default={})
         return self.download_tokens
 
     def save_download_tokens(self):

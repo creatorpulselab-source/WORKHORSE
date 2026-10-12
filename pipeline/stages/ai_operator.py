@@ -21,6 +21,7 @@ import re
 import requests
 from duckduckgo_search import DDGS
 from shared.comfyui_knowledge import get_comfyui_context
+from shared.atomic_writer import atomic_write_json, safe_read_json
 
 if sys.platform == "win32":
     try:
@@ -51,19 +52,12 @@ for d in (CLIENT_INBOX_DIR, CLIENT_OUTPUTS_DIR):
 
 
 def _load_client_batches() -> List[Dict[str, Any]]:
-    if CLIENT_BATCHES_FILE.exists():
-        try:
-            with open(CLIENT_BATCHES_FILE, "r", encoding="utf-8") as f:
-                return json.load(f).get("batches", [])
-        except Exception:
-            return []
-    return []
+    return safe_read_json(CLIENT_BATCHES_FILE, default={"batches": []}).get("batches", [])
 
 
 def _save_client_batches(batches: List[Dict[str, Any]]) -> None:
     try:
-        with open(CLIENT_BATCHES_FILE, "w", encoding="utf-8") as f:
-            json.dump({"batches": batches[-MAX_CLIENT_BATCHES_TRACKED:]}, f, indent=2)
+        atomic_write_json(CLIENT_BATCHES_FILE, {"batches": batches[-MAX_CLIENT_BATCHES_TRACKED:]})
     except Exception as e:
         print(f"[WORKHORSE] Failed to persist client_batches.json: {e}")
 
@@ -352,9 +346,7 @@ class AIOperatorEngine:
             history = []
             try:
                 f_path = self._session_file(session_id)
-                if f_path.exists():
-                    with open(f_path, "r", encoding="utf-8") as f:
-                        history = json.load(f).get("history", [])
+                history = safe_read_json(f_path, default={"history": []}).get("history", [])
             except Exception as e:
                 print(f"[SYNAPSE Chat Memory] Failed to load session '{session_id}': {e}")
             self._histories[session_id] = history
@@ -365,8 +357,7 @@ class AIOperatorEngine:
         history = self._histories.get(session_id, [])[-MAX_CHAT_HISTORY_ENTRIES:]
         self._histories[session_id] = history
         try:
-            with open(self._session_file(session_id), "w", encoding="utf-8") as f:
-                json.dump({"history": history}, f, indent=2)
+            atomic_write_json(self._session_file(session_id), {"history": history})
         except Exception as e:
             print(f"[SYNAPSE Chat Memory] Failed to persist session '{session_id}': {e}")
 
@@ -446,27 +437,20 @@ class AIOperatorEngine:
             "status": status
         }
         try:
-            entries = []
-            if INCIDENT_LOG_FILE.exists():
-                with open(INCIDENT_LOG_FILE, "r", encoding="utf-8") as f:
-                    entries = json.load(f).get("incidents", [])
+            entries = safe_read_json(INCIDENT_LOG_FILE, default={"incidents": []}).get("incidents", [])
             entries.append(entry)
             entries = entries[-MAX_INCIDENT_LOG_ENTRIES:]
-            with open(INCIDENT_LOG_FILE, "w", encoding="utf-8") as f:
-                json.dump({"incidents": entries}, f, indent=2)
+            atomic_write_json(INCIDENT_LOG_FILE, {"incidents": entries})
         except Exception as e:
             print(f"[SYNAPSE Incident Log] Failed to persist incident: {e}")
         return entry
 
     def get_recent_incidents(self, limit: int = 10) -> List[Dict[str, Any]]:
         try:
-            if INCIDENT_LOG_FILE.exists():
-                with open(INCIDENT_LOG_FILE, "r", encoding="utf-8") as f:
-                    entries = json.load(f).get("incidents", [])
-                return list(reversed(entries))[:limit]
+            entries = safe_read_json(INCIDENT_LOG_FILE, default={"incidents": []}).get("incidents", [])
+            return list(reversed(entries))[:limit]
         except Exception:
-            pass
-        return []
+            return []
 
     def log_error(self, component: str, error_message: str, context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Appends an entry to the persistent raw error log. Unlike the incident log
@@ -480,27 +464,20 @@ class AIOperatorEngine:
             "context": context or {}
         }
         try:
-            entries = []
-            if ERROR_LOG_FILE.exists():
-                with open(ERROR_LOG_FILE, "r", encoding="utf-8") as f:
-                    entries = json.load(f).get("errors", [])
+            entries = safe_read_json(ERROR_LOG_FILE, default={"errors": []}).get("errors", [])
             entries.append(entry)
             entries = entries[-MAX_ERROR_LOG_ENTRIES:]
-            with open(ERROR_LOG_FILE, "w", encoding="utf-8") as f:
-                json.dump({"errors": entries}, f, indent=2)
+            atomic_write_json(ERROR_LOG_FILE, {"errors": entries})
         except Exception as e:
             print(f"[SYNAPSE Error Log] Failed to persist error: {e}")
         return entry
 
     def get_recent_errors(self, limit: int = 20) -> List[Dict[str, Any]]:
         try:
-            if ERROR_LOG_FILE.exists():
-                with open(ERROR_LOG_FILE, "r", encoding="utf-8") as f:
-                    entries = json.load(f).get("errors", [])
-                return list(reversed(entries))[:limit]
+            entries = safe_read_json(ERROR_LOG_FILE, default={"errors": []}).get("errors", [])
+            return list(reversed(entries))[:limit]
         except Exception:
-            pass
-        return []
+            return []
 
     def notify_commander(self, message: str) -> Dict[str, Any]:
         """Sends a direct SMS alert to the Commander for failures Synapse could not

@@ -105,13 +105,16 @@ class AudioAgent:
     ) -> Dict[str, Any]:
         """Extract and transcribe speech with timestamps and hooks."""
         # Acquire GPU 1 lock to coordinate with NVENC
-        gpu1_arbiter.acquire("echo_whisper", timeout_seconds=30)
+        acquired = gpu1_arbiter.acquire("echo_whisper", timeout_seconds=30)
+        if not acquired:
+            logger.warning("[ECHO] Failed to acquire GPU 1 arbiter lock within 30s. Video NVENC may be active.")
         try:
             return self._execute_transcribe(video_path, output_dir, progress_cb)
         finally:
             if self.auto_unload:
                 self.unload_model()
-            gpu1_arbiter.release("echo_whisper")
+            if acquired:
+                gpu1_arbiter.release("echo_whisper")
 
     def _execute_transcribe(
         self,

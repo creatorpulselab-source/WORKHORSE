@@ -290,6 +290,12 @@ class VramManager:
         the user's GPU never remains locked up.
         """
         try:
+            # Active job guard: if orchestrator or pipeline is actively running work,
+            # high utilization is legitimate; reset timer and never kill mid-inference.
+            if self.is_busy():
+                self._high_util_start = None
+                return False
+
             import subprocess
             out = subprocess.run(
                 ["nvidia-smi", "--query-gpu=index,utilization.gpu", "--format=csv,noheader,nounits"],
@@ -343,9 +349,17 @@ class VramManager:
         """
         AUTOMATED STORAGE CLEANER:
         Scans workspace/comfy_staging and workspace/temp.
-        Deletes intermediate unapproved files older than max_age_hours.
+        Deletes intermediate unapproved files and job subdirectories older than max_age_hours.
         Protects workspace/brand_assets and client_deliveries permanently.
+        Enforces a minimum bound of max_age_hours >= 1 to prevent accidental wipeout.
         """
+        import shutil
+        if max_age_hours is None or max_age_hours < 1:
+            logger.warning(f"prune_old_staging_files called with invalid max_age_hours={max_age_hours}; clamping to 1.")
+            max_age_hours = 1
+        else:
+            max_age_hours = int(max_age_hours)
+
         staging_dir = Path("F:/WORKHORSE/workspace/comfy_staging")
         temp_dir = Path("F:/WORKHORSE/workspace/temp")
         deleted_count = 0
@@ -354,16 +368,25 @@ class VramManager:
 
         for target_dir in [staging_dir, temp_dir]:
             if target_dir.exists():
-                for f in target_dir.iterdir():
-                    if f.is_file() and not f.name.startswith("."):
-                        try:
-                            if f.stat().st_mtime < cutoff:
-                                sz = f.stat().st_size
-                                f.unlink()
+                for item in list(target_dir.iterdir()):
+                    if item.name.startswith("."):
+                        continue
+                    try:
+                        if item.is_file():
+                            if item.stat().st_mtime < cutoff:
+                                sz = item.stat().st_size
+                                item.unlink()
                                 deleted_count += 1
                                 deleted_bytes += sz
-                        except Exception:
-                            pass
+                        elif item.is_dir():
+                            # Recursive pruning of expired workspace/temp/<job_id> folders
+                            if item.stat().st_mtime < cutoff:
+                                dir_sz = sum(f.stat().st_size for f in item.rglob("*") if f.is_file())
+                                shutil.rmtree(item, ignore_errors=True)
+                                deleted_count += 1
+                                deleted_bytes += dir_sz
+                    except Exception as e:
+                        logger.warning(f"Failed to prune {item}: {e}")
 
         return {
             "deleted_count": deleted_count,

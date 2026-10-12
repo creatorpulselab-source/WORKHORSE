@@ -37,6 +37,7 @@ BASE_DIR = Path("F:/WORKHORSE")
 sys.path.insert(0, str(BASE_DIR))
 
 from shared.system_monitor import get_system_stats, get_ollama_models
+from shared.atomic_writer import atomic_write_json, safe_read_json
 from shared.ai_providers import AIProviderService
 from shared.auth import verify_password, hash_password, make_session_token, verify_session_token, get_session_id
 from shared.vram_manager import vram_manager, VramManager
@@ -392,15 +393,15 @@ async def serve_subscribe_portal():
 
 @app.get("/api/system/stats")
 async def get_telemetry():
-    stats = get_system_stats()
-    stats["ollama"] = get_ollama_models()
+    stats = await asyncio.to_thread(get_system_stats)
+    stats["ollama"] = await asyncio.to_thread(get_ollama_models)
     stats["vram_watchdog"] = vram_manager.get_status()
     stats["comfy_health"] = comfy_health_cache
     return stats
 
 @app.get("/api/system/models")
 async def get_models():
-    return get_ollama_models()
+    return await asyncio.to_thread(get_ollama_models)
 
 @app.get("/api/agents/{agent_key}/config")
 async def get_agent_config(agent_key: str):
@@ -414,15 +415,13 @@ async def get_agent_config(agent_key: str):
 @app.post("/api/agents/{agent_key}/config")
 async def update_agent_config(agent_key: str, payload: Dict[str, Any]):
     try:
-        with open(CONFIG_FILE, "r", encoding="utf-8") as f:
-            cfg = json.load(f)
+        cfg = safe_read_json(CONFIG_FILE, default={})
         if "agents" not in cfg:
             cfg["agents"] = {}
         if agent_key not in cfg["agents"]:
             cfg["agents"][agent_key] = {}
         cfg["agents"][agent_key].update(payload)
-        with open(CONFIG_FILE, "w", encoding="utf-8") as f:
-            json.dump(cfg, f, indent=2)
+        atomic_write_json(CONFIG_FILE, cfg)
         return {"status": "ok", "message": f"Updated config for agent {agent_key}"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -1308,8 +1307,8 @@ async def websocket_telemetry(websocket: WebSocket):
     connected_websockets.append(websocket)
     try:
         while True:
-            stats = get_system_stats()
-            stats["ollama"] = get_ollama_models()
+            stats = await asyncio.to_thread(get_system_stats)
+            stats["ollama"] = await asyncio.to_thread(get_ollama_models)
             stats["vram_watchdog"] = vram_manager.get_status()
             stats["comfy_health"] = comfy_health_cache
             await websocket.send_text(json.dumps({"type": "telemetry", "stats": stats}))
@@ -1359,7 +1358,7 @@ async def trigger_self_heal(payload: Dict[str, Any] = {}):
 
 @app.get("/api/operator/models")
 async def get_operator_models():
-    models = ai_operator.get_available_models()
+    models = await asyncio.to_thread(ai_operator.get_available_models)
     return {"status": "ok", "models": models}
 
 @app.get("/api/operator/history")
@@ -1824,7 +1823,8 @@ async def comfy_prewarm_endpoint(checkpoint: Optional[str] = None):
 async def prune_staging_endpoint(hours: int = 48):
     """Manually triggers pruning of old staging and temp renders."""
     from shared.vram_manager import vram_manager
-    res = vram_manager.prune_old_staging_files(max_age_hours=hours)
+    bounded_hours = max(1, int(hours)) if hours is not None else 48
+    res = await asyncio.to_thread(vram_manager.prune_old_staging_files, max_age_hours=bounded_hours)
     return res
 
 if __name__ == "__main__":

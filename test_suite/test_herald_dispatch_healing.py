@@ -105,8 +105,16 @@ def test_twitter_watchdog_retries_up_to_max_then_alerts_once(scheduler, monkeypa
     assert slot_id not in scheduler.state["executed_slots"]
 
 
-def test_twitter_watchdog_stops_retrying_once_slot_succeeds(scheduler):
+def test_twitter_watchdog_stops_retrying_once_slot_succeeds(scheduler, monkeypatch):
     slot_id = _first_slot_id()
+    fixed_now = __import__("datetime").datetime.combine(__import__("datetime").date.today(), __import__("datetime").time(9, 30))
+
+    class _FrozenDateTime(__import__("datetime").datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return fixed_now
+
+    monkeypatch.setattr("pipeline.stages.herald_scheduler.datetime", _FrozenDateTime)
     with patch.object(scheduler.twitter, "post_thread", return_value={"success": True}):
         scheduler._monitor_and_remediate_twitter_slots()
     assert slot_id in scheduler.state["executed_slots"]

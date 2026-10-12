@@ -116,6 +116,10 @@ def cut_preview_video(video_path: Path, output_dir: Path, target_duration: int =
 
     gpu_flags = get_nvenc_flags() if encoder == "h264_nvenc" else []
     quality_flags = get_nvenc_quality_flags() if encoder == "h264_nvenc" else get_cpu_quality_flags()
+
+    gpu1_crops_locked = False
+    if encoder == "h264_nvenc":
+        gpu1_crops_locked = gpu1_arbiter.acquire("forge_nvenc", timeout_seconds=30)
     cmd = [
         "ffmpeg", "-y",
         "-ss", "0",
@@ -128,6 +132,10 @@ def cut_preview_video(video_path: Path, output_dir: Path, target_duration: int =
         "-b:a", "192k",
         str(preview_file)
     ]
+
+    gpu1_locked = False
+    if encoder == "h264_nvenc":
+        gpu1_locked = gpu1_arbiter.acquire("forge_nvenc", timeout_seconds=30)
 
     try:
         res = subprocess.run(cmd, capture_output=True, timeout=120)
@@ -164,6 +172,9 @@ def cut_preview_video(video_path: Path, output_dir: Path, target_duration: int =
                 subprocess.run(cmd_cpu, capture_output=True, timeout=180)
     except Exception as e:
         print(f"Error cutting preview: {e}")
+    finally:
+        if gpu1_locked:
+            gpu1_arbiter.release("forge_nvenc")
 
     return preview_file if preview_file.exists() else None
 
@@ -246,6 +257,8 @@ def generate_social_crops(preview_video: Path, output_dir: Path, progress_cb: Op
     except Exception:
         pass
 
+    if gpu1_crops_locked:
+        gpu1_arbiter.release("forge_nvenc")
     return crops
 
 if __name__ == "__main__":

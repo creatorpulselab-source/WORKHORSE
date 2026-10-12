@@ -156,7 +156,7 @@ class NewsletterManager:
         except Exception:
             pass
 
-    def _get_daily_scribe_content(self, pub_id: str) -> Optional[Dict[str, Any]]:
+    def _get_daily_scribe_content(self, pub_id: str, auto_generate: bool = True) -> Optional[Dict[str, Any]]:
         """Returns today's Scribe-generated content for pub_id, generating and caching
         it on first call of the day. Returns None (never raises) if generation fails,
         so every caller can gracefully fall back to its static copy. Retries once before
@@ -167,6 +167,9 @@ class NewsletterManager:
         cached_entry = cache.get(pub_id)
         if cached_entry and cached_entry.get("date") == today_key and cached_entry.get("content"):
             return cached_entry["content"]
+
+        if not auto_generate:
+            return None
 
         pub = self.publications.get(pub_id, self.publications["creator_pulse"])
 

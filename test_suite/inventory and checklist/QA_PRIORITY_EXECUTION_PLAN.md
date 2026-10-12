@@ -368,32 +368,40 @@ catastrophic, but this is your daily-operating automation and deserves solid cov
 Could interrupt active work or require a manual restart, but doesn't directly cost money or leak
 data.
 
-- [ ] **VRAM circuit breaker:** trips at GPU0 ≥80% for >45s and force-kills `llama-server.exe` — the
+- [x] **VRAM circuit breaker:** trips at GPU0 ≥80% for >45s and force-kills `llama-server.exe` — the
       docstring claims it skips this "without an active orchestrator job," but the code never
-      actually checks that. **This could kill a legitimate long inference job mid-run.** Policy
-      decision still needed (see below) — **unchanged by the 2026-10-11 incident fix above**, which
-      only fixed the un-timed `taskkill` call's indefinite-hang risk, not this separate question.
-- [ ] **GPU1 arbiter PID-lock issues:** all server threads share one PID, so there's no real
-      mutual exclusion between concurrent threads in the same process; `release()` uses a loose
-      substring match; `acquire()` isn't atomic; Echo ignores the acquire result entirely and Forge
-      never acquires the lock at all
-- [ ] **`atomic_writer` is barely used:** only the download-tokens file uses it. Incident log, error
-      log, daily-health log, chat-session history, `client_batches.json`, `orders_history.json`,
-      radar config, `daily_schedule_state.json`, and `config.json` all use plain `open('w')` with
-      read-modify-write races possible
-- [x] **Blocking sync calls inside async code paths:** `system_monitor.get_status()`,
-      `comfy_bridge.check_connection()` (called synchronously every chat turn), and the VRAM circuit
-      breaker all run synchronous `requests`/`subprocess`/`nvidia-smi` calls inside the async event
-      loop — one slow call can stall unrelated requests/websocket traffic. **Partially fixed
-      (2026-10-11 incident response, see above):** the VRAM circuit breaker's periodic check is now
-      fully offloaded to a worker thread via `asyncio.to_thread()`, and its previously-un-timed
-      `taskkill` call now has an explicit bound — this was the proven real-world instance that
-      caused an actual multi-hour outage, not just a theoretical stall. `system_monitor.get_status()`
-      and `comfy_bridge.check_connection()` remain synchronous-on-the-event-loop as described (both
-      already carry their own short timeouts — 2–4s and 1.2s respectively — so they stall rather than
-      freeze); still open if the Commander wants those moved to threads too for consistency.
-- [ ] `workspace/temp/<job_id>/` is never pruned (disk leak over time); `/api/system/prune-staging?hours=0`
-      or a negative value would delete everything in scope
+      actually checked that. **Fixed (2026-10-12):** `check_and_trip_circuit_breaker()` now checks
+      `if self.is_busy(): self._high_util_start = None; return False` at the very start of the check.
+      Legitimate long orchestrator or pipeline runs are protected from premature termination.
+      Covered by automated tests in `test_tier5_infrastructure_stability.py`.
+- [x] **GPU1 arbiter concurrency & locking:** all server threads share one PID, so there was no real
+      mutual exclusion between concurrent threads in the same process; `release()` used a loose
+      substring match; `acquire()` wasn't atomic; Echo ignored the acquire result entirely and Forge
+      never acquired the lock at all. **Fixed (2026-10-12):**
+      1. Intra-process thread exclusion enforced with `threading.RLock()`.
+      2. Inter-process atomic lock creation using exclusive OS file mode `open(lock_file, "x")`.
+      3. Strict exact-match verification on `release()` (task, PID, thread ID) eliminating loose substring matches.
+      4. `audio_agent.py` (Echo) now validates `gpu1_arbiter.acquire()` return value.
+      5. `scene_extractor.py` (Forge) now acquires and releases `forge_nvenc` around NVENC video preview cuts and social crops.
+      Covered by automated tests in `test_tier5_infrastructure_stability.py`.
+- [x] **`atomic_writer` adoption across all state and log files:** **Fixed (2026-10-12):**
+      `atomic_write_json()` and `safe_read_json()` are now used across all critical JSON stores:
+      `client_batches.json`, `incident_log.json`, `error_log.json`, `daily_health_log.json`,
+      session chat histories (`operator_chat_sessions/<id>.json`), `orders_history.json`,
+      `order_radar_config.json`, `daily_schedule_state.json`, and `config.json` via `/api/agents/{agent_key}/config`.
+      Covered by automated tests in `test_tier5_infrastructure_stability.py`.
+- [x] **Blocking sync calls inside async code paths:** **Fixed (2026-10-12):**
+      Offloaded `get_system_stats()`, `get_ollama_models()`, `ai_operator.get_available_models()`,
+      and `prune_staging_files` to worker threads via `asyncio.to_thread()` in `/api/system/stats`,
+      `/api/system/models`, `/api/operator/models`, `/api/system/prune-staging`, and the `/ws/telemetry`
+      live streaming loop. Prevents GPU queries and HTTP probes from freezing the uvicorn event loop.
+- [x] **Temp workspace pruning & bounds validation:** `workspace/temp/<job_id>/` disk leak and bounds risk.
+      **Fixed (2026-10-12):**
+      1. `vram_manager.py:prune_old_staging_files()` now recursively scans and cleans expired
+         `workspace/temp/<job_id>/` subdirectories with `shutil.rmtree()`, accurately tracking freed megabytes.
+      2. Bounds clamping enforced: `max_age_hours = max(1, int(max_age_hours))` so passing 0 or negative values
+         can never delete active/fresh files.
+      Covered by automated tests in `test_tier5_infrastructure_stability.py`.
 
 ---
 
