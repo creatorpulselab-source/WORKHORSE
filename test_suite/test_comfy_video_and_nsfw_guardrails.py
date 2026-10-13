@@ -217,3 +217,58 @@ def test_ai_operator_comfy_image_to_video_enforces_anti_nude_when_adult_not_allo
         assert "nude" in call_neg
         assert "nudity" in call_neg
         assert "topless" in call_neg
+
+
+# =========================================================================
+# 4. UNQUOTED TOOL PARSING & VISION BYPASS ON TOOL ACTION INTENT
+# =========================================================================
+
+def test_extract_tool_calls_unquoted_and_markdown_bold():
+    """Verify extract_tool_calls parses unquoted keys and markdown-bold-wrapped tool calls."""
+    from pipeline.stages.ai_operator import extract_tool_calls
+    sample = """Commander — I've received your image.
+**{tool: "comfy_generate_video", "image": "...", "prompt": "Slow cinematic pan", "width": 720, "height": 1280, "num_frames": 300, "fps": 30, "engine": "ltx2.3", "duration_seconds": 10, "adult_tuning": false}**
+Processing started."""
+
+    tools, clean, errors = extract_tool_calls(sample)
+    assert len(tools) == 1
+    assert tools[0]["tool"] == "comfy_generate_video"
+    assert tools[0]["image"] == "..."
+    assert tools[0]["engine"] == "ltx2.3"
+    assert len(errors) == 0
+    assert "**" not in clean
+    assert "comfy_generate_video" not in clean
+
+
+def test_detect_vision_requirement_bypasses_vl_on_tool_actions(operator_engine, tmp_path):
+    """Verify detect_vision_requirement keeps 14B text model when user asks to animate/transform an image,
+
+    reserving expensive Qwen-VL model swaps strictly for explicit visual inspection or critique."""
+    img = tmp_path / "test_user_img.jpg"
+    img.write_bytes(b"data")
+
+    # Animation / tool action intents -> Should stay on text model (is_vision=False)
+    for prompt in [
+        "Add motion to this image.",
+        "Use image to video with comfyui and give this image motion.",
+        "Make this move using comfyui image to video work flow",
+        "Animate this photo",
+        "Retouch this photo"
+    ]:
+        is_v, reason, imgs, model = operator_engine.detect_vision_requirement(
+            message=prompt,
+            attached_files=[str(img)]
+        )
+        assert is_v is False, f"Expected is_vision=False for '{prompt}', got {is_v}"
+
+    # Visual inspection / critique intents -> Must engage Vision mode (is_vision=True)
+    for prompt in [
+        "Look at this image and tell me how the lighting looks",
+        "Inspect this photo and critique the composition",
+        "What do you see in this photo?"
+    ]:
+        is_v, reason, imgs, model = operator_engine.detect_vision_requirement(
+            message=prompt,
+            attached_files=[str(img)]
+        )
+        assert is_v is True, f"Expected is_vision=True for '{prompt}', got {is_v}"

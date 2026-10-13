@@ -319,10 +319,23 @@ COMMUNICATION:
 - When asked why a task didn't run, check the real-time schedule info in your context and explain the exact technical cause honestly with an immediate fix."""
 
 
+def normalize_tool_json(raw: str) -> str:
+    """Normalizes JS-style object literals with unquoted keys or markdown wrapping to valid JSON."""
+    s = raw.strip()
+    if s.startswith("**") and s.endswith("**"):
+        s = s[2:-2].strip()
+    elif s.startswith("`") and s.endswith("`"):
+        s = s.strip("`").strip()
+    # Auto-quote unquoted keys: e.g. {tool: -> {"tool": or , prompt: -> , "prompt":
+    s = re.sub(r'([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:', r'\1"\2":', s)
+    return s
+
+
 def extract_tool_calls(text: str) -> Tuple[List[Dict[str, Any]], str, List[Dict[str, Any]]]:
     """
     Extracts all JSON tool calls from assistant text, supporting both fenced ```json ... ```
-    blocks and inline {"tool": ...} objects with arbitrary nested structures (loras, items, concepts).
+    blocks and inline {"tool": ...} or {tool: ...} objects with arbitrary nested structures,
+    unquoted keys, and markdown bold wrapping.
     Returns (valid_tool_calls, cleaned_text, parse_errors).
     """
     executed_tools: List[Dict[str, Any]] = []
@@ -333,9 +346,10 @@ def extract_tool_calls(text: str) -> Tuple[List[Dict[str, Any]], str, List[Dict[
     fenced_pattern = re.compile(r'```(?:json)?\s*([\s\S]*?)\s*```')
     for match in fenced_pattern.finditer(text):
         block_content = match.group(1).strip()
-        if block_content.startswith('{') and '"tool"' in block_content:
+        if block_content.startswith('{') and ('"tool"' in block_content or "'tool'" in block_content or 'tool:' in block_content):
             try:
-                data = json.loads(block_content)
+                norm = normalize_tool_json(block_content)
+                data = json.loads(norm)
                 if isinstance(data, dict) and "tool" in data:
                     executed_tools.append(data)
                     spans_to_remove.append(match.span())
@@ -350,16 +364,20 @@ def extract_tool_calls(text: str) -> Tuple[List[Dict[str, Any]], str, List[Dict[
             masked_chars[i] = ' '
     masked_text = "".join(masked_chars)
 
-    # 2. Inline tool calls: search for {"tool" or { "tool"
-    inline_trigger = re.compile(r'\{\s*"tool"\s*:\s*"[^"]+"')
+    # 2. Inline tool calls: search for { with optional quotes around tool
+    inline_trigger = re.compile(r"""(\*{0,2})\s*\{\s*["']?tool["']?\s*:\s*["'][^"']+["']""")
     for match in inline_trigger.finditer(masked_text):
-        start_idx = match.start()
+        match_start = match.start()
+        brace_start = text.find('{', match_start)
+        if brace_start == -1:
+            continue
+
         brace_count = 0
         in_string = False
         escape = False
         end_idx = -1
 
-        for i in range(start_idx, len(text)):
+        for i in range(brace_start, len(text)):
             c = text[i]
             if in_string:
                 if escape:
@@ -380,17 +398,28 @@ def extract_tool_calls(text: str) -> Tuple[List[Dict[str, Any]], str, List[Dict[
                         break
 
         if end_idx != -1:
-            raw_json = text[start_idx:end_idx]
+            # Check if there were leading ** or trailing **
+            real_start = brace_start
+            real_end = end_idx
+            if real_start >= 2 and text[real_start-2:real_start] == "**":
+                real_start -= 2
+            if real_end + 2 <= len(text) and text[real_end:real_end+2] == "**":
+                real_end += 2
+
+            raw_json = text[brace_start:end_idx]
             try:
-                data = json.loads(raw_json)
+                try:
+                    data = json.loads(raw_json)
+                except Exception:
+                    data = json.loads(normalize_tool_json(raw_json))
                 if isinstance(data, dict) and "tool" in data:
                     executed_tools.append(data)
-                    spans_to_remove.append((start_idx, end_idx))
+                    spans_to_remove.append((real_start, real_end))
             except Exception as e:
                 parse_errors.append({"error": str(e), "raw": raw_json[:200]})
-                spans_to_remove.append((start_idx, end_idx))
+                spans_to_remove.append((real_start, real_end))
         else:
-            raw_truncated = text[start_idx:min(len(text), start_idx + 200)]
+            raw_truncated = text[brace_start:min(len(text), brace_start + 200)]
             parse_errors.append({"error": "Unclosed curly braces or string in tool call", "raw": raw_truncated})
 
     # Remove all matched spans from end to start to preserve indices
@@ -2093,7 +2122,25 @@ class AIOperatorEngine:
                         detected_images.append(b64)
                         reasons.append(f"Auto-loaded latest inbox image: {latest_img.name}")
 
-        is_vision = len(detected_images) > 0 or len(matched_intent) > 0
+        # Check if the query is an image-transformation tool action (animation/video/3D/retouch)
+        # rather than visual analysis, inspection, or critique.
+        tool_action_keywords = [
+            "motion", "video", "animate", "animating", "animation", "make it move", "make this move",
+            "give this motion", "add motion", "i2v", "image to video", "image-to-video",
+            "retouch", "skin tone", "3d", "glb", "pbr", "convert to 3d", "upscale", "crop", "package"
+        ]
+        has_tool_action = any(kw in msg_lower for kw in tool_action_keywords)
+        has_inspection_intent = len(matched_intent) > 0
+
+        # Only activate Vision model when:
+        # 1. User has explicit visual inspection / critique intent (critique, analyze, inspect, ocr, etc.), OR
+        # 2. An image is attached/detected AND the user did NOT ask for a tool action
+        if has_tool_action and not has_inspection_intent:
+            is_vision = False
+            detected_images = []
+            reasons.append("Tool-action intent detected (animation/edit); retained 14B operator model with disk metadata")
+        else:
+            is_vision = len(detected_images) > 0 or len(matched_intent) > 0
 
         resolved_model = None
         if is_vision:
