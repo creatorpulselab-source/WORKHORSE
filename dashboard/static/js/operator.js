@@ -35,7 +35,11 @@ class AIOperatorUI {
       history.forEach(entry => {
         this.appendMessage({
           role: entry.role,
-          content: entry.content
+          content: entry.content,
+          model: entry.model,
+          actions: entry.actions,
+          webSources: entry.web_sources,
+          quickOptions: entry.quick_options
         });
       });
       this.chatContainer.scrollTop = this.chatContainer.scrollHeight;
@@ -569,35 +573,53 @@ class AIOperatorUI {
   // Uses the same View/Download controls as Completed Work, including old history entries.
   renderMediaCard(m) {
     const viewer = window.outputViewer;
-    const media = viewer.normalize(m);
-    const esc = value => viewer.escape(value);
+    const esc = value => (viewer ? viewer.escape(value) : String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
+    let media = null;
+    if (viewer) {
+      try {
+        media = viewer.normalize(m);
+      } catch (err) {
+        console.warn('viewer.normalize warning:', err);
+      }
+    }
+    if (!media) {
+      const url = m.preview_url || m.url || m.download_url || '#';
+      media = {
+        filename: m.filename || m.title || '',
+        title: m.title || m.filename || '',
+        preview_type: m.type,
+        download_url: m.download_url || url,
+        preview_url: m.preview_url || url
+      };
+    }
+    const actionsHtml = viewer ? viewer.actions(m) : `<div class="output-card-actions"><a class="btn-cyber" href="${esc(media.download_url)}" download>Download</a></div>`;
     const caption = `${m.category_label ? esc(m.category_label) + ' &middot; ' : ''}${esc(m.title || m.filename || '')}`;
-    if (m.type === 'image') {
+    if (m.type === 'image' || media.preview_type === 'image') {
       return `
         <div class="msg-generated-image-card" title="${esc(m.title || '')}">
           <button type="button" class="output-image-button" data-workhorse-view="${esc(JSON.stringify(media))}" aria-label="View ${esc(media.filename)}">
             <img src="${esc(media.preview_url)}" alt="${esc(m.title || 'Generated image')}" loading="lazy">
           </button>
           <span class="msg-generated-image-caption">${caption}</span>
-          ${viewer.actions(m)}
+          ${actionsHtml}
         </div>
       `;
     }
-    if (m.type === 'video') {
+    if (m.type === 'video' || media.preview_type === 'video') {
       return `
         <div class="msg-generated-media-card msg-generated-video-card">
           <video src="${esc(media.preview_url)}" controls preload="metadata" playsinline></video>
           <span class="msg-generated-image-caption">${caption}</span>
-          ${viewer.actions(m)}
+          ${actionsHtml}
         </div>
       `;
     }
-    const icon = m.type === 'model_3d' ? '🧊' : '📦';
+    const icon = (m.type === 'model_3d' || media.preview_type === 'model_3d') ? '🧊' : '📦';
     return `
       <div class="msg-generated-media-card msg-generated-download-card" title="${esc(m.title || '')}">
         <span class="act-icon">${icon}</span>
         <span class="msg-generated-image-caption">${caption}</span>
-        ${viewer.actions(m)}
+        ${actionsHtml}
       </div>
     `;
   }
@@ -741,7 +763,14 @@ class AIOperatorUI {
 
       container.innerHTML = '';
       history.forEach(entry => {
-        this.appendMessage({ role: entry.role, content: entry.content }, container);
+        this.appendMessage({
+          role: entry.role,
+          content: entry.content,
+          model: entry.model,
+          actions: entry.actions,
+          webSources: entry.web_sources,
+          quickOptions: entry.quick_options
+        }, container);
       });
     } catch (err) {
       container.innerHTML = `<div style="color:#ef4444;font-size:12px;">Failed to load saved conversation: ${err.message}</div>`;

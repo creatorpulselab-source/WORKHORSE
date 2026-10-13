@@ -36,8 +36,9 @@ BRAND_AESTHETIC_POOL = [
 ]
 
 NEGATIVE_PROMPT = (
-    "extra limbs, deformed hands, mutated fingers, bad anatomy, blurry, low quality, "
-    "watermark, text, cartoon, illustration"
+    "nude, nudity, naked, topless, bare breasts, exposed nipples, genitals, explicit, "
+    "nsfw, porn, sexual, uncensored, erotica, extra limbs, deformed hands, mutated fingers, "
+    "bad anatomy, blurry, low quality, watermark, text, cartoon, illustration"
 )
 
 

@@ -45,7 +45,7 @@ BRAND_VIBES = {
             "Minimalist all-white boudoir studio, soft diffused high-key lighting, sheer white fabric, clean airy aesthetic, serene confident expression, photorealistic, 50mm lens",
             "Smoky backstage dressing-room glamour portrait, warm vanity bulb lighting, mirror reflections, silk robe and feather trim, candid behind-the-scenes energy, photorealistic, 85mm lens"
         ],
-        "negative_prompt": "extra limbs, deformed hands, mutated fingers, bad anatomy, blurry, low quality, watermark, text, cartoon, illustration",
+        "negative_prompt": "nude, nudity, naked, topless, bare breasts, exposed nipples, genitals, explicit, nsfw, porn, sexual, uncensored, erotica, extra limbs, deformed hands, mutated fingers, bad anatomy, blurry, low quality, watermark, text, cartoon, illustration",
         "video_motion_prompts": [
             "slow sensual turn toward camera, gentle hair movement in a soft breeze, subtle breathing motion, cinematic 24fps, high production value, photorealistic",
             "gentle hip sway with a slow confident walk toward camera, fabric flowing naturally, soft rim light flicker, cinematic motion, photorealistic",
@@ -71,7 +71,7 @@ BRAND_VIBES = {
             "Autumn outdoor portrait session, warm golden foliage backdrop, soft diffused overcast light, cozy editorial styling, photorealistic, 50mm lens, shallow depth of field",
             "Minimalist grey seamless backdrop studio portrait, Profoto beauty dish key light, crisp commercial headshot composition, photorealistic, 85mm lens"
         ],
-        "negative_prompt": "extra limbs, deformed hands, mutated fingers, bad anatomy, blurry, low quality, watermark, text, cartoon, illustration",
+        "negative_prompt": "nude, nudity, naked, topless, bare breasts, exposed nipples, genitals, explicit, nsfw, porn, sexual, uncensored, erotica, extra limbs, deformed hands, mutated fingers, bad anatomy, blurry, low quality, watermark, text, cartoon, illustration",
         "video_motion_prompts": [
             "subtle natural head turn toward camera, gentle breathing motion, soft ambient light drift, cinematic 24fps, high production value, photorealistic",
             "slow cinematic push-in, gentle hair movement in a light breeze, natural blinking and micro-expressions, photorealistic, cinematic motion",
@@ -438,18 +438,24 @@ class HeraldScheduler:
 
         try:
             from pipeline.stages.comfyui_bridge import comfy_bridge
+            # STRICT NSFW GUARDRAIL: Herald is an automated publisher posting to public
+            # social channels and newsletters. Under the Commander's strict directive,
+            # Herald CANNOT produce or post nude images or video. Adult-tuned LoRAs are
+            # strictly disabled in automated social dispatches (lora_config=[]).
+            anti_nude_neg = "nude, nudity, naked, topless, bare breasts, exposed nipples, genitals, explicit, nsfw, porn, sexual, uncensored, erotica, extra limbs, bad anatomy, blurry"
             if engine in ("minimax_h3", "minimax") and brand_key == "creator_pulse_lab":
                 vid_res = comfy_bridge.generate_image_to_video_minimax(
                     source_image_path=still_image_path,
                     prompt=motion_prompt,
                     duration_seconds=duration_seconds,
-                    lora_config=None,  # keep the brand's configured adult-tuned LoRAs
-                    dest_subdir=brand_key  # keeps scheduled social videos out of the ad-hoc Synapse chat folder
+                    lora_config=[],  # Strictly zeroed out: NO adult/boudoir LoRAs for autonomous social posts
+                    dest_subdir=brand_key
                 )
             else:
                 vid_res = comfy_bridge.generate_image_to_video(
                     source_image_path=still_image_path,
                     prompt=motion_prompt,
+                    negative_prompt=anti_nude_neg,
                     num_frames=int(duration_seconds * 24),
                     fps=24,
                     dest_subdir=brand_key
@@ -657,6 +663,17 @@ class HeraldScheduler:
                     except Exception as ve:
                         print(f"[Herald Scheduler] Visual lookup notice: {ve}")
 
+                    # STRICT NSFW FILTER: Herald cannot produce or post nude images or video
+                    if media_paths:
+                        safe_media = []
+                        for mp in media_paths:
+                            mp_lower = Path(mp).name.lower()
+                            if any(k in mp_lower for k in ["nude", "naked", "nsfw", "topless", "porn", "explicit"]):
+                                print(f"[Herald Safety Alert] Suppressed non-compliant media from public post: {mp}")
+                            else:
+                                safe_media.append(mp)
+                        media_paths = safe_media if safe_media else None
+
                     post_res = self.twitter.post_thread(handle, tweets, media_paths=media_paths)
                     results["accounts"][handle] = post_res
                     if not post_res.get("success"):
@@ -721,6 +738,16 @@ class HeraldScheduler:
         if not vis_path or not Path(vis_path).exists():
             result = {"status": "error", "message": "No verified brand visual available for Pinterest pin (ComfyUI unavailable and no fallback render found)."}
         else:
+            # STRICT NSFW FILTER: Herald cannot post nude media to Pinterest
+            vp_lower = Path(vis_path).name.lower()
+            if any(k in vp_lower for k in ["nude", "naked", "nsfw", "topless", "porn", "explicit"]):
+                print(f"[Herald Safety Alert] Suppressed non-compliant visual from Pinterest pin: {vis_path}")
+                vis_path = None
+
+            if not vis_path:
+                result = {"status": "error", "message": "Filtered non-compliant visual from Pinterest pin."}
+                return result
+
             post_res = self.pinterest.create_pin(
                 board_id=board_id,
                 title=content["title"],

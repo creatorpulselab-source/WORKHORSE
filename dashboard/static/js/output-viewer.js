@@ -45,8 +45,12 @@ class WorkhorseOutputViewer {
 
   normalize(item) {
     const download = item.download_url || item.url;
+    if (!download) {
+      throw new Error('This output does not have a WORKHORSE file link.');
+    }
     const url = new URL(download, location.origin);
-    if (url.origin !== location.origin || url.pathname !== '/api/outputs/file') {
+    const validPaths = ['/api/outputs/file', '/api/outputs/preview'];
+    if (url.origin !== location.origin || !validPaths.includes(url.pathname)) {
       throw new Error('This output does not have a WORKHORSE file link.');
     }
     const filename = item.filename || item.title || '';
@@ -60,17 +64,24 @@ class WorkhorseOutputViewer {
     return {
       filename, title: item.title || filename,
       preview_type: item.preview_type === undefined ? (types[ext] || null) : item.preview_type,
-      download_url: url.pathname + url.search,
+      download_url: '/api/outputs/file' + url.search,
       preview_url: '/api/outputs/preview' + url.search
     };
   }
 
   actions(item) {
-    const media = this.normalize(item);
-    return `<div class="output-card-actions">
-      <button type="button" class="btn-cyber" data-workhorse-view="${this.escape(JSON.stringify(media))}">View</button>
-      <a class="btn-cyber" href="${this.escape(media.download_url)}" download>Download</a>
-    </div>`;
+    try {
+      const media = this.normalize(item);
+      return `<div class="output-card-actions">
+        <button type="button" class="btn-cyber" data-workhorse-view="${this.escape(JSON.stringify(media))}">View</button>
+        <a class="btn-cyber" href="${this.escape(media.download_url)}" download>Download</a>
+      </div>`;
+    } catch (e) {
+      const dl = item.download_url || item.url || '#';
+      return `<div class="output-card-actions">
+        <a class="btn-cyber" href="${this.escape(dl)}" download>Download</a>
+      </div>`;
+    }
   }
 
   async request(url, signal) {

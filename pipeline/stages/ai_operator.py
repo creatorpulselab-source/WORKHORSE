@@ -261,6 +261,7 @@ THE WORKHORSE AGENT ROSTER (PERIODIC TABLE OF AGENTS):
 (Note: Prism is a standalone viewer app in standalone_apps/ on port 7862, NOT a WORKHORSE agent).
 
 ARCHITECTURAL SAFETY BOUNDARIES (WHAT REQUIRES UI CONFIRMATION):
+- STRICT NSFW & ADULT CONTENT POLICY: Only the Commander can create NSFW/adult content with WORKHORSE. Herald [33 As], Cipher [36 Cp], and autonomous background engines CANNOT produce or post nude images or video under any circumstances. In chat, NSFW generation is strictly blocked unless the Commander turns on Adult Content Mode or explicitly requests adult content in their prompt.
 As Master AI Operator, you have direct tool access to inspect, analyze, stage, retouch, generate concepts, and self-heal.
 However, to protect commercial accounts and live client delivery, the following high-impact actions intentionally REQUIRE EXPLICIT UI CONFIRMATION in the dashboard and are NOT callable as raw chat tools:
 - Starting the full multi-stage video pipeline (run via Dashboard Pipeline Bay).
@@ -282,7 +283,7 @@ When the user asks you to inspect, check, or execute a task, you can invoke:
 - {"tool": "gpu_guardrails_status"}: Live check of Dual RTX 3060 utilization, VRAM, and all hardware circuit breakers.
 - {"tool": "comfy_generate_glb", "agent": "synapse|iris|aura|echo|forge|cipher|herald|mercury|scribe"}: Renders an interactive 3D GLB model on RTX 5070 Ti for the dashboard card.
 - {"tool": "comfy_background_change", "image": "...", "prompt": "...", "negative_prompt": "..."}: Auto-segments subject (SAM3) out of an uploaded photo and swaps in a brand-new background.
-- {"tool": "comfy_image_to_video", "image": "...", "prompt": "...", "negative_prompt": "...", "width": 720, "height": 1280, "num_frames": 300, "fps": 30, "engine": "ltx2.3|minimax_h3", "duration_seconds": 10, "adult_tuning": false}: Animates a still photo into video on RTX 5070 Ti.
+- {"tool": "comfy_image_to_video", "image": "filename.jpg", "prompt": "motion description", "negative_prompt": "...", "width": 720, "height": 1280, "num_frames": 300, "fps": 30, "engine": "ltx2.3|minimax_h3", "duration_seconds": 10, "adult_tuning": false}: Animates a still photo into video on RTX 5070 Ti (Aliases: comfy_generate_video, image_to_video). For user uploaded photos, use the exact filename or path from [USER ATTACHED MEDIA AVAILABLE ON DISK].
 - {"tool": "comfy_generate_3d_pbr", "image": "...", "output_name": "...", "texture_resolution": 4096, "use_trellis2": true}: Converts still image into real full-PBR-textured 3D model (.glb) via Trellis 2 pipeline.
 - {"tool": "comfy_generate_client_character", "character_name": "charlette|margo|melissa", "prompt": "..."}: Generates an image using pre-trained client-identity LoRAs (strictly adult-gated).
 - {"tool": "comfy_subject_swap", "image": "...", "reference_face_image": "...", "prompt": "..."}: Full-subject identity swap preserving pose, outfit, and setting.
@@ -880,12 +881,15 @@ class AIOperatorEngine:
         except Exception as e:
             return {"status": "error", "message": f"Repair failed: {e}"}
 
-    def run_tool_and_log(self, tool_call: Dict[str, Any], adult_allowed: bool = False, batch_dir: Optional[Path] = None) -> Dict[str, Any]:
+    def run_tool_and_log(self, tool_call: Dict[str, Any], adult_allowed: bool = False, batch_dir: Optional[Path] = None, attached_files: Optional[List[str]] = None) -> Dict[str, Any]:
         """Executes a SYNAPSE tool call and transparently records any failure to the
         persistent error log, so tool errors stay reviewable even after their chat
         bubble scrolls out of view. This wraps every execute_internal_tool() call site
         instead of patching each tool's individual except block."""
-        exec_res = self.execute_internal_tool(tool_call, adult_allowed=adult_allowed, batch_dir=batch_dir)
+        try:
+            exec_res = self.execute_internal_tool(tool_call, adult_allowed=adult_allowed, batch_dir=batch_dir, attached_files=attached_files)
+        except TypeError:
+            exec_res = self.execute_internal_tool(tool_call, adult_allowed=adult_allowed, batch_dir=batch_dir)
         if isinstance(exec_res, dict) and exec_res.get("status") == "error":
             self.log_error(
                 component=exec_res.get("tool") or tool_call.get("tool", "unknown_tool"),
@@ -895,19 +899,83 @@ class AIOperatorEngine:
         return exec_res
 
     @staticmethod
-    def _resolve_marketing_source_image(filename: str) -> Path:
-        """Resolves a bare filename for tools that produce POSTABLE marketing content
-        (image-to-video, background swap, subject swap) ONLY against the marketing
-        brand_assets folder - deliberately NEVER against the flat client_inbox root or
-        any client batch folder. This prevents a client's uploaded photo (e.g. a generic
-        camera filename like IMG_1234.jpg) from ever being silently picked up as source
-        material for a postable video/image just because the names happen to collide.
-        An explicit ABSOLUTE path is still honored unchanged - so deliberately pointing
-        at a client_inbox file is possible, but never an implicit filename guess."""
-        p = Path(filename)
+    def _resolve_marketing_source_image(
+        filename: str,
+        batch_dir: Optional[Path] = None,
+        attached_files: Optional[List[str]] = None
+    ) -> Path:
+        """Resolves a filename or image reference for tools that produce postable
+        or animated content (image-to-video, background swap, subject swap, 3D PBR).
+
+        If attached_files or batch_dir are provided (from an active user upload turn),
+        this intelligently resolves to the user's uploaded photo — including when the
+        caller passes placeholders like "...", "this", or a bare filename.
+        If neither attached_files nor batch_dir are provided, this strictly resolves
+        against brand_assets/comfy_renders (or explicit absolute paths) to ensure client
+        inbox files are never implicitly picked up by name collision alone."""
+        fn_clean = (filename or "").strip()
+        is_placeholder = not fn_clean or fn_clean in (
+            "...", "this", "this image", "attached", "uploaded", "user image", "input", "source"
+        )
+
+        # 1. If placeholder or empty, fall back directly to attached files or batch_dir
+        if is_placeholder:
+            if attached_files:
+                for af in attached_files:
+                    p = Path(af)
+                    if p.exists() and p.suffix.lower() in (".jpg", ".jpeg", ".png", ".webp", ".bmp"):
+                        return p
+            if batch_dir and Path(batch_dir).exists():
+                batch_imgs = [
+                    p for p in Path(batch_dir).iterdir()
+                    if p.is_file() and p.suffix.lower() in (".jpg", ".jpeg", ".png", ".webp", ".bmp")
+                ]
+                if batch_imgs:
+                    return max(batch_imgs, key=lambda f: f.stat().st_mtime)
+            return Path("F:/WORKHORSE/workspace/brand_assets/comfy_renders") / (fn_clean or "missing.png")
+
+        # 2. If explicit absolute path exists
+        p = Path(fn_clean)
         if p.is_absolute():
             return p
-        return Path("F:/WORKHORSE/workspace/brand_assets/comfy_renders") / filename
+
+        # 3. Match against attached_files (by exact name or stem)
+        if attached_files:
+            for af in attached_files:
+                ap = Path(af)
+                if ap.name.lower() == p.name.lower() or ap.stem.lower() == p.stem.lower():
+                    if ap.exists():
+                        return ap
+
+        # 4. Match against batch_dir
+        if batch_dir and Path(batch_dir).exists():
+            direct_batch = Path(batch_dir) / p.name
+            if direct_batch.exists():
+                return direct_batch
+            for bf in Path(batch_dir).iterdir():
+                if bf.is_file() and (bf.name.lower() == p.name.lower() or bf.stem.lower() == p.stem.lower()):
+                    return bf
+
+        # 5. Match against brand_assets folders
+        candidate_dirs = [
+            Path("F:/WORKHORSE/workspace/brand_assets/comfy_renders"),
+            Path("F:/WORKHORSE/workspace/brand_assets/creator_media_lab"),
+            Path("F:/WORKHORSE/workspace/brand_assets/creator_pulse_lab"),
+        ]
+        for cdir in candidate_dirs:
+            candidate = cdir / p.name
+            if candidate.exists():
+                return candidate
+
+        # 6. Fallback if not found on disk but user provided an attached file this turn
+        if attached_files:
+            for af in attached_files:
+                ap = Path(af)
+                if ap.exists() and ap.suffix.lower() in (".jpg", ".jpeg", ".png", ".webp", ".bmp"):
+                    return ap
+
+        # 7. Default brand_assets fallback
+        return Path("F:/WORKHORSE/workspace/brand_assets/comfy_renders") / p.name
 
     @staticmethod
     def _attach_media(result: Dict[str, Any], file_path, title: str = "") -> Dict[str, Any]:
@@ -932,7 +1000,7 @@ class AIOperatorEngine:
             print(f"[SYNAPSE] Non-fatal: failed to attach media entry for {file_path}: {e}")
         return result
 
-    def execute_internal_tool(self, tool_call, adult_allowed: bool = False, batch_dir: Optional[Path] = None):
+    def execute_internal_tool(self, tool_call, adult_allowed: bool = False, batch_dir: Optional[Path] = None, attached_files: Optional[List[str]] = None):
         """Execute built-in WORKHORSE actions & self-healing functions.
 
         batch_dir: the isolated client_inbox/batch_<...>/ subfolder for THIS upload
@@ -942,6 +1010,15 @@ class AIOperatorEngine:
         flat client_inbox/ root so one Commander's/client's files are never mixed
         with another's."""
         tool_name = tool_call.get("tool")
+        # Normalize tool aliases so Synapse variants map reliably to registered tools
+        TOOL_ALIASES = {
+            "comfy_generate_video": "comfy_image_to_video",
+            "image_to_video": "comfy_image_to_video",
+            "comfy_i2v": "comfy_image_to_video",
+            "comfy_generate_image": "comfy_generate",
+            "generate_image": "comfy_generate",
+        }
+        tool_name = TOOL_ALIASES.get(tool_name, tool_name)
         result = {"status": "ok", "tool": tool_name}
 
         # SELF-HEALING & HARDWARE DIAGNOSTICS
@@ -1532,12 +1609,15 @@ class AIOperatorEngine:
             new_background_prompt = tool_call.get("prompt", "").strip()
             negative_prompt = tool_call.get("negative_prompt", "")
             checkpoint = tool_call.get("checkpoint")
-            if not filename:
-                return {"status": "error", "error": "No source image provided for background change"}
-            if not new_background_prompt:
-                return {"status": "error", "error": "No new-background prompt provided"}
             try:
-                img_path = self._resolve_marketing_source_image(filename)
+                if batch_dir or attached_files:
+                    img_path = self._resolve_marketing_source_image(filename, batch_dir=batch_dir, attached_files=attached_files)
+                else:
+                    img_path = self._resolve_marketing_source_image(filename)
+                if not img_path or not img_path.exists():
+                    return {"status": "error", "tool": tool_name, "error": f"Source image not found: {filename or '(no image provided)'}"}
+                if not new_background_prompt:
+                    return {"status": "error", "error": "No new-background prompt provided"}
                 if not img_path.exists():
                     return {"status": "error", "error": f"Source image not found: {filename}"}
 
@@ -1565,15 +1645,19 @@ class AIOperatorEngine:
             ref_filename = tool_call.get("reference_face_image", "").strip()
             prompt = tool_call.get("prompt", "").strip()
             negative_prompt = tool_call.get("negative_prompt") or None
-            if not filename:
-                return {"status": "error", "error": "No source pose/outfit image provided for subject swap"}
-            if not ref_filename:
-                return {"status": "error", "error": "No reference face image provided for subject swap"}
-            if not prompt:
-                return {"status": "error", "error": "No scene/identity prompt provided for subject swap"}
             try:
-                img_path = self._resolve_marketing_source_image(filename)
-                ref_path = self._resolve_marketing_source_image(ref_filename)
+                if batch_dir or attached_files:
+                    img_path = self._resolve_marketing_source_image(filename, batch_dir=batch_dir, attached_files=attached_files)
+                    ref_path = self._resolve_marketing_source_image(ref_filename, batch_dir=batch_dir, attached_files=attached_files)
+                else:
+                    img_path = self._resolve_marketing_source_image(filename)
+                    ref_path = self._resolve_marketing_source_image(ref_filename)
+                if not img_path or not img_path.exists():
+                    return {"status": "error", "tool": tool_name, "error": f"Source image not found: {filename or '(no image provided)'}"}
+                if not ref_path or not ref_path.exists():
+                    return {"status": "error", "error": f"Reference face image not found: {ref_filename or '(no reference face image provided)'}"}
+                if not prompt:
+                    return {"status": "error", "error": "No scene/identity prompt provided for subject swap"}
                 if not img_path.exists():
                     return {"status": "error", "error": f"Source image not found: {filename}"}
                 if not ref_path.exists():
@@ -1601,6 +1685,11 @@ class AIOperatorEngine:
         elif tool_name == "comfy_generate":
             prompt = tool_call.get("prompt", "").strip()
             negative_prompt = tool_call.get("negative_prompt", "")
+            # Only the Commander can authorize NSFW content:
+            # When adult_allowed is False, enforce strict non-nude negative prompts.
+            if not adult_allowed:
+                safe_anti_nude = "nude, nudity, naked, topless, bare breasts, exposed nipples, genitals, explicit, nsfw, porn, sexual, uncensored, erotica"
+                negative_prompt = f"{negative_prompt}, {safe_anti_nude}" if negative_prompt else safe_anti_nude
             width = tool_call.get("width", 1024)
             height = tool_call.get("height", 1024)
             style = tool_call.get("style", "photorealism")
@@ -1652,19 +1741,23 @@ class AIOperatorEngine:
             filename = tool_call.get("image", "").strip()
             prompt = tool_call.get("prompt", "").strip()
             negative_prompt = tool_call.get("negative_prompt") or None
+            if not adult_allowed:
+                safe_anti_nude = "nude, nudity, naked, topless, bare breasts, exposed nipples, genitals, explicit, nsfw, porn, sexual, uncensored, erotica"
+                negative_prompt = f"{negative_prompt}, {safe_anti_nude}" if negative_prompt else safe_anti_nude
             width = tool_call.get("width", 720)
             height = tool_call.get("height", 1280)
             num_frames = tool_call.get("num_frames", 300)
             fps = tool_call.get("fps", 30)
             engine = (tool_call.get("engine") or "ltx2.3").strip().lower()
-            if not filename:
-                return {"status": "error", "error": "No source image provided for image-to-video"}
-            if not prompt:
-                return {"status": "error", "error": "No motion/scene prompt provided for image-to-video"}
             try:
-                img_path = self._resolve_marketing_source_image(filename)
-                if not img_path.exists():
-                    return {"status": "error", "error": f"Source image not found: {filename}"}
+                if batch_dir or attached_files:
+                    img_path = self._resolve_marketing_source_image(filename, batch_dir=batch_dir, attached_files=attached_files)
+                else:
+                    img_path = self._resolve_marketing_source_image(filename)
+                if not img_path or not img_path.exists():
+                    return {"status": "error", "tool": tool_name, "error": f"Source image not found: {filename or '(no image provided)'}"}
+                if not prompt:
+                    return {"status": "error", "tool": tool_name, "error": "No motion/scene prompt provided for image-to-video"}
 
                 from pipeline.stages.comfyui_bridge import comfy_bridge
                 if engine in ("minimax", "minimax_h3", "minimax-h3", "hailuo"):
@@ -1703,6 +1796,7 @@ class AIOperatorEngine:
                 if vid_res.get("success"):
                     result["message"] = f"SYNAPSE [100 Fm]: Image-to-video render complete on RTX 5070 Ti ({engine_label}). Saved to: {vid_res.get('filename')}."
                     result["details"] = vid_res
+                    result["video"] = vid_res.get("file_path")
                     self._attach_media(result, vid_res.get("file_path"), title=f"{engine_label} video")
                 else:
                     result["status"] = "warning"
@@ -1714,10 +1808,13 @@ class AIOperatorEngine:
 
         elif tool_name == "comfy_generate_3d_pbr":
             filename = tool_call.get("image", "").strip()
-            if not filename:
-                return {"status": "error", "error": "No source image provided for 3D PBR generation"}
             try:
-                img_path = self._resolve_marketing_source_image(filename)
+                if batch_dir or attached_files:
+                    img_path = self._resolve_marketing_source_image(filename, batch_dir=batch_dir, attached_files=attached_files)
+                else:
+                    img_path = self._resolve_marketing_source_image(filename)
+                if not img_path or not img_path.exists():
+                    return {"status": "error", "tool": tool_name, "error": f"Source image not found: {filename or '(no image provided)'}"}
                 if not img_path.exists():
                     return {"status": "error", "error": f"Source image not found: {filename}"}
 
@@ -2270,12 +2367,36 @@ class AIOperatorEngine:
 
         session_history = self.get_history(session_id)
         for h in session_history[-6:]:
-            messages_payload.append(h)
+            clean_msg = {"role": h.get("role", "user"), "content": h.get("content", "")}
+            if "images" in h:
+                clean_msg["images"] = h["images"]
+            messages_payload.append(clean_msg)
 
         user_msg = {"role": "user", "content": message}
         if images_base64:
             user_msg["images"] = images_base64
-            user_msg["content"] += f"\n\n[System Note: {len(images_base64)} client image(s) attached for visual inspection.]"
+
+        attached_notes = []
+        if images_base64:
+            attached_notes.append(f"[System Note: {len(images_base64)} client image(s) attached for visual inspection.]")
+
+        if attached_files:
+            file_details = []
+            for af in attached_files:
+                af_path = Path(af)
+                if af_path.exists():
+                    file_details.append(f"- Filename: '{af_path.name}', Full path: '{af_path.as_posix()}'")
+            if file_details:
+                attached_notes.append(
+                    "[USER ATTACHED MEDIA AVAILABLE ON DISK]:\n"
+                    + "\n".join(file_details)
+                    + "\nCRITICAL: When the user asks to animate, transform, retouch, or convert an uploaded image, pass the exact uploaded image filename or path in the 'image' or 'files' parameter (e.g. 'image': '"
+                    + Path(attached_files[0]).name
+                    + "'). Never invent a new image or pass placeholder '...'."
+                )
+
+        if attached_notes:
+            user_msg["content"] += "\n\n" + "\n\n".join(attached_notes)
 
         messages_payload.append(user_msg)
 
@@ -2354,7 +2475,10 @@ class AIOperatorEngine:
             for tool_data in extracted_tools:
                 sig = json.dumps(tool_data, sort_keys=True)
                 if sig not in executed_tool_signatures:
-                    exec_res = self.run_tool_and_log(tool_data, adult_allowed=adult_allowed, batch_dir=batch_dir)
+                    try:
+                        exec_res = self.run_tool_and_log(tool_data, adult_allowed=adult_allowed, batch_dir=batch_dir, attached_files=attached_files)
+                    except TypeError:
+                        exec_res = self.run_tool_and_log(tool_data, adult_allowed=adult_allowed, batch_dir=batch_dir)
                     executed_actions.append(exec_res)
                     executed_tool_signatures.add(sig)
 
@@ -2419,7 +2543,14 @@ class AIOperatorEngine:
                 reply_text = re.sub(r'\{"quick_options":\s*\[.*?\]\s*\}', '', reply_text, flags=re.DOTALL).strip()
 
             session_history.append({"role": "user", "content": message})
-            session_history.append({"role": "assistant", "content": reply_text})
+            session_history.append({
+                "role": "assistant",
+                "content": reply_text,
+                "model": chosen_model,
+                "actions": executed_actions,
+                "web_sources": web_sources,
+                "quick_options": quick_options
+            })
             self._save_history(session_id)
 
             return {
