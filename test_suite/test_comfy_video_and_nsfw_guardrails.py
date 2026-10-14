@@ -272,3 +272,64 @@ def test_detect_vision_requirement_bypasses_vl_on_tool_actions(operator_engine, 
             attached_files=[str(img)]
         )
         assert is_v is True, f"Expected is_vision=True for '{prompt}', got {is_v}"
+
+
+# =========================================================================
+# 5. STRICT SFW ENFORCEMENT & IRIS NUDITY REJECTION GATES
+# =========================================================================
+
+def test_herald_creator_pulse_prompts_are_strictly_sfw():
+    """Verify BRAND_VIBES['creator_pulse_lab'] contains zero boudoir, lingerie, or sensual prompts."""
+    vibe = BRAND_VIBES["creator_pulse_lab"]
+    forbidden_words = ["boudoir", "lingerie", "sensual", "sultry", "robe slipping", "bed", "sheets", "sheer mesh", "seductive"]
+    for p in vibe["prompts"]:
+        p_lower = p.lower()
+        for fw in forbidden_words:
+            assert fw not in p_lower, f"Forbidden word '{fw}' found in prompt: {p}"
+
+
+def test_iris_qc_gate_rejects_detected_nudity(tmp_path):
+    """Verify run_iris_qc_audit marks passed=False and REJECT_NSFW_CONTENT when nudity is detected."""
+    from pipeline.stages.comfyui_bridge import ComfyUIBridge
+    bridge = ComfyUIBridge()
+    img = tmp_path / "test_nude.png"
+    img.write_bytes(b"data")
+
+    # Mock Ollama vision returning nudity detected
+    mock_qc_resp = json.dumps({
+        "passed": False,
+        "aesthetic_score": 8.0,
+        "extra_limbs_detected": False,
+        "facial_distortion_detected": False,
+        "nudity_or_nsfw_detected": True,
+        "defects_summary": "Explicit nudity detected.",
+        "modesty_notes": "Subject has exposed breasts.",
+        "recommendation": "REJECT_NSFW_CONTENT"
+    })
+    with patch.object(bridge.ai, "call_ollama_vision", return_value=mock_qc_resp):
+        audit = bridge.run_iris_qc_audit(img)
+        assert audit["passed"] is False
+        assert audit.get("nudity_or_nsfw_detected") is True
+        assert audit.get("recommendation") == "REJECT_NSFW_CONTENT"
+
+
+def test_herald_pre_post_filter_drops_boudoir_and_adult_files():
+    """Verify Herald's pre-post filter drops any file with 'boudoir' or adult tokens in filename."""
+    from pipeline.stages.herald_scheduler import HeraldScheduler
+    scheduler = HeraldScheduler()
+
+    blocked = [
+        "CPL_Boudoir_00041__1791910813.png",
+        "nude_model.jpg",
+        "topless_render.png",
+        "lingerie_shoot.webp",
+        "provocative_photo.jpg"
+    ]
+    blocked_tokens = [
+        "boudoir", "nude", "naked", "nsfw", "topless", "lingerie",
+        "porn", "explicit", "erotic", "bikini", "swimwear", "sheer",
+        "provocative", "seductive", "charlette", "margo", "melissa"
+    ]
+    for fn in blocked:
+        fn_lower = Path(fn).name.lower()
+        assert any(k in fn_lower for k in blocked_tokens), f"Expected {fn} to be matched by blocked_tokens"

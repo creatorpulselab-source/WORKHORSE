@@ -794,7 +794,10 @@ class NewsletterManager:
         verified_names = self._load_iris_verified_filenames()
 
         def _latest_verified(files: List[Path]) -> Optional[Path]:
-            verified_files = [f for f in files if f.name in verified_names]
+            # STRICT NSFW GUARD: drop any file with adult/boudoir keywords in filename
+            blocked = ["boudoir", "nude", "naked", "nsfw", "topless", "lingerie", "porn", "explicit", "erotic"]
+            clean_files = [f for f in files if not any(b in f.name.lower() for b in blocked)]
+            verified_files = [f for f in clean_files if f.name in verified_names]
             if not verified_files:
                 return None
             verified_files.sort(key=lambda x: x.stat().st_mtime, reverse=True)

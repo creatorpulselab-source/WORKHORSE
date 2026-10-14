@@ -1081,7 +1081,11 @@ class ComfyUIBridge:
         then inpaints a brand-new background around them from a text prompt while the
         subject region itself is protected from the noise mask.
         """
-        ckpt_resolved = self.resolve_checkpoint_name(checkpoint)
+        # Automated brand visual generations must strictly use clean SFW photorealism checkpoint
+        if brand_target and not checkpoint:
+            ckpt_resolved = self.resolve_checkpoint_name("epicrealismXL_vxviiCrystalclear.safetensors")
+        else:
+            ckpt_resolved = self.resolve_checkpoint_name(checkpoint)
         seed_val = seed if seed is not None else int(time.time() * 1000) % (2**31 - 1)
         neg = negative_prompt or "blurry, low quality, artifacts, seams, mismatched lighting, warped perspective"
 
@@ -1328,7 +1332,7 @@ class ComfyUIBridge:
             },
             "9": {
                 "inputs": {
-                    "filename_prefix": filename_prefix or ("CPL_Boudoir" if brand_target and "pulse" in brand_target.lower() else ("CML_Studio" if brand_target and "media" in brand_target.lower() else "WORKHORSE_Render")),
+                    "filename_prefix": filename_prefix or ("CPL_Creator" if brand_target and "pulse" in brand_target.lower() else ("CML_Studio" if brand_target and "media" in brand_target.lower() else "WORKHORSE_Render")),
                     "images": ["8", 0]
                 },
                 "class_type": "SaveImage"
@@ -2076,6 +2080,7 @@ Scrutinize carefully for common generative diffusion flaws:
 2. FACIAL INTEGRITY: Check eyes, pupils, teeth, and skin. Are pupils round and symmetrical? Any melted or unnatural face warping?
 3. ARTIFACTS: Check for floating objects, severe blur, plastic skin texture, or distorted seams.
 4. OVERALL AESTHETICS: Rate composition, studio lighting, and realism from 1.0 to 10.0.
+5. MODESTY & NUDITY: Scrutinize clothing and body coverage carefully. Is the subject nude, topless, showing exposed breasts, bare nipples, exposed genitals, lingerie, underwear, or see-through sheer fabric?
 
 Respond strictly in valid JSON format:
 {{
@@ -2083,11 +2088,14 @@ Respond strictly in valid JSON format:
   "aesthetic_score": 8.5,
   "extra_limbs_detected": false,
   "facial_distortion_detected": false,
+  "nudity_or_nsfw_detected": false,
   "defects_summary": "Clean hands, natural five fingers, symmetric facial lighting.",
   "anatomy_notes": "Proper arm and finger geometry.",
+  "modesty_notes": "Subject is fully clothed in professional/tasteful attire with zero exposed breasts, nipples, or genitals.",
   "recommendation": "APPROVED"
 }}
 If ANY extra limbs, mutated hands, or severe facial defects are found, set "passed": false and recommendation to "RETRY_NEW_SEED".
+If ANY nudity, toplessness, exposed breasts/nipples/genitals, or sheer lingerie is found, set "passed": false, "nudity_or_nsfw_detected": true, and recommendation to "REJECT_NSFW_CONTENT".
 """
         system_prompt = (
             "You are Iris, an expert AI art auditor. Output strictly valid QC JSON.\n"
@@ -2136,6 +2144,10 @@ If ANY extra limbs, mutated hands, or severe facial defects are found, set "pass
 
         # Apply QC gate thresholds
         min_score = self.qc_cfg.get("min_quality_score", 7.5)
+        if parsed.get("nudity_or_nsfw_detected"):
+            parsed["passed"] = False
+            parsed["recommendation"] = "REJECT_NSFW_CONTENT"
+            print(f"[Iris QC Alert] STRICT NSFW REJECTION: Nudity or adult content detected in {image_path.name}")
         if parsed.get("extra_limbs_detected") and self.qc_cfg.get("reject_on_extra_limbs", True):
             parsed["passed"] = False
             parsed["recommendation"] = "RETRY_NEW_SEED"

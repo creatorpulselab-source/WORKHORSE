@@ -32,27 +32,27 @@ BRAND_VIBES = {
     "creator_pulse_lab": {
         "brand_target": "creator_pulse_lab",
         "prompts": [
-            "Luxury boudoir photography, intimate warm rim lighting, satin and velvet fabric textures, sensual confident pose, soft romantic shadows, high-end editorial glamour, photorealistic, 85mm lens, shallow depth of field",
-            "Sultry studio boudoir portrait, golden hour warm key light, silk sheets and velvet backdrop, intimate close framing, soft glowing skin tones, luxury glamour photography, photorealistic, shallow depth of field",
-            "Seductive cam-studio glamour shot, moody warm rim lighting, lace and satin lingerie texture, confident alluring gaze, cinematic shadow play, high-end boudoir editorial, photorealistic, 85mm portrait lens",
-            "Moody neon-lit boudoir scene, magenta and cyan gel rim lighting, sheer mesh and satin fabric, confident over-the-shoulder pose, cinematic nightclub glamour atmosphere, photorealistic, 50mm lens, shallow depth of field",
-            "Sunset-lit penthouse boudoir portrait, warm amber window light, silk robe and velvet chaise, relaxed intimate pose, soft golden haze, editorial glamour photography, photorealistic, 85mm lens",
-            "High-contrast chiaroscuro boudoir studio shot, single hard key light with deep black shadows, black lace and leather textures, dramatic confident pose, moody gothic glamour editorial, photorealistic, 85mm lens",
-            "Rainy window loft boudoir portrait, cool blue-grey ambient light with warm practical lamp fill, oversized sweater slipping off shoulder, candid intimate mood, photorealistic, 50mm lens, shallow depth of field",
-            "Vintage Hollywood glamour portrait, classic butterfly lighting with beauty dish, silk charmeuse robe, soft glossy waves, timeless pin-up elegance, photorealistic, 85mm lens",
-            "Poolside resort glamour shot, bright tropical daylight, wet-look skin sheen, vibrant turquoise water reflections, confident playful pose, photorealistic, 35mm lens",
-            "Red velvet boudoir studio set, deep crimson and gold tones, dramatic single-source lighting, luxurious satin sheets, sultry reclining pose, photorealistic, 85mm lens, shallow depth of field",
-            "Minimalist all-white boudoir studio, soft diffused high-key lighting, sheer white fabric, clean airy aesthetic, serene confident expression, photorealistic, 50mm lens",
-            "Smoky backstage dressing-room glamour portrait, warm vanity bulb lighting, mirror reflections, silk robe and feather trim, candid behind-the-scenes energy, photorealistic, 85mm lens"
+            "Modern digital creator studio desk, dual 4K monitors displaying video editing timeline, ambient purple and cyan neon backlighting, Sony FX3 camera on desktop tripod, Shure SM7B microphone on boom arm, clean modern creative workspace, tastefully styled, commercial tech aesthetic, photorealistic, 35mm lens, 8k resolution",
+            "High-fashion creator portrait, confident professional creator in modern minimalist beige tailored blazer and black turtleneck, tasteful fully clothed studio styling, soft diffused beauty dish lighting, warm rim light, holding a professional camera, commercial editorial photography, photorealistic, 85mm portrait lens",
+            "Aesthetic creative agency workspace, clean architectural concrete and warm wood slats, ultrawide editing monitors, designer studio chair, ambient golden hour sunlight, minimalist creative director office, high production value, photorealistic, 50mm lens",
+            "Professional podcast and streaming set, warm amber practical lamps, acoustic foam panels, broadcast microphone on desk, creator dressed in stylish streetwear jacket and crewneck, confident creative expression, commercial production lighting, photorealistic, 50mm lens",
+            "Flat lay of creator gear and monetization tools, mirrorless camera with GM lens, wireless audio transmitters, iPad Pro displaying analytics graph, matte black notebook, clean studio lighting, high detail commercial photography, photorealistic, 50mm macro",
+            "Sleek late-night video editing bay, dark mode interface glowing on dual screens, subtle purple LED desk strip, Sony headphones on desk, steaming ceramic coffee mug, moody creative focus, commercial aesthetic, photorealistic, 35mm lens",
+            "Editorial portrait of a creative entrepreneur, stylish designer glasses, modern structured blazer, clean neutral studio backdrop, Rembrandt key lighting, confident engaging eye contact, fully clothed, Vogue business editorial style, photorealistic, 85mm lens",
+            "Modern YouTube creator studio backdrop, warm wooden floating shelves with subtle plant accents, soft neon sign in background, professional key light and softbox, polished commercial studio aesthetic, photorealistic, 50mm lens",
+            "Over-the-shoulder creator workflow shot, hands on professional color-grading console and mechanical keyboard, 4K timeline on screen, clean creative studio environment, photorealistic, 35mm lens",
+            "Creative director studio portrait, stylish oversized tailored coat, tasteful professional wardrobe, warm golden rim lighting, sleek loft studio backdrop, confident vision, commercial fashion aesthetic, photorealistic, 85mm lens",
+            "Minimalist tech workstation, clean white desk, laptop with creator dashboard analytics, wireless mouse, soft diffused window light, modern Scandinavian aesthetic, photorealistic, 50mm lens",
+            "Commercial photography studio stage, C-stands and softboxes visible in background, professional model in high-fashion fully-clothed designer streetwear, crisp rim lighting, behind-the-scenes creative energy, photorealistic, 50mm lens"
         ],
-        "negative_prompt": "nude, nudity, naked, topless, bare breasts, exposed nipples, genitals, explicit, nsfw, porn, sexual, uncensored, erotica, extra limbs, deformed hands, mutated fingers, bad anatomy, blurry, low quality, watermark, text, cartoon, illustration",
+        "negative_prompt": "nude, nudity, naked, topless, bare breasts, exposed nipples, exposed chest, cleavage, deep v-neck, underboob, sideboob, lingerie, underwear, bra, panties, sheer, see-through, transparent clothing, bikini, swimsuit, boudoir, bedroom, bed sheets, sensual, provocative, suggestive, erotic, explicit, adult, NSFW, porn, extra limbs, deformed hands, mutated fingers, bad anatomy, blurry, low quality, watermark, text, cartoon, illustration",
         "video_motion_prompts": [
-            "slow sensual turn toward camera, gentle hair movement in a soft breeze, subtle breathing motion, cinematic 24fps, high production value, photorealistic",
-            "gentle hip sway with a slow confident walk toward camera, fabric flowing naturally, soft rim light flicker, cinematic motion, photorealistic",
-            "soft hand trailing through hair, slow eyes-to-camera reveal, subtle candle-light flicker in background, cinematic 24fps, photorealistic",
-            "gentle reclining shift with fabric settling naturally, slow seductive gaze hold, soft ambient light drift, cinematic motion, photorealistic",
-            "slow cinematic push-in with subtle hip and shoulder sway, natural fabric movement, soft bokeh shimmer, photorealistic, high production value",
-            "playful over-the-shoulder glance with a slow hair flip, gentle neon light pulse in background, cinematic 24fps, photorealistic"
+            "subtle natural head turn toward camera, speaking with confident expression, soft studio light drift, cinematic 24fps, high production value, photorealistic",
+            "slow cinematic push-in on modern creator workstation, gentle LED light pulse, professional creative atmosphere, cinematic motion, photorealistic",
+            "creator adjusting camera lens on desk, natural micro-movements, warm practical rim light flicker, cinematic 24fps, photorealistic",
+            "subtle confident nod with a creative director smile, stylish studio lighting shift, cinematic motion, photorealistic",
+            "slow cinematic camera glide over modern editing desk and audio gear, clean architectural lines, photorealistic, high production value",
+            "creator looking up from tablet with engaging confident expression, soft ambient light shift, cinematic 24fps, photorealistic"
         ]
     },
     "creator_media_lab": {
@@ -330,18 +330,18 @@ class HeraldScheduler:
 
         txt_lower = topic_text.lower()
         if brand_key == "creator_pulse_lab":
-            # Adult / boudoir brand visual nuances
-            if any(k in txt_lower for k in ["midnight", "dark", "vault", "banned", "secret", "lights"]):
-                core = "Moody intimate boudoir shoot, deep chiaroscuro lighting, dark satin sheets, dim candlelight and warm amber backlight, sensual confident gaze"
-            elif any(k in txt_lower for k in ["cam", "tip", "stream", "live", "menu", "chaturbate"]):
-                core = "High-end creator studio portrait, soft warm ambient neon rim light, silk robe slipping off shoulder, intimate alluring camera eye contact"
-            elif any(k in txt_lower for k in ["vintage", "retro", "hollywood", "35mm", "film"]):
-                core = "Timeless Hollywood boudoir glamour, vintage softbox lighting, silk lingerie, soft warm film grain, elegant sensual expression"
+            # 100% SFW commercial creator studio visual nuances
+            if any(k in txt_lower for k in ["midnight", "dark", "vault", "secret", "night"]):
+                core = "Moody late-night creator editing suite, glowing dual ultrawide monitors with timeline analytics, subtle purple neon rim lighting, Sony headphones on desk, aesthetic workstation"
+            elif any(k in txt_lower for k in ["cam", "stream", "live", "video", "broadcast"]):
+                core = "High-end broadcasting creator studio, Shure SM7B microphone on boom arm, soft warm ambient ring light, creator dressed in stylish tailored blazer, clean commercial broadcast aesthetic, fully clothed"
+            elif any(k in txt_lower for k in ["vintage", "retro", "film", "analog"]):
+                core = "Classic creator photography studio, vintage wooden desk, mechanical keyboard, warm film emulation lighting, clean creative director workspace, fully clothed"
             elif any(k in txt_lower for k in ["sun", "morning", "golden", "natural", "day"]):
-                core = "Sunlit morning penthouse boudoir portrait, warm amber sunbeams, sheer curtains, velvet chaise, glowing natural skin tones"
+                core = "Sunlit morning creative agency loft, floor-to-ceiling windows, modern creator desk with camera rig, warm amber sunbeams, Scandinavian minimalist workspace"
             else:
-                core = "Luxury boudoir portrait, intimate warm rim lighting, satin and velvet textures, confident sensual pose, editorial glamour atmosphere"
-            return f"{core}, photorealistic, 85mm portrait lens, shallow depth of field, 8k resolution, raw photo quality"
+                core = "High-fashion creator business studio portrait, confident professional creator in modern minimalist tailored blazer, soft beauty dish lighting, creative agency loft setting, fully clothed"
+            return f"{core}, tastefully fully clothed, professional commercial studio styling, photorealistic, 50mm lens, shallow depth of field, 8k resolution, raw photo quality"
 
         else:
             # Mainstream studio / photography brand visual nuances
@@ -388,6 +388,7 @@ class HeraldScheduler:
             gen_res = comfy_bridge.generate_and_audit(
                 positive_prompt=prompt,
                 negative_prompt=vibe["negative_prompt"],
+                checkpoint="epicrealismXL_vxviiCrystalclear.safetensors",
                 brand_target=vibe["brand_target"],
                 auto_qc=True
             )
@@ -666,9 +667,14 @@ class HeraldScheduler:
                     # STRICT NSFW FILTER: Herald cannot produce or post nude images or video
                     if media_paths:
                         safe_media = []
+                        blocked_tokens = [
+                            "boudoir", "nude", "naked", "nsfw", "topless", "lingerie",
+                            "porn", "explicit", "erotic", "bikini", "swimwear", "sheer",
+                            "provocative", "seductive", "charlette", "margo", "melissa"
+                        ]
                         for mp in media_paths:
                             mp_lower = Path(mp).name.lower()
-                            if any(k in mp_lower for k in ["nude", "naked", "nsfw", "topless", "porn", "explicit"]):
+                            if any(k in mp_lower for k in blocked_tokens):
                                 print(f"[Herald Safety Alert] Suppressed non-compliant media from public post: {mp}")
                             else:
                                 safe_media.append(mp)
@@ -740,7 +746,12 @@ class HeraldScheduler:
         else:
             # STRICT NSFW FILTER: Herald cannot post nude media to Pinterest
             vp_lower = Path(vis_path).name.lower()
-            if any(k in vp_lower for k in ["nude", "naked", "nsfw", "topless", "porn", "explicit"]):
+            blocked_tokens = [
+                "boudoir", "nude", "naked", "nsfw", "topless", "lingerie",
+                "porn", "explicit", "erotic", "bikini", "swimwear", "sheer",
+                "provocative", "seductive", "charlette", "margo", "melissa"
+            ]
+            if any(k in vp_lower for k in blocked_tokens):
                 print(f"[Herald Safety Alert] Suppressed non-compliant visual from Pinterest pin: {vis_path}")
                 vis_path = None
 
