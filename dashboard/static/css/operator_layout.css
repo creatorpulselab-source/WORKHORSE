@@ -3,8 +3,9 @@
    ============================================================================== */
 
 :root {
-  --sidebar-w: 350px;
+  --sidebar-w: 380px;
   --fulfillment-w: 320px;
+
   --header-h: 56px;
   --cyan-accent: #00f2fe;
   --pink-accent: #f72585;
@@ -109,17 +110,22 @@ header.command-header {
   flex-direction: column;
   height: 100%;
   overflow-y: auto;
+  overflow-x: hidden;
+  box-sizing: border-box;
   scrollbar-width: thin;
   scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
 }
 
 .sidebar-header {
-  padding: 10px 14px;
+  padding: 8px 10px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  box-sizing: border-box;
+  width: 100%;
 }
+
 
 .sidebar-title {
   display: flex;
@@ -148,13 +154,16 @@ header.command-header {
 
 /* EXPANDED SYNAPSE [100 Fm] CHARACTER CARD & QUICK CHAT DOCK */
 .synapse-character-dock {
-  padding: 12px 14px;
+  padding: 10px 10px;
   background: linear-gradient(180deg, rgba(14, 21, 38, 0.9) 0%, rgba(8, 13, 26, 0.95) 100%);
   border-bottom: 1px solid rgba(0, 242, 254, 0.2);
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
+  box-sizing: border-box;
+  width: 100%;
 }
+
 
 .synapse-hero-card {
   display: flex;
@@ -257,11 +266,14 @@ header.command-header {
   gap: 8px;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 10px;
-  padding: 10px 14px;
-  min-height: 44px;
+  border-radius: 8px;
+  padding: 8px 10px;
+  min-height: 38px;
   transition: all 0.2s;
+  box-sizing: border-box;
+  width: 100%;
 }
+
 
 .quick-chat-input-row:focus-within {
   border-color: var(--cyan-accent);
@@ -300,9 +312,11 @@ header.command-header {
 /* Double Column Grid Navigation */
 .sidebar-double-col-nav {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 6px;
-  padding: 10px 14px;
+  padding: 8px 10px;
+  box-sizing: border-box;
+  width: 100%;
 }
 
 .nav-col-heading {
@@ -314,23 +328,31 @@ header.command-header {
   letter-spacing: 0.8px;
   margin-top: 8px;
   margin-bottom: 2px;
+  padding: 0 2px;
   text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .bay-tab-btn {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  padding: 8px 10px;
+  padding: 7px 8px;
   background: rgba(255, 255, 255, 0.025);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.07);
   border-radius: 8px;
   color: #cbd5e1;
   cursor: pointer;
   transition: all 0.2s ease;
   text-align: left;
-  min-height: 58px;
+  min-height: 54px;
+  width: 100%;
+  min-width: 0;
   box-sizing: border-box;
+  overflow: hidden;
+  position: relative;
 }
 
 .bay-tab-btn:hover {
@@ -349,14 +371,26 @@ header.command-header {
 
 .bay-tab-btn .bay-icon {
   font-size: 14px;
-  margin-bottom: 3px;
+  margin-bottom: 2px;
+  flex-shrink: 0;
+}
+
+.bay-btn-info {
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .bay-name {
   font-size: 11px;
   font-weight: 700;
   color: #fff;
-  line-height: 1.2;
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+  width: 100%;
 }
 
 .bay-sub {
@@ -366,19 +400,27 @@ header.command-header {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  display: block;
+  width: 100%;
 }
 
 .bay-pill {
   font-size: 7.5px;
   font-family: 'JetBrains Mono', monospace;
-  padding: 1px 4px;
+  padding: 1.5px 5px;
   border-radius: 4px;
   background: rgba(255, 255, 255, 0.08);
   color: #94a3b8;
   margin-top: 4px;
   text-transform: uppercase;
   font-weight: 600;
+  white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-sizing: border-box;
 }
+
 
 .bay-tab-btn.active .bay-pill {
   background: rgba(0, 242, 254, 0.2);
@@ -389,15 +431,19 @@ header.command-header {
 /* Sidebar Footer Links */
 .sidebar-footer-widget {
   margin-top: auto;
-  padding: 10px 14px;
+  padding: 8px 10px;
   border-top: 1px solid rgba(255, 255, 255, 0.06);
   background: rgba(4, 7, 15, 0.6);
+  box-sizing: border-box;
+  width: 100%;
 }
 
 .quick-links-row {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 5px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .s-link {
@@ -414,11 +460,16 @@ header.command-header {
   color: #94a3b8;
   transition: all 0.2s;
   text-align: center;
+  box-sizing: border-box;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .s-link:hover { background: rgba(255, 255, 255, 0.08); color: #fff; }
 .s-link.adult { border-color: rgba(247, 37, 133, 0.3); color: var(--pink-accent); }
 .s-link.portal { border-color: rgba(0, 242, 254, 0.3); color: var(--cyan-accent); }
+
 
 /* ==============================================================================
    COLUMN 2: CENTER VIEWPORT (ACTIVE WORK BAY)
@@ -1010,6 +1061,27 @@ header.command-header {
   transform: translateX(2px);
 }
 
+.etsy-gig-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(255, 209, 102, 0.035);
+  border: 1px solid rgba(255, 209, 102, 0.14);
+  border-radius: 6px;
+  padding: 6px 8px;
+  transition: all 0.2s;
+  text-decoration: none;
+  color: #cbd5e1;
+}
+
+.etsy-gig-item:hover {
+  background: rgba(255, 209, 102, 0.12);
+  border-color: rgba(255, 209, 102, 0.45);
+  color: #fff;
+  transform: translateX(2px);
+}
+
+
 .gig-item-info { display: flex; flex-direction: column; }
 .gig-item-name { font-size: 11px; font-weight: 700; color: #fff; }
 .gig-item-price { font-size: 9px; color: var(--green-accent); font-family: 'JetBrains Mono', monospace; }
@@ -1187,9 +1259,11 @@ nav.bay-switcher-nav { display: none !important; }
 /* SYNAPSE QUICK CHIPS (BLOCK SWAP & HEALTH TELEMETRY) */
 .synapse-quick-chips {
   display: flex;
-  gap: 6px;
-  margin-top: 8px;
+  gap: 5px;
+  margin-top: 6px;
   flex-wrap: wrap;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .quick-chip-btn {
@@ -1197,13 +1271,14 @@ nav.bay-switcher-nav { display: none !important; }
   border: 1px solid rgba(0, 242, 254, 0.25);
   color: #00f2fe;
   font-family: 'JetBrains Mono', monospace;
-  font-size: 10px;
+  font-size: 9.5px;
   font-weight: 700;
-  padding: 4px 8px;
-  border-radius: 6px;
+  padding: 3.5px 7px;
+  border-radius: 5px;
   cursor: pointer;
   transition: all 0.2s ease;
   white-space: nowrap;
+  box-sizing: border-box;
 }
 
 .quick-chip-btn:hover {
@@ -1218,10 +1293,12 @@ nav.bay-switcher-nav { display: none !important; }
    ============================================================================== */
 .synapse-hero-card-3d {
   width: 100%;
+  box-sizing: border-box;
   background: linear-gradient(155deg, rgba(13, 22, 40, 0.95) 0%, rgba(6, 10, 20, 0.98) 100%);
   border: 1.5px solid rgba(0, 242, 254, 0.4);
-  border-radius: 14px;
-  padding: 8px;
+  border-radius: 12px;
+  padding: 6px;
+
   cursor: pointer;
   position: relative;
   perspective: 1000px;
@@ -1717,22 +1794,40 @@ nav.bay-switcher-nav { display: none !important; }
 
   /* 3. Double-Column Navigation */
   .sidebar-double-col-nav {
-    padding: 8px 10px !important;
-    gap: 6px !important;
+    padding: 8px 8px !important;
+    gap: 5px !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    box-sizing: border-box !important;
+    width: 100% !important;
   }
 
   .bay-tab-btn {
-    padding: 8px !important;
-    min-height: 52px !important;
+    padding: 6px 7px !important;
+    min-height: 50px !important;
+    min-width: 0 !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
   }
 
   .bay-name {
     font-size: 10.5px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    width: 100% !important;
+    display: block !important;
   }
 
   .bay-sub {
     font-size: 8.5px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    width: 100% !important;
+    display: block !important;
   }
+
 
   /* 4. AI Operator Topbar & Chat */
   .operator-topbar {

@@ -22,6 +22,128 @@ import requests
 from duckduckgo_search import DDGS
 from shared.comfyui_knowledge import get_comfyui_context
 from shared.atomic_writer import atomic_write_json, safe_read_json
+import threading
+
+
+class ActiveTaskTracker:
+    """Thread-safe telemetry registry for live tasks across all 14 WORKHORSE agents."""
+
+    def __init__(self):
+        self._lock = threading.Lock()
+        self._active_tasks: Dict[str, Dict[str, Any]] = {}
+        self._primary_task_id: Optional[str] = None
+
+    def start_task(
+        self,
+        agent: str,
+        sub_agent: Optional[str] = None,
+        task_desc: str = "",
+        task_id: Optional[str] = None,
+        details: Optional[Dict[str, Any]] = None,
+        progress: int = 20
+    ):
+        with self._lock:
+            tid = task_id or (f"{agent}_{sub_agent}" if sub_agent else agent)
+            self._active_tasks[tid] = {
+                "task_id": tid,
+                "agent": agent.lower(),
+                "sub_agent": sub_agent.lower() if sub_agent else None,
+                "task": task_desc,
+                "start_time": time.time(),
+                "details": details or {},
+                "progress": progress,
+                "cancelled": False
+            }
+            self._primary_task_id = tid
+
+    def update_task(
+        self,
+        task_desc: str,
+        progress: Optional[int] = None,
+        sub_agent: Optional[str] = None,
+        task_id: Optional[str] = None
+    ):
+        with self._lock:
+            target = None
+            if task_id and task_id in self._active_tasks:
+                target = self._active_tasks[task_id]
+            elif self._primary_task_id and self._primary_task_id in self._active_tasks:
+                target = self._active_tasks[self._primary_task_id]
+            elif self._active_tasks:
+                target = list(self._active_tasks.values())[-1]
+
+            if target:
+                target["task"] = task_desc
+                if progress is not None:
+                    target["progress"] = progress
+                if sub_agent is not None:
+                    target["sub_agent"] = sub_agent.lower()
+
+    def finish_task(self, task_id: Optional[str] = None, agent: Optional[str] = None):
+        with self._lock:
+            if task_id:
+                self._active_tasks.pop(task_id, None)
+                if self._primary_task_id == task_id:
+                    self._primary_task_id = list(self._active_tasks.keys())[-1] if self._active_tasks else None
+            elif agent:
+                ag_lower = agent.lower()
+                to_del = [k for k, v in self._active_tasks.items() if v.get("agent") == ag_lower or v.get("sub_agent") == ag_lower]
+                for k in to_del:
+                    self._active_tasks.pop(k, None)
+                if self._primary_task_id in to_del:
+                    self._primary_task_id = list(self._active_tasks.keys())[-1] if self._active_tasks else None
+            else:
+                if self._primary_task_id and self._primary_task_id in self._active_tasks:
+                    self._active_tasks.pop(self._primary_task_id, None)
+                    self._primary_task_id = list(self._active_tasks.keys())[-1] if self._active_tasks else None
+                elif self._active_tasks:
+                    self._active_tasks.pop(list(self._active_tasks.keys())[-1], None)
+                    self._primary_task_id = list(self._active_tasks.keys())[-1] if self._active_tasks else None
+
+    def get_active_task(self) -> Optional[Dict[str, Any]]:
+        with self._lock:
+            if not self._active_tasks:
+                return None
+            target = self._active_tasks.get(self._primary_task_id) if self._primary_task_id else list(self._active_tasks.values())[-1]
+            if not target:
+                return None
+            elapsed = time.time() - target["start_time"]
+            return {
+                **target,
+                "elapsed_sec": round(elapsed, 1),
+                "is_stalled": elapsed > 180.0
+            }
+
+    def get_all_active_tasks(self) -> List[Dict[str, Any]]:
+        with self._lock:
+            results = []
+            now = time.time()
+            for t in list(self._active_tasks.values()):
+                elapsed = now - t["start_time"]
+                results.append({
+                    **t,
+                    "elapsed_sec": round(elapsed, 1),
+                    "is_stalled": elapsed > 180.0
+                })
+            return results
+
+    def cancel_current_task(self, task_id: Optional[str] = None) -> bool:
+        with self._lock:
+            if task_id and task_id in self._active_tasks:
+                self._active_tasks[task_id]["cancelled"] = True
+                self._active_tasks.pop(task_id, None)
+                return True
+            elif self._active_tasks:
+                for t in self._active_tasks.values():
+                    t["cancelled"] = True
+                self._active_tasks.clear()
+                self._primary_task_id = None
+                return True
+            return False
+
+
+active_task_tracker = ActiveTaskTracker()
+
 
 if sys.platform == "win32":
     try:
@@ -190,6 +312,28 @@ YOUR CHARACTER IDENTITY & ROLE:
 - Emblem: Glowing Cyan Neural Vortex
 - Visual Card: SYNAPSE Mastermind Trading Card
 
+MASTER PROMPT EXPANDER & CREATIVE DIRECTOR MANDATE:
+You are not a passive tool dispatcher; you are the studio's elite Master Prompt Engineer and Visual Director.
+When the Commander provides a simple, casual, or shorthand request (e.g. "make her lick the game controller", "neon video", "sensual boudoir motion", "cyberpunk street portrait", "cozy bed shoot"), you MUST:
+1. DEEPLY UNDERSTAND CONTEXT & MOOD: Decode the underlying aesthetic, kinetic energy, emotional tone, and physical interaction of the scene.
+2. DYNAMICALLY EXPAND THE PROMPT USING COMFYUI CURRICULUM RULES:
+   - For Video (LTX-Video 2.3 / MiniMax H3 / FastH3 / Wan 2.1):
+     Always structure the prompt using the 4-Part Modular Cinematic Formula:
+     a. [Camera Kinetics & Lens Optics]: Optical framing, focal length, depth of field, and camera trajectory (e.g. "Slow cinematic push-in tracking smoothly with 85mm prime lens optical compression, creamy circular bokeh, shallow depth of field").
+     b. [Subject Kinetic Performance & Micro-Actions]: Progressive physical movements, organic micro-expressions, posture shifts, tactile interactions (e.g. "The subject playfully and sensually licks the analog game controller, slowly tracing her tongue along the matte grip and thumbstick, subtle micro-expressions of focus and allure, natural breathing and soft parted lips").
+     c. [Lighting & Environmental Dynamics]: Volumetric lighting, color science, rim illumination, atmospheric depth (e.g. "Warm 3200K amber rim lighting grazing cheekbones, subtle neon cyan reflections bouncing off the controller plastic, soft atmospheric haze, photorealistic 4k").
+     d. [Multimodal Soundscape & Acoustic Direction]: Smooth musical atmosphere with strict anti-screaming (e.g. "Smooth ambient background music, sensual chill melodic electronic beat, rhythmic synth pads, strictly no screaming, no shouting, no vocal noise").
+   - For Photography (FLUX.1 / SDXL):
+     a. Dense natural prose specifying tactile surface textures (sub-surface skin scattering, natural pores, fabric weave).
+     b. Cinematic optics (85mm f/1.4 editorial portrait, 50mm classic prime, 105mm macro, anamorphic widescreen flares).
+     c. Lighting schemas (Rembrandt 45-degree directional key, chiaroscuro contrast, golden hour warmth, direct editorial flash).
+     d. Exact double-quote syntax for typography.
+3. ELEVATE IN YOUR RESPONSE:
+   - Present your creative vision back to the Commander in your message:
+     Explain what you envisioned, and explicitly display the expanded prompt:
+     🎬 **Expanded Motion Blueprint:** "[Your full expanded prompt]"
+   - Pass this complete, dynamic, expanded prompt directly into the tool call JSON. NEVER pass simple 3-word prompts or generic placeholders to ComfyUI.
+
 COMFYUI ARCHITECTURE & PRODUCTION WORKFLOWS IN WORKHORSE:
 You have complete operational mastery over the studio's ComfyUI diffusion and generative pipelines running on the Main PC (RTX 5070 Ti - 16GB VRAM, connected via LAN at 192.168.1.74:8188 with SageAttention):
 1. FLUX.1 Studio Photography Workflows:
@@ -222,6 +366,16 @@ You have complete operational mastery over the studio's ComfyUI diffusion and ge
     - STRICT CHARACTER LORA POLICY: Character LoRAs (ML_FLUX, CW_FLUX, Margo_FLUX) are strictly 18+ adult-gated and client-isolated. They are NEVER included in default/general workflows, and only run upon explicit Commander request for authorized clients. General quality enhancement LoRAs (fluxtraitFLUX1DEVFor_v10FP16, LTX2.3_Crisp_Enhance, Realism_Lora, Skin_Texture) are used for production quality.
 11. Model & Node Management:
     - You can inspect, prewarm, or purge models using comfy_status, comfy_search_models, comfy_prewarm, and comfy_remote_purge.
+12. MiniMax FastH3 8-Step Temporal Video Engine:
+    - Accelerated local video engine running at 8 sampling steps with Kitchen & Sparse Attention. Supports Text-to-Video, FirstFrame-to-Video, and First-and-Last-Frame interpolation transitions. Invoked via {"tool": "comfy_image_to_video", "engine": "fasth3", ...}.
+13. EP38 Industrial Batch Automation & Folder Loops:
+    - 50 production automation templates indexed under pipeline/stages/workflow_templates/automation/. Supports folder-level multi-aspect ratio social crops (1:1 square, 9:16 vertical reel, 4:5 portrait), pixel-preserving Outpaint Stitching with Flux Klein 9B (preserving original center pixels pixel-for-pixel while painting wide borders), automated e-commerce product staging, contact sheets, and AI filtering.
+14. Pixaroma Node Pack Ergonomics:
+    - Headless dynamic routing via Load Image (Pixaroma) with image_name string propagation, in-graph multi-layer Image Composer with BiRefNet cutouts, 3D Builder viewport angle extraction, and Image Compare A/B verification.
+15. MiniMax H3 Video-to-Video (V2V) Transformation Engine:
+    - Multi-reference spatiotemporal video editing using MiniMaxH3ReferenceToVideo (`pipeline/stages/workflow_templates/video_v2v/`).
+    - Preserves source kinetics, choreography, timing, and camera motion from Video 1 while transforming outfits (clothing swap/VTON), footwear/accessories/tattoos, backgrounds (scene relocation to new reference environment), or entire characters (motion transfer) guided by Picture 1...N.
+    - Uses the 3-part prompt formula: [Reference Roles: Video 1 vs Picture 1], [Modification Directive: exact change], and [Strict Preservation Invariants: choreography, camera kinetics, timing].
 
 AUTONOMOUS HEALING & OVERWATCH SENTINEL DUTIES:
 You are the central nervous system keeping WORKHORSE operating 24/7 without crashes or data corruption:
@@ -243,22 +397,32 @@ You are the central nervous system keeping WORKHORSE operating 24/7 without cras
 6. Full-Spectrum System Diagnostics:
    - {"tool": "system_diagnostics"} conducts a forensic multi-component audit across: Ollama, ComfyUI Render Bridge, Dual RTX 3060 VRAM, GPU 1 Arbiter, Drive F: storage, Newsletter Subscribers DB, Herald Scheduler, Order Radar IMAP config, Twitter/Pinterest API credentials, and FFmpeg binary availability.
 
-THE WORKHORSE AGENT ROSTER (PERIODIC TABLE OF AGENTS):
-1. Synapse [95 Am] (Americium): Master AI Operator & Studio Overwatch (Autonomous self-healing, GPU resource management, system diagnostics).
-2. Vanguard [74 W] (Tungsten): Video Intake Sentinel & Pipeline Dispatcher (Stream container validation, orchestrating Stages 1–8).
-3. Iris [77 Ir] (Iridium): Computer Vision Quality Control Gate (Qwen-VL 8B anatomy & aesthetics inspector on GPU 0).
-4. Forge [28 Ni] (Nickel): Media Packager & NVENC Video Cutter (Dual RTX 3060 NVENC 60fps teaser cuts and aspect ratio crops on GPU 1).
-5. Echo [26 Fe] (Iron): Audio Intelligence & Transcription (Faster-Whisper speech-to-text on GPU 1).
-6. Aura [79 Au] (Gold): Editorial Retouching & Color Grading (Frequency separation skin smoothing, dodge & burn, 3D LUTs).
-7. Muse [34 Se] (Selenium): AI Image & Video Prompt Engineer (Crafts FLUX.1 prompts and cinematic video motion prompts).
-8. Scribe [6 C] (Carbon): High-Converting Copywriter & Daily Editorial Engine (Generates fresh daily newsletter articles, blog posts, and tweet threads).
-9. Apex [78 Pt] (Platinum): Master Fulfillment & Packaging (Bundles client deliverables into clean zip packages with licensing agreements).
-10. Herald [33 As] (Arsenic): Autonomous Newsletter & Social Media Dispatcher (4 newsletters, 5 daily Twitter slots across @creatorpulselab & @TheCreatorAsset).
-11. Mercury [80 Hg] (Mercury): Omni-Channel Marketing Maestro & Traffic Strategist (Campaign strategies, listing packs, multi-channel distribution).
-12. Cipher [36 Cp] (Market Scout): Real-Time Trend & Vision Intelligence (Daily RSS/web trends, aesthetic analysis, and creator monetization).
+THE WORKHORSE AGENT ROSTER (PERIODIC TABLE OF AGENTS - EXPERT CERTIFICATIONS):
+All 11 core agents and 3 auxiliary specialists possess deep, authoritative domain mastery and clear responsibilities:
+1. Synapse [100 Fm] (Fermium): Master AI Operator & Studio Overwatch (Autonomous self-healing, GPU resource management, multi-agent orchestrator, system diagnostics).
+2. Vanguard [74 W] (Tungsten): Video Intake Sentinel & Pipeline Dispatcher (Stream container forensic validation, corrupt packet quarantine, orchestrating Stages 1–8).
+3. Iris [77 Ir] (Iridium): Computer Vision Quality Control Gate (Qwen-VL 8B vision inspector on GPU 0; audits every image/video for anatomy, hand/finger fidelity, composition, occluding objects, and zero-tolerance SFW/nudity compliance).
+4. Forge [28 Ni] (Nickel): Media Packager & NVENC Video Cutter (Dual RTX 3060 NVENC 60fps video cutter, 9:16 vertical smart crops, 60s teaser trailers on GPU 1).
+5. Echo [26 Fe] (Iron): Audio Intelligence & Transcription (Faster-Whisper speech-to-text on GPU 1; word-level timestamps, diarization, audio hooks).
+6. Aura [79 Au] (Gold): Editorial Retouching & Color Grading (Frequency separation skin smoothing, dodge & burn, 3D LUT color grading, Portra/Cinestill film emulation).
+7. Muse [34 Se] (Selenium): AI Image & Video Prompt Engineer (Crafts FLUX.1/SDXL visual prompts and LTX-Video/MiniMax motion prompts across aesthetic moods: sexy, alluring, playful, cute, cozy).
+8. Scribe [6 C] (Carbon): High-Converting Copywriter & Daily Editorial Engine (Generates fresh daily newsletter articles, blog posts, tweet threads, and PPV scripts; seeded dynamically by date to eliminate static repetitiveness).
+9. Mercury [80 Hg] (Hydrargyrum): Omni-Channel Marketing Maestro & Traffic Strategist (Funnel mechanics, multi-channel distribution, audience segmentation, conversion optimization).
+10. Herald [33 As] (Arsenic): Autonomous Newsletter & Social Media Dispatcher (4 newsletters, 5 daily Twitter slots across @creatorpulselab & @TheCreatorAsset; enforces real delivery confirmation).
+11. Cipher [36 Cp] (Copernicium/Cipherium): Real-Time Trend & Vision Intelligence (Daily RSS/web trends, algorithm shifts, aesthetic intelligence, and creator monetization grounded research).
+Auxiliary Specialists:
+12. Apex [78 Pt] (Platinum): Master Fulfillment & Packaging (Bundles client deliverables into clean zip packages with licensing agreements).
 13. Radar [47 Ag] (Silver): Order Radar & Client Intake (Monitors digitalcreatorassets@gmail.com for Fiverr/Etsy orders).
 14. Scrubber [82 Pb] (Lead): Privacy & Air-Gapped EXIF/Metadata Scrubber (Sanitizes GPS, camera serials, and sensitive tags).
 (Note: Prism is a standalone viewer app in standalone_apps/ on port 7862, NOT a WORKHORSE agent).
+
+UNIFIED NEWSLETTER COLLABORATION PROTOCOL:
+All agents involved in the daily newsletters (Cipher, Scribe, Iris, Herald, Synapse) operate in strict synchronization:
+- Step 1 (Cipher [36 Cp] - Morning Grounding): Sweeps live industry trends, algorithm updates, and platform shifts every morning. Saves grounded intelligence into the research vault.
+- Step 2 (Scribe [6 C] - Dynamic Editorial Synthesis): Ingests Cipher's research and synthesizes fresh, non-repeating daily editorial copy (lead stories, recipes, tip ladders, conversion math, tweet threads) for all 3 publications (The Daily Creator Pulse, The Shutter & Studio Wire, The Creator Blueprint).
+- Step 3 (Iris [77 Ir] - Visual Audit & SFW Enforcement): Inspects all visual renders destined for newsletter embeds. Rejects any nudity, NSFW content, or foreground object occlusions to workspace/qc_rejected/ and triggers prompt re-rolls with fresh seeds.
+- Step 4 (Herald [33 As] - Timed Autonomous Dispatch): Ingests Scribe's fresh daily content and Iris-verified visuals, compiles the responsive HTML newsletter layouts, and dispatches to verified subscribers at 09:00, 11:00, and 15:00. Automatically syncs Slot 1 morning tweets to the newsletter's lead story.
+- Step 5 (Synapse [100 Fm] - Sentinel Overwatch): Verifies delivery confirmation, monitors VRAM/resource thresholds, and self-heals database or network anomalies.
 
 ARCHITECTURAL SAFETY BOUNDARIES (WHAT REQUIRES UI CONFIRMATION):
 - STRICT NSFW & ADULT CONTENT POLICY: Only the Commander can create NSFW/adult content with WORKHORSE. Herald [33 As], Cipher [36 Cp], and autonomous background engines CANNOT produce or post nude images or video under any circumstances. In chat, NSFW generation is strictly blocked unless the Commander turns on Adult Content Mode or explicitly requests adult content in their prompt.
@@ -356,6 +520,28 @@ def extract_tool_calls(text: str) -> Tuple[List[Dict[str, Any]], str, List[Dict[
             except Exception as e:
                 parse_errors.append({"error": str(e), "raw": block_content[:200]})
                 spans_to_remove.append(match.span())
+        elif block_content.startswith('{') and ('"class_type"' in block_content or '"inputs"' in block_content):
+            try:
+                raw_wf = json.loads(normalize_tool_json(block_content))
+                found_img = None
+                if isinstance(raw_wf, dict):
+                    for node_id, node_data in raw_wf.items():
+                        if isinstance(node_data, dict):
+                            inputs = node_data.get("inputs", {})
+                            if isinstance(inputs, dict):
+                                for k, v in inputs.items():
+                                    if isinstance(v, str) and any(v.lower().endswith(ext) for ext in (".jpg", ".jpeg", ".png", ".webp")):
+                                        found_img = Path(v).name
+                                        break
+                if found_img:
+                    executed_tools.append({
+                        "tool": "comfy_image_to_video",
+                        "image": found_img,
+                        "prompt": "cinematic camera push-in, subtle natural movement, high resolution, 4k"
+                    })
+                    spans_to_remove.append(match.span())
+            except Exception:
+                pass
 
     # Build mask of text with fenced blocks blanked out so inline search doesn't duplicate them
     masked_chars = list(text)
@@ -758,11 +944,11 @@ class AIOperatorEngine:
         # 4. GPU1 Arbiter
         try:
             from shared.gpu1_arbiter import gpu1_arbiter
-            arb_status = gpu1_arbiter.status()
+            arb_status = gpu1_arbiter.get_status()
             report["components"]["gpu1_arbiter"] = {
                 "status": "ok",
-                "is_locked": arb_status.get("locked", False),
-                "current_task": arb_status.get("current_task")
+                "is_locked": arb_status.get("is_locked", False),
+                "current_task": arb_status.get("active_task")
             }
         except Exception as e:
             report["components"]["gpu1_arbiter"] = {"status": "warning", "error": str(e)}
@@ -786,7 +972,7 @@ class AIOperatorEngine:
         # 6. Herald Scheduler
         try:
             from pipeline.stages.herald_scheduler import herald_scheduler
-            s_state = herald_scheduler.get_daily_schedule_state()
+            s_state = herald_scheduler.get_status()
             report["components"]["herald_scheduler"] = {
                 "status": "ok",
                 "slots_count": len(herald_scheduler.DAILY_SLOTS),
@@ -800,7 +986,7 @@ class AIOperatorEngine:
             radar_cfg_path = BASE_DIR / "config" / "order_radar_config.json"
             if radar_cfg_path.exists():
                 rcfg = safe_read_json(radar_cfg_path, default={})
-                has_email = bool(rcfg.get("imap_user"))
+                has_email = bool(rcfg.get("email") or rcfg.get("imap_user"))
                 has_pwd = bool(rcfg.get("app_password"))
                 report["components"]["order_radar"] = {
                     "status": "ok" if (has_email and has_pwd) else "unconfigured",
@@ -910,11 +1096,111 @@ class AIOperatorEngine:
         except Exception as e:
             return {"status": "error", "message": f"Repair failed: {e}"}
 
+    TOOL_AGENT_MAP = {
+        # Vanguard [74 W]
+        "vanguard_inspect_video": ("vanguard", "Vanguard [74 W]: Validating video stream container & codec integrity"),
+        "inspect_video": ("vanguard", "Vanguard [74 W]: Inspecting video stream container & codec integrity"),
+        
+        # Iris [77 Ir]
+        "iris_qc_audit": ("iris", "Iris [77 Ir]: Forensically auditing visual quality & anatomy on GPU 0"),
+        "iris_audit_staging": ("iris", "Iris [77 Ir]: Auditing staging buffer renders"),
+        "iris_scene_extraction": ("iris", "Iris [77 Ir]: Extracting scene lighting & wardrobe aesthetics"),
+        "iris_nudity_check": ("iris", "Iris [77 Ir]: Verifying SFW / zero-nudity compliance"),
+        
+        # Forge [28 Ni]
+        "comfy_image_to_video": ("forge", "Forge [28 Ni]: Rendering image-to-video with LTX-Video on RTX 5070 Ti"),
+        "comfy_generate_video": ("forge", "Forge [28 Ni]: Rendering video animation on RTX 5070 Ti"),
+        "image_to_video": ("forge", "Forge [28 Ni]: Rendering image-to-video on RTX 5070 Ti"),
+        "comfy_i2v": ("forge", "Forge [28 Ni]: Rendering video on RTX 5070 Ti"),
+        "forge_cut_teaser": ("forge", "Forge [28 Ni]: Cutting 60s teaser trailer with NVENC on GPU 1"),
+        "forge_smart_crops": ("forge", "Forge [28 Ni]: Rendering 9:16 vertical smart crops with NVENC on GPU 1"),
+        "comfy_generate": ("forge", "Forge [28 Ni]: Rendering FLUX.1 studio diffusion on RTX 5070 Ti"),
+        "comfy_generate_glb": ("forge", "Forge [28 Ni]: Rendering 3D GLB character mesh on RTX 5070 Ti"),
+        "comfy_background_change": ("forge", "Forge [28 Ni]: Segmenting subject with SAM3 & swapping background on RTX 5070 Ti"),
+        "comfy_generate_3d_pbr": ("forge", "Forge [28 Ni]: Generating full PBR textured 3D model via Trellis 2"),
+        "comfy_generate_client_character": ("forge", "Forge [28 Ni]: Rendering client character identity LoRA on RTX 5070 Ti"),
+        "comfy_subject_swap": ("forge", "Forge [28 Ni]: Executing full-subject identity swap on RTX 5070 Ti"),
+        
+        # Echo [26 Fe]
+        "echo_transcribe": ("echo", "Echo [26 Fe]: Running Faster-Whisper vocal extraction on GPU 1 (cuda:1)"),
+        "extract_audio_hooks": ("echo", "Echo [26 Fe]: Detecting audio hooks and diarization timestamps"),
+        "vocal_isolation": ("echo", "Echo [26 Fe]: Isolating vocal track and speech dynamics"),
+        
+        # Aura [79 Au]
+        "aura_retouch": ("aura", "Aura [79 Au]: Retouching photo package with frequency separation & Portra grade"),
+        "aura_batch_retouch": ("aura", "Aura [79 Au]: Executing batch color correction & 3D LUT grading"),
+        "retouch_photos": ("aura", "Aura [79 Au]: Retouching editorial photos"),
+        
+        # Muse [34 Se]
+        "generate_shoot_concepts": ("muse", "Muse [34 Se]: Engineering shoot concepts & diffusion prompt kits"),
+        "muse_craft_prompts": ("muse", "Muse [34 Se]: Crafting FLUX.1 & LTX motion prompts"),
+        "cam_template_generate": ("muse", "Muse [34 Se]: Generating Cam model templates & prompt kits"),
+        "generate_cinematic_blueprint": ("muse", "Muse [34 Se]: Designing cinematic shoot blueprint"),
+        
+        # Scribe [6 C]
+        "scribe_generate_copy": ("scribe", "Scribe [6 C]: Synthesizing high-converting copy on Qwen 14B"),
+        "generate_daily_articles": ("scribe", "Scribe [6 C]: Writing fresh daily newsletter articles & stories"),
+        "synthesize_newsletter_copy": ("scribe", "Scribe [6 C]: Generating dynamic editorial copy"),
+        
+        # Mercury [80 Hg]
+        "generate_marketing_campaign": ("mercury", "Mercury [80 Hg]: Engineering omni-channel marketing campaign"),
+        "generate_funnel_strategy": ("mercury", "Mercury [80 Hg]: Building audience funnel & conversion math"),
+        "mercury_launch_campaign": ("mercury", "Mercury [80 Hg]: Deploying promotional campaign"),
+        "deploy_market_opportunity": ("mercury", "Mercury [80 Hg]: Activating market monetization opportunity"),
+        
+        # Herald [33 As]
+        "herald_dispatch_now": ("herald", "Herald [33 As]: Dispatching scheduled publications & social drops"),
+        "post_tweet_now": ("herald", "Herald [33 As]: Dispatching tweet thread to Twitter/X"),
+        "post_pinterest_pin": ("herald", "Herald [33 As]: Publishing pin to Pinterest board"),
+        "herald_schedule_status": ("herald", "Herald [33 As]: Checking publication delivery schedule"),
+        
+        # Cipher [36 Cp]
+        "trend_radar_sweep": ("cipher", "Cipher [36 Cp]: Sweeping real-time Google News trends & algorithm updates"),
+        "get_daily_trends": ("cipher", "Cipher [36 Cp]: Retrieving today's synthesized trend intelligence"),
+        "scan_inspiration": ("cipher", "Cipher [36 Cp]: Analyzing visual trends in inspiration vault"),
+        "scrape_creator_insights": ("cipher", "Cipher [36 Cp]: Ingesting creator insights & algorithm updates"),
+        "search_web": ("cipher", "Cipher [36 Cp]: Conducting live web search for fresh trends"),
+        
+        # Apex [78 Pt]
+        "apex_package": ("apex", "Apex [78 Pt]: Bundling client deliverables into verified release ZIP"),
+        "create_client_bundle": ("apex", "Apex [78 Pt]: Packaging client shoot delivery bundle"),
+        "fiverr_deliver_order": ("apex", "Apex [78 Pt]: Packaging and delivering Fiverr client order"),
+        "etsy_package_product": ("apex", "Apex [78 Pt]: Assembling Etsy digital product bundle"),
+        
+        # Radar [47 Ag]
+        "radar_scan_now": ("radar", "Radar [47 Ag]: Scanning Gmail for incoming Fiverr & Etsy orders"),
+        "check_inbox_orders": ("radar", "Radar [47 Ag]: Checking digitalcreatorassets@gmail.com for orders"),
+        "parse_order_email": ("radar", "Radar [47 Ag]: Parsing incoming buyer order email"),
+        
+        # Scrubber [82 Pb]
+        "scrub_file_metadata": ("scrubber", "Scrubber [82 Pb]: Air-gapping & scrubbing EXIF/GPS metadata"),
+        "sanitize_exif_gps": ("scrubber", "Scrubber [82 Pb]: Sanitizing camera serials and location tags"),
+        
+        # Synapse [100 Fm]
+        "system_diagnostics": ("synapse", "Synapse [100 Fm]: Running comprehensive system & hardware diagnostics"),
+        "fix_vram_overflow": ("synapse", "Synapse [100 Fm]: Purging VRAM cache & clearing GPU memory"),
+        "check_daily_schedule": ("synapse", "Synapse [100 Fm]: Verifying daily publication and tweet schedule"),
+        "prune_staging_buffer": ("synapse", "Synapse [100 Fm]: Auto-pruning stale staging renders to preserve Drive F"),
+        "comfy_status": ("synapse", "Synapse [100 Fm]: Probing ComfyUI render server status on RTX 5070 Ti"),
+        "comfy_remote_purge": ("synapse", "Synapse [100 Fm]: Remotely purging VRAM on RTX 5070 Ti (Main PC)"),
+        "comfy_prewarm": ("synapse", "Synapse [100 Fm]: Pre-warming diffusion checkpoint on RTX 5070 Ti"),
+        "comfy_search_models": ("synapse", "Synapse [100 Fm]: Searching model checkpoints and LoRAs on Main PC"),
+        "repair_subscribers": ("synapse", "Synapse [100 Fm]: Repairing and validating newsletter subscribers DB"),
+        "incident_log": ("synapse", "Synapse [100 Fm]: Retrieving autonomous self-healing incident log"),
+        "gpu_guardrails_status": ("synapse", "Synapse [100 Fm]: Checking Dual RTX 3060 utilization & circuit breakers"),
+    }
+
     def run_tool_and_log(self, tool_call: Dict[str, Any], adult_allowed: bool = False, batch_dir: Optional[Path] = None, attached_files: Optional[List[str]] = None) -> Dict[str, Any]:
         """Executes a SYNAPSE tool call and transparently records any failure to the
         persistent error log, so tool errors stay reviewable even after their chat
         bubble scrolls out of view. This wraps every execute_internal_tool() call site
         instead of patching each tool's individual except block."""
+        tool_name = tool_call.get("tool", "tool") if isinstance(tool_call, dict) else "tool"
+        agent_id, action_desc = self.TOOL_AGENT_MAP.get(
+            tool_name,
+            ("synapse", f"Synapse [100 Fm]: Dispatching {tool_name}...")
+        )
+        active_task_tracker.update_task(action_desc, progress=35, sub_agent=agent_id)
         try:
             exec_res = self.execute_internal_tool(tool_call, adult_allowed=adult_allowed, batch_dir=batch_dir, attached_files=attached_files)
         except TypeError:
@@ -961,6 +1247,20 @@ class AIOperatorEngine:
                 ]
                 if batch_imgs:
                     return max(batch_imgs, key=lambda f: f.stat().st_mtime)
+            candidate_dirs = [
+                Path("F:/WORKHORSE/workspace/brand_assets/comfy_renders"),
+                Path("F:/WORKHORSE/workspace/brand_assets/creator_media_lab"),
+                Path("F:/WORKHORSE/workspace/brand_assets/creator_pulse_lab"),
+                Path("F:/WORKHORSE/workspace/photos_input"),
+                Path("F:/WORKHORSE/workspace/photos_output"),
+                Path("F:/WORKHORSE/dropzone"),
+                CLIENT_INBOX_DIR
+            ]
+            for cdir in candidate_dirs:
+                if cdir.exists():
+                    imgs = [f for f in cdir.glob("**/*.*") if f.is_file() and f.suffix.lower() in (".jpg", ".jpeg", ".png", ".webp", ".bmp")]
+                    if imgs:
+                        return max(imgs, key=lambda f: f.stat().st_mtime)
             return Path("F:/WORKHORSE/workspace/brand_assets/comfy_renders") / (fn_clean or "missing.png")
 
         # 2. If explicit absolute path exists
@@ -985,25 +1285,32 @@ class AIOperatorEngine:
                 if bf.is_file() and (bf.name.lower() == p.name.lower() or bf.stem.lower() == p.stem.lower()):
                     return bf
 
-        # 5. Match against brand_assets folders
+        # 5. Match against brand_assets and studio folders (strictly isolated from client inbox)
         candidate_dirs = [
             Path("F:/WORKHORSE/workspace/brand_assets/comfy_renders"),
             Path("F:/WORKHORSE/workspace/brand_assets/creator_media_lab"),
             Path("F:/WORKHORSE/workspace/brand_assets/creator_pulse_lab"),
+            Path("F:/WORKHORSE/workspace/photos_input"),
+            Path("F:/WORKHORSE/workspace/photos_output"),
+            Path("F:/WORKHORSE/dropzone"),
         ]
         for cdir in candidate_dirs:
             candidate = cdir / p.name
             if candidate.exists():
                 return candidate
+            if cdir.exists():
+                for cf in cdir.glob("**/*.*"):
+                    if cf.is_file() and (cf.name.lower() == p.name.lower() or cf.stem.lower() == p.stem.lower()):
+                        return cf
 
-        # 6. Fallback if not found on disk but user provided an attached file this turn
+        # 7. Fallback if not found on disk but user provided an attached file this turn
         if attached_files:
             for af in attached_files:
                 ap = Path(af)
                 if ap.exists() and ap.suffix.lower() in (".jpg", ".jpeg", ".png", ".webp", ".bmp"):
                     return ap
 
-        # 7. Default brand_assets fallback
+        # 8. Default brand_assets fallback
         return Path("F:/WORKHORSE/workspace/brand_assets/comfy_renders") / p.name
 
     @staticmethod
@@ -1028,6 +1335,123 @@ class AIOperatorEngine:
         except Exception as e:
             print(f"[SYNAPSE] Non-fatal: failed to attach media entry for {file_path}: {e}")
         return result
+
+    @staticmethod
+    def expand_prompt_with_comfy_knowledge(
+        raw_prompt: str,
+        engine: str = "video",
+        adult_allowed: bool = False,
+        **kwargs
+    ) -> str:
+        """
+        Expert ComfyUI Prompt Expander for SYNAPSE [100 Fm].
+        Transforms simple, casual, or shorthand user inputs into dynamic, cinematic,
+        multi-layered prompts tailored to the target foundation model.
+
+        Applies:
+        - 4-Part Modular Formula for Video (Camera + Kinetics + Lighting + Soundscape)
+        - Optical lens perspective & shallow depth of field (85mm, 50mm, anamorphic)
+        - Volumetric illumination & color science (Rembrandt, chiaroscuro, warm golden hour)
+        - Strict audio safeguards (smooth ambient music/beat, bans screaming/vocal artifacts)
+        """
+        if "media_type" in kwargs:
+            engine = kwargs["media_type"]
+
+        if not raw_prompt:
+            return "A cinematic slow push-in tracking smoothly at moderate velocity, natural human-eye perspective with authentic depth rolloff. The subject exhibits natural organic movement, performing subtle lifelike micro-movements, breathing naturally with soft posture adjustment. [Lighting & Atmosphere]: Warm 3200K amber rim lighting, photorealistic 4k, smooth cinematic motion dynamics. [Audio Soundscape]: smooth ambient background music, sensual chill melodic electronic beat, rhythmic synth pads, strictly no screaming, no shouting."
+
+        text = raw_prompt.strip()
+        lower = text.lower()
+
+        # If already extensively detailed (> 40 words and has camera + lighting + sound), preserve it
+        if len(text.split()) >= 40 and any(w in lower for w in ["camera", "shot", "lens", "zoom", "push-in"]) and any(w in lower for w in ["light", "ambient", "illumination"]):
+            return text
+
+        # Strip conversational command preambles
+        clean_patterns = [
+            r'^(?:please\s+)?(?:can\s+you\s+)?(?:make|turn|convert|render)\s+(?:this\s+)?(?:image|photo|picture|pic)?\s*(?:in)?to\s+(?:a\s+)?video\s+(?:and\s+)?(?:please\s+)?',
+            r'^(?:please\s+)?(?:animate|give\s+motion\s+to)\s+(?:this\s+)?(?:image|photo|picture)?\s*(?:and|where|with)?\s*',
+            r'^(?:i\s+asked\s+it\s+to\s+)',
+            r'^(?:generate|create|render)\s+(?:an?\s+)?(?:video|image|photo)\s+(?:of|where|with)\s*',
+            r'^(?:have\s+her\s+|make\s+her\s+|make\s+the\s+person\s+|have\s+the\s+person\s+)',
+        ]
+        action = text
+        for pat in clean_patterns:
+            action = re.sub(pat, '', action, flags=re.IGNORECASE).strip()
+
+        # Strip redundant camera motion commands from subject action so they don't duplicate
+        action = re.sub(r'(?:,\s*|\s+and\s+)?(?:have\s+the\s+camera|with\s+the\s+camera|the\s+camera|camera)\s+(?:slowly\s+)?(?:zooms?|push(?:es)?-in|pans?|tracks?|orbits?|moves?)[^,\.]*', '', action, flags=re.IGNORECASE).strip()
+        action = re.sub(r'^(?:and\s+|,\s*)+', '', action, flags=re.IGNORECASE).strip()
+
+        # Determine aesthetic mood & context
+        is_sensual = adult_allowed or any(w in lower for w in ["lick", "tongue", "sexy", "sensual", "boudoir", "intimate", "alluring", "erotic", "controller", "lips", "kiss"])
+        is_cyberpunk = any(w in lower for w in ["cyber", "neon", "futuristic", "sci-fi", "robot", "tech", "hologram"])
+        is_outdoor = any(w in lower for w in ["outdoor", "street", "nature", "forest", "beach", "city", "sun", "rain"])
+        is_portrait = any(w in lower for w in ["portrait", "face", "eyes", "mouth", "smile", "close-up", "closeup"])
+
+        # 1. Camera Kinetics & Optics
+        if "zoom" in lower or "push" in lower:
+            cam_kinetics = "A slow, deliberate cinematic camera zoom tracking smoothly towards the subject with 85mm prime lens optical compression, shallow depth of field, and creamy circular bokeh"
+        elif "pan" in lower or "orbit" in lower:
+            cam_kinetics = "A smooth sweeping arc tracking shot panning gently around the subject, maintaining crisp focal isolation"
+        elif "tracking" in lower or "walk" in lower:
+            cam_kinetics = "A fluid dynamic steadicam tracking shot moving at natural walking velocity, steady horizon and gentle depth rolloff"
+        elif is_portrait or is_sensual:
+            cam_kinetics = "A steady, intimate medium close-up shot with subtle forward drift, tack-sharp focal lock on the eyes and lips with 85mm f/1.4 lens optical compression"
+        else:
+            cam_kinetics = "A cinematic slow push-in tracking smoothly at moderate velocity, natural human-eye perspective with authentic depth rolloff"
+
+        # 2. Subject Kinetic Action with Natural Grammar
+        if not action:
+            subject_action = "The subject exhibits natural organic movement"
+        elif any(action.lower().startswith(w) for w in ["the subject", "the woman", "she", "he", "the model"]):
+            subject_action = action
+        elif any(action.lower().startswith(w) for w in ["lick", "touch", "play", "hold", "smile", "kiss", "gaze", "whisper", "tilt"]):
+            first_word, _, rest = action.partition(' ')
+            if first_word.lower() == "lick":
+                subject_action = f"The subject seductively licks {rest}" if is_sensual else f"The subject licks {rest}"
+            elif first_word.lower().endswith("ing"):
+                subject_action = f"The subject is {first_word} {rest}"
+            else:
+                subject_action = f"The subject {first_word}s {rest}" if not first_word.lower().endswith("s") else f"The subject {action}"
+        elif any(action.lower().startswith(w) for w in ["reading", "walking", "sitting", "standing", "looking", "dancing"]):
+            subject_action = f"The subject is {action}"
+        elif is_portrait or any(action.lower().startswith(w) for w in ["neon", "cyberpunk", "cozy", "cinematic", "outdoor", "studio", "retro", "dark", "vintage"]):
+            subject_action = f"The scene captures {action}"
+        else:
+            subject_action = f"The subject {action}"
+
+        # Enhance subject kinetics with organic micro-movements
+        if is_sensual:
+            kinetics_enhancement = "performing slow, deliberate tactile interactions with organic micro-expressions of focus and allure, subtle lip parted breathing, and natural fluid eye contact"
+        else:
+            kinetics_enhancement = "performing subtle, lifelike micro-movements, breathing naturally with soft posture adjustment and organic eye blinks"
+
+        # 3. Lighting & Environment Dynamics
+        if is_sensual:
+            lighting = "Warm 3200K amber rim lighting grazing facial contours and hair strands, soft diffused key light, velvety shadow rolloff, subtle specular highlights"
+        elif is_cyberpunk:
+            lighting = "Atmospheric dual-tone volumetric lighting with vibrant cyan key light and deep magenta rim illumination, subtle neon haze and specular street reflections"
+        elif is_outdoor:
+            lighting = "Golden hour low-angle sunlight casting luminous rim highlights across edges, soft ambient atmospheric dust motes"
+        else:
+            lighting = "Subtle cinematic Rembrandt studio lighting with a 45-degree diffused key, gentle shadow gradient, and soft background separation"
+
+        # 4. Soundscape & Multimodal Acoustics
+        if "video" in engine.lower() or "ltx" in engine.lower() or "minimax" in engine.lower() or "fasth3" in engine.lower():
+            if is_sensual:
+                soundscape = "smooth ambient background music, sensual chill melodic electronic beat, rhythmic synth pads, strictly no screaming, no shouting, no vocal noise"
+            elif is_cyberpunk:
+                soundscape = "moody synthwave ambient background music, deep rhythmic bass pulse, electronic soundscape, no shouting, no screaming"
+            else:
+                soundscape = "smooth ambient cinematic background music, soft melodic rhythm, quiet room presence, strictly no screaming, no shouting"
+
+            expanded = f"{cam_kinetics}. {subject_action}, {kinetics_enhancement}. [Lighting & Atmosphere]: {lighting}, photorealistic 4k, smooth cinematic motion dynamics. [Audio Soundscape]: {soundscape}."
+        else:
+            # Photography / Image Engine (FLUX / SDXL)
+            expanded = f"A high-end cinematic photograph: {cam_kinetics}. {subject_action}. {lighting}. Tactile micro-textures capturing natural skin pores, sub-surface scattering, fine fabric weave, authentic depth of field, 8k resolution, masterpiece."
+
+        return expanded
 
     def execute_internal_tool(self, tool_call, adult_allowed: bool = False, batch_dir: Optional[Path] = None, attached_files: Optional[List[str]] = None):
         """Execute built-in WORKHORSE actions & self-healing functions.
@@ -1727,9 +2151,13 @@ class AIOperatorEngine:
             lora_name = tool_call.get("lora_name")
             lora_strength = tool_call.get("lora_strength", 0.8)
             steps = tool_call.get("steps", 25)
-            cfg = tool_call.get("cfg", 7.0)
+            cfg = tool_call.get("cfg", 3.5)
             if not prompt:
                 return {"status": "error", "error": "No prompt provided for ComfyUI"}
+
+            # Autonomous ComfyUI Master Prompt Expansion for Photography (FLUX / SDXL)
+            if len(prompt.split()) < 25:
+                prompt = self.expand_prompt_with_comfy_knowledge(prompt, engine="flux", adult_allowed=adult_allowed)
 
             try:
                 from pipeline.stages.comfyui_bridge import comfy_bridge
@@ -1748,6 +2176,7 @@ class AIOperatorEngine:
                     auto_qc=True
                 )
                 if gen_res.get("success"):
+                    result["expanded_prompt"] = prompt
                     audit = gen_res.get("qc_audit", {})
                     score = audit.get("aesthetic_score", "N/A")
                     notes = audit.get("defects_summary", "Passed")
@@ -1785,10 +2214,16 @@ class AIOperatorEngine:
                     img_path = self._resolve_marketing_source_image(filename)
                 if not img_path or not img_path.exists():
                     return {"status": "error", "tool": tool_name, "error": f"Source image not found: {filename or '(no image provided)'}"}
-                if not prompt:
-                    return {"status": "error", "tool": tool_name, "error": "No motion/scene prompt provided for image-to-video"}
+                # Master Prompt Expansion: If the motion prompt is brief or generic, expand using ComfyUI knowledge
+                if not prompt or len(prompt.split()) < 25 or "cinematic camera push-in" in prompt.lower() or "cinematic subtle camera motion" in prompt.lower():
+                    prompt = self.expand_prompt_with_comfy_knowledge(prompt, engine=engine, adult_allowed=adult_allowed)
 
                 from pipeline.stages.comfyui_bridge import comfy_bridge
+                active_task_tracker.update_task(
+                    f"Forge [28 Ni]: Rendering image-to-video for '{img_path.name}' on RTX 5070 Ti...",
+                    progress=40,
+                    sub_agent="forge"
+                )
                 if engine in ("minimax", "minimax_h3", "minimax-h3", "hailuo"):
                     duration_seconds = tool_call.get("duration_seconds", 10.0)
                     # The MiniMax H3 template ships with 3 adult/boudoir-tuned LoRAs loaded by
@@ -1810,7 +2245,39 @@ class AIOperatorEngine:
                     engine_label = "MiniMax H3" + (" (adult-tuned)" if adult_tuning else "")
                     if requested_adult_tuning and not adult_tuning:
                         engine_label += " - adult tuning blocked, not authorized this turn"
+                elif engine in ("fasth3", "minimax_fasth3", "fast_h3"):
+                    uploaded = comfy_bridge.upload_image_to_comfy(img_path)
+                    wf = comfy_bridge.build_minimax_fasth3_workflow(
+                        prompt=prompt,
+                        mode="first_frame",
+                        first_frame_image_name=uploaded,
+                        width=width,
+                        height=height,
+                        length=min(num_frames, 121)
+                    )
+                    queued = comfy_bridge.queue_prompt(wf)
+                    prompt_id = queued.get("prompt_id")
+                    if not prompt_id:
+                        vid_res = {"success": False, "error": f"Failed to queue FastH3 prompt: {queued.get('node_errors')}"}
+                    else:
+                        videos = comfy_bridge.wait_for_video_execution(prompt_id, timeout_seconds=900)
+                        if videos:
+                            staged = comfy_bridge.download_video(videos[0]["filename"], videos[0].get("subfolder", ""), videos[0].get("type", "output"))
+                            video_renders_dir = WORKSPACE_DIR / "brand_assets" / "comfy_video_renders"
+                            video_renders_dir.mkdir(parents=True, exist_ok=True)
+                            dest_path = video_renders_dir / staged.name
+                            staged.rename(dest_path)
+                            vid_res = {
+                                "success": True,
+                                "file_path": str(dest_path),
+                                "filename": dest_path.name,
+                                "url_path": f"/static/brand_assets/comfy_video_renders/{dest_path.name}"
+                            }
+                        else:
+                            vid_res = {"success": False, "error": "FastH3 video generation timed out or yielded no video output"}
+                    engine_label = "MiniMax FastH3 (8-Step Ultra-Fast)"
                 else:
+                    audio_mode = tool_call.get("audio_mode", "music")
                     vid_res = comfy_bridge.generate_image_to_video(
                         source_image_path=img_path,
                         prompt=prompt,
@@ -1818,11 +2285,13 @@ class AIOperatorEngine:
                         width=width,
                         height=height,
                         num_frames=num_frames,
-                        fps=fps
+                        fps=fps,
+                        audio_mode=audio_mode
                     )
                     engine_label = "LTX 2.3"
 
                 if vid_res.get("success"):
+                    result["expanded_prompt"] = prompt
                     result["message"] = f"SYNAPSE [100 Fm]: Image-to-video render complete on RTX 5070 Ti ({engine_label}). Saved to: {vid_res.get('filename')}."
                     result["details"] = vid_res
                     result["video"] = vid_res.get("file_path")
@@ -1988,7 +2457,7 @@ class AIOperatorEngine:
 
         return result
 
-    def _encode_image_file(self, path: Path, max_dim: int = 1280) -> Optional[str]:
+    def _encode_image_file(self, path: Path, max_dim: int = 768) -> Optional[str]:
         """Loads and encodes an image to base64, resizing if needed for VRAM efficiency."""
         try:
             from PIL import Image
@@ -1999,7 +2468,7 @@ class AIOperatorEngine:
                 if max(img.size) > max_dim:
                     img.thumbnail((max_dim, max_dim), Image.Resampling.LANCZOS)
                 buf = io.BytesIO()
-                img.save(buf, format="JPEG", quality=88)
+                img.save(buf, format="JPEG", quality=85)
                 return base64.b64encode(buf.getvalue()).decode("utf-8")
         except Exception:
             try:
@@ -2023,6 +2492,20 @@ class AIOperatorEngine:
         of the flat client_inbox/ root so "the image I just sent" can't resolve to a
         different client's/session's file of the same name.
         """
+        # Action request guard: if user is asking to animate, make it move, retouch, or convert media,
+        # route to DEFAULT_TEXT_MODEL (qwen3-abliterated:14b) which handles tool calls directly
+        # and references the file on disk without blowing up token/VRAM context.
+        action_keywords = [
+            "animate", "make it move", "make this move", "make an image move", "make the image move",
+            "make image move", "move for me", "make the picture move", "make this picture move",
+            "image to video", "photo to video", "turn into video", "turn this into a video",
+            "generate video", "create video", "retouch", "smooth skin", "color grade",
+            "swap background", "change background", "convert to 3d", "make 3d", "3d model", "pbr"
+        ]
+        msg_lower = (message or "").lower()
+        if any(kw in msg_lower for kw in action_keywords):
+            return False, "Action command on media - routed to Master Operator (Text model)", [], None
+
         detected_images = []
         reasons = []
 
@@ -2252,11 +2735,26 @@ class AIOperatorEngine:
         explicit_markers = [
             "nsfw", "adult content", "adult video", "boudoir", "nude", "naked",
             "explicit", "xxx", "erotic", "lingerie", "fetish", "minimax", "hailuo",
-            "onlyfans", "fansly", "cam girl", "camgirl"
+            "onlyfans", "fansly", "cam girl", "camgirl", "sexy", "sensual"
         ]
         return any(marker in msg_lower for marker in explicit_markers)
 
     def chat(self, message: str, model=None, web_search=False, attached_files=None, session_id: Optional[str] = None, adult_mode: bool = False):
+        preview_msg = (message or "").strip().replace("\n", " ")[:60]
+        active_task_tracker.start_task(
+            agent="synapse",
+            sub_agent=None,
+            task_desc=f"Synapse [100 Fm]: Processing operator command ('{preview_msg}'...)"
+        )
+        try:
+            return self._chat_impl(
+                message=message, model=model, web_search=web_search,
+                attached_files=attached_files, session_id=session_id, adult_mode=adult_mode
+            )
+        finally:
+            active_task_tracker.finish_task()
+
+    def _chat_impl(self, message: str, model=None, web_search=False, attached_files=None, session_id: Optional[str] = None, adult_mode: bool = False):
         chosen_model = model or DEFAULT_TEXT_MODEL
         # Adult-tuned video generation (MiniMax H3's boudoir LoRAs) is only ever authorized
         # for this turn if the Commander flipped on Adult Content Mode, or their own message
@@ -2437,9 +2935,13 @@ class AIOperatorEngine:
                 attached_notes.append(
                     "[USER ATTACHED MEDIA AVAILABLE ON DISK]:\n"
                     + "\n".join(file_details)
-                    + "\nCRITICAL: When the user asks to animate, transform, retouch, or convert an uploaded image, pass the exact uploaded image filename or path in the 'image' or 'files' parameter (e.g. 'image': '"
+                    + "\nCRITICAL: When the user asks to animate, make an image move, or turn an image into video, you MUST invoke the registered tool using exact JSON:\n"
+                    + "Extract the user's EXACT requested subject action, movement, camera direction, and acoustic style (e.g. smooth ambient music, sensual melodic beat, no shouting/screaming) into the 'prompt' field.\n"
+                    + "Never output generic placeholder text like 'cinematic camera push-in' when the user specified exact physical motions or actions.\n"
+                    + '```json\n{"tool": "comfy_image_to_video", "image": "'
                     + Path(attached_files[0]).name
-                    + "'). Never invent a new image or pass placeholder '...'."
+                    + '", "prompt": "<detailed description of user requested subject motion, camera work, and smooth ambient music>", "audio_mode": "music"}\n```\n'
+                    + "Do NOT output raw ComfyUI node dictionaries or workflow graphs. Always invoke the registered tool as JSON."
                 )
 
         if attached_notes:
@@ -2454,7 +2956,8 @@ class AIOperatorEngine:
             "keep_alive": "5m",
             "options": {
                 "temperature": 0.7,
-                "num_predict": 1500
+                "num_predict": 1500,
+                "num_ctx": 8192
             }
         }
 
@@ -2462,6 +2965,12 @@ class AIOperatorEngine:
         # a cold model swap into VRAM on top of normal generation time - give those turns much more room
         # before giving up, instead of the flat 120s that was tripping on cold vision loads.
         ollama_timeout = 240 if is_vision else 180
+
+        active_task_tracker.update_task(
+            f"Synapse [100 Fm]: Analyzing instruction and generating response with {chosen_model} on GPU 0...",
+            progress=25,
+            sub_agent="synapse"
+        )
 
         try:
             try:
@@ -2519,6 +3028,90 @@ class AIOperatorEngine:
             for p_err in tool_parse_errors:
                 self.log_error("tool_call_parse_error", p_err.get("error", "malformed_json"), context={"snippet": p_err.get("raw")})
 
+            if not extracted_tools:
+                # Deterministic Intent Fallback: catch instances where LLM hallucinates conversational
+                # promises (e.g. "motion is now active", "queued your still photo") or user explicitly
+                # asked to animate / add motion, but LLM omitted the structured tool JSON.
+                msg_lower = (message or "").lower()
+                reply_lower = (reply_text or "").lower()
+
+                motion_keywords = [
+                    "motion", "animate", "move", "animation", "make this image move",
+                    "make it move", "give this image motion", "turn this image into video",
+                    "turn this into video", "turn this into a video", "make this into a video",
+                    "make this image into a video", "make a video", "make into video",
+                    "make into a video", "into a video", "into video", "image to video",
+                    "photo to video", "image-to-video", "photo-to-video", "i2v",
+                    "bring this photo to life", "bring this image to life", "video of this",
+                    "video test", "cinematic animation", "comfy_image_to_video",
+                    "zoom towards", "camera zoom", "slow zoom", "camera movement",
+                    "lick", "tongue"
+                ]
+                hallucinated_motion = any(h in reply_lower for h in [
+                    "motion is now active", "queued your still photo", "queued your photo",
+                    "active in comfyui's render queue", "active in comfyui", "rendering with ltx",
+                    "queued for cinematic animation", "scene is now in motion",
+                    "animated your still image", "animated your photo", "video generated & delivered",
+                    "video generated and delivered", "video is now in motion", "video has been rendered"
+                ])
+                user_requested_motion = any(k in msg_lower for k in motion_keywords)
+
+                if user_requested_motion or hallucinated_motion:
+                    target_img = None
+                    if attached_files:
+                        for af in attached_files:
+                            if Path(af).suffix.lower() in (".jpg", ".jpeg", ".png", ".webp", ".bmp"):
+                                target_img = Path(af).name
+                                break
+                    if not target_img and batch_dir and Path(batch_dir).exists():
+                        for bf in Path(batch_dir).iterdir():
+                            if bf.is_file() and bf.suffix.lower() in (".jpg", ".jpeg", ".png", ".webp", ".bmp"):
+                                target_img = bf.name
+                                break
+                    if not target_img:
+                        m_img = re.search(r'[\w\-.]+\.(?:jpg|jpeg|png|webp|bmp)', message + " " + reply_text, re.I)
+                        if m_img:
+                            target_img = m_img.group(0)
+                    if not target_img and CLIENT_INBOX_DIR.exists():
+                        recent_imgs = [
+                            f for f in CLIENT_INBOX_DIR.glob("**/*.*")
+                            if f.is_file() and f.suffix.lower() in (".jpg", ".jpeg", ".png", ".webp", ".bmp")
+                        ]
+                        if recent_imgs:
+                            target_img = max(recent_imgs, key=lambda f: f.stat().st_mtime).name
+
+                    if target_img:
+                        extracted_prompt = ""
+                        p_match = re.search(r'(?:Motion Prompt|Prompt):\s*[*"“](.*?)[*"”]', reply_text, re.I)
+                        if p_match:
+                            extracted_prompt = p_match.group(1).strip()
+                        engine = "minimax_h3" if adult_allowed and any(w in msg_lower for w in ["minimax", "hailuo", "boudoir", "sensual", "intimate"]) else "ltx2.3"
+                        if not extracted_prompt or "cinematic camera push-in" in extracted_prompt.lower() or "cinematic slow camera push-in" in extracted_prompt.lower():
+                            user_action = (message or "").strip()
+                            clean_patterns = [
+                                r'^(?:please\s+)?(?:can\s+you\s+)?(?:make|turn|convert|render)\s+(?:this\s+)?(?:image|photo|picture|pic)?\s*(?:in)?to\s+(?:a\s+)?video\s+(?:and\s+)?(?:please\s+)?',
+                                r'^(?:please\s+)?(?:animate|give\s+motion\s+to)\s+(?:this\s+)?(?:image|photo|picture)?\s*(?:and|where|with)?\s*',
+                                r'^(?:i\s+asked\s+it\s+to\s+)',
+                                r'^(?:have\s+her\s+|make\s+her\s+|make\s+the\s+person\s+)',
+                            ]
+                            for pat in clean_patterns:
+                                user_action = re.sub(pat, '', user_action, flags=re.IGNORECASE).strip()
+                            extracted_prompt = self.expand_prompt_with_comfy_knowledge(user_action or message, engine=engine, adult_allowed=adult_allowed)
+
+                        extracted_tools.append({
+                            "tool": "comfy_image_to_video",
+                            "image": target_img,
+                            "prompt": extracted_prompt,
+                            "engine": engine,
+                            "audio_mode": "music"
+                        })
+                elif any(k in msg_lower for k in ["diagnose system", "system diagnostics", "system health", "diagnostics", "check health"]):
+                    extracted_tools.append({"tool": "system_diagnostics"})
+                elif any(k in msg_lower for k in ["purge vram", "clear vram", "fix vram", "vram overflow"]):
+                    extracted_tools.append({"tool": "fix_vram_overflow"})
+                elif any(k in msg_lower for k in ["check schedule", "daily schedule", "schedule status", "newsletter schedule"]):
+                    extracted_tools.append({"tool": "check_daily_schedule"})
+
             for tool_data in extracted_tools:
                 sig = json.dumps(tool_data, sort_keys=True)
                 if sig not in executed_tool_signatures:
@@ -2551,7 +3144,7 @@ class AIOperatorEngine:
                         "messages": second_pass_messages,
                         "stream": False,
                         "keep_alive": "5m",
-                        "options": {"temperature": 0.5, "num_predict": 800}
+                        "options": {"temperature": 0.5, "num_predict": 800, "num_ctx": 8192}
                     }
                     second_res = requests.post(f"{OLLAMA_HOST}/api/chat", json=second_payload, timeout=60)
                     if second_res.status_code == 200:
@@ -2561,6 +3154,26 @@ class AIOperatorEngine:
                 except Exception as e:
                     # Gracefully proceed to fallback narration if second pass is offline/unavailable
                     pass
+
+            # If an image-to-video render succeeded, ensure reply_text reflects completion rather than premature queue promises
+            if any(a.get("tool") == "comfy_image_to_video" and (a.get("status") == "ok" or a.get("video")) for a in executed_actions):
+                reply_text = re.sub(
+                    r'(?:The job is now active in ComfyUI.*?|You can now view the video once it’s rendered\.)',
+                    'Your video has finished rendering on RTX 5070 Ti and is ready to view or download below!',
+                    reply_text,
+                    flags=re.IGNORECASE
+                )
+                if "finished rendering" not in reply_text:
+                    reply_text += "\n\n🎬 **Render Complete:** Your video has finished rendering on RTX 5070 Ti and is attached below to view or download."
+
+            # Ensure the Commander sees the expanded creative blueprint in chat if not already mentioned
+            for a in executed_actions:
+                exp_p = a.get("expanded_prompt")
+                if exp_p:
+                    if a.get("tool") == "comfy_image_to_video" and "Expanded Motion Blueprint" not in reply_text:
+                        reply_text += f"\n\n🎬 **Expanded Motion Blueprint:**\n\"{exp_p}\""
+                    elif a.get("tool") == "comfy_generate" and "Expanded Creative Direction" not in reply_text:
+                        reply_text += f"\n\n📸 **Expanded Creative Direction:**\n\"{exp_p}\""
 
             # If the model's response is still empty after execution,
             # fall back to a short natural confirmation instead of showing an empty bubble.

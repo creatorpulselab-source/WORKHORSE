@@ -2,14 +2,217 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <script>window.__WORKHORSE_VERSION__ = "20261015_v17";</script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>WORKHORSE — AI Command Center & 3D Cyber Factory</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/css/style.css?v=20261007_v12">
+  <link rel="stylesheet" href="/static/css/style.css?v=20261015_v16">
   <link rel="stylesheet" href="/static/css/factory.css">
-  <link rel="stylesheet" href="/static/css/operator_layout.css?v=20261008_v2">
+  <link rel="stylesheet" href="/static/css/operator_layout.css?v=20261015_v16">
+  <style>
+    /* Real-Time Agent & Process Monitor Styles */
+    .realtime-monitor-bar {
+      background: rgba(10, 15, 28, 0.95);
+      border-bottom: 1px solid rgba(0, 242, 254, 0.25);
+      padding: 10px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      position: relative;
+      z-index: 95;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+    }
+    .monitor-top-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+    .monitor-agent-summary {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+      flex: 1;
+    }
+    .monitor-title-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(0, 242, 254, 0.1);
+      border: 1px solid rgba(0, 242, 254, 0.35);
+      border-radius: 6px;
+      padding: 4px 8px;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      color: #00f2fe;
+      white-space: nowrap;
+    }
+    .active-agent-chips-strip {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      overflow-x: auto;
+      max-width: 480px;
+      padding-bottom: 2px;
+    }
+    .agent-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 4px;
+      white-space: nowrap;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: var(--text-dim);
+      transition: all 0.2s ease;
+    }
+    .agent-chip.active {
+      background: rgba(0, 242, 254, 0.18);
+      border-color: #00f2fe;
+      color: #fff;
+      box-shadow: 0 0 10px rgba(0, 242, 254, 0.4);
+      animation: pulseChip 2s infinite;
+    }
+    .agent-chip.stalled {
+      background: rgba(239, 68, 68, 0.25);
+      border-color: #ef4444;
+      color: #ff8585;
+      box-shadow: 0 0 12px rgba(239, 68, 68, 0.6);
+      animation: pulseStalled 1s infinite alternate;
+    }
+    @keyframes pulseChip {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.75; }
+    }
+    @keyframes pulseStalled {
+      0% { transform: scale(1); }
+      100% { transform: scale(1.03); }
+    }
+    .monitor-task-text {
+      font-size: 12px;
+      font-family: var(--font-mono);
+      color: #e2e8f0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 460px;
+    }
+    .monitor-controls-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+    .monitor-status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: rgba(6, 214, 160, 0.1);
+      border: 1px solid rgba(6, 214, 160, 0.4);
+      color: #06d6a0;
+    }
+    .monitor-status-pill.active {
+      background: rgba(0, 242, 254, 0.15);
+      border-color: #00f2fe;
+      color: #00f2fe;
+    }
+    .monitor-status-pill.stalled {
+      background: rgba(239, 68, 68, 0.2);
+      border-color: #ef4444;
+      color: #ff4d6d;
+    }
+    .btn-monitor-stop {
+      background: linear-gradient(135deg, rgba(239, 68, 68, 0.3), rgba(185, 28, 28, 0.6));
+      border: 1px solid #ef4444;
+      color: #fff;
+      padding: 5px 12px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 800;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+    .btn-monitor-stop:hover {
+      background: #ef4444;
+      box-shadow: 0 0 15px rgba(239, 68, 68, 0.6);
+    }
+    .monitor-progress-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: rgba(0, 0, 0, 0.25);
+      padding: 6px 10px;
+      border-radius: 6px;
+    }
+    .monitor-progress-track {
+      flex: 1;
+      height: 7px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 999px;
+      overflow: hidden;
+      position: relative;
+    }
+    .monitor-progress-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #00f2fe, #06d6a0);
+      border-radius: 999px;
+      transition: width 0.4s ease;
+      box-shadow: 0 0 10px rgba(0, 242, 254, 0.5);
+    }
+    .monitor-progress-fill.stalled {
+      background: linear-gradient(90deg, #f59e0b, #ef4444);
+      box-shadow: 0 0 12px rgba(239, 68, 68, 0.8);
+    }
+    .monitor-progress-meta {
+      font-size: 10.5px;
+      font-family: var(--font-mono);
+      color: var(--text-dim);
+      white-space: nowrap;
+    }
+    .monitor-expand-grid {
+      display: none;
+      grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+      gap: 10px;
+      padding-top: 10px;
+      border-top: 1px solid rgba(255, 255, 255, 0.07);
+    }
+    .monitor-expand-grid.open {
+      display: grid;
+    }
+    .agent-status-tile {
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 6px;
+      padding: 8px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .agent-status-tile.active {
+      border-color: #00f2fe;
+      background: rgba(0, 242, 254, 0.05);
+    }
+    .agent-status-tile.stalled {
+      border-color: #ef4444;
+      background: rgba(239, 68, 68, 0.1);
+    }
+  </style>
 </head>
 <body>
 
@@ -97,6 +300,73 @@
       </button>
     </nav>
 
+    <!-- ======================================================================
+         REAL-TIME AGENT & PROCESS MONITOR (STUDIO OVERWATCH)
+         ====================================================================== -->
+    <section class="realtime-monitor-bar" id="realtime-agent-monitor">
+      <div class="monitor-top-row">
+        <div class="monitor-agent-summary">
+          <div class="monitor-title-badge">
+            <span class="pulse-dot" id="monitor-pulse-dot" style="background: #06d6a0;"></span>
+            <span>AGENT OVERWATCH</span>
+          </div>
+
+          <!-- Active Agent Badges Strip -->
+          <div class="active-agent-chips-strip" id="monitor-agent-chips">
+            <span class="agent-chip" id="chip-synapse" title="Synapse [100 Fm] Master Operator">100 Fm Synapse</span>
+            <span class="agent-chip" id="chip-vanguard" title="Vanguard [74 W] Pipeline Controller">74 W Vanguard</span>
+            <span class="agent-chip" id="chip-iris" title="Iris [77 Ir] Quality Control Gate">77 Ir Iris</span>
+            <span class="agent-chip" id="chip-forge" title="Forge [28 Ni] Video Engine">28 Ni Forge</span>
+            <span class="agent-chip" id="chip-herald" title="Herald [33 As] Newsletter Dispatcher">33 As Herald</span>
+          </div>
+
+          <!-- Live Task / Action Text -->
+          <div class="monitor-task-text" id="monitor-task-text" title="Active Process Description">
+            All 14 Agents Standing By · Systems Idle
+          </div>
+        </div>
+
+        <div class="monitor-controls-group">
+          <!-- Status Pill -->
+          <span class="monitor-status-pill" id="monitor-status-badge">
+            <span class="pulse-dot" style="background:#06d6a0;"></span> IDLE
+          </span>
+
+          <!-- Stop / Abort Button (Dynamic on Job ID) -->
+          <button type="button" class="btn-monitor-stop" id="btn-monitor-stop-job" style="display: none;" title="Immediately halt this active/stuck job">
+            🛑 Stop Job
+          </button>
+
+          <!-- Emergency Abort All -->
+          <button type="button" class="btn-cyber" id="btn-monitor-emergency-abort" style="font-size: 11px; padding: 4px 10px; border-color: rgba(239, 68, 68, 0.4); color: #ff6b6b;" title="Emergency Stop: Abort all pipeline jobs, clear ComfyUI queue, and purge GPU VRAM">
+            🛑 Emergency Abort
+          </button>
+
+          <!-- Toggle Expand 14 Agents Grid -->
+          <button type="button" class="btn-cyber" id="btn-toggle-monitor-expand" style="font-size: 11px; padding: 4px 10px;" title="View all 14 Agents' live status & hardware bindings">
+            👥 Roster (<span id="monitor-active-count-badge">0</span>/14 Active)
+          </button>
+        </div>
+      </div>
+
+      <!-- Real-Time Progress Bar & Timing -->
+      <div class="monitor-progress-row" id="monitor-progress-container" style="display: none;">
+        <div class="monitor-progress-meta" id="monitor-progress-label">Stage 0/8 · 0%</div>
+        <div class="monitor-progress-track">
+          <div class="monitor-progress-fill" id="monitor-progress-fill" style="width: 0%;"></div>
+        </div>
+        <div class="monitor-progress-meta" id="monitor-elapsed-label">Elapsed: 00:00</div>
+        <div class="monitor-stalled-warning" id="monitor-stalled-warning" style="display: none; font-size: 11px; font-weight: 800; color: #ff4d6d; animation: pulseStalled 1s infinite alternate;">
+          ⚠️ PROCESS STALLED (>180s)
+        </div>
+      </div>
+
+      <!-- Expandable 14-Agent Live Roster Grid -->
+      <div class="monitor-expand-grid" id="monitor-expand-roster">
+        <!-- Rendered dynamically by app.js -->
+      </div>
+    </section>
+
     <!-- STUDIO MAIN GRID: LEFT DOUBLE-COLUMN SIDEBAR + RIGHT WORKSPACE -->
     <div class="studio-main-grid">
 
@@ -159,7 +429,7 @@
           <div class="nav-col-heading">WORKSPACE & CORE SUITE</div>
 
           <!-- COLUMN 1: PRODUCTION & VISION -->
-          <button class="bay-tab-btn active" data-bay="command-center">
+          <button class="bay-tab-btn active" data-bay="command-center" onclick="window.workBaysManager.switchBay('command-center')">
             <span class="bay-icon">🌐</span>
             <div class="bay-btn-info">
               <span class="bay-name">Command Islands</span>
@@ -169,7 +439,7 @@
           </button>
 
           <!-- COLUMN 2: MONETIZATION -->
-          <button class="bay-tab-btn" data-bay="cam-templates">
+          <button class="bay-tab-btn" data-bay="cam-templates" onclick="window.workBaysManager.switchBay('cam-templates')">
             <span class="bay-icon">🛍️</span>
             <div class="bay-btn-info">
               <span class="bay-name">Tip Menu Maker</span>
@@ -178,7 +448,7 @@
             <span class="bay-pill">GRAPHICS</span>
           </button>
 
-          <button class="bay-tab-btn" data-bay="video-factory">
+          <button class="bay-tab-btn" data-bay="video-factory" onclick="window.workBaysManager.switchBay('video-factory')">
             <span class="bay-icon">🎬</span>
             <div class="bay-btn-info">
               <span class="bay-name">Video Factory</span>
@@ -187,16 +457,7 @@
             <span class="bay-pill">60 FPS</span>
           </button>
 
-          <button class="bay-tab-btn" data-bay="etsy-empire">
-            <span class="bay-icon">📦</span>
-            <div class="bay-btn-info">
-              <span class="bay-name">Etsy Empire</span>
-              <span class="bay-sub">Digital Store</span>
-            </div>
-            <span class="bay-pill">PRODUCTS</span>
-          </button>
-
-          <button class="bay-tab-btn" data-bay="photo-bay">
+          <button class="bay-tab-btn" data-bay="photo-bay" onclick="window.workBaysManager.switchBay('photo-bay')">
             <span class="bay-icon">📸</span>
             <div class="bay-btn-info">
               <span class="bay-name">Photo Retouch</span>
@@ -205,7 +466,7 @@
             <span class="bay-pill">SKIN/LUT</span>
           </button>
 
-          <button class="bay-tab-btn" data-bay="marketing-hub">
+          <button class="bay-tab-btn" data-bay="marketing-hub" onclick="window.workBaysManager.switchBay('marketing-hub')">
             <span class="bay-icon">🚀</span>
             <div class="bay-btn-info">
               <span class="bay-name">Omni-Marketing</span>
@@ -214,7 +475,7 @@
             <span class="bay-pill">CAMPAIGNS</span>
           </button>
 
-          <button class="bay-tab-btn" data-bay="inspiration-lab">
+          <button class="bay-tab-btn" data-bay="inspiration-lab" onclick="window.workBaysManager.switchBay('inspiration-lab')">
             <span class="bay-icon">💡</span>
             <div class="bay-btn-info">
               <span class="bay-name">Style & Pose Lab</span>
@@ -223,7 +484,7 @@
             <span class="bay-pill">VISION</span>
           </button>
 
-          <button class="bay-tab-btn" data-bay="newsletter-hub">
+          <button class="bay-tab-btn" data-bay="newsletter-hub" onclick="window.workBaysManager.switchBay('newsletter-hub')">
             <span class="bay-icon">🌿</span>
             <div class="bay-btn-info">
               <span class="bay-name">Newsletters</span>
@@ -232,7 +493,7 @@
             <span class="bay-pill">4 PUBS</span>
           </button>
 
-          <button class="bay-tab-btn" data-bay="completed-work">
+          <button class="bay-tab-btn" data-bay="completed-work" onclick="window.workBaysManager.switchBay('completed-work')">
             <span class="bay-icon">✅</span>
             <div class="bay-btn-info">
               <span class="bay-name">Completed Work</span>
@@ -243,13 +504,22 @@
 
           <div class="nav-col-heading">EXTERNAL FULFILLMENT</div>
 
-          <button class="bay-tab-btn" data-bay="fiverr-bot" style="grid-column: span 2;">
+          <button class="bay-tab-btn" data-bay="fiverr-bot" onclick="window.workBaysManager.switchBay('fiverr-bot')">
             <span class="bay-icon">💼</span>
             <div class="bay-btn-info">
-              <span class="bay-name">Fiverr Automation Bot & 3 Live Gigs</span>
-              <span class="bay-sub">Retouching ($20+) • Video Reels ($30+) • Tip Menus ($20+)</span>
+              <span class="bay-name">Fiverr Automation</span>
+              <span class="bay-sub">Live Orders & Gigs</span>
             </div>
-            <span class="bay-pill" style="background: rgba(6, 214, 160, 0.2); color: #06d6a0;">LIVE FLYWHEEL</span>
+            <span class="bay-pill" id="fiverr-nav-badge" style="background: rgba(6, 214, 160, 0.2); color: #06d6a0;">LIVE</span>
+          </button>
+
+          <button class="bay-tab-btn" data-bay="etsy-empire" onclick="window.workBaysManager.switchBay('etsy-empire')">
+            <span class="bay-icon">🛍️</span>
+            <div class="bay-btn-info">
+              <span class="bay-name">Etsy Store & Orders</span>
+              <span class="bay-sub">Live Orders & Bundles</span>
+            </div>
+            <span class="bay-pill" id="etsy-nav-badge" style="background: rgba(255, 209, 102, 0.2); color: #ffd166;">LIVE</span>
           </button>
         </nav>
 
@@ -442,99 +712,204 @@
       </div>
 
       <!-- Conduits & Energy Lines Background (Animated SVG) -->
+      <!-- Conduits & Energy Lines Background (Animated SVG) -->
       <div class="islands-svg-conduits">
-        <svg width="100%" height="100%" viewBox="0 0 1200 600" preserveAspectRatio="none">
+        <svg width="100%" height="100%" viewBox="0 0 1200 700" preserveAspectRatio="none">
           <defs>
             <linearGradient id="grad-conduit-cyan" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stop-color="#00f2fe" stop-opacity="0.8"/>
+              <stop offset="0%" stop-color="#00f2fe" stop-opacity="0.75"/>
+              <stop offset="50%" stop-color="#e072f0" stop-opacity="0.45"/>
               <stop offset="100%" stop-color="#4facfe" stop-opacity="0.1"/>
             </linearGradient>
             <linearGradient id="grad-conduit-rose" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stop-color="#f72585" stop-opacity="0.8"/>
+              <stop offset="0%" stop-color="#f72585" stop-opacity="0.75"/>
+              <stop offset="50%" stop-color="#a855f7" stop-opacity="0.45"/>
               <stop offset="100%" stop-color="#7209b7" stop-opacity="0.1"/>
             </linearGradient>
+            <linearGradient id="grad-conduit-gold" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#ffd166" stop-opacity="0.75"/>
+              <stop offset="50%" stop-color="#10b981" stop-opacity="0.45"/>
+              <stop offset="100%" stop-color="#06d6a0" stop-opacity="0.1"/>
+            </linearGradient>
           </defs>
-          <!-- Flowing Network Lines -->
-          <path class="conduit-line line-1" d="M 600 50 Q 300 150 200 240" stroke="url(#grad-conduit-cyan)" stroke-width="2" fill="none"/>
-          <path class="conduit-line line-2" d="M 600 50 Q 600 180 600 240" stroke="url(#grad-conduit-cyan)" stroke-width="2" fill="none"/>
-          <path class="conduit-line line-3" d="M 600 50 Q 900 150 1000 240" stroke="url(#grad-conduit-cyan)" stroke-width="2" fill="none"/>
-          <path class="conduit-line line-4" d="M 200 350 Q 300 480 200 520" stroke="url(#grad-conduit-rose)" stroke-width="2" fill="none"/>
-          <path class="conduit-line line-5" d="M 600 350 Q 600 480 600 520" stroke="url(#grad-conduit-rose)" stroke-width="2" fill="none"/>
-          <path class="conduit-line line-6" d="M 1000 350 Q 900 480 1000 520" stroke="url(#grad-conduit-rose)" stroke-width="2" fill="none"/>
+          <!-- Flowing Network Ambient Lines -->
+          <path class="conduit-line line-1" d="M 600 117 Q 320 220 100 198" stroke="url(#grad-conduit-cyan)" stroke-width="2" fill="none"/>
+          <path class="conduit-line line-2" d="M 600 117 Q 880 220 1100 198" stroke="url(#grad-conduit-cyan)" stroke-width="2" fill="none"/>
+          <path class="conduit-line line-3" d="M 100 492 Q 320 420 600 583" stroke="url(#grad-conduit-rose)" stroke-width="2" fill="none"/>
+          <path class="conduit-line line-4" d="M 1100 492 Q 880 420 600 583" stroke="url(#grad-conduit-rose)" stroke-width="2" fill="none"/>
+          <path class="conduit-line line-5" d="M 320 130 Q 600 280 880 570" stroke="url(#grad-conduit-gold)" stroke-width="1.5" fill="none"/>
+          <path class="conduit-line line-6" d="M 880 130 Q 600 280 320 570" stroke="url(#grad-conduit-gold)" stroke-width="1.5" fill="none"/>
         </svg>
       </div>
 
-                        <!-- ==================================================================
+      <!-- ==================================================================
            3D MOLECULAR CHEMICAL COMPOUND ARCHIPELAGO
            ================================================================== -->
-                  <div class="chemical-compound-container">
+      <div class="chemical-compound-container">
 
-        <!-- 3D Metallic Pipes, Neon Bonds & Draped Wires SVG Overlay -->
-        <svg class="chemical-network-svg" viewBox="0 0 1000 600" preserveAspectRatio="none">
+        <!-- LIVING NEURAL SYNAPSE NETWORK (10-AGENT COLLABORATION FIELD) -->
+        <svg class="chemical-network-svg" viewBox="0 0 1200 700" preserveAspectRatio="none">
           <defs>
-            <filter id="neon-glow" x="-20%" y="-20%" width="140%" height="140%">
+            <filter id="synapse-glow" x="-30%" y="-30%" width="160%" height="160%">
               <feGaussianBlur stdDeviation="4" result="blur" />
               <feMerge>
                 <feMergeNode in="blur" />
                 <feMergeNode in="SourceGraphic" />
               </feMerge>
             </filter>
+            <radialGradient id="reactor-aura-glow" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stop-color="#00f2fe" stop-opacity="0.35"/>
+              <stop offset="50%" stop-color="#00f2fe" stop-opacity="0.08"/>
+              <stop offset="100%" stop-color="#00f2fe" stop-opacity="0"/>
+            </radialGradient>
           </defs>
 
-          <!-- 1. STEEL CASING PIPELINES (Octagonal Ring) -->
-          <g>
-            <path d="M 370 70 L 630 70" class="chem-pipe-steel" />
-            <path d="M 630 70 L 880 180" class="chem-pipe-steel" />
-            <path d="M 880 180 L 880 440" class="chem-pipe-steel" />
-            <path d="M 880 440 L 630 540" class="chem-pipe-steel" />
-            <path d="M 630 540 L 370 540" class="chem-pipe-steel" />
-            <path d="M 370 540 L 120 440" class="chem-pipe-steel" />
-            <path d="M 120 440 L 120 180" class="chem-pipe-steel" />
-            <path d="M 120 180 L 370 70" class="chem-pipe-steel" />
+          <!-- Central Core Reactor Ambient Glow Aura -->
+          <circle cx="600" cy="350" r="145" fill="url(#reactor-aura-glow)" />
 
-            <!-- Radial Spokes to Central Reactor -->
-            <path d="M 500 310 L 370 70" class="chem-radial-pipe" />
-            <path d="M 500 310 L 630 70" class="chem-radial-pipe" />
-            <path d="M 500 310 L 880 180" class="chem-radial-pipe" />
-            <path d="M 500 310 L 880 440" class="chem-radial-pipe" />
-            <path d="M 500 310 L 630 540" class="chem-radial-pipe" />
-            <path d="M 500 310 L 370 540" class="chem-radial-pipe" />
-            <path d="M 500 310 L 120 440" class="chem-radial-pipe" />
-            <path d="M 500 310 L 120 180" class="chem-radial-pipe" />
+          <!-- 1. SMOOTH ORGANIC CURVED CONDUITS (Subtle Synapse Channels) -->
+          <g class="synapse-pathways-base">
+            <!-- Perimeter Arch Pathways -->
+            <path d="M 320 130 Q 460 100 600 117" class="synapse-conduit-curve" />
+            <path d="M 600 117 Q 740 100 880 130" class="synapse-conduit-curve" />
+            <path d="M 880 130 Q 1020 145 1100 198" class="synapse-conduit-curve" />
+            <path d="M 1100 198 Q 1135 345 1100 492" class="synapse-conduit-curve" />
+            <path d="M 1100 492 Q 1020 545 880 570" class="synapse-conduit-curve" />
+            <path d="M 880 570 Q 740 595 600 583" class="synapse-conduit-curve" />
+            <path d="M 600 583 Q 460 595 320 570" class="synapse-conduit-curve" />
+            <path d="M 320 570 Q 180 545 100 492" class="synapse-conduit-curve" />
+            <path d="M 100 492 Q 65 345 100 198" class="synapse-conduit-curve" />
+            <path d="M 100 198 Q 180 145 320 130" class="synapse-conduit-curve" />
+
+            <!-- Radial Spokes to Central Reactor Core (600, 350) -->
+            <path d="M 600 350 Q 600 230 600 117" class="synapse-radial-curve" />
+            <path d="M 600 350 Q 450 250 320 130" class="synapse-radial-curve" />
+            <path d="M 600 350 Q 750 250 880 130" class="synapse-radial-curve" />
+            <path d="M 600 350 Q 330 280 100 198" class="synapse-radial-curve" />
+            <path d="M 600 350 Q 870 280 1100 198" class="synapse-radial-curve" />
+            <path d="M 600 350 Q 330 420 100 492" class="synapse-radial-curve" />
+            <path d="M 600 350 Q 870 420 1100 492" class="synapse-radial-curve" />
+            <path d="M 600 350 Q 450 450 320 570" class="synapse-radial-curve" />
+            <path d="M 600 350 Q 750 450 880 570" class="synapse-radial-curve" />
+            <path d="M 600 350 Q 600 470 600 583" class="synapse-radial-curve" />
           </g>
 
-          <!-- 2. HIGH-VOLTAGE NEON PLASMA CORES (Color-coded) -->
-          <g>
-            <path d="M 370 70 L 630 70" class="chem-neon-pulse cyan" />
-            <path d="M 630 70 L 880 180" class="chem-neon-pulse rose" />
-            <path d="M 880 180 L 880 440" class="chem-neon-pulse cyan" />
-            <path d="M 880 440 L 630 540" class="chem-neon-pulse gold" />
-            <path d="M 630 540 L 370 540" class="chem-neon-pulse green" />
-            <path d="M 370 540 L 120 440" class="chem-neon-pulse purple" />
-            <path d="M 120 440 L 120 180" class="chem-neon-pulse cyan" />
-            <path d="M 120 180 L 370 70" class="chem-neon-pulse cyan" />
+          <!-- 2. HIGH-VOLTAGE MOVING NEON PLASMA STREAMS -->
+          <g class="chem-neon-pulse-layer">
+            <!-- Perimeter Moving Laser Currents -->
+            <path d="M 320 130 Q 460 100 600 117" class="chem-neon-pulse cyan" />
+            <path d="M 600 117 Q 740 100 880 130" class="chem-neon-pulse magenta" />
+            <path d="M 880 130 Q 1020 145 1100 198" class="chem-neon-pulse rose" />
+            <path d="M 1100 198 Q 1135 345 1100 492" class="chem-neon-pulse gold" />
+            <path d="M 1100 492 Q 1020 545 880 570" class="chem-neon-pulse purple" />
+            <path d="M 880 570 Q 740 595 600 583" class="chem-neon-pulse green" />
+            <path d="M 600 583 Q 460 595 320 570" class="chem-neon-pulse red" />
+            <path d="M 320 570 Q 180 545 100 492" class="chem-neon-pulse emerald" />
+            <path d="M 100 492 Q 65 345 100 198" class="chem-neon-pulse violet" />
+            <path d="M 100 198 Q 180 145 320 130" class="chem-neon-pulse blue" />
 
-            <!-- Radial Laser Bonds -->
-            <path d="M 500 310 L 370 70" class="chem-neon-pulse cyan" />
-            <path d="M 500 310 L 630 70" class="chem-neon-pulse rose" />
-            <path d="M 500 310 L 880 180" class="chem-neon-pulse cyan" />
-            <path d="M 500 310 L 880 440" class="chem-neon-pulse cyan" />
-            <path d="M 500 310 L 630 540" class="chem-neon-pulse gold" />
-            <path d="M 500 310 L 370 540" class="chem-neon-pulse green" />
-            <path d="M 500 310 L 120 440" class="chem-neon-pulse purple" />
-            <path d="M 500 310 L 120 180" class="chem-neon-pulse cyan" />
+            <!-- Radial Power Beams Connecting Central Core To All 10 Stations -->
+            <path d="M 600 350 Q 600 230 600 117" class="chem-radial-laser chem-neon-pulse magenta" />
+            <path d="M 600 350 Q 450 250 320 130" class="chem-radial-laser chem-neon-pulse cyan" />
+            <path d="M 600 350 Q 750 250 880 130" class="chem-radial-laser chem-neon-pulse rose" />
+            <path d="M 600 350 Q 330 280 100 198" class="chem-radial-laser chem-neon-pulse blue" />
+            <path d="M 600 350 Q 870 280 1100 198" class="chem-radial-laser chem-neon-pulse gold" />
+            <path d="M 600 350 Q 330 420 100 492" class="chem-radial-laser chem-neon-pulse violet reverse" />
+            <path d="M 600 350 Q 870 420 1100 492" class="chem-radial-laser chem-neon-pulse purple reverse" />
+            <path d="M 600 350 Q 450 450 320 570" class="chem-radial-laser chem-neon-pulse emerald reverse" />
+            <path d="M 600 350 Q 750 450 880 570" class="chem-radial-laser chem-neon-pulse green reverse" />
+            <path d="M 600 350 Q 600 470 600 583" class="chem-radial-laser chem-neon-pulse red reverse" />
           </g>
 
-          <circle cx="370" cy="70" r="7" class="chem-flange" />
-          <circle cx="630" cy="70" r="7" class="chem-flange" />
-          <circle cx="880" cy="180" r="7" class="chem-flange" />
-          <circle cx="880" cy="440" r="7" class="chem-flange" />
-          <circle cx="630" cy="540" r="7" class="chem-flange" />
-          <circle cx="370" cy="540" r="7" class="chem-flange" />
-          <circle cx="120" cy="440" r="7" class="chem-flange" />
-          <circle cx="120" cy="180" r="7" class="chem-flange" />
-          <circle cx="500" cy="310" r="10" class="chem-flange core" />
+          <!-- 3. TRAVELING SYNAPSE PHOTONS / DATA PACKETS (Showing Real-Time Teamwork & Data Flow) -->
+          <g class="synapse-traveling-photons">
+            <!-- Perimeter Collaboration Sparks (Station-to-Station Handoffs) -->
+            <circle r="4.5" fill="#00f2fe" filter="url(#synapse-glow)">
+              <animateMotion dur="4.2s" repeatCount="indefinite" path="M 320 130 Q 460 100 600 117" />
+            </circle>
+            <circle r="4.5" fill="#e072f0" filter="url(#synapse-glow)">
+              <animateMotion dur="4.5s" repeatCount="indefinite" path="M 600 117 Q 740 100 880 130" />
+            </circle>
+            <circle r="4.5" fill="#f72585" filter="url(#synapse-glow)">
+              <animateMotion dur="4.0s" repeatCount="indefinite" path="M 880 130 Q 1020 145 1100 198" />
+            </circle>
+            <circle r="4.5" fill="#ffd166" filter="url(#synapse-glow)">
+              <animateMotion dur="4.8s" repeatCount="indefinite" path="M 1100 198 Q 1135 345 1100 492" />
+            </circle>
+            <circle r="4.5" fill="#c77dff" filter="url(#synapse-glow)">
+              <animateMotion dur="4.4s" repeatCount="indefinite" path="M 1100 492 Q 1020 545 880 570" />
+            </circle>
+            <circle r="4.5" fill="#06d6a0" filter="url(#synapse-glow)">
+              <animateMotion dur="4.1s" repeatCount="indefinite" path="M 880 570 Q 740 595 600 583" />
+            </circle>
+            <circle r="4.5" fill="#ef4444" filter="url(#synapse-glow)">
+              <animateMotion dur="4.6s" repeatCount="indefinite" path="M 600 583 Q 460 595 320 570" />
+            </circle>
+            <circle r="4.5" fill="#10b981" filter="url(#synapse-glow)">
+              <animateMotion dur="4.3s" repeatCount="indefinite" path="M 320 570 Q 180 545 100 492" />
+            </circle>
+            <circle r="4.5" fill="#a855f7" filter="url(#synapse-glow)">
+              <animateMotion dur="4.7s" repeatCount="indefinite" path="M 100 492 Q 65 345 100 198" />
+            </circle>
+            <circle r="4.5" fill="#4cc9f0" filter="url(#synapse-glow)">
+              <animateMotion dur="4.0s" repeatCount="indefinite" path="M 100 198 Q 180 145 320 130" />
+            </circle>
+
+            <!-- Radial Core-to-Station Compute Synapse Packets -->
+            <circle r="4" fill="#00f2fe" filter="url(#synapse-glow)">
+              <animateMotion dur="3.2s" repeatCount="indefinite" path="M 600 350 Q 450 250 320 130" />
+            </circle>
+            <circle r="4" fill="#e072f0" filter="url(#synapse-glow)">
+              <animateMotion dur="3.5s" repeatCount="indefinite" path="M 600 350 Q 600 230 600 117" />
+            </circle>
+            <circle r="4" fill="#f72585" filter="url(#synapse-glow)">
+              <animateMotion dur="3.1s" repeatCount="indefinite" path="M 600 350 Q 750 250 880 130" />
+            </circle>
+            <circle r="4" fill="#ffd166" filter="url(#synapse-glow)">
+              <animateMotion dur="3.4s" repeatCount="indefinite" path="M 600 350 Q 870 280 1100 198" />
+            </circle>
+            <circle r="4" fill="#4cc9f0" filter="url(#synapse-glow)">
+              <animateMotion dur="3.3s" repeatCount="indefinite" path="M 600 350 Q 330 280 100 198" />
+            </circle>
+            <circle r="4" fill="#a855f7" filter="url(#synapse-glow)">
+              <animateMotion dur="3.6s" repeatCount="indefinite" path="M 100 492 Q 330 420 600 350" />
+            </circle>
+            <circle r="4" fill="#c77dff" filter="url(#synapse-glow)">
+              <animateMotion dur="3.2s" repeatCount="indefinite" path="M 1100 492 Q 870 420 600 350" />
+            </circle>
+            <circle r="4" fill="#10b981" filter="url(#synapse-glow)">
+              <animateMotion dur="3.4s" repeatCount="indefinite" path="M 320 570 Q 450 450 600 350" />
+            </circle>
+            <circle r="4" fill="#06d6a0" filter="url(#synapse-glow)">
+              <animateMotion dur="3.7s" repeatCount="indefinite" path="M 880 570 Q 750 450 600 350" />
+            </circle>
+            <circle r="4" fill="#ef4444" filter="url(#synapse-glow)">
+              <animateMotion dur="3.3s" repeatCount="indefinite" path="M 600 583 Q 600 470 600 350" />
+            </circle>
+          </g>
+
+          <!-- 4. STATION SYNAPSE BEACONS -->
+          <circle cx="600" cy="117" r="7" class="chem-flange" style="stroke: #e072f0; filter: drop-shadow(0 0 8px #e072f0);" />
+          <circle cx="320" cy="130" r="7" class="chem-flange" style="stroke: #00f2fe; filter: drop-shadow(0 0 8px #00f2fe);" />
+          <circle cx="880" cy="130" r="7" class="chem-flange" style="stroke: #f72585; filter: drop-shadow(0 0 8px #f72585);" />
+          <circle cx="100" cy="198" r="7" class="chem-flange" style="stroke: #4cc9f0; filter: drop-shadow(0 0 8px #4cc9f0);" />
+          <circle cx="1100" cy="198" r="7" class="chem-flange" style="stroke: #ffd166; filter: drop-shadow(0 0 8px #ffd166);" />
+          <circle cx="100" cy="492" r="7" class="chem-flange" style="stroke: #a855f7; filter: drop-shadow(0 0 8px #a855f7);" />
+          <circle cx="1100" cy="492" r="7" class="chem-flange" style="stroke: #c77dff; filter: drop-shadow(0 0 8px #c77dff);" />
+          <circle cx="320" cy="570" r="7" class="chem-flange" style="stroke: #10b981; filter: drop-shadow(0 0 8px #10b981);" />
+          <circle cx="880" cy="570" r="7" class="chem-flange" style="stroke: #06d6a0; filter: drop-shadow(0 0 8px #06d6a0);" />
+          <circle cx="600" cy="583" r="7" class="chem-flange" style="stroke: #ef4444; filter: drop-shadow(0 0 8px #ef4444);" />
+
+          <!-- Center Reactor Core Connector Hub Flange -->
+          <circle cx="600" cy="350" r="14" class="chem-flange core" />
         </svg>
+
+        <!-- Central Neural Pulse Resonance Waves (Expanding Teamwork Radar Waves) -->
+        <div class="neural-synapse-field">
+          <div class="neural-pulse-wave wave-1"></div>
+          <div class="neural-pulse-wave wave-2"></div>
+          <div class="neural-pulse-wave wave-3"></div>
+        </div>
 
         <!-- CENTRAL MOLECULAR NUCLEUS (Dual RTX 3060 Reactor) -->
         <div class="molecular-nucleus-core" title="Central Neural Nucleus — Dual RTX 3060">
@@ -718,7 +1093,7 @@
           <div class="atom-valence-aura"></div>
 
           <!-- Hover Pop-Out Dossier Card -->
-          <div class="atom-dossier-popout popout-right dossier-etsy">
+          <div class="atom-dossier-popout popout-left dossier-etsy">
             <div class="dossier-header-bar">
               <div class="dossier-title-box">
                 <span class="dossier-elem-tag">[79 Au]</span>
@@ -729,10 +1104,10 @@
             <div class="dossier-role-title">Digital Asset Vault Master</div>
             <div class="dossier-divider"></div>
             <ul class="dossier-specs-list">
-              <li><span>📦</span> 100% Passive instant digital download delivery</li>
-              <li><span>🎨</span> 5 Genuine Lightroom .XMP presets (desktop & mobile)</li>
-              <li><span>📖</span> 50 Boudoir Posing Guide Cards lookbook</li>
+              <li><span>👑</span> 7 Active automated Etsy digital product listings</li>
+              <li><span>🎨</span> 5 Lightroom presets, 7 3D LUTs & 50 Posing cards</li>
               <li><span>📑</span> Model Release & 18 U.S.C. 2257 compliance contracts</li>
+              <li><span>📖</span> FLUX.1/Midjourney Prompt Bible & Master Studio Bundle</li>
             </ul>
             <div class="dossier-action-footer">
               <span>👑 CLICK TO DEPLOY ETSY EMPIRE &rarr;</span></div>
@@ -798,7 +1173,7 @@
           <div class="atom-valence-aura"></div>
 
           <!-- Hover Pop-Out Dossier Card -->
-          <div class="atom-dossier-popout popout-left dossier-marketing">
+          <div class="atom-dossier-popout popout-right dossier-marketing">
             <div class="dossier-header-bar">
               <div class="dossier-title-box">
                 <span class="dossier-elem-tag">[80 Hg]</span>
@@ -838,7 +1213,7 @@
           <div class="atom-valence-aura"></div>
 
           <!-- Hover Pop-Out Dossier Card -->
-          <div class="atom-dossier-popout popout-left dossier-newsletter">
+          <div class="atom-dossier-popout popout-right dossier-newsletter">
             <div class="dossier-header-bar">
               <div class="dossier-title-box">
                 <span class="dossier-elem-tag">[33 As]</span>
@@ -957,7 +1332,7 @@
       <div class="islands-bottom-ticker">
         <span class="ticker-pulse-dot"></span>
         <span class="ticker-text">
-          Six specialized operational centers operating locally and air-gapped on your private GPUs &bull; Click any node to deploy into its specialized production chamber.
+          Ten specialized autonomous agent stations operating locally and air-gapped on your private GPUs &bull; Click any node to deploy into its specialized production chamber.
         </span>
         <span class="ticker-brand">CreatorMediaLab Studio</span>
       </div>
@@ -1356,6 +1731,29 @@
             <div class="chamber-machinery">
               <span style="font-size: 14px;">✒️</span>
               <span class="chamber-activity-meter" style="color: #ef4444;">DAILY EDITORIAL ENGINE</span>
+            </div>
+          </div>
+
+          <!-- 10: MUSE [34 Se] -->
+          <div class="factory-chamber chamber-muse" id="chamber-muse" data-character="muse" onclick="window.workBaysManager.switchBay('photo-bay')">
+            <div class="chamber-header-bar">
+              <span class="chamber-badge" style="color: #e072f0; border-color: rgba(224,114,240,0.4);">[34 Se] PROMPT</span>
+              <span class="chamber-status-light" style="background: #e072f0; box-shadow: 0 0 10px #e072f0;"></span>
+            </div>
+            <div class="chamber-card-titles">
+              <span class="chamber-agent-name">MUSE</span>
+              <span class="chamber-role-title">AI Image/Video Prompt Engineer</span>
+            </div>
+            <div class="factory-avatar-3d-box" data-character="muse">
+              <img src="/static/img/characters_3d/muse_rig_char.png?v=20261007_v4" alt="Muse" class="atom-character-live char-motion-muse" style="width: 100%; height: 100%; object-fit: contain; pointer-events: none;" />
+              <model-viewer class="atom-character-glb" data-character="muse" animation-name="Idle" autoplay camera-controls disable-zoom style="width: 100%; height: 100%; display: none;"></model-viewer>
+            </div>
+            <div class="chamber-machinery">
+              <span style="font-size: 14px;">🪄</span>
+              <span class="chamber-activity-meter" style="color: #e072f0;">FLUX / WAN PROMPT ENGINE</span>
+            </div>
+            <div class="chamber-card-footer">
+              <button type="button" class="btn-card-3d-toggle" onclick="event.stopPropagation(); window.character3dEngine.toggleGlbViewer('muse');">🧊 3D</button>
             </div>
           </div>
 
@@ -1945,12 +2343,33 @@
         </h3>
         <div style="font-size: 12px; color: var(--text-muted); line-height: 1.5;">
           Etsy is a multi-million dollar marketplace for digital tools used by adult performers, glamour models, and boudoir photographers. 
-          Etsy handles 100% automated instant file delivery upon payment. WORKHORSE automatically generates the presets, contracts, 50 posing cards, promo graphics, and listing metadata!
+          Etsy handles 100% automated instant file delivery upon payment. WORKHORSE automatically generates the presets, legal contracts, 50 posing cards, promo graphics, cinematic 3D LUTs, AI prompt bible, and listing metadata!
         </div>
       </div>
       <button class="btn-cyber" onclick="window.workBaysManager.openEtsyFolder()" style="padding: 6px 14px; font-size: 11px; border-color: var(--amber-warm); color: var(--amber-warm); flex-shrink: 0; margin-left: 16px;">
         📂 Open Etsy Bundles Folder
       </button>
+    </div>
+
+    <!-- Live Etsy Incoming Orders Queue (Auto-Updating) -->
+    <div class="glass-panel" style="padding: 16px 20px; margin-bottom: 20px; border-color: rgba(255, 209, 102, 0.35);">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span class="pulse-dot" style="background: #ffd166;"></span>
+          <h3 style="font-size: 14px; font-weight: 800; color: #fff; text-transform: uppercase; margin: 0;">
+            📦 Live Incoming Etsy Orders Queue
+          </h3>
+          <span class="bay-pill" id="etsy-orders-count-pill" style="color: #ffd166; border-color: #ffd166;">0 Orders</span>
+        </div>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <span style="font-size: 10px; color: var(--text-dim); font-family: var(--font-mono);">Auto-updating (15s)</span>
+          <button class="btn-cyber" onclick="window.workBaysManager.syncOrderInbox()" style="padding: 4px 10px; font-size: 10.5px; border-color: #ffd166; color: #ffd166;" title="Scan digitalcreatorassets@gmail.com IMAP for new Etsy order emails">🔄 Sync Inbox</button>
+          <button class="btn-cyber" onclick="window.workBaysManager.simulateEtsyOrder()" style="padding: 4px 10px; font-size: 10.5px; border-color: var(--cyan-glow); color: var(--cyan-glow);" title="Inject a simulated test Etsy order to test the pipeline">⚡ Simulate Test Order</button>
+        </div>
+      </div>
+      <div id="etsy-live-orders-container" style="display: flex; flex-direction: column; gap: 8px; max-height: 260px; overflow-y: auto;">
+        <div style="text-align: center; color: var(--text-dim); font-size: 11px; padding: 15px;">Scanning for incoming Etsy orders...</div>
+      </div>
     </div>
 
     <div class="bay-2col-grid">
@@ -2023,19 +2442,51 @@
             </button>
           </div>
 
+          <!-- Product 5: Cinematic 3D LUTs -->
+          <div class="etsy-card">
+            <div>
+              <div class="etsy-card-header">
+                <div class="etsy-card-title">🎬 Cinematic 3D LUT Video Pack (.cube)</div>
+                <span class="etsy-price-badge">$14.99</span>
+              </div>
+              <div class="etsy-card-desc">
+                7 Genuine .cube LUT matrices (Kodak Portra 400, Cinestill 800T, Teal & Orange, Provia 100F, Golden Hour, B&W Noir, Cyber Neon) for Premiere, DaVinci, CapCut & OBS.
+              </div>
+            </div>
+            <button class="btn-cyber" onclick="window.workBaysManager.bundleEtsy('luts')" style="width: 100%; justify-content: center; font-size: 11px; padding: 8px; border-color: var(--amber-warm); color: var(--amber-warm);">
+              📦 Bundle 3D LUTs ZIP
+            </button>
+          </div>
+
+          <!-- Product 6: Prompt Engineering Bible -->
+          <div class="etsy-card">
+            <div>
+              <div class="etsy-card-header">
+                <div class="etsy-card-title">📖 FLUX.1 & Midjourney Prompt Bible</div>
+                <span class="etsy-price-badge">$17.99</span>
+              </div>
+              <div class="etsy-card-desc">
+                150+ Master Prompts with dark-mode interactive HTML lookbook, 1-click copy buttons, lens formulas (24mm-105mm), and studio lighting diagrams for photorealism.
+              </div>
+            </div>
+            <button class="btn-cyber" onclick="window.workBaysManager.bundleEtsy('prompts')" style="width: 100%; justify-content: center; font-size: 11px; padding: 8px; border-color: var(--amber-warm); color: var(--amber-warm);">
+              📦 Bundle Prompt Bible ZIP
+            </button>
+          </div>
+
         </div>
 
-        <!-- Master Empire Bundle Card -->
+        <!-- Master Empire Bundle Card (Product 7) -->
         <div class="glass-panel" style="padding: 20px; border-color: var(--amber-warm); background: linear-gradient(135deg, rgba(255,209,102,0.1), rgba(14,21,38,0.9));">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
             <div>
               <h4 style="font-size: 16px; font-weight: 800; color: #fff; margin: 0;">👑 Complete Creator Studio Digital Empire Bundle</h4>
-              <div style="font-size: 12px; color: var(--amber-warm); margin-top: 2px;">Includes all 4 product lines in one mega-bundle for maximum Etsy revenue</div>
+              <div style="font-size: 12px; color: var(--amber-warm); margin-top: 2px;">Includes all 6 digital product lines in one mega-bundle for maximum Etsy revenue</div>
             </div>
             <span class="etsy-price-badge" style="font-size: 13px; padding: 4px 12px;">$49.99</span>
           </div>
           <button class="btn-launch-run" onclick="window.workBaysManager.bundleEtsy('all')" style="width: 100%; justify-content: center; padding: 12px; font-size: 13px; background: linear-gradient(135deg, #ffd166, #f72585); box-shadow: 0 0 25px rgba(255,209,102,0.35);">
-            ⚡ Generate Complete Master Digital Empire ZIP
+            ⚡ Generate Complete Master Digital Empire ZIP (All 6 Packs)
           </button>
           <div id="etsy-bundle-status" style="font-size: 11px; color: var(--amber-warm); font-family: var(--font-mono); margin-top: 10px; text-align: center;"></div>
         </div>
@@ -2079,36 +2530,58 @@
       </button>
     </div>
 
-    <!-- 4 High-Demand Gig Selector Cards -->
+    <!-- Live Fiverr Incoming Orders Queue (Auto-Updating) -->
+    <div class="glass-panel" style="padding: 16px 20px; margin-bottom: 20px; border-color: rgba(6, 214, 160, 0.35);">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span class="pulse-dot" style="background: #06d6a0;"></span>
+          <h3 style="font-size: 14px; font-weight: 800; color: #fff; text-transform: uppercase; margin: 0;">
+            💼 Live Incoming Fiverr Orders Queue
+          </h3>
+          <span class="bay-pill" id="fiverr-orders-count-pill" style="color: #06d6a0; border-color: #06d6a0;">0 Orders</span>
+        </div>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <span style="font-size: 10px; color: var(--text-dim); font-family: var(--font-mono);">Auto-updating (15s)</span>
+          <button class="btn-cyber" onclick="window.workBaysManager.syncOrderInbox()" style="padding: 4px 10px; font-size: 10.5px; border-color: #06d6a0; color: #06d6a0;" title="Scan digitalcreatorassets@gmail.com IMAP for new Fiverr order emails">🔄 Sync Inbox</button>
+          <button class="btn-cyber" onclick="window.workBaysManager.simulateFiverrOrder()" style="padding: 4px 10px; font-size: 10.5px; border-color: var(--cyan-glow); color: var(--cyan-glow);" title="Inject a simulated test Fiverr order to test the pipeline">⚡ Simulate Test Order</button>
+        </div>
+      </div>
+      <div id="fiverr-live-orders-container" style="display: flex; flex-direction: column; gap: 8px; max-height: 260px; overflow-y: auto;">
+        <div style="text-align: center; color: var(--text-dim); font-size: 11px; padding: 15px;">Scanning for incoming Fiverr orders...</div>
+      </div>
+    </div>
+
+    <!-- 4 High-Demand Gig Selector Cards (Current 4-Gig Powerhouse Lineup) -->
     <div class="fiverr-gigs-grid">
-      <div class="fiverr-gig-card active" id="fiverr-card-gig_retouch" onclick="window.workBaysManager.selectFiverrGig('gig_retouch')">
-        <div style="font-size: 20px; margin-bottom: 4px;">🎨</div>
-        <div style="font-size: 12px; font-weight: 800; color: #fff; margin-bottom: 4px;">Photo Retouch & Color Grade</div>
-        <div style="font-size: 10px; color: var(--text-muted);">Skin smoothing + 5 color grades + 4:5 & 9:16 crops</div>
-        <div style="font-size: 11px; color: var(--green-neon); font-weight: bold; margin-top: 6px;">$15 - $75 / Order</div>
+      <div class="fiverr-gig-card active" id="fiverr-card-gig_photo_to_3d" onclick="window.workBaysManager.selectFiverrGig('gig_photo_to_3d')">
+        <div style="font-size: 20px; margin-bottom: 4px;">🧊</div>
+        <div style="font-size: 12px; font-weight: 800; color: #fff; margin-bottom: 4px;">Photo to 3D PBR Model Asset</div>
+        <div style="font-size: 10px; color: var(--text-muted);">Trellis.2 GLB mesh + 4K PBR textures + 360° turntable</div>
+        <div style="font-size: 11px; color: var(--green-neon); font-weight: bold; margin-top: 6px;">$35 - $150 / Order</div>
       </div>
 
-      <div class="fiverr-gig-card" id="fiverr-card-gig_teaser" onclick="window.workBaysManager.selectFiverrGig('gig_teaser')">
+      <div class="fiverr-gig-card" id="fiverr-card-gig_photo_to_video" onclick="window.workBaysManager.selectFiverrGig('gig_photo_to_video')">
         <div style="font-size: 20px; margin-bottom: 4px;">🎬</div>
-        <div style="font-size: 12px; font-weight: 800; color: #fff; margin-bottom: 4px;">60s Viral Video Teaser & Reels</div>
-        <div style="font-size: 10px; color: var(--text-muted);">NVENC teaser + 9:16 vertical reel + 6 pose stills</div>
-        <div style="font-size: 11px; color: var(--green-neon); font-weight: bold; margin-top: 6px;">$20 - $85 / Order</div>
+        <div style="font-size: 12px; font-weight: 800; color: #fff; margin-bottom: 4px;">4K 60fps Video Loop Animation</div>
+        <div style="font-size: 10px; color: var(--text-muted);">Seamless optical flow motion + 16:9 & 9:16 vertical reels</div>
+        <div style="font-size: 11px; color: var(--green-neon); font-weight: bold; margin-top: 6px;">$30 - $125 / Order</div>
       </div>
 
-      <div class="fiverr-gig-card" id="fiverr-card-gig_copy" onclick="window.workBaysManager.selectFiverrGig('gig_copy')">
-        <div style="font-size: 20px; margin-bottom: 4px;">✍️</div>
-        <div style="font-size: 12px; font-weight: 800; color: #fff; margin-bottom: 4px;">Social Captions & Hashtags</div>
-        <div style="font-size: 10px; color: var(--text-muted);">OnlyFans PPV hooks, IG, X, TikTok + 30 niche tags</div>
-        <div style="font-size: 11px; color: var(--green-neon); font-weight: bold; margin-top: 6px;">$15 - $90 / Order</div>
+      <div class="fiverr-gig-card" id="fiverr-card-gig_relight" onclick="window.workBaysManager.selectFiverrGig('gig_relight')">
+        <div style="font-size: 20px; margin-bottom: 4px;">💡</div>
+        <div style="font-size: 12px; font-weight: 800; color: #fff; margin-bottom: 4px;">Studio Relighting & Backdrops</div>
+        <div style="font-size: 10px; color: var(--text-muted);">Rembrandt key light + golden hour + luxury backdrops</div>
+        <div style="font-size: 11px; color: var(--green-neon); font-weight: bold; margin-top: 6px;">$25 - $95 / Order</div>
       </div>
 
-      <div class="fiverr-gig-card" id="fiverr-card-gig_banner" onclick="window.workBaysManager.selectFiverrGig('gig_banner')">
-        <div style="font-size: 20px; margin-bottom: 4px;">🖼️</div>
-        <div style="font-size: 12px; font-weight: 800; color: #fff; margin-bottom: 4px;">Custom Banners & Tip Menus</div>
-        <div style="font-size: 10px; color: var(--text-muted);">OnlyFans/Fansly banners + OBS stream tip overlay</div>
+      <div class="fiverr-gig-card" id="fiverr-card-gig_retouch" onclick="window.workBaysManager.selectFiverrGig('gig_retouch')">
+        <div style="font-size: 20px; margin-bottom: 4px;">🎨</div>
+        <div style="font-size: 12px; font-weight: 800; color: #fff; margin-bottom: 4px;">Editorial Retouch & Color Grade</div>
+        <div style="font-size: 10px; color: var(--text-muted);">Bilateral pore smoothing + 5 color grades + story crops</div>
         <div style="font-size: 11px; color: var(--green-neon); font-weight: bold; margin-top: 6px;">$20 - $85 / Order</div>
       </div>
     </div>
+
 
     <!-- Active Gig Workspace: Left (Order Fulfiller) & Right (Gig Blueprint) -->
     <div class="bay-2col-grid">
@@ -2349,6 +2822,40 @@
         </div>
       </div>
     </div>
+
+    <!-- AUTONOMOUS MARKET & REVENUE SCOUT (CIPHER & MERCURY) -->
+    <div class="glass-panel" style="margin-top: 24px; padding: 22px; border-color: rgba(0, 242, 254, 0.3); background: rgba(10, 15, 30, 0.75); box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);">
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(0, 242, 254, 0.2); padding-bottom: 14px; margin-bottom: 18px; flex-wrap: wrap; gap: 12px;">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <span style="font-size: 24px; text-shadow: 0 0 16px #00f2fe;">💡</span>
+          <div>
+            <h3 style="margin: 0; font-size: 16px; font-weight: 800; color: #00f2fe; letter-spacing: 0.5px; display: flex; align-items: center; gap: 10px;">
+              Autonomous Market & Revenue Scout
+              <span style="font-size: 11px; padding: 2px 8px; border-radius: 4px; background: rgba(0, 242, 254, 0.15); border: 1px solid #00f2fe; color: #00f2fe; font-weight: 700;">CIPHER [36 Cp] & MERCURY [80 Hg]</span>
+            </h3>
+            <p style="margin: 4px 0 0; font-size: 12px; color: var(--text-dim);">
+              Continuously scouting trending digital products, high-ticket services, and viral growth loops via live web search & LLM synthesis.
+            </p>
+          </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <span id="market-scout-status" style="font-size: 11.5px; color: var(--text-dim); font-family: var(--font-mono);">
+            Last Scout: <span id="market-scout-timestamp" style="color: #4ade80;">Checking...</span>
+          </span>
+          <button id="btn-scout-market" class="btn-cyber" onclick="window.workBaysManager.scoutMarketNow()" style="font-size: 12px; padding: 8px 16px; background: linear-gradient(135deg, rgba(0,242,254,0.25), rgba(168,85,247,0.3)); border-color: #00f2fe; color: #fff; box-shadow: 0 0 15px rgba(0,242,254,0.3);">
+            ⚡ Run Market Scout
+          </button>
+        </div>
+      </div>
+
+      <!-- Opportunities Grid -->
+      <div id="market-opportunities-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px;">
+        <div style="grid-column: 1 / -1; text-align: center; padding: 30px; color: var(--text-dim); font-size: 13px;">
+          <div class="spinner" style="margin: 0 auto 12px auto;"></div>
+          Connecting to Market Opportunities Vault...
+        </div>
+      </div>
+    </div>
   </div>
 
 
@@ -2527,6 +3034,9 @@
             <button class="btn-cyber" onclick="window.workBaysManager.refreshNewsletterPreview()" style="font-size: 11px; padding: 6px 12px;">
               🔄 Refresh Preview
             </button>
+            <button class="btn-cyber" id="btn-resynth-nl" onclick="window.workBaysManager.regenerateNewsletterFresh()" style="font-size: 11px; padding: 6px 12px; background: rgba(234, 179, 8, 0.2); border-color: #eab308; color: #facc15;" title="Re-synthesize fresh dynamic daily content via Scribe & Qwen LLM">
+              ⚡ Re-Synthesize Fresh
+            </button>
             <button class="btn-cyber" id="btn-copy-nl-thread" onclick="window.workBaysManager.copyTwitterThread()" style="font-size: 11px; padding: 6px 12px; display: none; background: rgba(29,161,242,0.2); border-color: #1da1f2; color: #1da1f2;">
               📋 Copy Thread for X
             </button>
@@ -2597,10 +3107,11 @@
       <!-- Top-level business-line separation: Fiverr / Etsy / Social Media / Synapse
            are never mixed into one pile - each is its own fully separate section. -->
       <div id="completed-work-group-tabs" class="completed-work-group-tabs">
-        <button type="button" class="completed-work-group-btn active" data-group="fiverr" onclick="window.workBaysManager.switchCompletedWorkGroup('fiverr')">💼 Fiverr</button>
+        <button type="button" class="completed-work-group-btn active" data-group="all" onclick="window.workBaysManager.switchCompletedWorkGroup('all')">🌟 All Work</button>
+        <button type="button" class="completed-work-group-btn" data-group="synapse" onclick="window.workBaysManager.switchCompletedWorkGroup('synapse')">🤖 Synapse</button>
+        <button type="button" class="completed-work-group-btn" data-group="fiverr" onclick="window.workBaysManager.switchCompletedWorkGroup('fiverr')">💼 Fiverr</button>
         <button type="button" class="completed-work-group-btn" data-group="etsy" onclick="window.workBaysManager.switchCompletedWorkGroup('etsy')">🛒 Etsy</button>
         <button type="button" class="completed-work-group-btn" data-group="social" onclick="window.workBaysManager.switchCompletedWorkGroup('social')">📱 Social Media</button>
-        <button type="button" class="completed-work-group-btn" data-group="synapse" onclick="window.workBaysManager.switchCompletedWorkGroup('synapse')">🤖 Synapse</button>
       </div>
 
       <div id="completed-work-filters" style="display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px;">
@@ -2630,38 +3141,126 @@
 
         <div class="dock-content">
           
-          <!-- Card 1: 3 Live Fiverr Gigs -->
+          <!-- Card 1: 4 Live Fiverr Gigs (Current Lineup) -->
           <div class="dock-card">
             <div class="dock-card-title">
               <span>💼 LIVE FIVERR GIGS</span>
-              <span style="font-size: 9px; color: #06d6a0;">● 3 ACTIVE</span>
+              <span style="font-size: 9px; color: #06d6a0;">● 4 ACTIVE</span>
             </div>
             <div style="display: flex; flex-direction: column; gap: 6px;">
-              <a href="https://www.fiverr.com/s/GPz71VL" target="_blank" class="fiverr-gig-item" title="Open Photo Retouching Gig">
+              <a href="http://www.fiverr.com/s/Q22vdY2" target="_blank" class="fiverr-gig-item" title="Open Photo to 3D PBR Model Asset Gig">
                 <div class="gig-item-info">
-                  <span class="gig-item-name">🎨 Photo Retouching</span>
-                  <span class="gig-item-price">$20 / $45 / $85 &bull; 1-3 Days</span>
+                  <span class="gig-item-name">🧊 Photo to 3D PBR Model</span>
+                  <span class="gig-item-price">$35 / $75 / $150 &bull; GLB + Turntable</span>
                 </div>
                 <span class="gig-item-link-icon">&rarr;</span>
               </a>
 
-              <a href="http://www.fiverr.com/s/emmRYZm" target="_blank" class="fiverr-gig-item" title="Open Video Teasers & Reels Gig">
+              <a href="http://www.fiverr.com/s/p33Gy6Z" target="_blank" class="fiverr-gig-item" title="Open 4K 60fps Video Loop Animation Gig">
                 <div class="gig-item-info">
-                  <span class="gig-item-name">🎬 Video Reels & Hooks</span>
-                  <span class="gig-item-price">$30 / $65 / $120 &bull; 2-4 Days</span>
+                  <span class="gig-item-name">🎬 4K 60fps Video Loop</span>
+                  <span class="gig-item-price">$30 / $65 / $125 &bull; 16:9 & 9:16</span>
                 </div>
                 <span class="gig-item-link-icon">&rarr;</span>
               </a>
 
-              <a href="http://www.fiverr.com/s/GPPxKB3" target="_blank" class="fiverr-gig-item" title="Open Tip Menus & Branding Gig">
+              <a href="https://www.fiverr.com/creatormedialab" target="_blank" class="fiverr-gig-item" title="Open Studio Relighting & Luxury Backdrops Gig">
                 <div class="gig-item-info">
-                  <span class="gig-item-name">💋 Tip Menus & Branding</span>
-                  <span class="gig-item-price">$20 / $45 / $85 &bull; 1-3 Days</span>
+                  <span class="gig-item-name">💡 Studio Relighting & Backdrops</span>
+                  <span class="gig-item-price">$25 / $50 / $95 &bull; Neural Lighting</span>
                 </div>
                 <span class="gig-item-link-icon">&rarr;</span>
+              </a>
+
+              <a href="https://www.fiverr.com/s/GPz71VL" target="_blank" class="fiverr-gig-item" title="Open Editorial Retouching & Color Grading Gig">
+                <div class="gig-item-info">
+                  <span class="gig-item-name">🎨 Editorial Retouch & Color</span>
+                  <span class="gig-item-price">$20 / $45 / $85 &bull; Pore Retention</span>
+                </div>
+                <span class="gig-item-link-icon">&rarr;</span>
+              </a>
+            </div>
+            <button type="button" class="btn-dock-action" onclick="window.workBaysManager.switchBay('fiverr-bot')" style="margin-top: 6px;">
+              <span>💼 Open Fiverr Bot Bay</span>
+            </button>
+          </div>
+
+          <!-- Card 2: Etsy Digital Store (Multi-Thousand Dollar Workaround) -->
+          <div class="dock-card" style="border-color: rgba(255, 209, 102, 0.28);">
+            <div class="dock-card-title">
+              <span style="color: #ffd166;">👑 ETSY DIGITAL STORE</span>
+              <span style="font-size: 9px; color: #ffd166;">● 7 READY</span>
+            </div>
+            <div style="font-size: 10px; color: #94a3b8; margin-bottom: 2px;">
+              Shop: <a href="https://www.etsy.com/shop/CreatorMediaLab" target="_blank" style="color: #ffd166; font-weight: 700; text-decoration: none;">CreatorMediaLab &rarr;</a>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+              <a href="https://www.etsy.com/shop/CreatorMediaLab" target="_blank" class="etsy-gig-item" title="Boudoir & Glamour 1-Click Mobile & Desktop Presets (.xmp)">
+                <div class="gig-item-info">
+                  <span class="gig-item-name">🎨 Boudoir & Glamour Presets</span>
+                  <span class="gig-item-price" style="color: #ffd166;">$12.99 &bull; 5x .XMP Presets</span>
+                </div>
+                <span class="gig-item-link-icon" style="color: #ffd166;">&rarr;</span>
+              </a>
+
+              <a href="https://www.etsy.com/shop/CreatorMediaLab" target="_blank" class="etsy-gig-item" title="Model Release & 18 U.S.C. 2257 Legal Compliance Templates">
+                <div class="gig-item-info">
+                  <span class="gig-item-name">⚖️ Model Release & 2257 Pack</span>
+                  <span class="gig-item-price" style="color: #ffd166;">$19.99 &bull; Legal Contracts</span>
+                </div>
+                <span class="gig-item-link-icon" style="color: #ffd166;">&rarr;</span>
+              </a>
+
+              <a href="https://www.etsy.com/shop/CreatorMediaLab" target="_blank" class="etsy-gig-item" title="50 Boudoir Posing Guide Cards (Printable & Mobile PDF)">
+                <div class="gig-item-info">
+                  <span class="gig-item-name">📸 50 Boudoir Posing Cards</span>
+                  <span class="gig-item-price" style="color: #ffd166;">$14.99 &bull; Mobile / Print PDF</span>
+                </div>
+                <span class="gig-item-link-icon" style="color: #ffd166;">&rarr;</span>
+              </a>
+
+              <a href="https://www.etsy.com/shop/CreatorMediaLab" target="_blank" class="etsy-gig-item" title="Canva & Social Media Promo Templates for Creators">
+                <div class="gig-item-info">
+                  <span class="gig-item-name">📱 Creator Promo Templates</span>
+                  <span class="gig-item-price" style="color: #ffd166;">$14.99 &bull; Tip Menus & Banners</span>
+                </div>
+                <span class="gig-item-link-icon" style="color: #ffd166;">&rarr;</span>
+              </a>
+
+              <a href="https://www.etsy.com/shop/CreatorMediaLab" target="_blank" class="etsy-gig-item" title="Cinematic 3D LUT Video Pack (.cube for Premiere / DaVinci / CapCut)">
+                <div class="gig-item-info">
+                  <span class="gig-item-name">🎬 Cinematic 3D LUT Pack</span>
+                  <span class="gig-item-price" style="color: #ffd166;">$14.99 &bull; 7x .CUBE LUTs</span>
+                </div>
+                <span class="gig-item-link-icon" style="color: #ffd166;">&rarr;</span>
+              </a>
+
+              <a href="https://www.etsy.com/shop/CreatorMediaLab" target="_blank" class="etsy-gig-item" title="FLUX.1 & Midjourney Photorealistic Prompt Engineering Bible">
+                <div class="gig-item-info">
+                  <span class="gig-item-name">📖 AI Prompt Engineering Bible</span>
+                  <span class="gig-item-price" style="color: #ffd166;">$17.99 &bull; 150+ Master Prompts</span>
+                </div>
+                <span class="gig-item-link-icon" style="color: #ffd166;">&rarr;</span>
+              </a>
+
+              <a href="https://www.etsy.com/shop/CreatorMediaLab" target="_blank" class="etsy-gig-item" title="Complete Creator Studio Digital Empire Bundle (All 6 Products)">
+                <div class="gig-item-info">
+                  <span class="gig-item-name">👑 Master Digital Empire Bundle</span>
+                  <span class="gig-item-price" style="color: #ffd166;">$49.99 &bull; Complete Master Bundle</span>
+                </div>
+                <span class="gig-item-link-icon" style="color: #ffd166;">&rarr;</span>
+              </a>
+            </div>
+            <div style="display: flex; gap: 6px; margin-top: 6px;">
+              <button type="button" class="btn-dock-action" onclick="window.workBaysManager.switchBay('etsy-empire')" style="flex: 1; border-color: rgba(255, 209, 102, 0.4); color: #ffd166;">
+                <span>👑 Open Etsy Bay</span>
+              </button>
+              <a href="https://www.etsy.com/shop/CreatorMediaLab" target="_blank" class="btn-dock-action" style="flex: 1; text-align: center; text-decoration: none; border-color: rgba(255, 209, 102, 0.4); color: #ffd166; display: flex; align-items: center; justify-content: center;">
+                <span>🛒 View Shop</span>
               </a>
             </div>
           </div>
+
 
           <!-- Card 2: Order Radar (47 Ag) -->
           <div class="dock-card">
@@ -2715,7 +3314,7 @@
               <span>Schedule:</span>
               <span class="dock-metric-val" style="font-size: 10px;">Daily 7:00 - 10:00 AM EST</span>
             </div>
-            <button type="button" class="btn-dock-action" onclick="window.workhorseBays.switchBay('newsletter-hub')">
+            <button type="button" class="btn-dock-action" onclick="window.workBaysManager.switchBay('newsletter-hub')">
               <span>🌿 Open Newsletters Bay</span>
             </button>
           </div>
@@ -3024,14 +3623,14 @@
     </div>
   </div>
 
-  <script src="/static/js/agents.js"></script>
-  <script src="/static/js/factory.js"></script>
-  <script src="/static/js/pipeline.js"></script>
-  <script src="/static/js/app.js"></script>
-  <script src="/static/js/output-viewer.js?v=20261010_v1"></script>
-  <script src="/static/js/bays.js?v=20261010_v2"></script>
-  <script src="/static/js/operator.js?v=20261010_v2"></script>
-  <script src="/static/js/character3d.js?v=20261009_v1" defer></script>
+  <script src="/static/js/agents.js?v=20261015_v17"></script>
+  <script src="/static/js/factory.js?v=20261015_v17"></script>
+  <script src="/static/js/pipeline.js?v=20261015_v17"></script>
+  <script src="/static/js/app.js?v=20261015_v17"></script>
+  <script src="/static/js/output-viewer.js?v=20261015_v17"></script>
+  <script src="/static/js/bays.js?v=20261015_v17"></script>
+  <script src="/static/js/operator.js?v=20261015_v17"></script>
+  <script src="/static/js/character3d.js?v=20261015_v17" defer></script>
   <script type="module" src="/static/js/vendor/model-viewer.min.js" defer></script>
     <!-- UNIVERSAL WORKSPACE FOLDER EXPLORER MODAL (MOBILE & PC) -->
     <div class="modal-overlay" id="modal-folder-browser">

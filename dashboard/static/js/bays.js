@@ -31,6 +31,8 @@ this.currentBay = initHash || 'command-center';
     this.initOrderRadar();
     this.initMarketingHub();
     this.initNewsletterHub();
+    this.startOrderPollingLoop();
+    this.updateCompletedWorkBadge();
   }
 
   // --------------------------------------------------------------------------
@@ -88,6 +90,22 @@ this.currentBay = initHash || 'command-center';
     const targetPanel = document.getElementById(`view-${bayId}`);
     if (targetPanel) {
       targetPanel.classList.add('active');
+    }
+
+    // Auto-switch mobile view if on mobile/tablet or sidebar was active
+    const mainGrid = document.querySelector('.studio-main-grid');
+    if (mainGrid) {
+      mainGrid.classList.remove('mobile-show-sidebar', 'mobile-show-fulfillment');
+      mainGrid.classList.add('mobile-show-viewport');
+    }
+    const mobViewportTab = document.getElementById('mob-tab-viewport');
+    if (mobViewportTab) {
+      document.querySelectorAll('.mobile-pane-tab').forEach(t => t.classList.remove('active'));
+      mobViewportTab.classList.add('active');
+    }
+    const viewportMain = document.querySelector('.studio-content-viewport');
+    if (viewportMain) {
+      viewportMain.scrollTop = 0;
     }
 
     if (bayId === 'photo-bay') {
@@ -611,6 +629,10 @@ this.currentBay = initHash || 'command-center';
     if (this._completedWorkCategoryRegistry) return this._completedWorkCategoryRegistry;
     try {
       const res = await fetch('/api/outputs/categories');
+      if (res.status === 401) {
+        window.location.href = '/login';
+        return [];
+      }
       const data = await res.json();
       this._completedWorkCategoryRegistry = data.categories || [];
     } catch (e) {
@@ -633,8 +655,8 @@ this.currentBay = initHash || 'command-center';
     const bar = document.getElementById('completed-work-filters');
     if (!bar) return;
     const registry = await this.initCompletedWorkCategoryRegistry();
-    const group = this.completedWorkGroup || 'fiverr';
-    const groupCategories = registry.filter(c => c.group === group);
+    const group = this.completedWorkGroup || 'all';
+    const groupCategories = group === 'all' ? registry : registry.filter(c => c.group === group);
 
     const isClientCat = (cat) => cat.startsWith('client_');
     let html = `<button type="button" class="btn-cyber completed-work-filter-btn active" data-category="" onclick="window.workBaysManager.filterCompletedWork('')" style="font-size: 11px; padding: 5px 12px;">All</button>`;
@@ -649,7 +671,7 @@ this.currentBay = initHash || 'command-center';
     const totalPill = document.getElementById('completed-work-total-pill');
     const navPill = document.getElementById('completed-work-count-pill');
     if (!grid) return;
-    this.completedWorkGroup = this.completedWorkGroup || 'fiverr';
+    this.completedWorkGroup = this.completedWorkGroup || 'all';
     this.completedWorkCategory = category !== undefined ? category : (this.completedWorkCategory || '');
 
     // First load of this bay - make sure the group's category sub-filters exist.
@@ -661,10 +683,14 @@ this.currentBay = initHash || 'command-center';
       const params = new URLSearchParams();
       if (this.completedWorkCategory) {
         params.set('category', this.completedWorkCategory);
-      } else {
+      } else if (this.completedWorkGroup && this.completedWorkGroup !== 'all') {
         params.set('group', this.completedWorkGroup);
       }
       const res = await fetch(`/api/outputs/gallery?${params.toString()}`);
+      if (res.status === 401) {
+        window.location.href = '/login';
+        return;
+      }
       if (!res.ok) throw new Error(`Gallery request failed (${res.status})`);
       const data = await res.json();
       const items = data.items || [];
@@ -683,6 +709,19 @@ this.currentBay = initHash || 'command-center';
     }
   }
 
+  async updateCompletedWorkBadge() {
+    try {
+      const navPill = document.getElementById('completed-work-count-pill');
+      if (!navPill) return;
+      const res = await fetch('/api/outputs/gallery?limit=1');
+      if (res.ok) {
+        const data = await res.json();
+        const count = data.total_found !== undefined ? data.total_found : (data.items?.length || 0);
+        navPill.innerText = `${count} TOTAL`;
+      }
+    } catch (_) {}
+  }
+
   filterCompletedWork(category) {
     document.querySelectorAll('.completed-work-filter-btn').forEach(btn => {
       btn.classList.toggle('active', btn.getAttribute('data-category') === category);
@@ -692,25 +731,43 @@ this.currentBay = initHash || 'command-center';
 
   renderCompletedWorkCard(item) {
     const viewer = window.outputViewer;
-    const media = viewer.normalize(item);
-    const esc = value => viewer.escape(value);
-    const isClient = item.category.startsWith('client_');
-    const sizeLabel = item.size_kb >= 1024 ? `${(item.size_kb / 1024).toFixed(1)} MB` : `${item.size_kb} KB`;
-    let preview = `<span class="act-icon" style="font-size: 32px;">${item.media_type === 'archive' ? '📦' : '🧊'}</span>`;
+    let media = null;
+    if (viewer) {
+      try {
+        media = viewer.normalize(item);
+      } catch (err) {
+        console.warn('viewer.normalize warning:', err);
+      }
+    }
+    if (!media) {
+      media = {
+        filename: item.filename || item.title || '',
+        title: item.filename || item.title || '',
+        preview_url: item.preview_url || item.download_url || '#',
+        download_url: item.download_url || item.preview_url || '#'
+      };
+    }
+    const esc = value => (viewer ? viewer.escape(value) : String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
+    const isClient = Boolean(item.category && item.category.startsWith('client_'));
+    const sizeKb = Number(item.size_kb || 0);
+    const sizeLabel = sizeKb >= 1024 ? `${(sizeKb / 1024).toFixed(1)} MB` : `${sizeKb} KB`;
+    const dateLabel = item.created ? new Date(item.created * 1000).toLocaleString() : '';
+    let preview = `<span class="act-icon" style="font-size: 32px;">${item.media_type === 'archive' ? '📦' : (item.media_type === 'video' ? '🎬' : '🧊')}</span>`;
     if (item.media_type === 'image') {
-      preview = `<img src="${esc(media.preview_url)}" alt="${esc(item.filename)}" loading="lazy">`;
+      preview = `<img src="${esc(media.preview_url)}" alt="${esc(item.filename || '')}" loading="lazy">`;
     } else if (item.media_type === 'video') {
       preview = `<video src="${esc(media.preview_url)}" preload="metadata" muted playsinline></video>`;
     }
+    const actionsHtml = viewer ? viewer.actions(item) : `<div class="output-card-actions"><a class="btn-cyber" href="${esc(item.download_url || '#')}" download>Download</a></div>`;
     return `
-      <div class="completed-work-card ${isClient ? 'client-tagged' : ''}" title="${esc(item.filename)}">
-        <button type="button" class="completed-work-preview" data-workhorse-view="${esc(JSON.stringify(media))}" aria-label="View ${esc(item.filename)}">${preview}</button>
+      <div class="completed-work-card ${isClient ? 'client-tagged' : ''}" title="${esc(item.filename || '')}">
+        <button type="button" class="completed-work-preview" data-workhorse-view="${esc(JSON.stringify(media))}" aria-label="View ${esc(item.filename || '')}">${preview}</button>
         <div class="completed-work-info">
-          <span class="completed-work-label">${esc(item.label)}</span>
-          <span class="completed-work-filename">${esc(item.filename)}</span>
-          <span class="completed-work-meta">${sizeLabel} &middot; ${new Date(item.created * 1000).toLocaleString()}</span>
+          <span class="completed-work-label">${esc(item.label || item.category || 'Render')}</span>
+          <span class="completed-work-filename">${esc(item.filename || '')}</span>
+          <span class="completed-work-meta">${sizeLabel} &middot; ${dateLabel}</span>
         </div>
-        ${viewer.actions(item)}
+        ${actionsHtml}
       </div>
     `;
   }
@@ -1374,6 +1431,239 @@ this.currentBay = initHash || 'command-center';
     window.openWorkspaceFolder('F:/WORKHORSE/workspace/fiverr_deliveries', 'Fiverr Deliveries & Kits');
   }
 
+  // --------------------------------------------------------------------------
+  // ORDER RADAR & EXTERNAL FULFILLMENT (FIVERR & ETSY)
+  // --------------------------------------------------------------------------
+  startOrderPollingLoop() {
+    this.loadFiverrOrders();
+    this.loadEtsyOrders();
+    setInterval(() => {
+      this.loadFiverrOrders();
+      this.loadEtsyOrders();
+    }, 15000);
+  }
+
+  async syncOrderInbox() {
+    try {
+      const res = await fetch('/api/radar/check', { method: 'POST' });
+      const data = await res.json();
+      if (data.status === 'awaiting_app_password') {
+        alert(`Google App Password required:\n${data.message}`);
+      } else if (data.status === 'connected') {
+        alert(`Inbox synchronized successfully!\nFound ${data.new_orders} new order(s). Total: ${data.total_orders}`);
+      } else if (data.error) {
+        alert(`Inbox sync error: ${data.error}`);
+      } else {
+        alert(`Inbox checked: ${data.message || 'Complete'}`);
+      }
+      this.loadFiverrOrders();
+      this.loadEtsyOrders();
+    } catch (e) {
+      alert(`Sync failed: ${e.message}`);
+    }
+  }
+
+  async simulateFiverrOrder() {
+    try {
+      const res = await fetch('/api/radar/simulate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ platform: 'fiverr' })
+      });
+      const data = await res.json();
+      if (data.status === 'simulated') {
+        alert(`⚡ Simulated incoming Fiverr order created:\n${data.order.title}\nBuyer: ${data.order.buyer} (${data.order.amount})`);
+        this.loadFiverrOrders();
+      }
+    } catch (e) {
+      alert(`Simulation failed: ${e.message}`);
+    }
+  }
+
+  async simulateEtsyOrder() {
+    try {
+      const res = await fetch('/api/radar/simulate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ platform: 'etsy' })
+      });
+      const data = await res.json();
+      if (data.status === 'simulated') {
+        alert(`⚡ Simulated incoming Etsy order created:\n${data.order.title}\nBuyer: ${data.order.buyer} (${data.order.amount})`);
+        this.loadEtsyOrders();
+      }
+    } catch (e) {
+      alert(`Simulation failed: ${e.message}`);
+    }
+  }
+
+  async loadFiverrOrders() {
+    const container = document.getElementById('fiverr-live-orders-container');
+    const pill = document.getElementById('fiverr-orders-count-pill');
+    const navBadge = document.getElementById('fiverr-nav-badge');
+    try {
+      const res = await fetch('/api/fiverr/orders');
+      if (!res.ok) return;
+      const data = await res.json();
+      const orders = data.orders || [];
+      if (pill) pill.textContent = `${orders.length} Order${orders.length === 1 ? '' : 's'}`;
+      if (navBadge) navBadge.textContent = `${data.pending || orders.length} ORDERS`;
+
+      if (!container) return;
+      if (!orders.length) {
+        container.innerHTML = '<div style="text-align: center; color: var(--text-dim); font-size: 11px; padding: 18px;">No incoming Fiverr orders yet. Click "⚡ Simulate Test Order" or "🔄 Sync Inbox" above.</div>';
+        return;
+      }
+
+      container.innerHTML = orders.map(o => {
+        const isPending = o.status === 'pending' || o.status === 'unfulfilled';
+        const statusColor = isPending ? '#06d6a0' : '#38bdf8';
+        const statusLabel = isPending ? 'PENDING FULFILLMENT' : 'DELIVERED / FULFILLED';
+        const dateStr = o.received_at ? new Date(o.received_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+        const escTitle = (o.title || o.raw_subject || 'Fiverr Order').replace(/"/g, '&quot;');
+        const escBuyer = (o.buyer || 'Client').replace(/"/g, '&quot;');
+        const escId = (o.id || '').replace(/"/g, '&quot;');
+        const gigId = o.gig_id || 'gig_retouch';
+
+        return `
+          <div style="background: rgba(0,0,0,0.35); border: 1px solid ${isPending ? 'rgba(6, 214, 160, 0.4)' : 'rgba(255,255,255,0.08)'}; border-radius: 6px; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;">
+            <div style="min-width: 0; flex: 1;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 12px; font-weight: 800; color: #fff; font-family: var(--font-mono);">${escId}</span>
+                <span style="font-size: 9px; font-weight: 800; color: ${statusColor}; background: rgba(255,255,255,0.05); padding: 2px 6px; border-radius: 4px; border: 1px solid ${statusColor};">${statusLabel}</span>
+                <span style="font-size: 11px; font-weight: 700; color: var(--green-neon);">${o.amount || '$35.00'}</span>
+                ${dateStr ? `<span style="font-size: 10px; color: var(--text-dim);">${dateStr}</span>` : ''}
+              </div>
+              <div style="font-size: 11px; color: #e2e8f0; margin-top: 3px; font-weight: 600;">${escTitle}</div>
+              <div style="font-size: 10px; color: var(--text-muted); margin-top: 2px;">Buyer: <strong style="color: #00f2fe;">${escBuyer}</strong> &middot; Package: ${o.package || 'Standard'} &middot; Deadline: ${o.deadline || '24h'}</div>
+            </div>
+            <div style="display: flex; gap: 6px; align-items: center; flex-shrink: 0;">
+              <button class="btn-cyber" onclick="window.workBaysManager.loadIntoFiverrFulfill('${escBuyer}', '${escId}', '${gigId}')" style="font-size: 10px; padding: 4px 8px; border-color: rgba(6, 214, 160, 0.4); color: #06d6a0;" title="Fill form with this order's buyer name and order ID">
+                ⚡ Load into Fulfill
+              </button>
+              ${isPending ? `
+                <button class="btn-cyber" onclick="window.workBaysManager.fulfillFiverrOrderQuick('${escId}')" style="font-size: 10px; padding: 4px 8px; background: rgba(6, 214, 160, 0.2); border-color: #06d6a0; color: #fff;" title="1-Click Fulfill & deliver package">
+                  ⚡ 1-Click Fulfill
+                </button>
+              ` : `
+                <button class="btn-cyber" onclick="window.location.href='/api/download/fiverr/${escId}'" style="font-size: 10px; padding: 4px 8px; border-color: var(--cyan-glow); color: var(--cyan-glow);" title="Download completed ZIP">
+                  📦 ZIP
+                </button>
+              `}
+            </div>
+          </div>
+        `;
+      }).join('');
+    } catch (e) {
+      console.warn('Failed to load Fiverr orders', e);
+    }
+  }
+
+  loadIntoFiverrFulfill(buyer, orderId, gigId) {
+    const nameInput = document.getElementById('fiverr-client-name');
+    const orderInput = document.getElementById('fiverr-order-number');
+    if (nameInput) nameInput.value = buyer;
+    if (orderInput) orderInput.value = orderId;
+    if (gigId && this.fiverrGigs) {
+      this.selectFiverrGig(gigId);
+    }
+    const fulfillSection = document.getElementById('fiverr-client-name');
+    if (fulfillSection) {
+      fulfillSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      nameInput?.focus();
+    }
+  }
+
+  async fulfillFiverrOrderQuick(orderId) {
+    if (!confirm(`Fulfill Fiverr order ${orderId} now? WORKHORSE will package the delivery ZIP and generate review request copy.`)) return;
+    try {
+      const res = await fetch(`/api/fiverr/fulfill-order/${orderId}`, { method: 'POST' });
+      const data = await res.json();
+      if (res.ok) {
+        alert(`🎉 Fiverr Order ${orderId} Fulfilled!\n\nPackage: ${data.delivery?.delivery_zip_name || 'Ready'}\n\nReview Request message ready in deliveries folder.`);
+        this.loadFiverrOrders();
+      } else {
+        alert(`Fulfillment failed: ${data.detail || data.message}`);
+      }
+    } catch (e) {
+      alert(`Error fulfilling order: ${e.message}`);
+    }
+  }
+
+  async loadEtsyOrders() {
+    const container = document.getElementById('etsy-live-orders-container');
+    const pill = document.getElementById('etsy-orders-count-pill');
+    const navBadge = document.getElementById('etsy-nav-badge');
+    try {
+      const res = await fetch('/api/etsy/orders');
+      if (!res.ok) return;
+      const data = await res.json();
+      const orders = data.orders || [];
+      if (pill) pill.textContent = `${orders.length} Order${orders.length === 1 ? '' : 's'}`;
+      if (navBadge) navBadge.textContent = `${data.pending || orders.length} ORDERS`;
+
+      if (!container) return;
+      if (!orders.length) {
+        container.innerHTML = '<div style="text-align: center; color: var(--text-dim); font-size: 11px; padding: 18px;">No incoming Etsy orders yet. Click "⚡ Simulate Test Order" or "🔄 Sync Inbox" above.</div>';
+        return;
+      }
+
+      container.innerHTML = orders.map(o => {
+        const isPending = o.status === 'pending' || o.status === 'unfulfilled';
+        const statusColor = isPending ? '#ffd166' : '#10b981';
+        const statusLabel = isPending ? 'PENDING BUNDLE' : 'DELIVERED (DIGITAL)';
+        const dateStr = o.received_at ? new Date(o.received_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+        const escTitle = (o.title || o.raw_subject || 'Etsy Digital Order').replace(/"/g, '&quot;');
+        const escBuyer = (o.buyer || 'Customer').replace(/"/g, '&quot;');
+        const escId = (o.id || '').replace(/"/g, '&quot;');
+
+        return `
+          <div style="background: rgba(0,0,0,0.35); border: 1px solid ${isPending ? 'rgba(255, 209, 102, 0.4)' : 'rgba(255,255,255,0.08)'}; border-radius: 6px; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;">
+            <div style="min-width: 0; flex: 1;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 12px; font-weight: 800; color: #fff; font-family: var(--font-mono);">${escId}</span>
+                <span style="font-size: 9px; font-weight: 800; color: ${statusColor}; background: rgba(255,255,255,0.05); padding: 2px 6px; border-radius: 4px; border: 1px solid ${statusColor};">${statusLabel}</span>
+                <span style="font-size: 11px; font-weight: 700; color: #ffd166;">${o.amount || '$24.99'}</span>
+                ${dateStr ? `<span style="font-size: 10px; color: var(--text-dim);">${dateStr}</span>` : ''}
+              </div>
+              <div style="font-size: 11px; color: #e2e8f0; margin-top: 3px; font-weight: 600;">${escTitle}</div>
+              <div style="font-size: 10px; color: var(--text-muted); margin-top: 2px;">Buyer: <strong style="color: #ffd166;">${escBuyer}</strong> &middot; Product: ${o.package || 'Master Digital Pack'} &middot; Delivery: ${o.deadline || 'Digital'}</div>
+            </div>
+            <div style="display: flex; gap: 6px; align-items: center; flex-shrink: 0;">
+              ${isPending ? `
+                <button class="btn-cyber" onclick="window.workBaysManager.fulfillEtsyOrderQuick('${escId}')" style="font-size: 10px; padding: 4px 8px; background: rgba(255, 209, 102, 0.2); border-color: #ffd166; color: #fff;" title="1-Click generate bundle & mark fulfilled">
+                  ⚡ 1-Click Fulfill & Deliver
+                </button>
+              ` : `
+                <button class="btn-cyber" onclick="window.location.href='/api/download/etsy/${o.fulfilled_bundle || 'all'}'" style="font-size: 10px; padding: 4px 8px; border-color: var(--amber-warm); color: var(--amber-warm);" title="Download customer ZIP bundle">
+                  📦 Download Bundle
+                </button>
+              `}
+            </div>
+          </div>
+        `;
+      }).join('');
+    } catch (e) {
+      console.warn('Failed to load Etsy orders', e);
+    }
+  }
+
+  async fulfillEtsyOrderQuick(orderId) {
+    if (!confirm(`Fulfill Etsy order ${orderId} now? WORKHORSE will package the digital bundle and register instant delivery.`)) return;
+    try {
+      const res = await fetch(`/api/etsy/fulfill-order/${orderId}`, { method: 'POST' });
+      const data = await res.json();
+      if (res.ok) {
+        alert(`🎉 Etsy Order ${orderId} Fulfilled!\n\nBundle: ${data.bundle?.bundle_name || 'Master Pack'}\n\nCustomer instant delivery registered.`);
+        this.loadEtsyOrders();
+      } else {
+        alert(`Fulfillment failed: ${data.detail || data.message}`);
+      }
+    } catch (e) {
+      alert(`Error fulfilling order: ${e.message}`);
+    }
+  }
+
 
   // --------------------------------------------------------------------------
   // 7. CIPHER MARKET INTELLIGENCE & TREND MATRIX
@@ -1657,6 +1947,7 @@ this.currentBay = initHash || 'command-center';
         });
       }
     }
+    this.loadMarketOpportunities();
   }
 
   setMarketingChannel(channel) {
@@ -1864,6 +2155,177 @@ this.currentBay = initHash || 'command-center';
     if (pane) {
       navigator.clipboard.writeText(pane.innerText);
       alert('Marketing output copied to clipboard!');
+    }
+  }
+
+  // --------------------------------------------------------------------------
+  // AUTONOMOUS MARKET & REVENUE SCOUT (CIPHER [36 Cp] & MERCURY [80 Hg])
+  // --------------------------------------------------------------------------
+  async loadMarketOpportunities(refresh = false) {
+    const grid = document.getElementById('market-opportunities-grid');
+    const tsEl = document.getElementById('market-scout-timestamp');
+    const scoutBtn = document.getElementById('btn-scout-market');
+
+    if (!grid) return;
+    if (refresh) {
+      if (scoutBtn) {
+        scoutBtn.disabled = true;
+        scoutBtn.innerHTML = '<span class="spinner" style="width:12px;height:12px;display:inline-block;margin-right:6px;vertical-align:middle;"></span> Scouting Live Signals...';
+      }
+      grid.innerHTML = '<div style="grid-column: 1 / -1; text-align: center; padding: 30px; color: var(--text-dim);"><div class="spinner" style="margin: 0 auto 12px auto;"></div>Cipher [36 Cp] is querying live market signals & synthesizing revenue opportunities...</div>';
+    }
+
+    try {
+      const endpoint = refresh ? '/api/market/scout-now' : '/api/market/opportunities';
+      const options = refresh ? { method: 'POST' } : { method: 'GET' };
+      const res = await fetch(endpoint, options);
+      const data = await res.json();
+
+      if (data.status === 'ok' && data.vault) {
+        const vault = data.vault;
+        this.marketOpportunities = vault.opportunities || [];
+        if (tsEl) {
+          tsEl.innerText = vault.scouted_at || vault.date || 'Just now';
+        }
+
+        if (this.marketOpportunities.length === 0) {
+          grid.innerHTML = '<div style="grid-column: 1 / -1; text-align: center; color: var(--text-dim); padding: 20px;">No opportunities found in vault. Click Run Market Scout to discover new ideas.</div>';
+          return;
+        }
+
+        let html = '';
+        this.marketOpportunities.forEach((opp) => {
+          let badgeColor = '#3b82f6';
+          const plat = (opp.platform || '').toLowerCase();
+          if (plat.includes('fiverr')) badgeColor = '#10b981';
+          else if (plat.includes('etsy')) badgeColor = '#f97316';
+          else if (plat.includes('social')) badgeColor = '#a855f7';
+          else if (plat.includes('storefront') || plat.includes('direct')) badgeColor = '#eab308';
+
+          const actionList = (opp.action_steps || []).map((step, idx) => `
+            <div style="display:flex;gap:8px;margin-bottom:4px;font-size:11px;color:#94a3b8;">
+              <span style="color:#00f2fe;font-weight:700;">${idx+1}.</span>
+              <span>${step}</span>
+            </div>
+          `).join('');
+
+          html += `
+            <div class="glass-panel" style="padding: 16px; border-color: rgba(255,255,255,0.08); background: rgba(15,23,42,0.6); display: flex; flex-direction: column; justify-content: space-between; transition: transform 0.2s, border-color 0.2s; position: relative; border-radius: 8px;">
+              <div>
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 10px;">
+                  <span style="font-size: 10.5px; font-weight: 800; padding: 2px 8px; border-radius: 4px; background: rgba(255,255,255,0.05); border: 1px solid ${badgeColor}; color: ${badgeColor}; text-transform: uppercase;">
+                    ${opp.platform || 'Multi-Channel'}
+                  </span>
+                  <span style="font-size: 11px; font-weight: 800; color: #4ade80; background: rgba(74,222,128,0.1); border: 1px solid rgba(74,222,128,0.3); padding: 2px 8px; border-radius: 4px; white-space: nowrap;">
+                    ${opp.potential_revenue || 'Passive'}
+                  </span>
+                </div>
+
+                <h4 style="margin: 0 0 8px 0; font-size: 13.5px; font-weight: 800; color: #f8fafc; line-height: 1.35;">
+                  ${opp.title}
+                </h4>
+
+                <div style="font-size: 11px; color: #cbd5e1; margin-bottom: 10px; line-height: 1.45;">
+                  <strong style="color: #94a3b8; text-transform: uppercase; font-size: 9.5px; letter-spacing: 0.5px; display: block; margin-bottom: 2px;">Market Demand Signal:</strong>
+                  ${opp.market_trend || ''}
+                </div>
+
+                <div style="background: rgba(0,242,254,0.05); border-left: 2px solid #00f2fe; padding: 8px 10px; margin-bottom: 12px; border-radius: 0 4px 4px 0;">
+                  <span style="display: block; font-size: 9.5px; font-weight: 800; color: #00f2fe; text-transform: uppercase; margin-bottom: 2px;">Automation Stack:</span>
+                  <span style="font-size: 11px; color: #94a3b8; line-height: 1.4;">${opp.workhorse_automation || ''}</span>
+                </div>
+
+                <div style="background: rgba(168,85,247,0.06); border: 1px dashed rgba(168,85,247,0.3); padding: 8px 10px; margin-bottom: 12px; border-radius: 4px;">
+                  <span style="display: block; font-size: 9.5px; font-weight: 800; color: #c084fc; text-transform: uppercase; margin-bottom: 2px;">Hook / Pitch:</span>
+                  <span style="font-size: 11px; color: #e2e8f0; font-style: italic;">"${opp.marketing_hook || ''}"</span>
+                </div>
+
+                <div style="margin-bottom: 14px;">
+                  <span style="display: block; font-size: 9.5px; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 4px;">3-Step Launch Blueprint:</span>
+                  ${actionList}
+                </div>
+              </div>
+
+              <div style="margin-top: 8px; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 12px;">
+                <button class="btn-cyber" onclick="window.workBaysManager.deployOpportunity('${opp.id}')" style="width: 100%; font-size: 11.5px; padding: 8px; background: linear-gradient(135deg, rgba(168,85,247,0.2), rgba(0,242,254,0.2)); border-color: #a855f7; color: #fff;">
+                  🚀 Deploy Campaign Kit with Mercury &rarr;
+                </button>
+              </div>
+            </div>
+          `;
+        });
+        grid.innerHTML = html;
+      } else {
+        grid.innerHTML = `<div style="grid-column: 1 / -1; text-align: center; color: #f87171; padding: 20px;">Failed to load vault: ${data.detail || 'Unknown error'}</div>`;
+      }
+    } catch (err) {
+      grid.innerHTML = `<div style="grid-column: 1 / -1; text-align: center; color: #f87171; padding: 20px;">Connection Error: ${err.message}</div>`;
+    } finally {
+      if (scoutBtn) {
+        scoutBtn.disabled = false;
+        scoutBtn.innerText = '⚡ Run Market Scout';
+      }
+    }
+  }
+
+  async scoutMarketNow() {
+    await this.loadMarketOpportunities(true);
+  }
+
+  async deployOpportunity(oppId) {
+    const opp = (this.marketOpportunities || []).find(o => o.id === oppId);
+    if (!opp) {
+      alert('Opportunity not found.');
+      return;
+    }
+
+    const chSelect = document.getElementById('mkt-channel-select');
+    const nameInput = document.getElementById('mkt-target-name');
+    const urlInput = document.getElementById('mkt-target-url');
+    const notesInput = document.getElementById('mkt-custom-notes');
+
+    const platform = (opp.platform || '').toLowerCase();
+    let channel = 'social';
+    if (platform.includes('fiverr')) {
+      channel = 'fiverr';
+      if (urlInput) urlInput.value = 'https://www.fiverr.com/s/X00R79G';
+    } else if (platform.includes('etsy')) {
+      channel = 'etsy';
+      if (urlInput) urlInput.value = 'https://www.etsy.com/shop/CreatorMediaLab';
+    } else if (platform.includes('storefront') || platform.includes('direct')) {
+      channel = 'website';
+      if (urlInput) urlInput.value = 'https://careypmedia.com';
+    } else {
+      channel = 'social';
+      if (urlInput) urlInput.value = '@TheCreatorAsset';
+    }
+
+    if (chSelect) chSelect.value = channel;
+    if (nameInput) nameInput.value = opp.title;
+    if (notesInput) {
+      notesInput.value = `Market Trend: ${opp.market_trend}\nRevenue: ${opp.potential_revenue}\nAutomation: ${opp.workhorse_automation}\nHook: ${opp.marketing_hook}`;
+    }
+
+    const pane = document.getElementById('mkt-output-pane');
+    if (pane) pane.innerHTML = `<div style="text-align:center;padding:30px;"><div class="spinner" style="margin:0 auto 12px auto;"></div>Mercury [80 Hg] is synthesizing omni-campaign kit for "${opp.title}"...</div>`;
+
+    try {
+      const res = await fetch('/api/market/deploy-opportunity', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ opportunity_id: oppId, opportunity: opp })
+      });
+      const data = await res.json();
+      if (data.status === 'ok' && data.campaign) {
+        this.currentCampaign = data.campaign;
+        this.setMarketingTab('social');
+        const topEl = document.getElementById('view-marketing-hub');
+        if (topEl) topEl.scrollIntoView({ behavior: 'smooth' });
+      } else {
+        if (pane) pane.innerHTML = `<div style="color:#f87171;">Deployment failed: ${data.detail || 'Unknown error'}</div>`;
+      }
+    } catch (err) {
+      if (pane) pane.innerHTML = `<div style="color:#f87171;">Network Error: ${err.message}</div>`;
     }
   }
 
@@ -2173,6 +2635,39 @@ this.currentBay = initHash || 'command-center';
     }
   }
 
+  async regenerateNewsletterFresh() {
+    const frame = document.getElementById('newsletter-preview-frame');
+    const btn = document.getElementById('btn-resynth-nl');
+    const pub = this.selectedPublication || 'creator_pulse';
+    if (btn) {
+      btn.disabled = true;
+      btn.innerText = '⚡ Synthesizing Fresh...';
+    }
+    try {
+      const res = await fetch('/api/newsletter/regenerate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pub: pub })
+      });
+      const data = await res.json();
+      if (frame) {
+        frame.src = `/api/newsletter/preview?pub=${pub}&refresh=true&t=${Date.now()}`;
+      }
+      if (this.currentNewsletterTab === 'thread') {
+        this.fetchTwitterThread();
+      } else if (this.currentNewsletterTab === 'blog') {
+        this.fetchNewsletterBlogMarkdown();
+      }
+    } catch (e) {
+      console.error('Error re-synthesizing newsletter:', e);
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.innerText = '⚡ Re-Synthesize Fresh';
+      }
+    }
+  }
+
   async fetchTwitterThread() {
     const container = document.getElementById('nl-thread-cards-container');
     if (!container) return;
@@ -2329,6 +2824,15 @@ this.currentBay = initHash || 'command-center';
   }
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-  window.workBaysManager = new WorkBaysManager();
-});
+function bootWorkBays() {
+  if (!window.workBaysManager) {
+    window.workBaysManager = new WorkBaysManager();
+    window.workhorseBays = window.workBaysManager;
+  }
+}
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', bootWorkBays);
+} else {
+  bootWorkBays();
+}
+window.workhorseBays = window.workBaysManager;

@@ -384,6 +384,12 @@ class AIOperatorUI {
         }
         this.checkAndAutoDetectVision();
         this.checkAndAutoDetectLinks();
+
+        if (data.executed_actions && data.executed_actions.length > 0) {
+          if (window.workBaysManager && typeof window.workBaysManager.refreshCompletedWork === 'function') {
+            window.workBaysManager.refreshCompletedWork();
+          }
+        }
       } else {
         this.appendMessage({
           role: 'assistant',

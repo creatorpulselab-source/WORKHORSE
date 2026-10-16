@@ -201,8 +201,23 @@ class DropzoneFulfiller:
                     })
                     continue
 
-                # Step D: Generate Delivery Note
-                delivery_note = self.bot.generate_delivery_note("gig_retouch", client_name=order_name)
+                # Step D: Detect Gig Type and Generate Tailored Delivery Note
+                detected_gig = "gig_retouch"
+                lower_order = order_name.lower()
+                if any(k in lower_order for k in ["3d", "mesh", "glb", "trellis", "pixal"]):
+                    detected_gig = "gig_photo_to_3d"
+                elif any(k in lower_order for k in ["video", "loop", "anim", "motion", "cinemagraph"]):
+                    detected_gig = "gig_photo_to_video"
+                elif any(k in lower_order for k in ["relight", "backdrop", "lighting", "headshot"]):
+                    detected_gig = "gig_relight"
+                elif any(k in lower_order for k in ["teaser", "reel"]):
+                    detected_gig = "gig_teaser"
+                elif any(k in lower_order for k in ["copy", "caption"]):
+                    detected_gig = "gig_copy"
+                elif any(k in lower_order for k in ["banner", "tip_menu", "menu"]):
+                    detected_gig = "gig_banner"
+
+                delivery_note = self.bot.generate_delivery_note(detected_gig, client_name=order_name)
                 (order_out_dir / "DELIVERY_NOTE_AND_INSTRUCTIONS.txt").write_text(delivery_note, encoding="utf-8")
 
                 # Step E: Zip everything into final delivery package - named to match

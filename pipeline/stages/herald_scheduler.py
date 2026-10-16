@@ -16,7 +16,7 @@ import logging
 import random
 from pathlib import Path
 from datetime import datetime, date
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Union
 
 sys.path.insert(0, "F:/WORKHORSE")
 from pipeline.stages.twitter_poster import TwitterPoster
@@ -32,60 +32,98 @@ BRAND_VIBES = {
     "creator_pulse_lab": {
         "brand_target": "creator_pulse_lab",
         "prompts": [
-            "Modern digital creator studio desk, dual 4K monitors displaying video editing timeline, ambient purple and cyan neon backlighting, Sony FX3 camera on desktop tripod, Shure SM7B microphone on boom arm, clean modern creative workspace, tastefully styled, commercial tech aesthetic, photorealistic, 35mm lens, 8k resolution",
-            "High-fashion creator portrait, confident professional creator in modern minimalist beige tailored blazer and black turtleneck, tasteful fully clothed studio styling, soft diffused beauty dish lighting, warm rim light, holding a professional camera, commercial editorial photography, photorealistic, 85mm portrait lens",
-            "Aesthetic creative agency workspace, clean architectural concrete and warm wood slats, ultrawide editing monitors, designer studio chair, ambient golden hour sunlight, minimalist creative director office, high production value, photorealistic, 50mm lens",
-            "Professional podcast and streaming set, warm amber practical lamps, acoustic foam panels, broadcast microphone on desk, creator dressed in stylish streetwear jacket and crewneck, confident creative expression, commercial production lighting, photorealistic, 50mm lens",
-            "Flat lay of creator gear and monetization tools, mirrorless camera with GM lens, wireless audio transmitters, iPad Pro displaying analytics graph, matte black notebook, clean studio lighting, high detail commercial photography, photorealistic, 50mm macro",
-            "Sleek late-night video editing bay, dark mode interface glowing on dual screens, subtle purple LED desk strip, Sony headphones on desk, steaming ceramic coffee mug, moody creative focus, commercial aesthetic, photorealistic, 35mm lens",
-            "Editorial portrait of a creative entrepreneur, stylish designer glasses, modern structured blazer, clean neutral studio backdrop, Rembrandt key lighting, confident engaging eye contact, fully clothed, Vogue business editorial style, photorealistic, 85mm lens",
-            "Modern YouTube creator studio backdrop, warm wooden floating shelves with subtle plant accents, soft neon sign in background, professional key light and softbox, polished commercial studio aesthetic, photorealistic, 50mm lens",
-            "Over-the-shoulder creator workflow shot, hands on professional color-grading console and mechanical keyboard, 4K timeline on screen, clean creative studio environment, photorealistic, 35mm lens",
-            "Creative director studio portrait, stylish oversized tailored coat, tasteful professional wardrobe, warm golden rim lighting, sleek loft studio backdrop, confident vision, commercial fashion aesthetic, photorealistic, 85mm lens",
-            "Minimalist tech workstation, clean white desk, laptop with creator dashboard analytics, wireless mouse, soft diffused window light, modern Scandinavian aesthetic, photorealistic, 50mm lens",
-            "Commercial photography studio stage, C-stands and softboxes visible in background, professional model in high-fashion fully-clothed designer streetwear, crisp rim lighting, behind-the-scenes creative energy, photorealistic, 50mm lens"
+            # 1. Sexy & Alluring
+            "Sunlit luxury resort infinity pool, gorgeous creator wearing a chic metallic gold string bikini relaxing on a teak sunlounger with an iPad displaying daily Stripe sales analytics, sparkling turquoise water, palm shadows, commercial 85mm portrait, 8k resolution, raw photo quality",
+            "Alluring evening creator portrait, stunning model wearing an elegant emerald satin cowl-neck slip dress with delicate gold jewelry, warm ambient candlelight, soft rim lighting, confident inviting gaze, 85mm f/1.4 prime lens",
+            "Luxury penthouse balcony at sunset, attractive creator in a sculpted black sweetheart strapless mini dress leaning gracefully against glass railing, golden hour city skyline bokeh, alluring confident posture, 50mm lens",
+            "Private resort cabana, sun-kissed creator in a stylish bronze cutout one-piece swimsuit smiling playfully while checking her smartphone, vibrant tropical poolside atmosphere, commercial editorial 85mm",
+            "High-fashion creator studio, confident woman wearing an alluring low-cut silk wrap top with subtle tasteful cleavage, soft beauty dish lighting, clean direct sightline with zero occlusions, 85mm lens",
+            "Sunlit Mediterranean beach club, attractive creator wearing a white bikini with gold rings with a breezy open silk kimono, radiant golden tan, ocean breeze in hair, 85mm portrait",
+            # 2. Playful & Cute
+            "Playful rooftop lifestyle shoot, cute creator in a white cotton crop tank top and high-waisted denim cutoffs laughing in golden sunlight, wind moving hair naturally, holding a mini vlog mic, 50mm prime",
+            "Vibrant summer beach boardwalk, playful creator in a bright floral bikini and breezy linen cover-up spinning with a wide joyful smile, sunbeams catching ocean mist, cinematic lifestyle 35mm",
+            "Sunny creative agency terrace, radiant creator wearing a cute pastel tie-front top and pleated tennis skirt enjoying an iced latte, laughing candidly, warm morning sunlight, 50mm f/1.8",
+            "Playful creator in a yellow summer sundress dancing on an outdoor urban terrace at golden hour, fabric swaying naturally, joyful radiant expression, cinematic 50mm lens",
+            "Cute aesthetic studio portrait, attractive creator in a smocked off-shoulder peasant blouse and delicate gold earrings, warm honey catchlights in eyes, relaxed inviting expression, 85mm lens",
+            # 3. Cozy & Inviting
+            "Cozy sunlit loft morning, creator wearing an oversized chunky oat cable-knit off-shoulder sweater holding a steaming ceramic coffee mug, curled up in a bay window, serene warm smile, 35mm lens",
+            "Warm evening creator lounge, attractive woman in a cozy brushed mohair crewneck sweater sitting cross-legged on a plush velvet couch with a MacBook reviewing creator revenue, 50mm f/1.4",
+            "Relaxed aesthetic home studio, creator in a cozy fuzzy cream sweater dress relaxing with studio headphones around neck, soft warm fairy lights, steaming tea mug, 50mm prime",
+            "Fireside creator retreat, attractive creator in an alpaca knit sweater sketching digital product blueprints in a leather journal, warm crackling fireplace glow, 35mm film aesthetic",
+            # 4. Active Creator & Workflow
+            "Creator actively filming a vertical video reel with a mirrorless camera on a handheld gimbal in a bright modern studio, wearing a stylish fitted tank top, confident energetic expression, 35mm lens",
+            "Independent creator at modern wooden desk holding up digital product template download cards, smiling proudly at camera, dual 4K editing monitors glowing behind her, 50mm prime",
+            "Over-the-shoulder creator workflow, hands on a custom mechanical keyboard and DaVinci color grading console, glowing dual ultrawide monitors displaying monetization analytics, 35mm lens",
+            "Aesthetic creator podcast lounge, attractive creator in an open linen shirt leaning toward a desktop microphone, warm amber lamp glow, engaging conversational expression, 50mm lens",
+            "Modern flat-lay of creator monetization gear: iPad Pro displaying digital product pricing tiers ($19, $49, $149), Sony camera with G-Master lens, AirPods Max, and leather notebook, 50mm macro",
+            "Late-night creator video editing suite, dark mode timeline glowing with vibrant purple and cyan accents, Sony headphones on stand, steaming coffee mug, sleek creative atmosphere, 35mm lens"
         ],
-        "negative_prompt": "nude, nudity, naked, topless, bare breasts, exposed nipples, exposed chest, cleavage, deep v-neck, underboob, sideboob, lingerie, underwear, bra, panties, sheer, see-through, transparent clothing, bikini, swimsuit, boudoir, bedroom, bed sheets, sensual, provocative, suggestive, erotic, explicit, adult, NSFW, porn, extra limbs, deformed hands, mutated fingers, bad anatomy, blurry, low quality, watermark, text, cartoon, illustration",
+        "negative_prompt": "nude, nudity, naked, topless, bare breasts, exposed nipples, exposed genitals, lingerie, underwear, bra, panties, sheer transparent clothing exposing nipples, erotic, explicit adult content, porn, NSFW, objects in front of face, microphone blocking face, tripod obscuring subject, camera cutting off head, poles in front of body, clutter obscuring person, foreground obstruction, equipment blocking face, boom mic in frame, extra limbs, deformed hands, mutated fingers, fused digits, bad anatomy, blurry, low quality, watermark, text, cartoon, illustration",
         "video_motion_prompts": [
-            "subtle natural head turn toward camera, speaking with confident expression, soft studio light drift, cinematic 24fps, high production value, photorealistic",
+            "subtle natural head turn toward camera, warm natural smile with confident expression, soft studio light drift, cinematic 24fps, high production value, photorealistic",
             "slow cinematic push-in on modern creator workstation, gentle LED light pulse, professional creative atmosphere, cinematic motion, photorealistic",
             "creator adjusting camera lens on desk, natural micro-movements, warm practical rim light flicker, cinematic 24fps, photorealistic",
             "subtle confident nod with a creative director smile, stylish studio lighting shift, cinematic motion, photorealistic",
             "slow cinematic camera glide over modern editing desk and audio gear, clean architectural lines, photorealistic, high production value",
-            "creator looking up from tablet with engaging confident expression, soft ambient light shift, cinematic 24fps, photorealistic"
+            "creator looking up from tablet with engaging confident expression, soft ambient light shift, cinematic 24fps, photorealistic",
+            "gentle ocean breeze moving hair, golden sunlight rippling on pool water, relaxing happy smile toward camera, cinematic slow motion",
+            "slow playful spin in sunlight, fabric swaying naturally, radiant confident expression, cinematic 24fps"
         ]
     },
     "creator_media_lab": {
         "brand_target": "creator_media_lab",
         "prompts": [
-            "Editorial studio photography, 5600K key light, Kodak Portra 400 film color grading, magazine-quality shallow depth of field, professional photographer backdrop, crisp clean composition, photorealistic, 50mm lens",
-            "High-fashion studio portrait, softbox lighting setup, Kodak Portra 400 color science, clean minimalist backdrop, sharp focus editorial composition, photorealistic, 85mm lens",
-            "Professional studio headshot photography, three-point lighting, film emulation color grade, magazine cover composition, polished commercial aesthetic, photorealistic, 50mm lens",
-            "Natural window-light studio portrait, soft diffused daylight, Fujifilm color science, clean editorial backdrop, relaxed candid composition, photorealistic, 35mm lens, shallow depth of field",
-            "Dramatic rembrandt-lit studio portrait, single key light with reflector fill, Cinestill 800T color grade, moody dark backdrop, confident editorial pose, photorealistic, 85mm lens",
-            "Outdoor golden-hour environmental portrait, warm backlit rim glow, Kodak Gold film emulation, bokeh-rich natural backdrop, candid lifestyle composition, photorealistic, 50mm lens",
-            "Urban rooftop editorial portrait, cool blue-hour city skyline backdrop, soft LED panel key light, modern fashion-forward styling, photorealistic, 35mm lens",
-            "Clean product-style flat lay of camera gear and film rolls, soft overhead diffused light, minimalist neutral backdrop, crisp commercial composition, photorealistic, 50mm macro",
-            "Black-and-white fine art portrait, dramatic Fresnel spotlight, deep shadow contrast, timeless studio aesthetic, photorealistic, 85mm lens",
-            "Behind-the-scenes studio setup shot, softbox and reflector visible, warm practical lighting, candid working-photographer energy, photorealistic, 35mm lens",
-            "Autumn outdoor portrait session, warm golden foliage backdrop, soft diffused overcast light, cozy editorial styling, photorealistic, 50mm lens, shallow depth of field",
-            "Minimalist grey seamless backdrop studio portrait, Profoto beauty dish key light, crisp commercial headshot composition, photorealistic, 85mm lens"
+            # 1. Studio Lighting & Science
+            "Editorial studio photography session, photographer in a chic fitted black tank top actively positioning a 48-inch parabolic softbox on a heavy-duty C-stand, crisp 5600K key light, 35mm lens",
+            "Alluring studio portrait, stunning model in an elegant sculpted strapless black sweetheart dress, dramatic 45-degree feathered key lighting casting soft dimensional shadows across shoulder, 85mm lens",
+            "Professional beauty dish lighting test, model in a stylish low-cut satin camisole, large circular catchlights in eyes, authentic textured skin with natural pores, soft highlight rolloff, 105mm macro",
+            "Classic Rembrandt studio portrait, attractive subject in an alluring open-back velvet evening dress, single key light with silver reflector fill creating iconic triangle highlight on cheek, 85mm prime",
+            "Studio photographer in a cute linen crop top holding a handheld light meter near model's face, checking key-to-fill lighting ratios, professional studio background, 50mm lens",
+            "Behind-the-scenes studio lighting masterclass setup, large Profoto beauty dish on boom arm with honeycomb grid, silver reflector clamshell, seamless grey studio backdrop, soft atmospheric haze, 35mm lens",
+            # 2. Color Grading & Film Science
+            "Colorist actively grading an editorial portrait at a dual Apple Studio Display workstation, hands adjusting DaVinci Resolve color wheels, warm studio ambient glow, 35mm lens",
+            "Photographer in a stylish silk wrap blouse examining 35mm Kodak Portra 400 film negative strips on an illuminated light table with a handheld loupe, natural daylight, 50mm macro",
+            "High-fashion editorial portrait showcasing authentic Kodak Portra 400 color science, model in an alluring emerald cowl-neck slip dress, luminous golden skin tones, velvety matte shadows, 85mm lens",
+            "Cinematic Cinestill 800T color-graded portrait, attractive creator in a sleek black leather jacket on a rain-slicked city sidewalk under neon signs, rich red halation and teal shadows, 50mm f/1.4",
+            "Macro flat-lay of vintage film photography tools: Kodak Portra 400 and Cinestill 800T film canisters, Loupedeck editing console, Pantone color chips, and Leica M camera on dark walnut desk, 50mm macro",
+            # 3. Retouching & Beauty
+            "High-fashion beauty retouching close-up, radiant female model with natural skin texture, visible pores, and glowing skin roll-off, wearing delicate gold jewelry, clean studio background, 105mm macro",
+            "Editorial retoucher's hands using a Wacom digital stylus on a high-res Cintiq tablet, frequency separation layer split visible on screen, warm ambient desk lamp, 50mm prime",
+            "Stunning model in a cute tie-front satin top looking into a vanity ring light, radiant smiling expression, flawless natural makeup, crisp catchlights, 85mm portrait",
+            # 4. Playful & Alluring Outdoor / Beach
+            "Golden hour beach portrait, gorgeous subject in a white string bikini with gold accents smiling toward camera, low-angle warm sunlight creating radiant rim glow, ocean waves softly blurred, 85mm f/1.4",
+            "Sunlit Mediterranean villa terrace, attractive creator in an ivory linen backless sundress walking toward the camera, warm golden sunlight streaming through olive branches, 50mm prime",
+            "Playful urban rooftop portrait, model in a cute cropped baby tee and vintage cutoffs laughing naturally, golden hour skyline bokeh, crisp rim light, 50mm f/1.8",
+            # 5. Cozy & Creative Lifestyle
+            "Cozy autumn studio shoot, attractive photographer in an oversized chunky cable-knit cream sweater holding a vintage SLR camera, warm amber window light, steam from coffee mug, 50mm lens",
+            "Late-night monitor calibration session, creator in a soft comfortable camisole and draped cardigan holding a Spyder calibrator to display screen, dim ambient studio mood, 35mm lens",
+            "Behind-the-scenes creator workshop, studio owner in a chic dark sleeveless top reviewing photo contact sheets on a tablet, C-stands and softboxes softly blurred in background, 50mm lens"
         ],
-        "negative_prompt": "nude, nudity, naked, topless, bare breasts, exposed nipples, genitals, explicit, nsfw, porn, sexual, uncensored, erotica, extra limbs, deformed hands, mutated fingers, bad anatomy, blurry, low quality, watermark, text, cartoon, illustration",
+        "negative_prompt": "nude, nudity, naked, topless, bare breasts, exposed nipples, exposed genitals, lingerie, underwear, bra, panties, sheer transparent clothing exposing nipples, erotic, explicit adult content, porn, NSFW, objects in front of face, microphone blocking face, tripod obscuring subject, camera cutting off head, poles in front of body, clutter obscuring person, foreground obstruction, equipment blocking face, boom mic in frame, extra limbs, deformed hands, mutated fingers, fused digits, bad anatomy, blurry, low quality, watermark, text, cartoon, illustration",
         "video_motion_prompts": [
             "subtle natural head turn toward camera, gentle breathing motion, soft ambient light drift, cinematic 24fps, high production value, photorealistic",
             "slow cinematic push-in, gentle hair movement in a light breeze, natural blinking and micro-expressions, photorealistic, cinematic motion",
             "gentle walk-and-turn toward camera, fabric and hair moving naturally, soft rim light shift, cinematic 24fps, photorealistic",
             "subtle confident nod with a slow smile forming, soft practical light flicker in background, cinematic motion, photorealistic",
             "gentle hand adjusting camera/gear with natural micro-movements, soft studio light drift, documentary-style cinematic motion, photorealistic",
-            "slow environmental pan feel with subject's gaze following camera, natural outdoor breeze movement, cinematic 24fps, photorealistic"
+            "slow environmental pan feel with subject's gaze following camera, natural outdoor breeze movement, cinematic 24fps, photorealistic",
+            "creator gently adjusting dials on color console, screen light reflecting softly, natural breathing, cinematic 24fps",
+            "photographer raising camera to eye level, adjusting focus ring, warm key light shifting smoothly, cinematic 24fps"
         ]
     }
 }
 
+# Comprehensive 100% SFW safety blocklist - enforced across ALL external channels (Twitter, Pinterest)
+SFW_BLOCKED_KEYWORDS = [
+    "boudoir", "nude", "naked", "nsfw", "topless", "bare breasts", "exposed nipples",
+    "genitals", "porn", "explicit", "erotic", "xxx", "uncensored",
+    "onlyfans", "fansly", "chaturbate", "myfreecams", "mfc", "camgirl", "cam girl",
+    "webcam", "sextortion", "sex work", "banned angle"
+]
+
 # Curated strategic hashtag taxonomy per brand for maximum algorithmic reach on X/Twitter.
 BRAND_HASHTAGS = {
-    "creatorpulselab": ["#CreatorEconomy", "#OnlyFansTips", "#PPVStrategy", "#FanslyCreators", "#CreatorGrowth"],
+    "creatorpulselab": ["#CreatorEconomy", "#CreatorGrowth", "#Monetization", "#ContentStrategy", "#DigitalProducts"],
     "TheCreatorAsset": ["#StudioPhotography", "#LightroomPresets", "#ColorGrading", "#EditorialPhotography", "#PhotoRetouching"],
 }
 
@@ -125,10 +163,10 @@ DAILY_SLOTS = [
         "description": "Daily 4-tweet deep-dive educational thread & morning newsletter release",
         "tweets": {
             "creatorpulselab": [
-                "1/4 💋 3 PPV message teaser formulas that converted 18%+ higher this weekend without sounding spammy 🧵👇 @creatorpulselab #CreatorEconomy #PPVStrategy",
-                "2/4 Formula 1: The 'Banned Angle' Hook.\n\nNever say 'Buy my video'. Say: 'My editor said I couldn't post this clip publicly... so I hid the uncensored 4K cut in your vault.' Add a 3-second blurred preview.",
-                "3/4 Formula 2: The 'Micro-Unlock' Pricing Ladder.\n\nTier 1 ($8-$12): High-converting impulse buy (teaser + 2 photos).\nTier 2 ($25-$35): Full scene + audio voice note.\nTier 3 ($65+): Complete VIP bundle + personal sign-off.",
-                "4/4 💎 Tip: High-paying spenders buy for intimacy, not just visuals. Check our profile for the complete morning monetization blueprint & free daily newsletter 👇\nhttps://digitalcreatorassets-source.github.io/creatormedialab/?pub=creator_pulse #OnlyFansTips #CreatorGrowth"
+                "1/4 ⚡ 3 digital product offer structures that converted 20%+ higher this week for independent creators 🧵👇 @creatorpulselab #CreatorEconomy #Monetization",
+                "2/4 Structure 1: The 'Micro-Asset' Entry Point.\n\nDon't launch a $300 course first. Launch a $19 actionable template or preset bundle that solves one painful bottleneck in under 10 minutes.",
+                "3/4 Structure 2: The 3-Tier Value Ladder.\n\nTier 1 ($19): Core template.\nTier 2 ($49): Template + video walkthrough + raw asset project files.\nTier 3 ($149): All templates + 1-on-1 async review.",
+                "4/4 Structure 3: The Educational Email Engine.\n\nDeliver free tactical value 5 days a week, with a frictionless checkout link at the bottom. Explore our daily creator monetization blueprints & newsletter 👇\nhttps://digitalcreatorassets-source.github.io/creatormedialab/?pub=creator_pulse #CreatorGrowth #DigitalProducts"
             ],
             "TheCreatorAsset": [
                 "1/4 📸 Stop using cheap Instagram filters on paid client photo shoots.\n\nHere is the exact color science behind the Kodak Portra 400 film aesthetic in Lightroom 🧵👇 @TheCreatorAsset #StudioPhotography #Portra400",
@@ -145,7 +183,7 @@ DAILY_SLOTS = [
         "description": "High-converting quick tip and before-and-after breakdown",
         "tweets": {
             "creatorpulselab": [
-                "⚡ Quick Cam Tip: Tip menus with fewer than 8 items convert 32% faster than 25-item menus.\n\nDecision fatigue is real. Group your menu into: Quick Teases (25-75 tks), Sensual Action (100-300 tks), and VIP Domination (500-1000 tks).\n\nKeep it punchy, Commander. 👑 @creatorpulselab #CamModelTips #Monetization"
+                "⚡ Quick Monetization Tip: Digital product checkout pages with fewer than 3 pricing options convert 34% higher than cluttered catalogs.\n\nDecision fatigue kills sales. Tier your offerings: Starter Kit ($17), Pro Asset Bundle ($47), and VIP All-Access ($147).\n\nKeep it punchy, Commander. 👑 @creatorpulselab #CreatorEconomy #Monetization"
             ],
             "TheCreatorAsset": [
                 "📸 Studio Lighting Rule of Thumb: If your key light is less than 3 feet from your subject, feather it 45 degrees across their shoulder rather than pointing directly at their face.\n\nSoft light is created by apparent light size, not lower wattage. #StudioPhotography #CreatorMediaLab"
@@ -159,7 +197,7 @@ DAILY_SLOTS = [
         "description": "Spotlight on live Fiverr gigs and high-earning digital products",
         "tweets": {
             "creatorpulselab": [
-                "✨ Upgrading your cam profile or OnlyFans tip menu? A high-converting visual design pays for itself in your first 2 hours live.\n\nWe design custom Chaturbate, MFC & Fansly tip menus with interactive Lovense badges:\nhttp://www.fiverr.com/s/GPPxKB3 💋 @creatorpulselab #OnlyFansTips #FanslyCreators"
+                "✨ Upgrading your digital creator storefront or video editing workflow? Clean visual branding pays for itself in client retention.\n\nExplore our custom creator media kits, video editing templates, and asset flywheels:\nhttps://digitalcreatorassets-source.github.io/creatormedialab/ ⚡ @creatorpulselab #CreatorEconomy #DigitalCreator"
             ],
             "TheCreatorAsset": [
                 "🎨 Editorial Photo Retouching & Film Color Grading for creators and photographers.\n\nFrequency separation, non-destructive dodge & burn, and Portra/Cinestill film emulation starting at $20:\nhttps://www.fiverr.com/s/GPz71VL 📸 @TheCreatorAsset #PhotoRetouching #LightroomPresets"
@@ -173,7 +211,7 @@ DAILY_SLOTS = [
         "description": "Video trailer teasers, 9:16 vertical cuts & multi-channel promo",
         "tweets": {
             "creatorpulselab": [
-                "🎬 Turn your long-form shoots into 60s viral teasers, 9:16 TikTok crops, and high-retention PPV previews.\n\nAll media processed 100% locally with NVENC 60fps hardware encoding:\nhttp://www.fiverr.com/s/emmRYZm ⚡ @creatorpulselab #CreatorEconomy #VideoEditing"
+                "🎬 Turn your long-form shoots into 60s viral teasers, 9:16 TikTok crops, and high-retention video assets.\n\nAll media processed 100% locally with NVENC 60fps hardware encoding:\nhttp://www.fiverr.com/s/emmRYZm ⚡ @creatorpulselab #CreatorEconomy #VideoEditing"
             ],
             "TheCreatorAsset": [
                 "⚡ The Creator Media Asset Flywheel: Shoot once. Cut 60s trailers. Extract 6 high-res poses. Synthesize platform copy. Distribute across 5 channels.\n\nRead our full media automation guide:\nhttps://digitalcreatorassets-source.github.io/creatormedialab/ 📸 @TheCreatorAsset #ContentCreation #CreatorMediaLab"
@@ -187,7 +225,7 @@ DAILY_SLOTS = [
         "description": "Late-night data-backed monetization breakdown & studio color tips",
         "tweets": {
             "creatorpulselab": [
-                "🌙 PPV Pricing Breakdown: Across 1,400+ creator campaigns, the $18–$22 bracket converts at 24.3% with the highest revenue per recipient. $12 gets volume but leaves money on the table; $28 drops conversion to 8.1%. Sweet spot: A $19 micro-bundle with a 15s teaser clip. 💋 @creatorpulselab #CreatorEconomy #PPVStrategy"
+                "🌙 Digital Offer Pricing Breakdown: Across 1,400+ creator campaigns, the $18–$22 bracket converts at 24.3% with the highest revenue per recipient. $12 gets volume but leaves money on the table; $28 drops conversion to 8.1%. Sweet spot: A $19 micro-asset bundle with a 15s tutorial clip. 📈 @creatorpulselab #CreatorEconomy #ContentStrategy"
             ],
             "TheCreatorAsset": [
                 "🌙 Night studio tip: Always calibrate your monitor to 120 cd/m² when editing in dim lighting. Over-bright screens lead to dark, muddy exports on client phones. Goodnight creators. ✨ @TheCreatorAsset #StudioPhotography #EditingTips"
@@ -207,6 +245,31 @@ PINTEREST_DAILY_CONTENT = [
         "title": "Kodak Portra 400 Film Color Grade Tutorial",
         "description": "Studio photography color science: how to recreate the Kodak Portra 400 film look in Lightroom with tone curve and HSL adjustments. Free masterclass from CreatorMediaLab.",
         "link": "https://digitalcreatorassets-source.github.io/creatormedialab/?pub=studio_wire"
+    },
+    {
+        "title": "Cinematic 3D LUT Pack for Premiere Pro & DaVinci Resolve",
+        "description": "7 Signature film color grading 3D LUTs (.CUBE) for filmmakers and videographers. Kodak Portra 400, Cinestill 800T, Teal & Orange, and Fuji Provia. Instant digital download.",
+        "link": "https://www.etsy.com/shop/CreatorMediaLab"
+    },
+    {
+        "title": "150+ FLUX.1 & Midjourney v6 AI Prompt Bible",
+        "description": "Master prompt engineering swipe file and interactive lookbook for photorealistic studio portraits, commercial product photography, and architectural lighting.",
+        "link": "https://www.etsy.com/shop/CreatorMediaLab"
+    },
+    {
+        "title": "Convert 2D Photo into 3D PBR Model (.GLB/.OBJ)",
+        "description": "Neural photogrammetry pipeline: turn single product shots or photos into production-ready 3D models with 4K PBR textures for Unreal Engine, Unity, and Shopify AR.",
+        "link": "https://www.fiverr.com/s/GPz71VL"
+    },
+    {
+        "title": "Animate Still Photos into 4K 60fps Cinematic Video Loops",
+        "description": "Seamless video loop synthesis: bring your still portrait or product photography to life with natural micro-motion and dynamic camera moves. Perfect for Spotify Canvas and video reels.",
+        "link": "http://www.fiverr.com/s/emmRYZm"
+    },
+    {
+        "title": "Studio Portrait Relighting & Luxury Backdrop Transformation",
+        "description": "Physically accurate AI portrait relighting and environment transformation. Upgrade headshots with Rembrandt studio key lighting and high-rise penthouse office backdrops.",
+        "link": "https://www.fiverr.com/s/GPz71VL"
     },
     {
         "title": "45-Degree Studio Lighting Setup Guide",
@@ -276,6 +339,8 @@ PINTEREST_DAILY_CONTENT = [
 ]
 
 class HeraldScheduler:
+    DAILY_SLOTS = DAILY_SLOTS
+
     def __init__(self, config_path: str = "F:/WORKHORSE/config.json",
                  newsletter_workspace_base: Optional[str] = None,
                  state_file: Optional[str] = None):
@@ -319,51 +384,121 @@ class HeraldScheduler:
         self._save_state()
         return pool[chosen_idx]
 
-    def _craft_topic_visual_prompt(self, brand_key: str, topic_text: Optional[str] = None) -> str:
+    def _craft_topic_visual_prompt(self, brand_key: str, topic_text: Optional[str] = None, variant_seed: int = 0) -> str:
         """
         Dynamically crafts an on-brand, high-fidelity visual prompt that DIRECTLY MATCHES
-        the subject matter of today's post or newsletter, rather than rolling a generic prompt.
-        Preserves strict brand boundaries (boudoir/glamour for pulse vs studio/lighting for asset).
+        the subject matter and action of today's post or newsletter, rather than rolling a generic prompt.
+        Incorporates dynamic creator actions (grading, adjusting lights, reviewing sales, shooting on location),
+        non-human scenes (macro flat-lays, camera rigs, editing suites), and diverse flattering wardrobes
+        across the 5 approved commercial moods (Sexy/Alluring, Playful, Cute, Cozy, High-Fashion).
+        variant_seed allows generating multiple distinct creative interpretations of the same topic.
         """
         if not topic_text or len(topic_text.strip()) < 8:
             return self._pick_image_prompt(brand_key)
 
         txt_lower = topic_text.lower()
-        if brand_key == "creator_pulse_lab":
-            # 100% SFW commercial creator studio visual nuances
-            if any(k in txt_lower for k in ["midnight", "dark", "vault", "secret", "night"]):
-                core = "Moody late-night creator editing suite, glowing dual ultrawide monitors with timeline analytics, subtle purple neon rim lighting, Sony headphones on desk, aesthetic workstation"
-            elif any(k in txt_lower for k in ["cam", "stream", "live", "video", "broadcast"]):
-                core = "High-end broadcasting creator studio, Shure SM7B microphone on boom arm, soft warm ambient ring light, creator dressed in stylish tailored blazer, clean commercial broadcast aesthetic, fully clothed"
-            elif any(k in txt_lower for k in ["vintage", "retro", "film", "analog"]):
-                core = "Classic creator photography studio, vintage wooden desk, mechanical keyboard, warm film emulation lighting, clean creative director workspace, fully clothed"
-            elif any(k in txt_lower for k in ["sun", "morning", "golden", "natural", "day"]):
-                core = "Sunlit morning creative agency loft, floor-to-ceiling windows, modern creator desk with camera rig, warm amber sunbeams, Scandinavian minimalist workspace"
-            else:
-                core = "High-fashion creator business studio portrait, confident professional creator in modern minimalist tailored blazer, soft beauty dish lighting, creative agency loft setting, fully clothed"
-            return f"{core}, tastefully fully clothed, professional commercial studio styling, photorealistic, 50mm lens, shallow depth of field, 8k resolution, raw photo quality"
 
-        else:
-            # Mainstream studio / photography brand visual nuances
-            if any(k in txt_lower for k in ["portra", "film", "analog", "kodak", "curve", "hsl"]):
-                core = "Cinematic studio editorial portrait, Kodak Portra 400 film color science, velvety matte shadows, luminous natural skin tones, warm key light"
-            elif any(k in txt_lower for k in ["light", "softbox", "beauty dish", "45", "feather", "rembrandt"]):
-                core = "Professional studio photography setup, Profoto beauty dish key light with 45-degree feathering, crisp commercial lighting, silver reflector fill"
-            elif any(k in txt_lower for k in ["retouch", "skin", "pore", "frequency separation", "edit"]):
-                core = "High-fashion beauty close-up, authentic textured skin with natural pores, sharp eye catchlights, clean commercial studio lighting"
-            elif any(k in txt_lower for k in ["gear", "camera", "rust", "lightcraft", "workflow", "flywheel"]):
-                core = "Creative photo studio workspace, professional photographer session, clean minimalist aesthetic, modern editorial composition"
-            else:
-                core = "Editorial studio photography, 5600K key light, professional color grading, magazine cover depth of field, polished commercial aesthetic"
-            return f"{core}, photorealistic, 50mm lens, crisp clean composition, 8k resolution"
+        # 1. Monitor Calibration / Display Screen Tuning / 120 cd/m² / Dim Lighting
+        # (Placed BEFORE generic lighting so 'editing in dim lighting' never misfires as flash equipment!)
+        if any(k in txt_lower for k in ["calibrat", "monitor", "120 cd", "display", "screen", "spyder", "colorchecker", "gamma"]):
+            variants = [
+                "Atmospheric night studio session, creator in a comfortable soft camisole and draped knit cardigan holding a monitor calibrator against an Apple Studio Display, dim ambient warm desk lamp, 120 cd/m² calibration, 35mm lens, photorealistic commercial aesthetic",
+                "Professional creative director in an alluring silk wrap blouse refining display color calibration and gamma curves at an ultrawide monitor in a moody night editing suite, warm amber lamp, city skyline lights outside, 50mm f/1.4",
+                "Aesthetic midnight editing workstation setup, ultrawide display showing monitor calibration color patches and waveforms, studio headphones on stand, steaming ceramic mug, subtle violet neon edge lighting, 35mm lens",
+                "Creator sitting at high-end color-calibrated dual editing screens with a monitor hood in dim ambient studio lighting, reviewing accurate skin tones, focused confident expression, 50mm prime"
+            ]
+            return variants[variant_seed % len(variants)]
+
+        # 2. Color Science / Portra / Cinestill / Lightroom / Tone Curve / HSL / Presets / LUTs
+        elif any(k in txt_lower for k in ["portra", "cinestill", "tone curve", "hsl", "lightroom", "color grade", "preset", "color science", "palette", "lut", "saturation"]):
+            variants = [
+                "Attractive photographer wearing a chic emerald satin cowl-neck slip dress actively adjusting DaVinci color wheels and tone curves at an Apple Studio Display editing station, warm studio glow, vivid film tones on screen, professional 85mm portrait, 8k resolution",
+                "Creator in a cute white ribbed crop tank top holding vintage 35mm Kodak Portra film negative strips up to an illuminated desktop light box with a loupe, warm natural daylight, smiling focused expression, 50mm f/1.8 lens",
+                "High-fashion beauty photograph showcasing authentic Kodak Portra 400 color science, model in an alluring low-cut silk wrap top with delicate gold necklace, luminous warm skin tones, velvety matte shadows, 85mm f/1.4 prime",
+                "Macro commercial flat-lay of vintage Kodak Portra 400 and Cinestill 800T film canisters, Loupedeck color grading console, Pantone color chips, and Leica camera on dark oak desk, soft 5600K studio light, 50mm macro"
+            ]
+            return variants[variant_seed % len(variants)]
+
+        # 3. Retouching / Frequency Separation / Dodge & Burn / Skin Pores
+        elif any(k in txt_lower for k in ["retouch", "frequency separation", "dodge", "burn", "skin pore", "skin texture", "pore", "texture", "blemish"]):
+            variants = [
+                "High-fashion beauty close-up, gorgeous model in an attractive low-cut satin camisole, authentic natural skin texture with visible pores, radiant eye catchlights, soft beauty dish lighting, clean direct sightline, 105mm macro",
+                "Digital retoucher's hands using a Wacom stylus pen sculpting light and shadow on a high-res beauty portrait on a Cintiq display, split frequency separation visible on screen, warm desk lamp, 50mm prime",
+                "Radiant creator in a cute ribbed tank top smiling into a vanity mirror ring light, glowing authentic skin highlight roll-off, delicate gold chain, clean modern dressing room backdrop, 85mm lens"
+            ]
+            return variants[variant_seed % len(variants)]
+
+        # 4. Digital Product Monetization / Pricing Tiers ($19, $49, $149) / Value Ladders / Micro-Assets / Checkout Pages / Revenue
+        elif any(k in txt_lower for k in ["monetiz", "pricing", "$19", "$49", "$149", "ladder", "micro-asset", "checkout", "revenue", "tier", "storefront", "sales", "passive income", "funnel", "offer", "etsy"]):
+            variants = [
+                "Sun-drenched luxury creator lifestyle, attractive creator wearing a chic metallic gold string bikini lounging on a teak sunlounger beside an infinity pool, smiling while reviewing daily Stripe sales analytics on an iPad, sparkling turquoise water backdrop, 85mm commercial lens",
+                "Radiant creator in a cute white ribbed tank top and denim shorts holding up sleek digital template download cards at a modern sunlit agency desk, smiling proudly, dual editing screens showing revenue growth, 50mm prime",
+                "Cozy creator in an oversized chunky oat cable-knit off-shoulder sweater curled up on a sunlit window seat with a warm ceramic coffee mug, laughing while reviewing creator revenue dashboard on a MacBook, 35mm film aesthetic",
+                "Modern creative flat-lay: iPad Pro displaying digital asset value ladder pricing tiers ($19, $49, $149), Sony mirrorless camera, revenue blueprint notebook, and cold brew coffee on white marble desk, 50mm macro"
+            ]
+            return variants[variant_seed % len(variants)]
+
+        # 5. Video Editing / Loops / 4K 60fps / Motion Teasers / Vertical Cuts / TikTok & Reels / Hardware Encoding
+        elif any(k in txt_lower for k in ["video", "loop", "60fps", "teaser", "9:16", "reel", "tiktok", "cut", "encode", "nvenc", "trailer", "motion", "clip"]):
+            variants = [
+                "Dynamic cinematic motion shot, alluring creator wearing a sculpted open-back halter dress walking fluidly along an oceanfront boardwalk during golden hour, cinematic breeze moving hair, camera tracking smoothly, 50mm prime",
+                "Playful creator in a cute cropped baby tee and vintage cutoffs smiling and filming dynamic vertical video reels with a smartphone gimbal on a sunlit city rooftop terrace, 35mm lens",
+                "Late-night video editing bay, creative editor at an ultrawide curved monitor editing a fast-paced 60fps dynamic timeline with purple and cyan ambient rim glow, hands on jog-wheel controller, 50mm lens",
+                "Close-up of professional cinema camera rig with follow-focus on an electronic gimbal catching golden lens flares at sunset, high production value commercial shot, 85mm f/1.4"
+            ]
+            return variants[variant_seed % len(variants)]
+
+        # 6. Studio Lighting Modifiers & Flash Gear (Softbox / Beauty Dish / Rembrandt / Feathering)
+        # Note: 'lighting' is guarded by specific modifiers so ambient phrases like 'dim lighting' don't misfire
+        elif any(k in txt_lower for k in ["feather", "45", "softbox", "beauty dish", "rembrandt", "key light", "modifier", "studio lighting", "clamshell", "reflector fill", "c-stand"]):
+            variants = [
+                "Alluring creator in a sculpted black strapless sweetheart mini dress posing in a photo studio, dramatic 45-degree feathered key light from a large parabolic softbox casting soft dimensional shadows across her shoulder, 85mm f/1.4 lens",
+                "Photographer in a cute tie-front linen crop top actively positioning a 48-inch softbox on a C-stand in a professional studio, clear line of sight, warm backlight glow, candid working-artist energy, 50mm prime",
+                "High-fashion commercial studio portrait, model in an alluring backless slip dress illuminated by Rembrandt triangle lighting and silver reflector fill, luminous skin, magazine editorial aesthetic, 85mm lens",
+                "Behind-the-scenes studio lighting masterclass setup, large Profoto beauty dish on boom arm with honeycomb grid, silver reflector clamshell, seamless grey studio backdrop, soft atmospheric haze, 35mm lens"
+            ]
+            return variants[variant_seed % len(variants)]
+
+        # 7. 3D Photogrammetry / Neural Mesh / PBR / AR
+        elif any(k in txt_lower for k in ["3d", "pbr", "mesh", "photogrammetry", "neural", "turntable", "glb", "obj"]):
+            variants = [
+                "Creator in a cute fitted athletic tank top holding a mirrorless camera scanning a physical product on an automated rotating turntable, ultrawide studio display showing real-time 3D PBR wireframe, 35mm lens",
+                "Sleek high-tech studio visual: 3D textured asset turntable rotating on an aesthetic pedestal with studio rim lighting, holographic material maps visible, modern creative lab aesthetic, 50mm lens"
+            ]
+            return variants[variant_seed % len(variants)]
+
+        # 8. Flywheel / Repurposing / Shoot Once
+        elif any(k in txt_lower for k in ["flywheel", "repurpos", "shoot once", "distribute", "workflow", "system"]):
+            variants = [
+                "Creative agency founder in an attractive low-cut linen wrap top organizing multi-channel storyboards and video clips on a whiteboard and iPad in a modern sunny loft atelier, 50mm prime",
+                "Behind-the-scenes multi-camera production setup around an alluring model in a chic yellow sundress, showing the multi-format content asset flywheel in action, 35mm lens"
+            ]
+            return variants[variant_seed % len(variants)]
+
+        # Fallback to rich mood-curated prompt pool
+        return self._pick_image_prompt(brand_key)
 
     def _pick_image_prompt(self, brand_key: str) -> str:
         """Selects an image prompt for this brand, avoiding recent repeats."""
         return self._pick_from_pool(brand_key, BRAND_VIBES[brand_key]["prompts"], "recent_image_prompts")
 
-    def _pick_motion_prompt(self, brand_key: str) -> str:
-        """Selects a video motion/camera-movement prompt for this brand, avoiding
-        recent repeats, so daily video upgrades don't all move the same way."""
+    def _pick_motion_prompt(self, brand_key: str, topic_text: Optional[str] = None) -> str:
+        """Selects a video motion/camera-movement prompt that matches the topic and action."""
+        if topic_text:
+            txt_lower = topic_text.lower()
+            if any(k in txt_lower for k in ["monitor", "calibrat", "screen", "display", "gamma"]):
+                return "gentle cinematic slow push-in toward creator focused on calibrating monitor screen, ambient warm desk glow, 24fps"
+            elif any(k in txt_lower for k in ["video", "loop", "motion", "reel", "60fps", "teaser", "clip"]):
+                return "smooth cinematic gimbal tracking move, subject gracefully moving with natural breeze in hair, radiant confident expression, 24fps"
+            elif any(k in txt_lower for k in ["feather", "softbox", "beauty dish", "rembrandt", "key light", "studio lighting"]):
+                return "slow cinematic push-in on subject framed by softbox key light, subtle confident eye contact, warm rim light shift, 24fps"
+            elif any(k in txt_lower for k in ["color", "grade", "portra", "film", "hsl", "curve", "edit"]):
+                return "creator gently adjusting dials on color console, screen light reflecting softly, natural breathing, cinematic 24fps"
+            elif any(k in txt_lower for k in ["monetiz", "pricing", "revenue", "pool", "resort"]):
+                return "gentle breeze moving hair, golden sunlight rippling on pool water, relaxing happy smile toward camera, cinematic slow motion"
+            elif any(k in txt_lower for k in ["cozy", "sweater", "coffee", "morning"]):
+                return "taking a sip from ceramic mug, relaxing back with warm natural smile, soft morning light drift, cinematic motion"
+
         pool = BRAND_VIBES[brand_key].get("video_motion_prompts") or [
             "subtle natural motion, gentle cinematic movement, high production value, photorealistic"
         ]
@@ -376,6 +511,8 @@ class HeraldScheduler:
         goes through the standard Iris QC gate; only a passed image is ever returned.
         Falls back to the latest already-verified render for this brand if ComfyUI is
         offline or the fresh generation fails/fails QC - never returns an unverified file.
+        Passes multiple alternative topic variants so if attempt 1 fails Iris QC, it restarts
+        with a fresh prompt instead of repeating the failed prompt.
         """
         is_pulse = "pulse" in handle.lower()
         brand_key = "creator_pulse_lab" if is_pulse else "creator_media_lab"
@@ -384,18 +521,23 @@ class HeraldScheduler:
 
         try:
             from pipeline.stages.comfyui_bridge import comfy_bridge
-            prompt = self._craft_topic_visual_prompt(brand_key, topic_text)
+            prompt = self._craft_topic_visual_prompt(brand_key, topic_text, variant_seed=0)
+            alt_prompts = [
+                self._craft_topic_visual_prompt(brand_key, topic_text, variant_seed=i)
+                for i in range(1, 4)
+            ]
             gen_res = comfy_bridge.generate_and_audit(
                 positive_prompt=prompt,
                 negative_prompt=vibe["negative_prompt"],
                 checkpoint="epicrealismXL_vxviiCrystalclear.safetensors",
                 brand_target=vibe["brand_target"],
-                auto_qc=True
+                auto_qc=True,
+                prompt_alternatives=alt_prompts
             )
-            if gen_res.get("success") and gen_res.get("qc_audit", {}).get("passed", gen_res.get("qc_bypassed")):
+            if gen_res.get("success") and gen_res.get("qc_audit", {}).get("passed") and gen_res.get("qc_audit", {}).get("is_sfw", False):
                 print(f"[Herald Scheduler] Fresh on-brand visual generated for @{handle}: {gen_res.get('filename')}")
                 return gen_res.get("file_path")
-            print(f"[Herald Scheduler] Fresh visual for @{handle} did not pass Iris QC, falling back to last verified render.")
+            print(f"[Herald Scheduler] Fresh visual for @{handle} did not pass Iris QC / SFW gate, falling back to last verified render.")
         except Exception as e:
             print(f"[Herald Scheduler] Fresh visual generation unavailable for @{handle} ({e}), falling back to last verified render.")
 
@@ -403,7 +545,70 @@ class HeraldScheduler:
         vis_path = self.newsletter.get_latest_comfy_visual(pub_key)
         return str(vis_path) if vis_path else None
 
-    def _maybe_upgrade_to_video(self, handle: str, slot_id: str, still_image_path: str) -> Optional[str]:
+    def _verify_media_is_strictly_sfw(self, file_path: Union[str, Path]) -> bool:
+        """
+        FAIL-CLOSED SFW MEDIA GATE:
+        Verifies that any image or video destined for public posting (Twitter, Pinterest, newsletters):
+        1. Does not contain any adult/boudoir keywords in its filename.
+        2. Does not reside in an adult/quarantine path.
+        3. If present in comfy_qc_audit.json:
+           - must have passed=True
+           - must have is_sfw=True (or not False)
+           - must not have nudity_or_nsfw=True
+           - must not have recommendation='REJECT_NSFW_CONTENT'
+           - prompt must not contain any adult/boudoir tokens.
+        """
+        p = Path(file_path)
+        name_lower = p.name.lower()
+        if any(k in name_lower for k in SFW_BLOCKED_KEYWORDS):
+            return False
+
+        path_lower = str(p).lower()
+        blocked_path_markers = [
+            "qc_rejected", "client_character_renders", "boudoir", "onlyfans", "fansly"
+        ]
+        if any(m in path_lower for m in blocked_path_markers):
+            return False
+
+        # 1. DETERMINISTIC PIXEL-LEVEL NSFW & SKIN-DENSITY FIREWALL (Zero-tolerance mathematical gate)
+        try:
+            from pipeline.stages.nsfw_firewall import evaluate_image_sfw, evaluate_video_sfw
+            suffix = p.suffix.lower()
+            if suffix in (".png", ".jpg", ".jpeg", ".webp"):
+                is_safe, reason, metrics = evaluate_image_sfw(p)
+                if not is_safe:
+                    print(f"[Herald Safety Alert] REJECTED non-SFW image by pixel firewall: {p.name} ({reason})")
+                    return False
+            elif suffix in (".mp4", ".mov", ".webm", ".m4v"):
+                is_safe, reason, metrics = evaluate_video_sfw(p)
+                if not is_safe:
+                    print(f"[Herald Safety Alert] REJECTED non-SFW video by pixel firewall: {p.name} ({reason})")
+                    return False
+        except Exception as fe:
+            print(f"[Herald Safety Alert] Pixel firewall execution error ({fe}). Failing closed for safety.")
+            return False
+
+        # 2. Inspect audit history
+        audit_log = Path("F:/WORKHORSE/workspace/comfy_qc_audit.json")
+        if audit_log.exists():
+            try:
+                records = safe_read_json(audit_log, default=[])
+                for r in records:
+                    if r.get("filename") == p.name:
+                        if not r.get("passed") or r.get("is_sfw") is False or r.get("nudity_or_nsfw"):
+                            return False
+                        if r.get("recommendation") == "REJECT_NSFW_CONTENT":
+                            return False
+                        prompt_str = (r.get("prompt") or "").lower()
+                        if any(k in prompt_str for k in SFW_BLOCKED_KEYWORDS):
+                            return False
+                        break
+            except Exception:
+                pass
+
+        return True
+
+    def _maybe_upgrade_to_video(self, handle: str, slot_id: str, still_image_path: str, topic_text: Optional[str] = None) -> Optional[str]:
         """
         For the one designated daily "video slot" (per-brand config), converts the
         freshly-generated still image into a short video instead of posting a static
@@ -435,7 +640,7 @@ class HeraldScheduler:
 
         engine = (video_cfg.get("engine") or "ltx2.3").strip().lower()
         duration_seconds = video_cfg.get("duration_seconds", 8)
-        motion_prompt = self._pick_motion_prompt(brand_key)
+        motion_prompt = self._pick_motion_prompt(brand_key, topic_text=topic_text)
 
         try:
             from pipeline.stages.comfyui_bridge import comfy_bridge
@@ -563,6 +768,8 @@ class HeraldScheduler:
             "recent_history": self.state.get("history", [])[-10:]
         }
 
+    get_daily_schedule_state = get_status
+
     def _optimize_thread_for_exposure(self, handle: str, tweets: List[str]) -> List[str]:
         """
         Social Media Strategy & Exposure Optimizer (Herald [33 As]):
@@ -611,12 +818,12 @@ class HeraldScheduler:
         # so the daily newsletter drop and Twitter drop look unified and come from the exact same source
         if slot_id == "slot_1_morning":
             try:
-                pulse_content = self.newsletter._get_daily_scribe_content("creator_pulse", auto_generate=False)
+                pulse_content = self.newsletter._get_daily_scribe_content("creator_pulse", auto_generate=True)
                 if pulse_content and pulse_content.get("tweet_thread"):
                     tweets_dict["creatorpulselab"] = pulse_content["tweet_thread"]
                     print(f"[Herald Scheduler] Synchronized slot_1 for @creatorpulselab with Creator Pulse newsletter thread.")
 
-                wire_content = self.newsletter._get_daily_scribe_content("studio_wire", auto_generate=False)
+                wire_content = self.newsletter._get_daily_scribe_content("studio_wire", auto_generate=True)
                 if wire_content and wire_content.get("tweet_thread"):
                     tweets_dict["TheCreatorAsset"] = wire_content["tweet_thread"]
                     print(f"[Herald Scheduler] Synchronized slot_1 for @TheCreatorAsset with Studio Wire newsletter thread.")
@@ -645,6 +852,22 @@ class HeraldScheduler:
         all_succeeded = True
         for handle, tweets in tweets_dict.items():
             if tweets:
+                # STRICT 100% SFW TEXT FIREWALL: All external social posts must be SFW on all platforms
+                sanitized_tweets = []
+                for t in tweets:
+                    t_clean = t.replace("**", "").replace("__", "").strip()
+                    t_lower = t_clean.lower()
+                    if any(k in t_lower for k in SFW_BLOCKED_KEYWORDS):
+                        print(f"[Herald Safety Alert] Suppressed non-SFW tweet text from public post for @{handle}: {t_clean[:60]}...")
+                    else:
+                        sanitized_tweets.append(t_clean)
+                if not sanitized_tweets:
+                    print(f"[Herald Safety Alert] All tweets for @{handle} in {slot_id} were non-SFW. Suppressing post.")
+                    results["accounts"][handle] = {"success": False, "error": "Suppressed non-SFW tweet content"}
+                    all_succeeded = False
+                    continue
+                tweets = sanitized_tweets
+
                 tweets = self._optimize_thread_for_exposure(handle, tweets)
                 try:
                     media_paths = None
@@ -658,26 +881,17 @@ class HeraldScheduler:
                             media_paths = [str(vis_path)]
                             print(f"[Herald Scheduler] Topic-matched visual attached for @{handle} -> {Path(vis_path).name}")
 
-                            video_path = self._maybe_upgrade_to_video(handle, slot_id, vis_path)
+                            video_path = self._maybe_upgrade_to_video(handle, slot_id, vis_path, topic_text=post_topic)
                             if video_path:
                                 media_paths = [video_path]
                     except Exception as ve:
                         print(f"[Herald Scheduler] Visual lookup notice: {ve}")
 
-                    # STRICT NSFW FILTER: Herald cannot produce or post nude images or video
+                    # STRICT SFW MEDIA GATE: Only allow media verified as strictly SFW
                     if media_paths:
-                        safe_media = []
-                        blocked_tokens = [
-                            "boudoir", "nude", "naked", "nsfw", "topless", "lingerie",
-                            "porn", "explicit", "erotic", "bikini", "swimwear", "sheer",
-                            "provocative", "seductive", "charlette", "margo", "melissa"
-                        ]
-                        for mp in media_paths:
-                            mp_lower = Path(mp).name.lower()
-                            if any(k in mp_lower for k in blocked_tokens):
-                                print(f"[Herald Safety Alert] Suppressed non-compliant media from public post: {mp}")
-                            else:
-                                safe_media.append(mp)
+                        safe_media = [mp for mp in media_paths if self._verify_media_is_strictly_sfw(mp)]
+                        if len(safe_media) < len(media_paths):
+                            print(f"[Herald Safety Alert] Suppressed non-SFW or unverified media from @{handle}")
                         media_paths = safe_media if safe_media else None
 
                     post_res = self.twitter.post_thread(handle, tweets, media_paths=media_paths)
@@ -744,14 +958,8 @@ class HeraldScheduler:
         if not vis_path or not Path(vis_path).exists():
             result = {"status": "error", "message": "No verified brand visual available for Pinterest pin (ComfyUI unavailable and no fallback render found)."}
         else:
-            # STRICT NSFW FILTER: Herald cannot post nude media to Pinterest
-            vp_lower = Path(vis_path).name.lower()
-            blocked_tokens = [
-                "boudoir", "nude", "naked", "nsfw", "topless", "lingerie",
-                "porn", "explicit", "erotic", "bikini", "swimwear", "sheer",
-                "provocative", "seductive", "charlette", "margo", "melissa"
-            ]
-            if any(k in vp_lower for k in blocked_tokens):
+            # STRICT SFW FILTER: Pinterest cannot receive non-SFW media
+            if not self._verify_media_is_strictly_sfw(vis_path):
                 print(f"[Herald Safety Alert] Suppressed non-compliant visual from Pinterest pin: {vis_path}")
                 vis_path = None
 
@@ -897,6 +1105,16 @@ class HeraldScheduler:
         when post_thread() failed for every account (expired token, API error, rate
         limit), with zero incident logging or Commander alert. Retries a not-yet-
         fully-successful slot up to MAX_DISPATCH_RETRIES, then alerts."""
+        # Circuit Breaker: Master toggle for autonomous social dispatch
+        try:
+            with open(self.config_path, "r", encoding="utf-8") as f:
+                cfg = json.load(f)
+            main_mktg = cfg.get("marketing_channels", {}).get("main_brand", {})
+            if main_mktg.get("auto_post_enabled") is False or cfg.get("system", {}).get("twitter_auto_post_enabled") is False:
+                return
+        except Exception:
+            pass
+
         current_time = datetime.now().strftime("%H:%M")
         for s in DAILY_SLOTS:
             slot_id = s["slot_id"]

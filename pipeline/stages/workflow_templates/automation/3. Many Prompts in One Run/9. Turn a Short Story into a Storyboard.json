@@ -1,0 +1,292 @@
+{
+  "1": {
+    "inputs": {
+      "unet_name": "flux2\\flux-2-klein-9b-int8-convrot.safetensors",
+      "weight_dtype": "default"
+    },
+    "class_type": "UNETLoader",
+    "_meta": {
+      "title": "Load Diffusion Model (Flux 2 Klein 9B)"
+    }
+  },
+  "2": {
+    "inputs": {
+      "clip_name": "qwen_3_8b_fp8mixed.safetensors",
+      "type": "flux2",
+      "device": "default"
+    },
+    "class_type": "CLIPLoader",
+    "_meta": {
+      "title": "Load CLIP (Qwen 3 8B, reads the prompt)"
+    }
+  },
+  "3": {
+    "inputs": {
+      "vae_name": "flux2-vae.safetensors"
+    },
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "Load VAE (Flux 2)"
+    }
+  },
+  "4": {
+    "inputs": {
+      "clip_name": "qwen3.5_4b_int8_convrot.safetensors",
+      "type": "minimax",
+      "device": "default"
+    },
+    "class_type": "CLIPLoader",
+    "_meta": {
+      "title": "Load CLIP (Qwen3.5 4B, writes the scenes)"
+    }
+  },
+  "5": {
+    "inputs": {
+      "clip": [
+        "4",
+        0
+      ],
+      "AIPromptState": "{\"idea\":\"A small cartoon bunny who walks on two legs, with white fur, big round eyes and a red scarf, finds a lost orange kite in a forest. She climbs a hill to fly it, but the wind carries her up into the clouds. She floats over a village, waves at the people, and finally lands softly in a field of carrots, where her friends are waiting.\",\"formula\":\"Split the story below into exactly 6 scenes for an illustrated storyboard. For each scene, write ONE image prompt for the Flux 2 Klein image model, 25 to 45 words in plain English: what the main character is doing, the place, the light and the camera framing.\\n\\nDescribe the main character the SAME way in every prompt (what she is, her colours, what she wears), so all 6 pictures show the same character. Do not put any words or letters in the pictures.\\n\\nAnswer with exactly 6 lines, one prompt per line, with no numbers, no titles, no empty lines and nothing else.\",\"model\":\"\",\"clip_type\":\"minimax\",\"order\":\"idea\",\"sep\":\"newline\",\"seed\":3,\"temperature\":0.5,\"max_length\":700,\"top_k\":64,\"top_p\":0.95,\"min_p\":0.05,\"repetition_penalty\":1.05,\"presence_penalty\":0,\"do_sample\":true,\"thinking\":false,\"use_default_template\":true,\"release_model\":false}"
+    },
+    "class_type": "PixaromaAIPrompt",
+    "_meta": {
+      "title": "AI Prompt Pixaroma (1. your story, split into 6 scenes)"
+    }
+  },
+  "6": {
+    "inputs": {
+      "text": [
+        "5",
+        0
+      ],
+      "PromptEachState": "{\"version\":2,\"prompts\":[\"\"],\"split\":\"line\",\"expand\":true,\"trim\":true,\"skipEmpty\":true,\"cap\":200,\"wiredAt\":\"after\"}"
+    },
+    "class_type": "PixaromaPromptEach",
+    "_meta": {
+      "title": "Prompt Each Pixaroma (each line = one scene)"
+    }
+  },
+  "7": {
+    "inputs": {
+      "text_1": [
+        "6",
+        0
+      ],
+      "text_2": "soft watercolor storybook illustration, cute cartoon characters, warm gentle colours",
+      "JoinState": "{\"sep\":\"comma\",\"customSep\":\"\",\"skipEmpty\":true}"
+    },
+    "class_type": "PixaromaTextJoinTwo",
+    "_meta": {
+      "title": "Text Join Two Pixaroma (2. one style for every scene)"
+    }
+  },
+  "8": {
+    "inputs": {
+      "SizesState": "{\"version\":1,\"sizes\":[[1024,1024],[1152,896],[1216,832],[1344,768],[1536,1536]],\"selected\":1,\"orientation\":\"landscape\",\"snap\":16,\"accent\":null,\"collapsed\":false,\"starred\":[],\"w\":1152,\"h\":896}"
+    },
+    "class_type": "PixaromaSizes",
+    "_meta": {
+      "title": "Sizes Pixaroma (3. picture size)"
+    }
+  },
+  "9": {
+    "inputs": {
+      "SeedState": "{\"runSeed\":3}",
+      "seed": 3
+    },
+    "class_type": "PixaromaSeed",
+    "_meta": {
+      "title": "Seed Pixaroma (4. random or fixed)"
+    }
+  },
+  "10": {
+    "inputs": {
+      "text": [
+        "7",
+        0
+      ],
+      "clip": [
+        "2",
+        0
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (reads the prompt)"
+    }
+  },
+  "11": {
+    "inputs": {
+      "conditioning": [
+        "10",
+        0
+      ]
+    },
+    "class_type": "ConditioningZeroOut",
+    "_meta": {
+      "title": "ConditioningZeroOut (empty negative)"
+    }
+  },
+  "12": {
+    "inputs": {
+      "width": [
+        "8",
+        0
+      ],
+      "height": [
+        "8",
+        1
+      ],
+      "batch_size": 1
+    },
+    "class_type": "EmptyFlux2LatentImage",
+    "_meta": {
+      "title": "Empty Flux 2 Latent (blank canvas)"
+    }
+  },
+  "13": {
+    "inputs": {
+      "seed": [
+        "9",
+        0
+      ],
+      "steps": 4,
+      "cfg": 1,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "denoise": 1,
+      "model": [
+        "1",
+        0
+      ],
+      "positive": [
+        "10",
+        0
+      ],
+      "negative": [
+        "11",
+        0
+      ],
+      "latent_image": [
+        "12",
+        0
+      ]
+    },
+    "class_type": "KSampler",
+    "_meta": {
+      "title": "KSampler (4 steps)"
+    }
+  },
+  "14": {
+    "inputs": {
+      "samples": [
+        "13",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE Decode (latent to picture)"
+    }
+  },
+  "15": {
+    "inputs": {
+      "images": [
+        "14",
+        0
+      ],
+      "SaveImageState": "{\"version\":1,\"folder\":\"\",\"pattern\":\"Storyboard/scene_%counter%\",\"format\":\"png\",\"quality\":100,\"embedWorkflow\":true,\"civitaiMeta\":false,\"saveOnRun\":true,\"dateStyle\":\"yyyy-MM-dd\",\"counterDigits\":3,\"folded\":false,\"hideBarWhenFolded\":false,\"webpLossless\":false,\"inputSubfolders\":false,\"showOpen\":true,\"showCopy\":true,\"showFolder\":true,\"showPng\":true,\"showJpg\":true,\"showWebp\":true}"
+    },
+    "class_type": "PixaromaSaveImage",
+    "_meta": {
+      "title": "Save Image Pixaroma (each scene, numbered)"
+    }
+  },
+  "16": {
+    "inputs": {
+      "columns": 3,
+      "cell_size": 448,
+      "gap": 10,
+      "background": "white",
+      "show_names": true,
+      "title": "The Lost Kite",
+      "images": [
+        "14",
+        0
+      ]
+    },
+    "class_type": "PixaromaImageGrid",
+    "_meta": {
+      "title": "Image Grid Pixaroma (the storyboard)"
+    }
+  },
+  "17": {
+    "inputs": {
+      "images": [
+        "16",
+        0
+      ],
+      "SaveImageState": "{\"version\":1,\"folder\":\"\",\"pattern\":\"Storyboard/storyboard_%counter%\",\"format\":\"jpg\",\"quality\":92,\"embedWorkflow\":true,\"civitaiMeta\":false,\"saveOnRun\":true,\"dateStyle\":\"yyyy-MM-dd\",\"counterDigits\":3,\"folded\":false,\"hideBarWhenFolded\":false,\"webpLossless\":false,\"inputSubfolders\":false,\"showOpen\":true,\"showCopy\":true,\"showFolder\":true,\"showPng\":true,\"showJpg\":true,\"showWebp\":true}"
+    },
+    "class_type": "PixaromaSaveImage",
+    "_meta": {
+      "title": "Save Image Pixaroma (the storyboard sheet)"
+    }
+  },
+  "18": {
+    "inputs": {
+      "label_json": "{\"text\":\"Turn a Short Story into a Storyboard\",\"fontSize\":31,\"fontFamily\":\"Arial\",\"fontColor\":\"#ffffff\",\"textAlign\":\"left\",\"backgroundColor\":\"#f66744\",\"padding\":10,\"borderRadius\":0,\"opacity\":1,\"fontWeight\":\"normal\",\"lineHeight\":1}"
+    },
+    "class_type": "PixaromaLabel",
+    "_meta": {
+      "title": "Label Pixaroma"
+    }
+  },
+  "19": {
+    "inputs": {
+      "note_json": "{\"version\":1,\"content\":\"<h1>MODELS AND NODES USED IN THIS WORKFLOW</h1><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #b8b8b8\\\"><p>\\n\\n</p><h2><span data-ic=\\\"model-v1\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;Load Diffusion Model</h2><p>\\n\\n</p><p>\\n<span class=\\\"pix-note-btnblock\\\">\\n  <a class=\\\"pix-note-dl\\\" style=\\\"background-color: #f66744\\\" href=\\\"https://huggingface.co/Winnougan/Klein9b-Distilled-Base-INT8-Convrot/resolve/main/flux-2-klein-9b-int8-convrot.safetensors\\\" target=\\\"_blank\\\" rel=\\\"noopener noreferrer\\\">Download flux-2-klein-9b-int8-convrot.safetensors<span class=\\\"pix-note-btnsize\\\">9.43 GB</span></a>\\n</span>&nbsp;\\n</p><p>\\n\\n</p><div class=\\\"pix-note-folderhint\\\" style=\\\"color: #f66744\\\">Place in: ComfyUI/models/diffusion_models/flux2</div><p>\\n\\n</p><p>Create the <code>flux2</code> folder if it does not exist.</p><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #b8b8b8\\\"><p>\\n\\n</p><h2><span data-ic=\\\"CLIP\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;Load CLIP</h2><p>\\n\\n</p><p>\\n<span class=\\\"pix-note-btnblock\\\">\\n  <a class=\\\"pix-note-dl\\\" style=\\\"background-color: #f66744\\\" href=\\\"https://huggingface.co/Comfy-Org/flux2-klein-9B/resolve/main/split_files/text_encoders/qwen_3_8b_fp8mixed.safetensors\\\" target=\\\"_blank\\\" rel=\\\"noopener noreferrer\\\">Download qwen_3_8b_fp8mixed.safetensors<span class=\\\"pix-note-btnsize\\\">8.66 GB</span></a>\\n</span>&nbsp;\\n</p><p>\\n\\n</p><div class=\\\"pix-note-folderhint\\\" style=\\\"color: #f66744\\\">Place in: ComfyUI/models/text_encoders</div><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #b8b8b8\\\"><p>\\n\\n</p><h2><span data-ic=\\\"VAE\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;Load VAE</h2><p>\\n\\n</p><p>\\n<span class=\\\"pix-note-btnblock\\\">\\n  <a class=\\\"pix-note-dl\\\" style=\\\"background-color: #f66744\\\" href=\\\"https://huggingface.co/Comfy-Org/flux2-dev/resolve/main/split_files/vae/flux2-vae.safetensors\\\" target=\\\"_blank\\\" rel=\\\"noopener noreferrer\\\">Download flux2-vae.safetensors<span class=\\\"pix-note-btnsize\\\">336 MB</span></a>\\n</span>&nbsp;\\n</p><p>\\n\\n</p><div class=\\\"pix-note-folderhint\\\" style=\\\"color: #f66744\\\">Place in: ComfyUI/models/vae</div><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #b8b8b8\\\"><p>\\n\\n</p><h2><span data-ic=\\\"checkmark\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;License</h2><p>\\n\\n</p><p>Flux 2 Klein 9B is made by Black Forest Labs and released under the <b>FLUX Non-Commercial License</b>. Read it before you use the model for paid work.</p><p>\\n\\n</p><p><span class=\\\"pix-note-btnblock\\\"><a class=\\\"pix-note-rm\\\" style=\\\"background-color: #f66744\\\" href=\\\"https://huggingface.co/black-forest-labs/FLUX.2-klein-9B\\\" target=\\\"_blank\\\" rel=\\\"noopener noreferrer\\\">Flux 2 Klein 9B model card</a></span>&nbsp;</p><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #b8b8b8\\\"><p>\\n\\n</p><h2><span data-ic=\\\"CLIP\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;Load CLIP (the writer)</h2><p>\\n\\n</p><p>\\n<span class=\\\"pix-note-btnblock\\\">\\n  <a class=\\\"pix-note-dl\\\" style=\\\"background-color: #f66744\\\" href=\\\"https://huggingface.co/Winnougan/Qwen-3.5-INT8-Convrot-Comfy/resolve/main/qwen3.5_4b_int8_convrot.safetensors\\\" target=\\\"_blank\\\" rel=\\\"noopener noreferrer\\\">Download qwen3.5_4b_int8_convrot.safetensors<span class=\\\"pix-note-btnsize\\\">5.59 GB</span></a>\\n</span>&nbsp;\\n</p><p>\\n\\n</p><div class=\\\"pix-note-folderhint\\\" style=\\\"color: #f66744\\\">Place in: ComfyUI/models/text_encoders</div><p>\\n\\n</p><p>A small language model that runs on your own PC, nothing is sent online. It writes the scenes, Klein draws them.</p><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #b8b8b8\\\"><p>\\n\\n</p><p><span data-ic=\\\"warning-v1\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;After placing the files, restart ComfyUI or refresh model lists using the <b>R</b> shortcut.</p><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #b8b8b8\\\"><p>\\n\\n</p><h2><span data-ic=\\\"nodes-installed\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;Nodes Installed from Manager</h2><p>\\n\\n</p><ul><li>Pixaroma, version <b>1.4.204</b> or newer. A node shows red or missing? Update Pixaroma.</li></ul><p>\\n\\n</p><p><b>Which version is the newest?</b> The <b>Latest Pixaroma version</b> button shows it and what is new in it. The help page has the update steps for every kind of install.</p><p>\\n\\n</p><p><span class=\\\"pix-note-btnblock\\\"><a class=\\\"pix-note-rm\\\" style=\\\"background-color: #f66744\\\" href=\\\"https://workflows.pixaroma.com/latest/?need=1.4.204\\\" target=\\\"_blank\\\" rel=\\\"noopener noreferrer\\\">Latest Pixaroma version</a></span>&nbsp;<span class=\\\"pix-note-btnblock\\\"><a class=\\\"pix-note-rm\\\" style=\\\"background-color: #f66744\\\" href=\\\"https://workflows.pixaroma.com/help/#update\\\" target=\\\"_blank\\\" rel=\\\"noopener noreferrer\\\">How to update Pixaroma</a></span>&nbsp;</p><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #b8b8b8\\\"><p>\\n\\n</p><h2><span data-ic=\\\"puzzle\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;Something missing?</h2><p>\\n\\n</p><p>Each button opens a short video that shows the fix, with the steps written under it.</p><p>\\n\\n</p><p><span class=\\\"pix-note-btnblock\\\"><a class=\\\"pix-note-rm\\\" style=\\\"background-color: #f66744\\\" href=\\\"https://workflows.pixaroma.com/help/missing-nodes/\\\" target=\\\"_blank\\\" rel=\\\"noopener noreferrer\\\">Red or missing nodes</a></span>&nbsp;<span class=\\\"pix-note-btnblock\\\"><a class=\\\"pix-note-rm\\\" style=\\\"background-color: #f66744\\\" href=\\\"https://workflows.pixaroma.com/help/missing-models/\\\" target=\\\"_blank\\\" rel=\\\"noopener noreferrer\\\">A model file is missing</a></span>&nbsp;<span class=\\\"pix-note-btnblock\\\"><a class=\\\"pix-note-rm\\\" style=\\\"background-color: #f66744\\\" href=\\\"https://workflows.pixaroma.com/help/refresh/\\\" target=\\\"_blank\\\" rel=\\\"noopener noreferrer\\\">Buttons missing after an update</a></span>&nbsp;</p><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #b8b8b8\\\"><p>\\n\\n</p><h2><span data-ic=\\\"pixaroma\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;Resources</h2><p>\\n\\n</p><p>\\n  <a class=\\\"pix-note-discord\\\" href=\\\"https://discord.com/invite/gggpkVgBf3\\\" target=\\\"_blank\\\" rel=\\\"noopener noreferrer\\\">Join Discord</a>&nbsp;\\n  <a class=\\\"pix-note-yt\\\" href=\\\"https://www.youtube.com/@pixaroma\\\" target=\\\"_blank\\\" rel=\\\"noopener noreferrer\\\">Pixaroma YouTube Channel</a>&nbsp;\\n  <span class=\\\"pix-note-btnblock\\\"><a class=\\\"pix-note-rm\\\" style=\\\"background-color: #f66744\\\" href=\\\"https://workflows.pixaroma.com/help/report/\\\" target=\\\"_blank\\\" rel=\\\"noopener noreferrer\\\">Ask for help</a></span>&nbsp;\\n</p><p>\\n\\n</p>\",\"buttonColor\":\"#f66744\",\"lineColor\":\"#f66744\",\"backgroundColor\":\"#2a2a2a\",\"info\":{\"title\":\"Download Models\",\"icon\":\"download-model\",\"color\":\"#f66744\"}}"
+    },
+    "class_type": "PixaromaInfo",
+    "_meta": {
+      "title": "Info Pixaroma"
+    }
+  },
+  "20": {
+    "inputs": {
+      "note_json": "{\"version\":1,\"content\":\"<h1>HOW TO USE</h1><p>\\n\\n</p><p>Type a short story and press Run once: a local AI splits it into 6 scenes and writes a picture prompt for each, Klein draws all 6 in the same style, and Image Grid lays them out as a storyboard. The scenes are also saved one by one.</p><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #b8b8b8\\\"><p>\\n\\n</p><h2><span data-ic=\\\"to-do\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;Steps</h2><p>\\n\\n</p><ol><li>Type your story in the box of <b>AI Prompt Pixaroma</b>: a few sentences are enough.</li><li>Pick a style in <b>Text Join Two Pixaroma</b> (the second box), for example <i>comic book, bold lines</i> or <i>cinematic film still</i>.</li><li>Press <b>Run</b>.</li></ol><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #b8b8b8\\\"><p>\\n\\n</p><h2><span data-ic=\\\"gear\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;Good to know</h2><p>\\n\\n</p><ul><li>Want 4 or 9 scenes? Change the number in the formula (the gear of AI Prompt) AND the <b>columns</b> of Image Grid.</li><li>The AI's seed is Fixed, so the same story gives the same scenes. Set it to <b>R</b> for new ones.</li><li>Fewer pictures than scenes? The small AI sometimes writes fewer lines (with this story, 3 of 6 AI seeds wrote all 6; the workflow uses one that does). Change the AI's seed and Run again.</li><li>The same character in every picture is the hard part: the formula makes the AI describe her the same way each time, and a fixed Klein seed helps. For a perfect match, edit one picture into the others with an edit workflow.</li></ul><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #b8b8b8\\\"><p>\\n\\n</p><h2><span data-ic=\\\"question-mark\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;Something not working?</h2><p>\\n\\n</p><p>Each button opens the answer on the Pixaroma help page.</p><p>\\n\\n</p><p><span class=\\\"pix-note-btnblock\\\"><a class=\\\"pix-note-rm\\\" style=\\\"background-color: #f66744\\\" href=\\\"https://workflows.pixaroma.com/help/faq/#q-ai-prompt-local\\\" target=\\\"_blank\\\" rel=\\\"noopener noreferrer\\\">What AI Prompt needs</a></span>&nbsp;<span class=\\\"pix-note-btnblock\\\"><a class=\\\"pix-note-rm\\\" style=\\\"background-color: #f66744\\\" href=\\\"https://workflows.pixaroma.com/help/faq/#q-save-other-folder\\\" target=\\\"_blank\\\" rel=\\\"noopener noreferrer\\\">Save to your own folder</a></span>&nbsp;<span class=\\\"pix-note-btnblock\\\"><a class=\\\"pix-note-rm\\\" style=\\\"background-color: #f66744\\\" href=\\\"https://workflows.pixaroma.com/help/look/\\\" target=\\\"_blank\\\" rel=\\\"noopener noreferrer\\\">Nodes look different from the video</a></span>&nbsp;</p><p>\\n\\n</p>\",\"buttonColor\":\"#f66744\",\"lineColor\":\"#f66744\",\"backgroundColor\":\"#2a2a2a\",\"info\":{\"title\":\"How to Use\",\"icon\":\"to-do\",\"color\":\"#2a9d8f\"}}"
+    },
+    "class_type": "PixaromaInfo",
+    "_meta": {
+      "title": "Info Pixaroma"
+    }
+  },
+  "21": {
+    "inputs": {
+      "note_json": "{\"version\":1,\"content\":\"<h1>WHAT EACH NODE DOES</h1><p>\\n\\n</p><p>The colour of a node tells you what kind of node it is. Nothing here needs changing except the blue ones.</p><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #b8b8b8\\\"><p>\\n\\n</p><h2><span data-ic=\\\"model-v1\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;Models to download</h2><p>\\n\\n</p><p>Orange. Each one needs a file from the <b>Download Models</b> note.</p><p>\\n\\n</p><ul><li><b>Load Diffusion Model (Flux 2 Klein 9B)</b> - The image model, Flux 2 Klein 9B from Black Forest Labs. It is a fast 4-step model that can make a picture from words AND change a picture you give it.</li><li><b>Load CLIP (Qwen 3 8B, reads the prompt)</b> - Reads your prompt and turns the words into something the image model understands.</li><li><b>Load VAE (Flux 2)</b> - Turns the finished render into a picture you can see, and a picture into the model's own format.</li><li><b>Load CLIP (Qwen3.5 4B, writes the scenes)</b> - The language model that WRITES the scene prompts, Qwen3.5 4B. Klein's own text encoder can only read, it cannot write, so the writer is a separate, small model.</li></ul><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #b8b8b8\\\"><p>\\n\\n</p><h2><span data-ic=\\\"chip\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;The steps you set</h2><p>\\n\\n</p><p>Blue, and numbered. These are the only nodes you need to touch.</p><p>\\n\\n</p><ul><li><b>AI Prompt Pixaroma (1. your story, split into 6 scenes)</b> - Your story goes in its box. Its formula (the gear) asks for exactly 6 scene prompts, one per line, with the main character described the same way every time, so all the pictures show the same character.</li><li><b>Text Join Two Pixaroma (2. one style for every scene)</b> - Adds the SAME style to every scene, so the storyboard looks like one book. Change the second box to change the style of all 6.</li><li><b>Sizes Pixaroma (3. picture size)</b> - The picture size. Click a size; the Portrait / Landscape switch turns it on its side.</li><li><b>Seed Pixaroma (4. random or fixed)</b> - The seed. <b>F</b> (fixed) gives the same result every Run, <b>R</b> (random) a new one each Run.</li></ul><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #b8b8b8\\\"><p>\\n\\n</p><h2><span data-ic=\\\"chip\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;The helpers</h2><p>\\n\\n</p><p>Purple. They run by themselves and do the small jobs: count, pick, join or pass things along.</p><p>\\n\\n</p><ul><li><b>Prompt Each Pixaroma (each line = one scene)</b> - Gets the 6 lines on its <b>text</b> input and sends them through one after the other: one Run, one picture per scene. Its own rows are empty on purpose.</li></ul><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #b8b8b8\\\"><p>\\n\\n</p><h2><span data-ic=\\\"chip\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;The work</h2><p>\\n\\n</p><p>Green. They run by themselves.</p><p>\\n\\n</p><ul><li><b>CLIP Text Encode (reads the prompt)</b> - Reads the prompt through the text encoder.</li><li><b>ConditioningZeroOut (empty negative)</b> - An empty negative prompt. Klein runs at CFG 1, where the negative does nothing, but the KSampler still needs one plugged in.</li><li><b>Empty Flux 2 Latent (blank canvas)</b> - The blank canvas the picture is painted on, at the size it receives.</li><li><b>KSampler (4 steps)</b> - The render: 4 steps, CFG 1, euler, simple, the settings Klein is made for.</li><li><b>VAE Decode (latent to picture)</b> - Turns the finished render into a picture.</li></ul><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #b8b8b8\\\"><p>\\n\\n</p><h2><span data-ic=\\\"checkmark\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;The result</h2><p>\\n\\n</p><p>Dark red, at the end.</p><p>\\n\\n</p><ul><li><b>Save Image Pixaroma (each scene, numbered)</b> - Saves every scene as PNG into <code>ComfyUI/output/Storyboard</code>, numbered in order.</li><li><b>Image Grid Pixaroma (the storyboard)</b> - Lays the 6 scenes out as a storyboard, 3 per row, numbered 1 to 6, with a title.</li><li><b>Save Image Pixaroma (the storyboard sheet)</b> - Saves the storyboard sheet as a JPG into the same folder.</li></ul><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #b8b8b8\\\"><p>\\n\\n</p><h2><span data-ic=\\\"info\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;Readouts</h2><p>\\n\\n</p><p>Dark. Nothing to set: they show you what happened.</p><p>\\n\\n</p><ul><li><b>Run Timer</b> - The dark clock above the result shows how long the last Run took.</li></ul><p>\\n\\n</p>\",\"buttonColor\":\"#f66744\",\"lineColor\":\"#f66744\",\"backgroundColor\":\"#2a2a2a\",\"info\":{\"title\":\"Nodes Info\",\"icon\":\"node-v5\",\"color\":\"#3d7cc9\"}}"
+    },
+    "class_type": "PixaromaInfo",
+    "_meta": {
+      "title": "Info Pixaroma"
+    }
+  },
+  "22": {
+    "inputs": {
+      "note_json": "{\"version\":1,\"content\":\"<h1>RUN TIMES</h1><p>\\n\\n</p><p>Measured on a <b>24 GB RTX 4090</b> with this workflow, with the models already loaded. A different card gives different numbers, but the shape holds: the time grows with the number of pictures and their size.</p><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #b8b8b8\\\"><p>\\n\\n</p><table class=\\\"pix-note-grid\\\" style=\\\"--pix-note-grid-border: #f66744; --pix-note-grid-header-bg: #1a1a1a\\\"><thead><tr><th>What</th><th>Time</th></tr></thead><tbody><tr><td>The AI writing 6 scenes</td><td>about 5 s</td></tr><tr><td>Klein drawing 6 pictures</td><td>about 12 s</td></tr><tr><td>Story to storyboard</td><td>about 20 s</td></tr></tbody></table><p>\\n\\n</p><p>Klein needs <b>4 steps</b>, so it is fast: about <b>1.7 s</b> for a 1024 x 1024 picture from a prompt and about <b>3 s</b> for an edit at 1 megapixel, where it also reads your picture.</p><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #b8b8b8\\\"><p>\\n\\n</p><h2><span data-ic=\\\"warning-v1\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;The first Run of the session</h2><p>\\n\\n</p><p>The first Run after starting ComfyUI also has to load the models from disk (about 18 GB for Klein and its text encoder), so it takes longer. After that they stay loaded.</p><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #b8b8b8\\\"><p>\\n\\n</p><h2><span data-ic=\\\"run-timer\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;On a 16 GB card</h2><p>\\n\\n</p><p>Timed on an <b>RTX 4060 Ti 16 GB</b> with 32 GB of RAM:</p><p>\\n\\n</p><ul><li>Klein took about <b>3 to 6 times</b> as long, about 10 s even for one picture: Klein and its text encoder (17 GB together) do not fit in 16 GB, so parts of them load again on every Run, and a second Run is no faster.</li><li>The AI text step took about <b>2 times</b> as long.</li></ul><p>\\n\\n</p>\",\"buttonColor\":\"#f66744\",\"lineColor\":\"#f66744\",\"backgroundColor\":\"#2a2a2a\",\"info\":{\"title\":\"Run Times\",\"icon\":\"run-timer\",\"color\":\"#3f9a4f\"}}"
+    },
+    "class_type": "PixaromaInfo",
+    "_meta": {
+      "title": "Info Pixaroma"
+    }
+  },
+  "23": {
+    "inputs": {},
+    "class_type": "PixaromaRunTimer",
+    "_meta": {
+      "title": "Run Timer Pixaroma"
+    }
+  }
+}

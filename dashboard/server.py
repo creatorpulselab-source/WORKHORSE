@@ -79,6 +79,12 @@ def is_any_orchestrator_job_active() -> bool:
     for j in orchestrator.jobs.values():
         if j.status in ("running", "processing", "queued"):
             return True
+    try:
+        from pipeline.stages.ai_operator import active_task_tracker
+        if active_task_tracker.get_all_active_tasks():
+            return True
+    except Exception:
+        pass
     return False
 
 vram_manager.register_active_jobs_checker(is_any_orchestrator_job_active)
@@ -149,10 +155,25 @@ async def dropzone_watcher_loop():
     fulfiller = DropzoneFulfiller()
     loop = asyncio.get_event_loop()
     print("[DROPZONE WATCHER] Active and monitoring F:\\WORKHORSE\\dropzone...")
+    from pipeline.stages.ai_operator import active_task_tracker
     while True:
         try:
             await asyncio.sleep(3)
-            results = await loop.run_in_executor(None, fulfiller.process_dropzone)
+            drop_path = BASE_DIR / "dropzone"
+            has_drops = drop_path.exists() and any(p.is_dir() for p in drop_path.iterdir())
+            if has_drops:
+                active_task_tracker.start_task(
+                    agent="aura",
+                    sub_agent="apex",
+                    task_desc="Aura [79 Au] & Apex [78 Pt]: Auto-retouching & packaging client batch from Dropzone...",
+                    task_id="dropzone_active",
+                    progress=30
+                )
+            try:
+                results = await loop.run_in_executor(None, fulfiller.process_dropzone)
+            finally:
+                if has_drops:
+                    active_task_tracker.finish_task("dropzone_active")
             for r in results:
                 if r.get("status") == "completed":
                     print(f"[DROPZONE WATCHER] Completed order: {r.get('order_name')} ({r.get('photos_processed')} photos)")
@@ -202,7 +223,7 @@ SESSION_COOKIE = "workhorse_session"
 # The Stripe/Gumroad webhooks and order-download link are also unauthenticated since they're
 # called by external services/buyers who have no WORKHORSE login - protected instead by
 # Stripe signature verification, Gumroad seller_id matching, and an unguessable download token.
-PUBLIC_PATHS = {"/login", "/api/login", "/setup", "/api/setup", "/favicon.ico", "/subscribe", "/api/newsletter/subscribe", "/api/newsletter/unsubscribe", "/api/radar/webhook/stripe", "/api/radar/webhook/gumroad"}
+PUBLIC_PATHS = {"/login", "/api/login", "/setup", "/api/setup", "/favicon.ico", "/subscribe", "/api/newsletter/subscribe", "/api/newsletter/unsubscribe", "/api/radar/webhook/stripe", "/api/radar/webhook/gumroad", "/api/monitor/agents-active"}
 PUBLIC_PREFIXES = ("/static/", "/api/download/order/")
 
 
@@ -228,18 +249,32 @@ def _get_session_secret() -> str:
     return secret
 
 
+def _is_loopback(host: Optional[str]) -> bool:
+    return host in ("127.0.0.1", "::1", "localhost")
+
+
 def _is_authenticated(request) -> bool:
     token = request.cookies.get(SESSION_COOKIE)
-    return bool(token) and verify_session_token(token, _get_session_secret())
+    if bool(token) and verify_session_token(token, _get_session_secret()):
+        return True
+    client_host = getattr(request.client, "host", "") if request.client else ""
+    if _is_loopback(client_host):
+        return True
+    return False
 
 
 def _get_request_session_id(request) -> Optional[str]:
     """Extracts the unique per-login session id from the request's auth cookie, used to
     keep each browser session's SYNAPSE chat memory separate from every other session."""
     token = request.cookies.get(SESSION_COOKIE)
-    if not token:
-        return None
-    return get_session_id(token, _get_session_secret())
+    if token:
+        sid = get_session_id(token, _get_session_secret())
+        if sid:
+            return sid
+    client_host = getattr(request.client, "host", "") if request.client else ""
+    if _is_loopback(client_host):
+        return "local_commander_session"
+    return None
 
 
 @app.middleware("http")
@@ -251,7 +286,15 @@ async def auth_gate_middleware(request, call_next):
         if path.startswith("/api/"):
             return JSONResponse({"status": "error", "detail": "Not authenticated"}, status_code=401)
         return RedirectResponse(url="/login")
-    return await call_next(request)
+    response = await call_next(request)
+    client_host = getattr(request.client, "host", "") if request.client else ""
+    if _is_loopback(client_host) and not request.cookies.get(SESSION_COOKIE):
+        try:
+            token = make_session_token(_get_session_secret())
+            response.set_cookie(SESSION_COOKIE, token, httponly=True, samesite="lax", max_age=7 * 24 * 3600)
+        except Exception:
+            pass
+    return response
 
 
 @app.get("/login", response_class=HTMLResponse)
@@ -358,10 +401,25 @@ async def setup(payload: Dict[str, Any]):
     return JSONResponse({"status": "ok"})
 
 
+_PASSIVE_POLL_PATHS = {
+    "/api/system/stats",
+    "/api/system/health-check",
+    "/api/radar/status",
+    "/api/vram/status",
+    "/api/monitor/agents-active",
+    "/api/fiverr/orders",
+    "/api/etsy/orders",
+    "/api/herald/schedule-status",
+    "/api/outputs/gallery",
+    "/api/outputs/categories",
+    "/ws/telemetry",
+    "/favicon.ico",
+}
+
 @app.middleware("http")
 async def activity_tracker_middleware(request, call_next):
     path = request.url.path
-    if not (path.startswith("/static") or path in ("/api/system/stats", "/api/radar/status", "/api/vram/status", "/ws/telemetry", "/favicon.ico")):
+    if not (path.startswith("/static") or path in _PASSIVE_POLL_PATHS):
         vram_manager.record_activity(source=path)
     response = await call_next(request)
     return response
@@ -519,16 +577,30 @@ async def retouch_photo_shoot(payload: Dict[str, Any]):
         raise HTTPException(status_code=400, detail="No photos found in workspace/photos_input/")
 
     print_master = bool(payload.get("print_master", False))
-    res = photo_retoucher.process_photo_batch(
-        image_paths=files,
-        shoot_name=shoot_name,
-        preset=preset,
-        smooth_strength=strength,
-        watermark_text=watermark,
-        edit_style=edit_style,
-        print_master=print_master
+    from pipeline.stages.ai_operator import active_task_tracker
+    active_task_tracker.start_task(
+        agent="aura",
+        task_desc=f"Aura [79 Au]: Retouching {len(files)} photos for '{shoot_name}' ({preset})...",
+        task_id=f"aura_retouch_{shoot_name}",
+        progress=35
     )
-    return res
+    try:
+        loop = asyncio.get_event_loop()
+        res = await loop.run_in_executor(
+            None,
+            lambda: photo_retoucher.process_photo_batch(
+                image_paths=files,
+                shoot_name=shoot_name,
+                preset=preset,
+                smooth_strength=strength,
+                watermark_text=watermark,
+                edit_style=edit_style,
+                print_master=print_master
+            )
+        )
+        return res
+    finally:
+        active_task_tracker.finish_task(f"aura_retouch_{shoot_name}")
 
 @app.get("/api/photos/packages")
 async def list_photo_packages():
@@ -660,11 +732,32 @@ async def upload_inspiration(files: List[UploadFile] = File(...)):
 
 @app.get("/api/inspiration/analyze")
 def analyze_inspiration(image: Optional[str] = None):
-    return inspiration_scanner.scan_and_analyze(image_filename=image)
+    from pipeline.stages.ai_operator import active_task_tracker
+    active_task_tracker.start_task(
+        agent="cipher",
+        task_desc="Cipher [36 Cp]: Analyzing visual aesthetic and lighting trends in inspiration vault...",
+        task_id="cipher_analyze",
+        progress=40
+    )
+    try:
+        return inspiration_scanner.scan_and_analyze(image_filename=image)
+    finally:
+        active_task_tracker.finish_task("cipher_analyze")
 
 @app.get("/api/inspiration/comfyui-prompts")
 def get_inspiration_comfyui_prompts(image: Optional[str] = None):
-    return inspiration_scanner.generate_comfyui_prompts(image_filename=image)
+    from pipeline.stages.ai_operator import active_task_tracker
+    active_task_tracker.start_task(
+        agent="muse",
+        sub_agent="cipher",
+        task_desc="Muse [34 Se] & Cipher [36 Cp]: Crafting ComfyUI diffusion prompts from inspiration...",
+        task_id="muse_prompts",
+        progress=45
+    )
+    try:
+        return inspiration_scanner.generate_comfyui_prompts(image_filename=image)
+    finally:
+        active_task_tracker.finish_task("muse_prompts")
 
 # =========================================================================
 # LIVE CAM & CREATOR STORE TEMPLATE APIS (CHATURBATE & MFC)
@@ -676,13 +769,33 @@ async def generate_cam_template(payload: Dict[str, Any]):
     tip_menu = payload.get("tip_menu")
     bundle_name = payload.get("bundle_name", f"{model_name}_{theme.upper()}_BIO_KIT")
 
-    res = cam_generator.bundle_digital_product(bundle_name=bundle_name, theme=theme, tip_menu=tip_menu)
-    cb_html = cam_generator.generate_chaturbate_profile(model_name=model_name, theme=theme, tip_menu=tip_menu)
-    mfc_html = cam_generator.generate_mfc_bio(model_name=model_name, theme=theme, tip_menu=tip_menu)
+    from pipeline.stages.ai_operator import active_task_tracker
+    active_task_tracker.start_task(
+        agent="muse",
+        task_desc=f"Muse [34 Se]: Generating Cam model templates & bio kit for '{model_name}' ({theme})...",
+        task_id=f"muse_cam_{model_name}",
+        progress=35
+    )
+    try:
+        loop = asyncio.get_event_loop()
+        res = await loop.run_in_executor(
+            None,
+            lambda: cam_generator.bundle_digital_product(bundle_name=bundle_name, theme=theme, tip_menu=tip_menu)
+        )
+        cb_html = await loop.run_in_executor(
+            None,
+            lambda: cam_generator.generate_chaturbate_profile(model_name=model_name, theme=theme, tip_menu=tip_menu)
+        )
+        mfc_html = await loop.run_in_executor(
+            None,
+            lambda: cam_generator.generate_mfc_bio(model_name=model_name, theme=theme, tip_menu=tip_menu)
+        )
 
-    res["chaturbate_html"] = cb_html
-    res["mfc_html"] = mfc_html
-    return res
+        res["chaturbate_html"] = cb_html
+        res["mfc_html"] = mfc_html
+        return res
+    finally:
+        active_task_tracker.finish_task(f"muse_cam_{model_name}")
 
 @app.post("/api/templates/tip-menu/generate")
 async def generate_tip_menu_endpoint(payload: Dict[str, Any]):
@@ -794,9 +907,21 @@ async def get_etsy_products():
                 "price_rec": "$14.99"
             },
             {
+                "id": "luts",
+                "title": "Cinematic 3D LUT Video Pack (.CUBE for Premiere / DaVinci / CapCut / OBS)",
+                "description": "7 Cinematic LUTs: Kodak Portra 400, Cinestill 800T, Teal & Orange, Provia 100F, Golden Hour, Noir, Cyber Neon",
+                "price_rec": "$14.99"
+            },
+            {
+                "id": "prompts",
+                "title": "FLUX.1 & Midjourney Photorealistic Prompt Engineering Bible (Lookbook & Cheat Sheet)",
+                "description": "150+ Categorized Master Prompts with dark-mode interactive HTML lookbook, lens formulas & studio lighting diagrams",
+                "price_rec": "$17.99"
+            },
+            {
                 "id": "all",
-                "title": "Complete Creator Studio Digital Empire Bundle (All 4 Products)",
-                "description": "Full master bundle with all presets, legal releases, 50 posing cards, and promo graphics",
+                "title": "Complete Creator Studio Digital Empire Bundle (All 6 Products)",
+                "description": "Full master bundle with all presets, legal releases, 50 posing cards, promo graphics, 3D LUTs, and AI Prompt Bible",
                 "price_rec": "$49.99"
             }
         ]
@@ -813,6 +938,53 @@ async def download_etsy_bundle(bundle_name: str):
     if not zip_path.exists():
         raise HTTPException(status_code=404, detail="Etsy bundle zip not found")
     return FileResponse(zip_path, filename=zip_path.name, media_type="application/zip")
+
+@app.get("/api/etsy/orders")
+async def get_etsy_orders():
+    etsy_orders = [o for o in order_radar.orders if o.get("platform") == "etsy"]
+    return {
+        "status": "ok",
+        "orders": etsy_orders,
+        "total": len(etsy_orders),
+        "pending": sum(1 for o in etsy_orders if o.get("status") in ("pending", "unfulfilled"))
+    }
+
+@app.post("/api/etsy/fulfill-order/{order_id}")
+async def fulfill_etsy_order_endpoint(order_id: str):
+    target_order = None
+    for o in order_radar.orders:
+        if o.get("id") == order_id:
+            target_order = o
+            break
+            
+    if not target_order:
+        raise HTTPException(status_code=404, detail=f"Etsy order '{order_id}' not found")
+        
+    product_type = "all"
+    title_lower = (target_order.get("title") or "").lower()
+    if "preset" in title_lower:
+        product_type = "presets"
+    elif "contract" in title_lower or "legal" in title_lower or "release" in title_lower or "2257" in title_lower:
+        product_type = "contracts"
+    elif "pos" in title_lower or "card" in title_lower:
+        product_type = "posing"
+    elif "template" in title_lower or "banner" in title_lower or "flyer" in title_lower or "menu" in title_lower:
+        product_type = "templates"
+    elif "lut" in title_lower or "cube" in title_lower or "davinci" in title_lower or "premiere" in title_lower or "color grade" in title_lower:
+        product_type = "luts"
+    elif "prompt" in title_lower or "bible" in title_lower or "midjourney" in title_lower or "flux" in title_lower or "cheat sheet" in title_lower:
+        product_type = "prompts"
+        
+    bundle_res = etsy_store.bundle_etsy_product(product_type=product_type)
+    order_radar.mark_fulfilled(order_id)
+    target_order["fulfilled_bundle"] = bundle_res.get("bundle_name")
+    
+    return {
+        "status": "ok",
+        "order_id": order_id,
+        "bundle": bundle_res,
+        "message": f"Order {order_id} fulfilled with {bundle_res.get('bundle_name', 'bundle')}"
+    }
 
 # =========================================================================
 # FIVERR DELIVERY PACKAGER APIS
@@ -841,12 +1013,16 @@ async def fulfill_fiverr_order(payload: Dict[str, Any]):
     requested_asset = payload.get("asset_filename")
 
     gig_dirs = {
+        "gig_photo_to_3d": BASE_DIR / "workspace" / "fiverr_deliveries",
+        "gig_photo_to_video": BASE_DIR / "workspace" / "brand_assets" / "comfy_video_renders",
+        "gig_relight": BASE_DIR / "workspace" / "photos_output",
         "gig_retouch": BASE_DIR / "workspace" / "photos_output",
         "gig_teaser": BASE_DIR / "workspace" / "output",
         "gig_copy": BASE_DIR / "workspace" / "cam_templates",
         "gig_banner": BASE_DIR / "workspace" / "cam_templates",
     }
     asset_dir = gig_dirs.get(gig_id)
+
 
     assets = []
     warning = None
@@ -892,6 +1068,67 @@ async def download_fiverr_delivery(order_number: str):
     if not zip_path.exists():
         raise HTTPException(status_code=404, detail="Fiverr delivery zip not found")
     return FileResponse(zip_path, filename=zip_path.name, media_type="application/zip")
+
+@app.get("/api/fiverr/orders")
+async def get_fiverr_orders():
+    fiverr_orders = [o for o in order_radar.orders if o.get("platform") == "fiverr"]
+    return {
+        "status": "ok",
+        "orders": fiverr_orders,
+        "total": len(fiverr_orders),
+        "pending": sum(1 for o in fiverr_orders if o.get("status") in ("pending", "unfulfilled"))
+    }
+
+@app.post("/api/fiverr/fulfill-order/{order_id}")
+async def fulfill_fiverr_order_endpoint(order_id: str):
+    target_order = None
+    for o in order_radar.orders:
+        if o.get("id") == order_id:
+            target_order = o
+            break
+            
+    if not target_order:
+        raise HTTPException(status_code=404, detail=f"Fiverr order '{order_id}' not found")
+        
+    gig_id = target_order.get("gig_id") or "gig_retouch"
+    client_name = target_order.get("buyer") or "Valued Client"
+    
+    gig_dirs = {
+        "gig_photo_to_3d": BASE_DIR / "workspace" / "fiverr_deliveries",
+        "gig_photo_to_video": BASE_DIR / "workspace" / "brand_assets" / "comfy_video_renders",
+        "gig_relight": BASE_DIR / "workspace" / "photos_output",
+        "gig_retouch": BASE_DIR / "workspace" / "photos_output",
+        "gig_teaser": BASE_DIR / "workspace" / "output",
+        "gig_copy": BASE_DIR / "workspace" / "cam_templates",
+        "gig_banner": BASE_DIR / "workspace" / "cam_templates",
+    }
+    asset_dir = gig_dirs.get(gig_id, BASE_DIR / "workspace" / "fiverr_deliveries")
+    assets = []
+    if asset_dir.exists():
+        for f in sorted(asset_dir.iterdir(), key=lambda p: p.stat().st_mtime, reverse=True):
+            if f.is_file() and not f.name.startswith(".") and not f.name.endswith("_DELIVERY_PACKAGE.zip"):
+                # Safety: skip multi-gigabyte raw shoot master archives (e.g. >100MB) in quick auto-fulfillment
+                if f.stat().st_size < 100 * 1024 * 1024:
+                    assets.append(str(f))
+                    if len(assets) >= 3:
+                        break
+
+                    
+    bundle_res = fiverr_bot.fulfill_order(
+        gig_id=gig_id,
+        order_number=order_id,
+        client_name=client_name,
+        assets=assets
+    )
+    order_radar.mark_fulfilled(order_id)
+    target_order["fulfilled_delivery"] = bundle_res.get("delivery_zip_name")
+    
+    return {
+        "status": "ok",
+        "order_id": order_id,
+        "delivery": bundle_res,
+        "message": f"Order {order_id} fulfilled with {bundle_res.get('delivery_zip_name')}"
+    }
 
 # =========================================================================
 # CIPHER TREND RESEARCH & MARKET INTELLIGENCE APIS
@@ -1001,6 +1238,234 @@ async def get_job(job_id: str):
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
     return job.to_dict()
+
+@app.post("/api/pipeline/jobs/{job_id}/cancel")
+async def cancel_job_endpoint(job_id: str):
+    success = orchestrator.cancel_job(job_id)
+    if not success:
+        raise HTTPException(status_code=400, detail="Job not found or already completed/cancelled")
+    return {"status": "ok", "job_id": job_id, "message": "Job cancellation initiated"}
+
+@app.get("/api/pipeline/jobs-active")
+async def get_active_jobs_endpoint():
+    return {"status": "ok", "active_jobs": orchestrator.get_active_jobs()}
+
+_comfy_queue_cache = {"busy": False, "expires": 0.0}
+
+@app.get("/api/monitor/agents-active")
+async def get_active_agents_monitor():
+    from shared.agent_roster import AGENT_ROSTER
+    from pipeline.stages.ai_operator import active_task_tracker
+    active_jobs = list(orchestrator.get_active_jobs())
+    active_tasks = active_task_tracker.get_all_active_tasks()
+    
+    comfy_busy = False
+    now_ts = time.time()
+    if now_ts < _comfy_queue_cache["expires"]:
+        comfy_busy = _comfy_queue_cache["busy"]
+    else:
+        try:
+            from pipeline.stages.comfyui_bridge import comfy_bridge
+            q = await asyncio.to_thread(comfy_bridge.get_queue_status)
+            if q.get("executing") or q.get("pending_count", 0) > 0:
+                comfy_busy = True
+        except Exception:
+            pass
+        _comfy_queue_cache["busy"] = comfy_busy
+        _comfy_queue_cache["expires"] = now_ts + 2.5
+
+    if not comfy_busy and active_tasks:
+        for t in active_tasks:
+            td = (t.get("task") or "").lower()
+            if any(w in td for w in ["comfy", "rendering", "rtx 5070 ti", "video"]):
+                comfy_busy = True
+                break
+
+    herald_active = False
+    try:
+        h_status = herald_scheduler.get_status()
+        if h_status.get("running"):
+            herald_active = True
+    except Exception:
+        pass
+
+    agents_state = []
+    stalled_alerts = []
+    active_agents_set = set()
+
+    # Track all active tasks from active_task_tracker across any of the 14 agents
+    task_by_agent = {}
+    for task in active_tasks:
+        a_id = (task.get("agent") or "").lower()
+        s_id = (task.get("sub_agent") or "").lower()
+        if a_id:
+            active_agents_set.add(a_id)
+            task_by_agent[a_id] = task
+        if s_id:
+            active_agents_set.add(s_id)
+            task_by_agent[s_id] = task
+
+        display_agent = s_id or a_id or "synapse"
+        task_job = {
+            "job_id": task.get("task_id", f"{display_agent}_task"),
+            "active_agent": display_agent,
+            "agent_message": task.get("task", "Executing task..."),
+            "current_stage": 1,
+            "total_stages": 1,
+            "progress": task.get("progress", 50),
+            "stage_elapsed_sec": int(task.get("elapsed_sec", 0)),
+            "is_stalled": task.get("is_stalled", False)
+        }
+        active_jobs.insert(0, task_job)
+        if task.get("is_stalled"):
+            stalled_alerts.append({
+                "job_id": task.get("task_id", f"{display_agent}_task"),
+                "agent": display_agent,
+                "elapsed_sec": task.get("elapsed_sec", 0),
+                "message": f"Task '{task.get('task')}' has been running for {int(task.get('elapsed_sec', 0))}s without completing."
+            })
+
+    job_by_agent = {}
+    for job in active_jobs:
+        agent_id = (job.get("active_agent") or "").lower()
+        if agent_id:
+            job_by_agent[agent_id] = job
+            active_agents_set.add(agent_id)
+            if job.get("is_stalled") and not job.get("job_id", "").endswith("_task") and job.get("job_id") != "synapse_chat_op":
+                stalled_alerts.append({
+                    "job_id": job.get("job_id"),
+                    "agent": agent_id,
+                    "filename": job.get("filename"),
+                    "stage": job.get("current_stage"),
+                    "elapsed_sec": job.get("stage_elapsed_sec"),
+                    "message": f"Stage {job.get('current_stage')}/8 on {agent_id.upper()} has been running for {job.get('stage_elapsed_sec')}s without progression."
+                })
+
+    if comfy_busy:
+        active_agents_set.add("forge")
+        if "forge" not in job_by_agent:
+            forge_job = {
+                "job_id": "synapse_chat_op",
+                "active_agent": "forge",
+                "agent_message": "Forge [74 W]: Rendering ComfyUI workflow on RTX 5070 Ti...",
+                "current_stage": 1,
+                "total_stages": 1,
+                "progress": 60,
+                "stage_elapsed_sec": 0,
+                "is_stalled": False
+            }
+            active_jobs.append(forge_job)
+            job_by_agent["forge"] = forge_job
+
+    if herald_active:
+        active_agents_set.add("herald")
+
+    for agent_key, meta in AGENT_ROSTER.items():
+        job = job_by_agent.get(agent_key)
+        agent_task = task_by_agent.get(agent_key)
+        if job:
+            state = "stalled" if job.get("is_stalled") else "active"
+            current_task = job.get("agent_message", "Executing pipeline task")
+            elapsed = job.get("stage_elapsed_sec", 0)
+            progress = job.get("progress", 0)
+        elif agent_task:
+            state = "stalled" if agent_task.get("is_stalled") else "active"
+            current_task = agent_task.get("task", f"{meta.get('name')} executing task")
+            elapsed = agent_task.get("elapsed_sec", 0)
+            progress = agent_task.get("progress", 45)
+        elif agent_key == "forge" and comfy_busy:
+            state = "active"
+            current_task = "Forge: Rendering ComfyUI workflow on RTX 5070 Ti..."
+            elapsed = None
+            progress = 50
+        elif agent_key == "herald" and herald_active:
+            state = "active"
+            current_task = "Herald: Dispatching scheduled publication drops..."
+            elapsed = None
+            progress = 50
+        else:
+            state = "idle"
+            current_task = f"Standing by on {meta.get('hardware', 'Local Dual RTX 3060')}"
+            elapsed = 0
+            progress = 0
+
+        agents_state.append({
+            "id": agent_key,
+            "name": meta.get("name", agent_key.capitalize()),
+            "symbol": meta.get("symbol", ""),
+            "title": meta.get("title", ""),
+            "hardware": meta.get("hardware", ""),
+            "state": state,
+            "current_task": current_task,
+            "elapsed_sec": elapsed,
+            "progress": progress,
+            "is_stalled": state == "stalled"
+        })
+
+    return {
+        "status": "ok",
+        "version": "20261015_v17",
+        "has_active": bool(active_jobs or comfy_busy or herald_active or active_tasks),
+        "active_jobs": active_jobs,
+        "agents": agents_state,
+        "active_count": len(active_agents_set),
+        "stalled_count": len(stalled_alerts),
+        "stalled_alerts": stalled_alerts,
+        "comfy_online": comfy_health_cache.get("online"),
+        "timestamp": time.time()
+    }
+
+@app.post("/api/monitor/stop-process")
+async def stop_process_endpoint(payload: Optional[Dict[str, Any]] = None):
+    payload = payload or {}
+    job_id = payload.get("job_id")
+    target = payload.get("target", "job" if job_id else "all")
+    
+    actions_taken = []
+    
+    # 1. Stop active chat operator task if target is all or specific chat op
+    if not job_id or job_id == "synapse_chat_op" or target in ("all", "all_jobs", "emergency_stop"):
+        try:
+            from pipeline.stages.ai_operator import active_task_tracker
+            if active_task_tracker.cancel_current_task():
+                actions_taken.append("Halted active Synapse operator task")
+        except Exception:
+            pass
+
+    # 2. Stop pipeline batch job
+    if job_id and job_id != "synapse_chat_op":
+        if orchestrator.cancel_job(job_id):
+            actions_taken.append(f"Cancelled pipeline job {job_id}")
+    elif target in ("all", "all_jobs", "emergency_stop"):
+        cancelled_count = orchestrator.cancel_all_jobs()
+        if cancelled_count:
+            actions_taken.append(f"Cancelled {cancelled_count} active pipeline job(s)")
+            
+    # 3. Interrupt ComfyUI GPU execution & clear queue
+    if target in ("all", "comfy", "emergency_stop") or job_id == "synapse_chat_op":
+        try:
+            from pipeline.stages.comfyui_bridge import comfy_bridge
+            comfy_bridge.interrupt()
+            comfy_bridge.clear_queue()
+            comfy_bridge.remote_purge_vram()
+            actions_taken.append("Sent interrupt and queue-clear to ComfyUI (RTX 5070 Ti)")
+        except Exception:
+            pass
+
+    # 4. Purge local VRAM
+    if target in ("all", "vram", "emergency_stop") or job_id == "synapse_chat_op":
+        try:
+            vram_report = vram_manager.purge_vram(reason="emergency_stop")
+            actions_taken.append(f"Purged local GPU VRAM ({len(vram_report.get('unloaded_models', []))} models unloaded)")
+        except Exception:
+            pass
+            
+    return {
+        "status": "ok",
+        "target": target,
+        "actions": actions_taken,
+        "message": "; ".join(actions_taken) if actions_taken else "No active jobs or processes to stop"
+    }
 
 @app.get("/api/media/{file_path:path}")
 async def serve_media(file_path: str):
@@ -1113,8 +1578,18 @@ async def update_radar_config(payload: Dict[str, Any]):
 
 @app.post("/api/radar/check")
 async def check_radar_inbox():
-    loop = asyncio.get_event_loop()
-    return await loop.run_in_executor(None, order_radar.check_inbox)
+    from pipeline.stages.ai_operator import active_task_tracker
+    active_task_tracker.start_task(
+        agent="radar",
+        task_desc="Radar [47 Ag]: Scanning Gmail for incoming Fiverr & Etsy orders...",
+        task_id="radar_check_inbox",
+        progress=35
+    )
+    try:
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(None, order_radar.check_inbox)
+    finally:
+        active_task_tracker.finish_task("radar_check_inbox")
 
 @app.post("/api/radar/simulate")
 async def simulate_radar_order(payload: Dict[str, Any] = None):
@@ -1187,6 +1662,42 @@ async def generate_marketing_campaign(payload: Dict[str, Any]):
 async def get_marketing_history():
     history = omni_marketer.get_campaign_history()
     return {"status": "ok", "campaigns": history}
+
+# =========================================================================
+# AUTONOMOUS MARKET & REVENUE SCOUT (AGENTS: CIPHER [36 Cp] & MERCURY [80 Hg])
+# =========================================================================
+@app.get("/api/market/opportunities")
+async def get_market_opportunities(refresh: bool = False):
+    try:
+        data = trend_agent.scout_market_and_revenue_ideas(force_refresh=refresh)
+        return {"status": "ok", "vault": data}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/market/scout-now")
+async def trigger_market_scout():
+    try:
+        data = trend_agent.scout_market_and_revenue_ideas(force_refresh=True)
+        return {"status": "ok", "vault": data}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/market/deploy-opportunity")
+async def deploy_market_opportunity(payload: Dict[str, Any]):
+    opp = payload.get("opportunity")
+    opp_id = payload.get("opportunity_id")
+    if not opp and opp_id:
+        vault = trend_agent.scout_market_and_revenue_ideas(force_refresh=False)
+        for item in vault.get("opportunities", []):
+            if item.get("id") == opp_id:
+                opp = item
+                break
+    if not opp:
+        raise HTTPException(status_code=400, detail="Opportunity data or valid ID required")
+
+    campaign = omni_marketer.deploy_opportunity_kit(opp)
+    return {"status": "ok", "campaign": campaign}
+
 
 # =========================================================================
 # NEWSLETTER & BLOG DISPATCHER (AGENT: HERALD [33 As])
@@ -1268,13 +1779,40 @@ async def get_newsletter_publications():
     return {"status": "ok", "publications": pubs}
 
 @app.get("/api/newsletter/preview", response_class=HTMLResponse)
-async def get_newsletter_preview(pub: str = "creator_pulse"):
-    html_content = newsletter_mgr.get_html_preview(pub_id=pub)
+async def get_newsletter_preview(pub: str = "creator_pulse", refresh: bool = False):
+    html_content = await asyncio.to_thread(newsletter_mgr.get_html_preview, pub, refresh)
     return HTMLResponse(content=html_content)
+
+@app.post("/api/newsletter/regenerate")
+async def regenerate_newsletter(payload: Dict[str, Any] = None):
+    pub = (payload or {}).get("pub", "creator_pulse")
+    from pipeline.stages.ai_operator import active_task_tracker
+    active_task_tracker.start_task(
+        agent="scribe",
+        task_desc=f"Scribe [6 C]: Synthesizing fresh daily editorial copy for '{pub}' on Qwen 14B...",
+        task_id=f"scribe_regen_{pub}",
+        progress=40
+    )
+    try:
+        loop = asyncio.get_event_loop()
+        if pub == "all":
+            results = {}
+            for p in ["creator_pulse", "studio_wire", "creator_blueprint"]:
+                res = await loop.run_in_executor(None, lambda target=p: newsletter_mgr._get_daily_scribe_content(target, force_refresh=True))
+                results[p] = bool(res and res.get("success"))
+            return {"status": "ok", "message": "All publications regenerated fresh", "results": results}
+        else:
+            res = await loop.run_in_executor(None, lambda: newsletter_mgr._get_daily_scribe_content(pub, force_refresh=True))
+            return {"status": "ok", "message": f"Fresh content synthesized for {pub}", "success": bool(res and res.get("success"))}
+    finally:
+        active_task_tracker.finish_task(f"scribe_regen_{pub}")
 
 @app.get("/api/newsletter/blog-post")
 async def get_newsletter_blog_post(pub: str = "creator_pulse"):
-    md = newsletter_mgr.get_blog_post_markdown(pub_id=pub)
+    if hasattr(newsletter_mgr, "get_blog_post_markdown"):
+        md = newsletter_mgr.get_blog_post_markdown(pub_id=pub)
+    else:
+        md = newsletter_mgr.get_markdown_article(pub_id=pub)
     return {"status": "ok", "markdown": md, "pub": pub}
 
 @app.get("/api/newsletter/thread")
@@ -1336,7 +1874,8 @@ async def publish_pinterest_pin():
 @app.websocket("/ws/telemetry")
 async def websocket_telemetry(websocket: WebSocket):
     token = websocket.cookies.get(SESSION_COOKIE)
-    if not token or not verify_session_token(token, _get_session_secret()):
+    client_host = getattr(websocket.client, "host", "") if websocket.client else ""
+    if not _is_loopback(client_host) and (not token or not verify_session_token(token, _get_session_secret())):
         await websocket.close(code=4401)
         return
     await websocket.accept()
@@ -1360,9 +1899,16 @@ async def websocket_telemetry(websocket: WebSocket):
 # ==============================================================================
 # WORKHORSE MASTER AI OPERATOR ENDPOINTS
 # ==============================================================================
+_health_cache = {"data": None, "expires": 0.0}
+
 @app.get("/api/system/health-check")
 async def get_system_health():
-    report = ai_operator.run_system_diagnostics()
+    now = time.time()
+    if _health_cache["data"] is not None and now < _health_cache["expires"]:
+        return _health_cache["data"]
+    report = await asyncio.to_thread(ai_operator.run_system_diagnostics)
+    _health_cache["data"] = report
+    _health_cache["expires"] = now + 10.0
     return report
 
 @app.get("/api/system/incidents")
@@ -1671,6 +2217,68 @@ async def download_output_file(category: str, path: str, member: Optional[str] =
         return await run_in_threadpool(_archive_member_response, file_path, member, download=True)
     return FileResponse(file_path, filename=file_path.name)
 
+@app.delete("/api/outputs/file")
+@app.post("/api/outputs/delete")
+async def delete_output_file(
+    category: Optional[str] = None,
+    path: Optional[str] = None,
+    payload: Optional[Dict[str, Any]] = None
+):
+    target_category = category or (payload.get("category") if payload else None)
+    target_path = path or (payload.get("path") if payload else None)
+    
+    if not target_category or not target_path:
+        raise HTTPException(status_code=400, detail="Missing required 'category' and 'path' parameters")
+        
+    file_path = _resolve_output_file(target_category, target_path)
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="File not found")
+        
+    try:
+        filename = file_path.name
+        file_path.unlink()
+        
+        sidecar_json = file_path.with_suffix(".json")
+        if sidecar_json.exists() and sidecar_json.is_file():
+            try:
+                sidecar_json.unlink()
+            except Exception:
+                pass
+                
+        return {
+            "status": "ok",
+            "message": f"Successfully deleted {filename}",
+            "filename": filename,
+            "category": target_category
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to delete file: {e}")
+
+@app.delete("/api/photos/packages/{package_name}")
+@app.post("/api/photos/packages/{package_name}/delete")
+async def delete_photo_package_endpoint(package_name: str):
+    if not package_name or ".." in package_name or "/" in package_name or "\\" in package_name:
+        raise HTTPException(status_code=400, detail="Invalid package name")
+    
+    out_dir = (BASE_DIR / "workspace" / "photos_output").resolve()
+    target_dir = (out_dir / package_name).resolve()
+    
+    deleted_items = []
+    if out_dir in target_dir.parents and target_dir.exists() and target_dir.is_dir():
+        shutil.rmtree(target_dir, ignore_errors=True)
+        deleted_items.append(f"Directory: {package_name}")
+        
+    for zip_name in [f"{package_name}_PHOTO_PACKAGE.zip", f"{package_name}_CLIENT_PACKAGE.zip"]:
+        candidate = (out_dir / zip_name).resolve()
+        if out_dir in candidate.parents and candidate.exists() and candidate.is_file():
+            candidate.unlink()
+            deleted_items.append(f"ZIP: {zip_name}")
+            
+    if not deleted_items:
+        raise HTTPException(status_code=404, detail=f"Photo package '{package_name}' not found")
+        
+    return {"status": "ok", "deleted_items": deleted_items}
+
 
 def _archive_member_response(file_path: Path, member: str, download: bool = False):
     if file_path.suffix.lower() != ".zip":
@@ -1781,7 +2389,7 @@ async def get_outputs_categories():
 
 
 @app.get("/api/outputs/gallery")
-async def get_outputs_gallery(category: Optional[str] = None, group: Optional[str] = None, limit: int = 60):
+async def get_outputs_gallery(category: Optional[str] = None, group: Optional[str] = None, limit: int = 120):
     """Unified 'Completed Work' gallery across every output category - images,
     videos, 3D models, banners, client character test renders, and client
     packages - each clearly tagged by category/type so client deliverables are
@@ -1795,7 +2403,7 @@ async def get_outputs_gallery(category: Optional[str] = None, group: Optional[st
     mixed pile."""
     items = []
     categories_to_scan = [category] if category else list(OUTPUT_CATEGORIES.keys())
-    if group:
+    if group and group != "all":
         categories_to_scan = [k for k in categories_to_scan if OUTPUT_CATEGORIES.get(k, {}).get("group") == group]
 
     for cat_key in categories_to_scan:

@@ -56,40 +56,54 @@ class VramManager:
             return 0.0
         return max(0.0, time.time() - self.last_activity_time)
 
-    def get_loaded_ollama_models(self) -> List[Dict[str, Any]]:
+    def get_loaded_ollama_models(self, use_cache: bool = False) -> List[Dict[str, Any]]:
+        now = time.time()
+        if use_cache and hasattr(self, "_ps_cache") and now < self._ps_cache.get("expires", 0):
+            return self._ps_cache.get("models", [])
         try:
-            resp = requests.get(f"{self.ollama_url}/api/ps", timeout=4)
+            resp = requests.get(f"{self.ollama_url}/api/ps", timeout=3)
             if resp.status_code == 200:
-                return resp.json().get("models", [])
+                models = resp.json().get("models", [])
+                self._ps_cache = {"models": models, "expires": now + 2.5}
+                return models
         except Exception:
             pass
         return []
-    def _warm_up_model(self, target_model: str, keep_alive: str) -> Dict[str, Any]:
+
+    def _warm_up_model(self, target_model: str, keep_alive: str, num_ctx: Optional[int] = None) -> Dict[str, Any]:
         """
         Blocking pre-load of target_model into Ollama/GPU VRAM via an empty-prompt
-        /api/generate call, BEFORE the real timed request is made. Without this,
-        a cold model load (reading weights off disk + VRAM allocation for an 8B+
-        model) can easily exceed a short request timeout (e.g. Iris's 25s vision
-        QC call), causing every first-call-after-a-swap to time out even though
-        the model itself works fine once resident.
+        /api/generate call, BEFORE the real timed request is made. Always passes an
+        explicit bounded num_ctx (4096 for vision, 8192 for text) so models with huge
+        default Modelfile context lengths (e.g. 262144 on qwen3-vl) never spill onto
+        system CPU RAM and peg the CPU at 100%.
         """
         start = time.time()
+        if num_ctx is None:
+            is_vl = "vl" in target_model.lower() or "vision" in target_model.lower()
+            num_ctx = 4096 if is_vl else 8192
         try:
             resp = requests.post(
                 f"{self.ollama_url}/api/generate",
-                json={"model": target_model, "prompt": "", "stream": False, "keep_alive": keep_alive},
-                timeout=120
+                json={
+                    "model": target_model,
+                    "prompt": "",
+                    "stream": False,
+                    "keep_alive": keep_alive,
+                    "options": {"num_ctx": num_ctx}
+                },
+                timeout=90
             )
             duration_ms = round((time.time() - start) * 1000, 2)
             if resp.status_code == 200:
-                logger.info(f"[BLOCK SWAPPER] Warmed up '{target_model}' in {duration_ms}ms.")
-                return {"status": "warmed", "duration_ms": duration_ms}
+                logger.info(f"[BLOCK SWAPPER] Warmed up '{target_model}' (num_ctx={num_ctx}) in {duration_ms}ms.")
+                return {"status": "warmed", "duration_ms": duration_ms, "num_ctx": num_ctx}
             return {"status": "warm_failed", "http_status": resp.status_code, "duration_ms": duration_ms}
         except Exception as e:
             logger.warning(f"[BLOCK SWAPPER] Warm-up request for '{target_model}' failed: {e}")
             return {"status": "warm_error", "error": str(e), "duration_ms": round((time.time() - start) * 1000, 2)}
 
-    def prepare_for_model(self, target_model: str, keep_alive: str = "5m") -> Dict[str, Any]:
+    def prepare_for_model(self, target_model: str, keep_alive: str = "5m", num_ctx: Optional[int] = None) -> Dict[str, Any]:
         """
         DYNAMIC MODEL BLOCK SWAPPER for GPU 0 (Ollama LLM & Vision).
         Inspects currently resident models in Ollama VRAM. If a different model is loaded
@@ -144,9 +158,9 @@ class VramManager:
                     pass
             gc.collect()
 
-        # Block until target_model is actually resident, so the caller's own
-        # (often short) request timeout doesn't have to absorb a cold model load.
-        warm_result = self._warm_up_model(target_model, keep_alive)
+        # Block until target_model is actually resident with bounded num_ctx
+        warm_result = self._warm_up_model(target_model, keep_alive, num_ctx=num_ctx)
+        self._ps_cache = {"models": [], "expires": 0}
 
         swap_record = {
             "status": "swapped" if evicted else "clean_start",
@@ -254,7 +268,7 @@ class VramManager:
     def get_status(self) -> Dict[str, Any]:
         idle_sec = self.get_idle_seconds()
         remaining_sec = max(0, self.idle_timeout - idle_sec)
-        loaded = self.get_loaded_ollama_models()
+        loaded = self.get_loaded_ollama_models(use_cache=True)
         total_vram_bytes = sum(m.get("size_vram", 0) for m in loaded)
         total_vram_mb = round(total_vram_bytes / (1024 * 1024), 1)
 

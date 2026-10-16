@@ -1,0 +1,780 @@
+MiniMax FastH3 in Comfyui-Text to Video and Image to Video
+
+Introduction
+0:00
+Want faster miniax H3 video generation
+0:02
+without giving up too much quality? In
+0:05
+this episode, I will show you Fast H3, a
+0:08
+faster version you can run locally.
+Quick Demo FastH3
+0:14
+[sighs]
+0:27
+[music]
+0:32
+[music]
+0:47
+[music]
+0:54
+[music]
+1:06
+[music]
+1:25
+Are you ready for action?
+1:29
+[music]
+Update Pixaroma Nodes and ComfyUI
+1:33
+I used text to video for the examples
+1:35
+you just saw. Now, let me show you how
+1:36
+to use it. If you have easy installer
+1:39
+like I do, and like I showed in episode
+1:41
+1, it is easy. You just open the
+1:43
+launcher, update easy install and that
+1:46
+way you also get the latest Pixaroma
+1:47
+nodes. Then update Comfy UI to the
+1:50
+stable version and you are ready for the
+1:52
+workflows. If you do not have easy
+1:54
+installer, you need to update Pixaroma
+1:56
+nodes manually with git pull from the
+1:58
+custom nodes folder. Check the help
+2:01
+section on the Pixarro website. Then you
+2:03
+should start Comfy UI normally with no
+2:06
+attention enabled. Do not start with
+2:08
+kitchen attention because I used the
+2:10
+nodes inside the workflow for that. So
+2:12
+you start Comfy UI normally either in
+2:14
+the browser or in desktop mode. When
+2:16
+Comfy UI is open, you can add a version
+2:19
+check node to make sure you have the
+2:20
+same Comfy UI version and Pixaroma Nodes
+2:23
+version that I have. Then download the
+2:25
+workflows for free. For today, I have
+Minimax FastH3 Text to Video + More Settings
+2:28
+three workflows that I tested over a few
+2:30
+days. The longest part was building the
+2:32
+formulas for the prompts, which took a
+2:34
+lot of testing. So let me start with the
+2:36
+text to video workflow since it is the
+2:39
+simplest one. You can see these top
+2:41
+three nodes are used to speed things up
+2:43
+using kitchen attention and sparse
+2:45
+attention. That is why I started comfy
+2:47
+UI normally without any attention
+2:49
+enabled. Then on the left you have all
+2:52
+the models you need. This is the main AI
+2:54
+model you need called fast H3 which uses
+2:58
+eight steps in the K sampler. Here you
+3:00
+have more versions and information about
+3:02
+the license. As you remember in some
+3:05
+regions the model is not available
+3:06
+unless you ask them for a license. Check
+3:09
+episode 29 for more information about
+3:11
+that. You just click the download button
+3:13
+and download the model into the
+3:14
+diffusion folder inside the H3 folder.
+3:17
+Then if you used Miniax before, you
+3:20
+should already have the rest of the
+3:21
+models. And here is a free Google Gemini
+3:24
+gem I created. In the workflows archive,
+3:27
+I also included the formulas I used for
+3:29
+it. So you can use them with Gemini or
+3:31
+Claude. For custom nodes, we only use
+3:33
+Pixaroma nodes and Comfy UI nodes. And
+3:36
+here you have more information about
+3:38
+what each node does so I do not have to
+3:40
+explain every node again in each
+3:42
+episode. You can read that then collapse
+3:44
+it or delete it afterward if you want.
+3:46
+After the models are downloaded, press R
+3:49
+to refresh the node definitions. Then
+3:52
+everything should become available in
+3:53
+the orange nodes or you can select the
+3:55
+models manually if you use different
+3:57
+folders or different versions. The
+4:00
+workflow is simple. You only need three
+4:02
+steps. First, you decide on the
+4:04
+orientation. whether you want portrait
+4:06
+or landscape. Here I have the
+4:08
+recommended sizes. I usually use the
+4:11
+ones with stars because they are faster,
+4:13
+but if you have a lot of VRAM, you can
+4:15
+go up to full HD. Then you select the
+4:18
+duration. You can generate from 4
+4:20
+seconds up to 15 seconds. After that, it
+4:23
+starts to mess up the audio. If you
+4:25
+click on settings, you can add more
+4:27
+duration values there. I added the ones
+4:30
+I use the most. Step three is the
+4:32
+prompt. I usually use AI to generate the
+4:35
+prompt because it is quite long. Then
+4:37
+you can use either a fixed seed or
+4:39
+random. In this example, I used a fixed
+4:42
+seed, but feel free to change it to
+4:44
+random so each generation looks
+4:46
+different even with the same prompt. And
+4:48
+here we will have the final result. So
+4:50
+let me give it a try and test everything
+4:52
+from start to finish. First I will
+4:54
+generate a prompt with Google Gemini and
+4:57
+you have the link here. This gem works
+5:00
+great. It is just that Gemini can be
+5:02
+stubborn sometimes and try to generate a
+5:04
+video if you do not clearly mention that
+5:06
+you want only a prompt. If that happens,
+5:09
+just stop it and ask again for a prompt.
+5:12
+You can also use clawed with the
+5:13
+formulas from the workflows archive, but
+5:16
+in general, it should work fine. So, let
+5:18
+me show you an example for a black cat,
+5:20
+like a Halloween cat prompt. You can see
+5:23
+it generates only the prompt, and you
+5:25
+can copy it from here. Then you go to
+5:27
+Comfy UI and replace the prompt with a
+5:29
+single click. And you can see how we got
+5:31
+the full description. We can also see
+5:33
+the sound effects and the music, which
+5:36
+sometimes you do not get unless you
+5:38
+specifically ask for them when
+5:39
+requesting a prompt. So, we check again
+5:41
+to make sure the orientation and size
+5:43
+are correct. And I will test the small
+5:45
+size first and use 5 seconds. Then I
+5:48
+click run. While it generates, you can
+5:51
+see all the tests I did and how much
+5:53
+time each one takes on my 24 GB VRAM
+5:56
+card. The fastest is 5 seconds at a
+5:58
+small resolution. The bigger you go, the
+6:01
+more time it takes. Usually more seconds
+6:04
+means more time, but what affects the
+6:06
+speed the most is the resolution. You
+6:09
+can see that as the size increases, the
+6:11
+generation time goes up a lot. Also, the
+6:14
+first run is like a warm-up, so it is
+6:16
+slower, but after that, it should be
+6:18
+faster. You can read more information
+6:20
+there and test things yourself. So, let
+6:23
+me see what I got in 44 seconds.
+6:37
+Now, you can notice that for this
+6:39
+specific prompt in seed, I got a
+6:41
+lowquality result. That can happen
+6:43
+sometimes. I think it is related to how
+6:45
+the model was trained on certain styles,
+6:48
+but it happens rarely. Just something to
+6:50
+keep in mind. If it happens, try a
+6:53
+different seed or prompt or increase the
+6:55
+resolution. That can help too. So, let
+6:57
+me try this size since it is big enough
+6:59
+but does not take too many minutes to
+7:01
+generate. This time it took under 2
+7:04
+minutes. It should have taken less, but
+7:06
+I am also recording and that uses some
+7:08
+of my memory.
+7:15
+[music]
+7:17
+You can see that this time the quality
+7:19
+is better, but like I said, it depends
+7:21
+on the style and the prompt. So, let me
+7:23
+try something else that does not involve
+7:25
+fantasy and similar things so we can get
+7:28
+a more realistic result. I like to
+7:30
+mention that it is a video prompt just
+7:32
+to make sure it does not try to generate
+7:34
+a video instead of only the prompt. Then
+7:37
+I mention the subject and the
+7:38
+environment. The more things you
+7:40
+mention, the less chance the AI has to
+7:43
+invent things for you. I like to put
+7:45
+text in quotes, both for things I want
+7:47
+to appear and for the text I want it to
+7:50
+say, so it is clearer for the AI. I also
+7:53
+mention the number of seconds so it
+7:54
+knows roughly how long the scene should
+7:56
+be and how many actions it can fit. And
+7:58
+I got the long prompt which I will paste
+8:01
+or replace in Comfy UI. We can also see
+8:04
+how the prompt is structured. We have
+8:06
+the language here since it can support
+8:08
+multiple languages and it is set to
+8:10
+English. We also have S1 here which
+8:13
+refers to speaker one since we can have
+8:15
+more speakers. I will show you in a
+8:18
+minute how that works. So it is quite
+8:20
+easy to make prompts with AI if the
+8:22
+model is good enough like Claude Gemini
+8:25
+or chat GPT. I will test a small size
+8:28
+since it is faster just to see if we can
+8:30
+still get nice results even at a smaller
+8:32
+size. And it took 53 seconds and from
+8:35
+the preview it looks okay.
+8:38
+This is a minimax text [music] to video
+8:41
+test. Do you like it? This is a miniax
+8:45
+textto [music]
+8:46
+video test. Do you like it?
+8:49
+So I would say the result is quite okay
+8:51
+considering that we have some models
+8:53
+that take longer just to generate an
+8:55
+image. And here we got a 5-second video
+8:57
+in that time. Even though it was a small
+8:59
+resolution, the quality was still quite
+9:01
+okay. Now I will try a different prompt.
+9:04
+This time I want a dialogue between a
+9:06
+man and a woman like a podcast where the
+9:09
+man asks something and the woman
+9:11
+responds. And I am replacing the prompt.
+9:14
+And let me show you what is different.
+9:16
+We can see here the spoken text by the
+9:18
+man and we have S1 to show that he is
+9:20
+speaker one and that he speaks in
+9:22
+English. Then we have speaker 2 who is
+9:25
+the woman and she also speaks in
+9:27
+English. Then we have the sound effects
+9:29
+and no music because when we have
+9:31
+speech, we usually want it to be clear
+9:33
+and it usually does not add music. But
+9:36
+you can request something like subtle
+9:38
+background music if you want. I will go
+9:39
+with landscape so it has enough space
+9:41
+for both the man and the woman. And 5
+9:44
+seconds should be enough to say all the
+9:45
+sentences and avoid getting cut off in
+9:47
+the middle of a sentence. And for some
+9:49
+reason it took longer than it should
+9:51
+have in landscape mode. I am not sure if
+9:54
+some recent updates changed something in
+9:56
+Comfy UI or if it was something related
+9:59
+to memory, but it happened to me a few
+10:01
+times where it took longer than
+10:02
+expected.
+10:04
+Who are you?
+10:07
+I am Pix Girl.
+10:10
+Who are you?
+10:12
+I am Pix Girl.
+10:15
+Still the result is not bad for this
+10:18
+small resolution. Let me see if we can
+10:20
+improve it and get better quality.
+10:23
+Who are you?
+10:25
+I am Pix Girl.
+10:28
+Who are you?
+10:30
+I am Pix Girl.
+10:34
+Now, let me move to first frame to video
+Minimax FastH3 First Frame to Video Workflow
+10:36
+so we can control the actual subjects
+10:38
+that appear. The models for this
+10:40
+workflow are the same. What is different
+10:42
+here is that now we load an image like I
+10:45
+have here with this bunny. You can use
+10:47
+the upload button. I will run it and
+10:49
+show you the rest of the workflow. Here
+10:51
+it is using a node to set the longest
+10:53
+side for the video. So no matter what
+10:56
+ratio you have, it will make it
+10:58
+compatible by using a multiple of 32. I
+11:00
+added a few sizes here that you can try
+11:02
+for the longest side. And you can see
+11:04
+the final size and the video size from
+11:06
+here. If you need more sizes, go to
+11:09
+settings and just replace the numbers
+11:11
+with your own sizes. Then if you want to
+11:13
+crop to a certain ratio, you can do
+11:15
+that. But I prefer to load the image in
+11:18
+the right ratio and use keep ratio. The
+11:20
+prompt is a little different, but you
+11:22
+have the formula in Google Gem for that
+11:24
+too. It keeps the image and animates it.
+11:27
+You can see that in the Miniax H3 node.
+11:30
+In the first workflow, we did not have a
+11:32
+frame connected. In this one, we have
+11:34
+the first frame connected here, so it
+11:37
+knows what image to use. Later, we will
+11:39
+also have the last frame connected. I
+11:42
+also included a free VRAMm node here,
+11:44
+but you can rightclick it and choose
+11:46
+bypass if you do not want to use it. It
+11:48
+took 47 seconds and I got this.
+11:52
+Hey, I am Pixab Bunny. Welcome to Pixar
+11:56
+Roma.
+11:57
+Hey, I am Pixab Bunny. Welcome to Pixar
+12:01
+Roma.
+12:03
+The result is quite nice. And here you
+12:05
+can see how long it takes. It can take a
+12:07
+few seconds longer than the texttovideo
+12:09
+workflow. And now let me move to the
+Minimax FastH3 FFLF to Video Workflow
+12:11
+last one, the first frame and last frame
+12:14
+workflow. You can see both images are
+12:16
+now connected here. So we have the first
+12:18
+image that starts the video and the last
+12:21
+frame is the image that the video will
+12:23
+end with. We also have the prompt which
+12:25
+now mentions both pictures and the rest
+12:28
+is similar to the other workflows. For
+12:30
+the last image, I added this node to
+12:32
+make sure it crops the image and matches
+12:34
+the first frame just in case your image
+12:36
+is different. And now I will run the
+12:39
+workflow. By the way, I did not show you
+12:41
+this in the first frame to video
+12:43
+workflow, but in the note, we have this
+12:45
+link for the gem for that workflow since
+12:47
+it is different from the text to video
+12:49
+one. You can paste or upload the image
+12:51
+there and ask for a prompt. And for the
+12:54
+first frame and last frame workflow,
+12:56
+again, it uses a different formula that
+12:58
+knows how to end on that last frame. So,
+13:00
+it is a different Google gem. And in 50
+13:03
+seconds, I got this result.
+13:07
+I am the Pixab Bunny. Do you like my
+13:09
+outfit?
+13:12
+I am the Pixab Bunny. Do you like my
+13:14
+outfit?
+13:17
+I replaced the last frame with something
+13:19
+different to see if I could make a
+13:20
+transition from that first image to that
+13:22
+cartoon bunny image. You can upload both
+13:25
+images to Google Gemini or make a
+13:27
+screenshot that shows both images. Then
+13:30
+I go to Google Gemini, paste the image,
+13:32
+and ask for a prompt while also
+13:34
+describing what I want to happen.
+13:37
+And I got the prompt which I will now
+13:39
+test in Comfy UI. The description looks
+13:42
+okay in the prompt, but the real test is
+13:44
+whether that transition works well. And
+13:46
+this is the result. [music]
+13:53
+[music]
+13:58
+So this workflow can be quite useful in
+14:00
+many situations. If you go to the
+Cloud Workflows and Google Gems
+14:02
+Pixarro website, besides the Comfy UI
+14:05
+workflows, you also have cloud workflows
+14:07
+and Google gems that get updated from
+14:09
+time to time with new workflows and new
+14:11
+gems. So, for today, you can test the
+14:14
+three workflows I made in the cloud on
+14:16
+the running hub website. You can sort
+14:18
+them by text to video or image to video.
+14:21
+Then just click on this button. The
+14:23
+workflow will open, but you need to be
+14:24
+logged in. You get a few free credits
+14:27
+each day and the subscription is quite
+14:29
+cheap compared to many other platforms.
+14:31
+Click launch on cloud and wait for it to
+14:33
+load. Then you can zoom in and you do
+14:36
+not have to worry about models being
+14:38
+loaded correctly or about dependencies.
+14:40
+You can just focus on creating. Do not
+14:42
+forget to choose the orientation and
+14:44
+size. Just keep in mind that the default
+14:46
+run option uses a 24 GB VRAM card and is
+14:50
+the cheapest. I am not sure if it can
+14:52
+handle full HD for 15 seconds because I
+14:55
+only tested full HD with 5-second
+14:57
+videos, but you also have those other
+14:59
+run options that cost more credits and
+15:02
+use more VRAM. Choose the duration you
+15:04
+want. Add the long prompt using Google
+15:06
+Gemini and then click run. When you do
+15:09
+that, the task list will open. You can
+15:12
+see that I generated a few videos with
+15:13
+it and depending on your subscription,
+15:16
+you can run between three and five
+15:18
+workflows in parallel. Compared with the
+15:20
+local version where I can only run one
+15:22
+workflow at a time, this makes it easier
+15:25
+for me to test more things at once. It
+15:27
+uses the same model as the local
+15:29
+workflow, so the results should be
+15:31
+similar. It can also be useful for
+15:33
+people with lower VRAM. I am not paid to
+15:35
+promote them, but if you run my
+15:37
+workflows, I do get some extra credits
+15:40
+just to be fair and transparent about
+15:42
+that. And on the gems page, you will
+15:44
+find more gems in the future for
+15:46
+different models.
+15:49
+That's all for today. A big thank you to
+15:51
+all the legends, everyone who joined the
+15:54
+channel membership, and everyone who
+15:55
+donated to support the channel. I hope
+15:57
+you enjoyed the video. If you did, leave
+16:00
+a like and a comment to help with the
+16:01
+YouTube algorithm. Thanks for watching
+16:04
+and have a great day. [music]
+16:11
+[music]
+

@@ -31,12 +31,28 @@ class PipelineJob:
         self.error: Optional[str] = None
         self.started_at: Optional[float] = None
         self.finished_at: Optional[float] = None
+        self.stage_started_at: Optional[float] = None
+        self.cancel_requested: bool = False
 
     def add_log(self, text: str):
         timestamp = time.strftime("%H:%M:%S")
         self.logs.append(f"[{timestamp}] {text}")
 
+    @property
+    def stage_elapsed_sec(self) -> Optional[float]:
+        if self.stage_started_at and self.status == "running":
+            return round(time.time() - self.stage_started_at, 1)
+        return None
+
+    @property
+    def is_stalled(self) -> bool:
+        elapsed = self.stage_elapsed_sec
+        return bool(elapsed and elapsed > 180)
+
     def to_dict(self) -> Dict[str, Any]:
+        now = time.time()
+        stage_elapsed = self.stage_elapsed_sec
+        total_elapsed = round(now - self.started_at, 1) if (self.started_at and self.status == "running") else (round(self.finished_at - self.started_at, 1) if (self.started_at and self.finished_at) else None)
         return {
             "job_id": self.job_id,
             "filename": self.video_path.name,
@@ -51,7 +67,10 @@ class PipelineJob:
             "error": self.error,
             "started_at": self.started_at,
             "finished_at": self.finished_at,
-            "duration_sec": round(self.finished_at - self.started_at, 1) if (self.started_at and self.finished_at) else None
+            "duration_sec": total_elapsed,
+            "stage_elapsed_sec": stage_elapsed,
+            "is_stalled": self.is_stalled,
+            "cancel_requested": self.cancel_requested
         }
 
 class WorkhorseOrchestrator:
@@ -97,6 +116,46 @@ class WorkhorseOrchestrator:
         self.notify_event(job)
         return job
 
+    def cancel_job(self, job_id: str) -> bool:
+        with self.lock:
+            job = self.jobs.get(job_id)
+            if not job:
+                return False
+            if job.status in ("completed", "failed", "cancelled"):
+                return False
+            job.cancel_requested = True
+            job.status = "cancelling"
+            job.active_agent = "vanguard"
+            job.agent_message = "Vanguard: Cancel request received from Commander. Halting pipeline..."
+            job.add_log("Cancel request received from Commander.")
+        self.notify_event(job)
+        return True
+
+    def cancel_all_jobs(self) -> int:
+        cancelled = 0
+        with self.lock:
+            for job in self.jobs.values():
+                if job.status in ("running", "processing", "queued"):
+                    job.cancel_requested = True
+                    job.status = "cancelling"
+                    job.active_agent = "vanguard"
+                    job.agent_message = "Vanguard: Emergency stop received from Commander. Halting pipeline..."
+                    job.add_log("Emergency stop request received from Commander.")
+                    cancelled += 1
+                    self.notify_event(job)
+        return cancelled
+
+    def get_active_jobs(self) -> List[Dict[str, Any]]:
+        active = []
+        with self.lock:
+            for j in self.jobs.values():
+                if j.status in ("running", "processing", "queued", "cancelling"):
+                    d = j.to_dict()
+                    stage_sec = d.get("stage_elapsed_sec") or 0
+                    d["is_stalled"] = (stage_sec > 180 and j.status == "running")
+                    active.append(d)
+        return active
+
     def run_job_async(self, job_id: str):
         t = threading.Thread(target=self._execute_pipeline, args=(job_id,), daemon=True)
         t.start()
@@ -105,6 +164,17 @@ class WorkhorseOrchestrator:
         job = self.jobs.get(job_id)
         if not job:
             return
+
+        def _check_abort() -> bool:
+            if getattr(job, "cancel_requested", False) or job.status == "cancelled":
+                job.status = "cancelled"
+                job.active_agent = "vanguard"
+                job.agent_message = "Vanguard: Pipeline halted. Job cancelled by Commander."
+                job.finished_at = time.time()
+                job.add_log("Pipeline halted by Commander cancellation request.")
+                self.notify_event(job)
+                return True
+            return False
 
         cfg = self.load_latest_config()
         agents_cfg = cfg.get("agents", {})
@@ -117,6 +187,7 @@ class WorkhorseOrchestrator:
 
         job.status = "running"
         job.started_at = time.time()
+        job.stage_started_at = time.time()
         job.add_log(f"Starting WORKHORSE pipeline on: {job.video_path.name}")
         job.add_log(f"100% Local GPU Execution Mode (Air-Gapped Private)")
         self.notify_event(job)
@@ -125,8 +196,12 @@ class WorkhorseOrchestrator:
         work_dir.mkdir(parents=True, exist_ok=True)
 
         try:
+            if _check_abort():
+                return
+
             # STAGE 1: VANGUARD
             job.current_stage = 1
+            job.stage_started_at = time.time()
             job.active_agent = "vanguard"
             job.agent_message = "Vanguard: Inspecting stream specs and configuring Dual RTX 3060 allocation..."
             job.add_log("Stage 1/8: Vanguard verifying stream integrity...")
@@ -138,8 +213,12 @@ class WorkhorseOrchestrator:
             job.add_log(f"Video verified: {v_info.get('duration', 0)}s, {v_info.get('width', 0)}x{v_info.get('height', 0)} @ {v_info.get('fps', 0)}fps")
             self.notify_event(job)
 
+            if _check_abort():
+                return
+
             # STAGE 2: IRIS (Pose Extraction)
             job.current_stage = 2
+            job.stage_started_at = time.time()
             job.active_agent = "iris"
             pose_target = int(iris_cfg.get("pose_count", 6))
             job.agent_message = f"Iris: Extracting {pose_target} high-res pose screenshots..."
@@ -156,8 +235,12 @@ class WorkhorseOrchestrator:
             job.add_log(f"Captured {len(poses)} high-res pose screenshots.")
             self.notify_event(job)
 
+            if _check_abort():
+                return
+
             # STAGE 3: FORGE (Teaser & Crops)
             job.current_stage = 3
+            job.stage_started_at = time.time()
             job.active_agent = "forge"
             teaser_duration = int(forge_cfg.get("preview_duration_sec", 60))
             job.agent_message = f"Forge: Cutting {teaser_duration}s teaser trailer & rendering social crops..."
@@ -182,8 +265,12 @@ class WorkhorseOrchestrator:
             job.add_log("Teaser preview and social crops generated.")
             self.notify_event(job)
 
+            if _check_abort():
+                return
+
             # STAGE 4: ECHO (Whisper Audio)
             job.current_stage = 4
+            job.stage_started_at = time.time()
             job.active_agent = "echo"
             whisper_model = echo_cfg.get("whisper_model", "base")
             job.agent_message = f"Echo: Extracting audio and running Faster-Whisper ({whisper_model})..."
@@ -200,8 +287,12 @@ class WorkhorseOrchestrator:
             job.add_log(f"Audio processed: {len(audio_data.get('segments', []))} speech segments, {len(audio_data.get('hooks', []))} spoken hooks.")
             self.notify_event(job)
 
+            if _check_abort():
+                return
+
             # STAGE 5: IRIS (Aesthetic Analysis + Forensic Scene Extraction)
             job.current_stage = 5
+            job.stage_started_at = time.time()
             job.active_agent = "iris"
             vision_model = iris_cfg.get("vision_model", "huihui_ai/qwen3-vl-abliterated:8b-instruct")
             job.agent_message = f"Iris: Analyzing poses locally with {vision_model.split(':')[0]}..."
@@ -212,6 +303,9 @@ class WorkhorseOrchestrator:
                 poses,
                 progress_cb=lambda msg, pct: self._update_subprogress(job, msg, 65, 70, pct)
             )
+
+            if _check_abort():
+                return
 
             job.agent_message = "Iris: Running forensic scene extraction for grounded prompts & copy..."
             job.add_log("Stage 5/8: Iris extracting literal hair/outfit/pose/lighting detail...")
@@ -230,8 +324,12 @@ class WorkhorseOrchestrator:
             job.add_log("Vision analysis and forensic scene extraction complete.")
             self.notify_event(job)
 
+            if _check_abort():
+                return
+
             # STAGE 6: MUSE (AI Prompt Synthesizer)
             job.current_stage = 6
+            job.stage_started_at = time.time()
             job.active_agent = "muse"
             job.agent_message = "Muse: Crafting Flux image, WAN video, and pose-series prompts..."
             job.add_log("Stage 6/8: Muse engineering reusable AI generation prompts from the real shoot...")
@@ -248,8 +346,12 @@ class WorkhorseOrchestrator:
             job.add_log("AI prompt kit (Flux / WAN / pose series) synthesized.")
             self.notify_event(job)
 
+            if _check_abort():
+                return
+
             # STAGE 7: SCRIBE (Copy Synthesizer)
             job.current_stage = 7
+            job.stage_started_at = time.time()
             job.active_agent = "scribe"
             text_model = aura_cfg.get("text_model", "huihui_ai/qwen3-abliterated:14b")
             tone = aura_cfg.get("tone_preset", "seductive_teasing")
@@ -271,8 +373,12 @@ class WorkhorseOrchestrator:
             job.add_log("Social media release kit synthesized.")
             self.notify_event(job)
 
+            if _check_abort():
+                return
+
             # STAGE 8: APEX (Package Export)
             job.current_stage = 8
+            job.stage_started_at = time.time()
             job.active_agent = "apex"
             job.agent_message = "Apex: Bundling all deliverables and building final ZIP package..."
             job.add_log("Stage 8/8: Apex saving deliverables to output directory...")

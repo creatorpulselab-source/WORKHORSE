@@ -1,0 +1,88 @@
+{
+  "1": {
+    "inputs": {
+      "LoadImagesFolderState": "{\"version\":1,\"folder\":\"\",\"recursive\":false,\"keepFolders\":false,\"skipDone\":false,\"doneFolder\":\"\",\"sort\":\"name\",\"sort_dir\":\"asc\",\"selected\":[],\"mode\":\"off\",\"max_mp\":1,\"longest_side\":1024,\"scale_factor\":1,\"fit_w\":1024,\"fit_h\":1024,\"cover_w\":1024,\"cover_h\":1024,\"ratio_preset\":\"1:1\",\"ratio_w\":1,\"ratio_h\":1,\"ratio_action\":\"crop\",\"pad_color\":\"#808080\",\"pad_top\":0,\"pad_bottom\":0,\"pad_left\":0,\"pad_right\":0,\"crop_anchor\":\"center\",\"crop_scale\":true,\"snap\":0,\"resample\":\"auto\",\"allow_upscale\":true}"
+    },
+    "class_type": "PixaromaLoadImagesFolder",
+    "_meta": {
+      "title": "Load Images from Folder Pixaroma (1. your old pictures)"
+    }
+  },
+  "2": {
+    "inputs": {
+      "image": "",
+      "filename": [
+        "1",
+        7
+      ]
+    },
+    "class_type": "PixaromaPromptReader",
+    "_meta": {
+      "title": "Prompt Reader Pixaroma (reads the prompt saved in each picture)"
+    }
+  },
+  "3": {
+    "inputs": {
+      "text": [
+        "2",
+        0
+      ]
+    },
+    "class_type": "PixaromaSaveText",
+    "_meta": {
+      "title": "Save Text Pixaroma (2. every prompt in one .txt)"
+    }
+  },
+  "4": {
+    "inputs": {
+      "label_json": "{\"text\":\"Collect the Prompts from All Images in a Folder\",\"fontSize\":31,\"fontFamily\":\"Arial\",\"fontColor\":\"#ffffff\",\"textAlign\":\"left\",\"backgroundColor\":\"#f66744\",\"padding\":10,\"borderRadius\":0,\"opacity\":1,\"fontWeight\":\"normal\",\"lineHeight\":1}"
+    },
+    "class_type": "PixaromaLabel",
+    "_meta": {
+      "title": "Label Pixaroma"
+    }
+  },
+  "5": {
+    "inputs": {
+      "note_json": "{\"version\":1,\"content\":\"<h1>NODES USED IN THIS WORKFLOW</h1><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #b8b8b8\\\"><p>\\n\\n</p><p><b>No models to download.</b> Everything here is plain picture work, so it runs on any computer and it is fast, even without a strong graphics card.</p><p>\\n\\n</p><p>Nothing to download: no AI model is used. The prompts are already inside your pictures, this workflow only reads them out.</p><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #b8b8b8\\\"><p>\\n\\n</p><h2><span data-ic=\\\"nodes-installed\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;Nodes Installed from Manager</h2><p>\\n\\n</p><ul><li>Pixaroma, version <b>1.4.203</b> or newer. A node shows red or missing? Update Pixaroma.</li></ul><p>\\n\\n</p><p><b>Which version is the newest?</b> The <b>Latest Pixaroma version</b> button shows it and what is new in it. The help page has the update steps for every kind of install.</p><p>\\n\\n</p><p><span class=\\\"pix-note-btnblock\\\"><a class=\\\"pix-note-rm\\\" style=\\\"background-color: #f66744\\\" href=\\\"https://workflows.pixaroma.com/latest/?need=1.4.203\\\" target=\\\"_blank\\\" rel=\\\"noopener noreferrer\\\">Latest Pixaroma version</a></span>&nbsp;<span class=\\\"pix-note-btnblock\\\"><a class=\\\"pix-note-rm\\\" style=\\\"background-color: #f66744\\\" href=\\\"https://workflows.pixaroma.com/help/#update\\\" target=\\\"_blank\\\" rel=\\\"noopener noreferrer\\\">How to update Pixaroma</a></span>&nbsp;</p><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #b8b8b8\\\"><p>\\n\\n</p><h2><span data-ic=\\\"puzzle\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;Something missing?</h2><p>\\n\\n</p><p>Each button opens a short video that shows the fix, with the steps written under it.</p><p>\\n\\n</p><p><span class=\\\"pix-note-btnblock\\\"><a class=\\\"pix-note-rm\\\" style=\\\"background-color: #f66744\\\" href=\\\"https://workflows.pixaroma.com/help/missing-nodes/\\\" target=\\\"_blank\\\" rel=\\\"noopener noreferrer\\\">Red or missing nodes</a></span>&nbsp;<span class=\\\"pix-note-btnblock\\\"><a class=\\\"pix-note-rm\\\" style=\\\"background-color: #f66744\\\" href=\\\"https://workflows.pixaroma.com/help/refresh/\\\" target=\\\"_blank\\\" rel=\\\"noopener noreferrer\\\">Buttons missing after an update</a></span>&nbsp;</p><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #b8b8b8\\\"><p>\\n\\n</p><h2><span data-ic=\\\"pixaroma\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;Resources</h2><p>\\n\\n</p><p>\\n  <a class=\\\"pix-note-discord\\\" href=\\\"https://discord.com/invite/gggpkVgBf3\\\" target=\\\"_blank\\\" rel=\\\"noopener noreferrer\\\">Join Discord</a>&nbsp;\\n  <a class=\\\"pix-note-yt\\\" href=\\\"https://www.youtube.com/@pixaroma\\\" target=\\\"_blank\\\" rel=\\\"noopener noreferrer\\\">Pixaroma YouTube Channel</a>&nbsp;\\n  <span class=\\\"pix-note-btnblock\\\"><a class=\\\"pix-note-rm\\\" style=\\\"background-color: #f66744\\\" href=\\\"https://workflows.pixaroma.com/help/report/\\\" target=\\\"_blank\\\" rel=\\\"noopener noreferrer\\\">Ask for help</a></span>&nbsp;\\n</p><p>\\n\\n</p>\",\"buttonColor\":\"#f66744\",\"lineColor\":\"#f66744\",\"backgroundColor\":\"#2a2a2a\",\"info\":{\"title\":\"Download Models\",\"icon\":\"download-model\",\"color\":\"#f66744\"}}"
+    },
+    "class_type": "PixaromaInfo",
+    "_meta": {
+      "title": "Info Pixaroma"
+    }
+  },
+  "6": {
+    "inputs": {
+      "note_json": "{\"version\":1,\"content\":\"<h1>HOW TO USE</h1><p>\\n\\n</p><p>Every picture you make in ComfyUI keeps its prompt inside the file. This workflow reads the prompts of a WHOLE folder in one Run and puts them all in one text file: a quick way to find a prompt you used months ago, or to build a prompt list to reuse.</p><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #b8b8b8\\\"><p>\\n\\n</p><h2><span data-ic=\\\"folder-v1\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;Pick your folder</h2><p>\\n\\n</p><ol><li>On <b>Load Images from Folder Pixaroma</b>, click <b>Browse</b> and pick your folder, or paste the folder's path into the box.</li><li>Click <b>Pick images</b>, then <b>Select all</b>, or click only the pictures you want. The button shows how many are picked.</li><li>Press <b>Run</b> once. Leave the Run count at <b>1</b>: the node sends every picture through by itself, one after the other.</li></ol><p>\\n\\n</p><p>This workflow opens with <b>no folder picked</b>: choose your own folder, or try it first on the demo folder <b>Old Pictures</b> inside the <b>Media Inputs</b> folder that comes with these workflows.</p><p>\\n\\n</p><p><span data-ic=\\\"idea\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;A folder inside ComfyUI's own <code>input</code> or <code>output</code> folder works straight away. A folder anywhere else works too, but pick it once with <b>Browse</b>: that is how ComfyUI knows you allowed it.</p><p>\\n\\n</p><p><span data-ic=\\\"idea\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;Pictures go through in name order. Name them <code>01_</code>, <code>02_</code> and so on if the order matters.</p><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #b8b8b8\\\"><p>\\n\\n</p><h2><span data-ic=\\\"text\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;What you get</h2><p>\\n\\n</p><ul><li>All the prompts in the <b>Save Text Pixaroma</b> box, one after the other, ready to copy.</li><li>The same list in <code>ComfyUI/output/Old Prompts/prompts_001.txt</code>. Paste it into <b>Prompt Pack Pixaroma</b> or <b>Prompt Each Pixaroma</b> to make them all again.</li></ul><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #b8b8b8\\\"><p>\\n\\n</p><h2><span data-ic=\\\"image\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;Which pictures work</h2><p>\\n\\n</p><ul><li>Pictures made with <b>ComfyUI</b>: every PNG it saves keeps the prompt AND the whole workflow inside. These work best.</li><li>Pictures from <b>Automatic1111</b>, <b>Forge</b> or downloaded from <b>Civitai</b>: they keep the prompt too, also as JPG or WebP.</li><li>Pictures from <b>Gemini</b>, <b>ChatGPT</b>, a phone or most websites keep NO prompt, and a picture edited or converted in another app usually loses it. Those give a short note instead of a prompt.</li><li>The demo <b>Old Pictures</b> were made in Gemini and saved as small JPGs, with their prompt written into each file for this demo.</li></ul><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #b8b8b8\\\"><p>\\n\\n</p><h2><span data-ic=\\\"idea\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;Good to know</h2><p>\\n\\n</p><ul><li>Want a .txt for EACH picture, named like it? Open the gear on <b>Save Text Pixaroma</b>, turn on <b>One file per entry</b>, and wire the folder node's <b>filename</b> into its <b>name</b> dot.</li><li>Want to MAKE them again? The next workflow, <b>Re-create Old Images from Their Prompts</b>, does it in one Run.</li></ul><p>\\n\\n</p><p><span data-ic=\\\"warning-v1\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;A folder outside ComfyUI's own folders must be picked once with <b>Browse</b> on Load Images from Folder. Prompt Reader then reads from it too.</p><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #b8b8b8\\\"><p>\\n\\n</p><h2><span data-ic=\\\"question-mark\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;Something not working?</h2><p>\\n\\n</p><p>Each button opens the answer on the Pixaroma help page.</p><p>\\n\\n</p><p><span class=\\\"pix-note-btnblock\\\"><a class=\\\"pix-note-rm\\\" style=\\\"background-color: #f66744\\\" href=\\\"https://workflows.pixaroma.com/help/faq/#q-folder-not-approved\\\" target=\\\"_blank\\\" rel=\\\"noopener noreferrer\\\">Folder not approved</a></span>&nbsp;<span class=\\\"pix-note-btnblock\\\"><a class=\\\"pix-note-rm\\\" style=\\\"background-color: #f66744\\\" href=\\\"https://workflows.pixaroma.com/help/look/\\\" target=\\\"_blank\\\" rel=\\\"noopener noreferrer\\\">Nodes look different from the video</a></span>&nbsp;</p><p>\\n\\n</p>\",\"buttonColor\":\"#f66744\",\"lineColor\":\"#f66744\",\"backgroundColor\":\"#2a2a2a\",\"info\":{\"title\":\"How to Use\",\"icon\":\"to-do\",\"color\":\"#2a9d8f\"}}"
+    },
+    "class_type": "PixaromaInfo",
+    "_meta": {
+      "title": "Info Pixaroma"
+    }
+  },
+  "7": {
+    "inputs": {
+      "note_json": "{\"version\":1,\"content\":\"<h1>WHAT EACH NODE DOES</h1><p>\\n\\n</p><p>The colour of a node tells you what kind of node it is. Nothing here needs changing except the blue ones.</p><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #b8b8b8\\\"><p>\\n\\n</p><h2><span data-ic=\\\"chip\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;The steps you set</h2><p>\\n\\n</p><p>Blue, and numbered. These are the only nodes you need to touch.</p><p>\\n\\n</p><ul><li><b>Load Images from Folder Pixaroma (1. your old pictures)</b> - Point it at a folder of pictures made with ComfyUI and pick them. Press Run once and it sends every picture through, one after the other. Its <b>path</b> output is each picture's full path on your disk.</li></ul><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #b8b8b8\\\"><p>\\n\\n</p><h2><span data-ic=\\\"chip\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;The work</h2><p>\\n\\n</p><p>Green. They run by themselves.</p><p>\\n\\n</p><ul><li><b>Prompt Reader Pixaroma (reads the prompt saved in each picture)</b> - Opens each picture and reads the prompt saved inside it. Wired to <b>path</b>, it reads the picture where it is, so the folder does not have to be in ComfyUI's input folder. It reads PNG, JPG and WebP, from ComfyUI, Automatic1111, Forge and Civitai.</li></ul><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #b8b8b8\\\"><p>\\n\\n</p><h2><span data-ic=\\\"checkmark\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;The result</h2><p>\\n\\n</p><p>Dark red, at the end.</p><p>\\n\\n</p><ul><li><b>Save Text Pixaroma (2. every prompt in one .txt)</b> - Collects every prompt into the box on the node and into ONE text file in <code>ComfyUI/output/Old Prompts</code>, a blank line between prompts. Skip repeats is set to <b>Any</b>, so a prompt you used twice is kept once.</li></ul><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #b8b8b8\\\"><p>\\n\\n</p><h2><span data-ic=\\\"info\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;Readouts</h2><p>\\n\\n</p><p>Dark. Nothing to set: they show you what happened.</p><p>\\n\\n</p><ul><li><b>Run Timer</b> - The dark clock above the result shows how long the last Run took.</li></ul><p>\\n\\n</p>\",\"buttonColor\":\"#f66744\",\"lineColor\":\"#f66744\",\"backgroundColor\":\"#2a2a2a\",\"info\":{\"title\":\"Nodes Info\",\"icon\":\"node-v5\",\"color\":\"#3d7cc9\"}}"
+    },
+    "class_type": "PixaromaInfo",
+    "_meta": {
+      "title": "Info Pixaroma"
+    }
+  },
+  "8": {
+    "inputs": {
+      "note_json": "{\"version\":1,\"content\":\"<h1>RUN TIMES</h1><p>\\n\\n</p><p>Measured on a <b>24 GB RTX 4090</b> with this workflow, with the models already loaded. A different card gives different numbers, but the shape holds: the time grows with the number of pictures and their size.</p><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #b8b8b8\\\"><p>\\n\\n</p><table class=\\\"pix-note-grid\\\" style=\\\"--pix-note-grid-border: #f66744; --pix-note-grid-header-bg: #1a1a1a\\\"><thead><tr><th>What</th><th>Time</th></tr></thead><tbody><tr><td>6 pictures</td><td>under 1 s</td></tr><tr><td>100 pictures</td><td>a few seconds</td></tr></tbody></table><p>\\n\\n</p><p>No AI model runs here: it only reads text out of files, so any computer is fast at it.</p><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #b8b8b8\\\"><p>\\n\\n</p><h2><span data-ic=\\\"warning-v1\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;The first Run of the session</h2><p>\\n\\n</p><p>The first Run after starting ComfyUI also has to load the models from disk (about 18 GB for Klein and its text encoder), so it takes longer. After that they stay loaded.</p><p>\\n\\n</p>\",\"buttonColor\":\"#f66744\",\"lineColor\":\"#f66744\",\"backgroundColor\":\"#2a2a2a\",\"info\":{\"title\":\"Run Times\",\"icon\":\"run-timer\",\"color\":\"#3f9a4f\"}}"
+    },
+    "class_type": "PixaromaInfo",
+    "_meta": {
+      "title": "Info Pixaroma"
+    }
+  },
+  "9": {
+    "inputs": {},
+    "class_type": "PixaromaRunTimer",
+    "_meta": {
+      "title": "Run Timer Pixaroma"
+    }
+  }
+}

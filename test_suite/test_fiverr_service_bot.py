@@ -99,3 +99,38 @@ def test_download_fiverr_route_requires_authentication():
     client = TestClient(server.app)
     response = client.get("/api/download/fiverr/FO_5001", follow_redirects=False)
     assert response.status_code == 401
+
+
+def test_new_high_ticket_gigs_structure_and_fiverr_constraints(fiverr_bot):
+    """Ensure all high-ticket gigs are registered, adhere to Fiverr's 5-tag limit,
+    and have complete 3-tier pricing."""
+    gigs = fiverr_bot.get_all_gigs()
+    gig_ids = {g["id"] for g in gigs}
+    expected_gigs = {"gig_photo_to_3d", "gig_photo_to_video", "gig_relight"}
+    assert expected_gigs.issubset(gig_ids)
+
+    for gig in gigs:
+        # Fiverr strictly enforces a maximum of 5 search tags per gig
+        assert len(gig["search_tags"]) <= 5, f"Gig {gig['id']} exceeds 5 search tags"
+        assert len(gig["title"]) <= 80, f"Gig {gig['id']} title exceeds 80 characters"
+        assert gig["title"].startswith("I will"), f"Gig {gig['id']} title must start with 'I will'"
+        assert set(gig["pricing"].keys()) == {"basic", "standard", "premium"}
+        assert len(gig["description"]) > 100
+
+
+def test_customized_delivery_notes_for_high_ticket_gigs(fiverr_bot):
+    """Confirm that the delivery notes for each new gig contain specialized highlights."""
+    note_3d = fiverr_bot.generate_delivery_note("gig_photo_to_3d", client_name="Studio Alpha")
+    assert "Studio Alpha" in note_3d
+    assert ".GLB" in note_3d
+    assert "Turntable" in note_3d
+
+    note_video = fiverr_bot.generate_delivery_note("gig_photo_to_video", client_name="Beat Producer")
+    assert "Beat Producer" in note_video
+    assert "60fps" in note_video
+    assert "Seamless" in note_video
+
+    note_relight = fiverr_bot.generate_delivery_note("gig_relight", client_name="Executive Mark")
+    assert "Executive Mark" in note_relight
+    assert "Relit" in note_relight or "lighting" in note_relight.lower()
+

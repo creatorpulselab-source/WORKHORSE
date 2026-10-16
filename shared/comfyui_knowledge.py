@@ -6,33 +6,42 @@ import re
 from pathlib import Path
 from typing import Literal
 
-GUIDE_PATH = Path(__file__).resolve().parents[1] / "LLM training" / "comfyui_llm_learning_guide.md"
-MAX_CONTEXT_CHARS = 14000
+GUIDE_PATH = Path(__file__).resolve().parents[1] / "LLM training" / "Comfyui" / "comfyui_llm_learning_guide.md"
+if not GUIDE_PATH.exists():
+    GUIDE_PATH = Path(__file__).resolve().parents[1] / "LLM training" / "comfyui_llm_learning_guide.md"
+MAX_CONTEXT_CHARS = 16000
 LOGGER = logging.getLogger(__name__)
 
-ComfyTask = Literal["operator", "image_prompt", "video_prompt", "pose_prompt", "inspiration", "qc"]
+ComfyTask = Literal["operator", "image_prompt", "video_prompt", "pose_prompt", "inspiration", "qc", "batch_automation", "pbr_3d", "video_to_video"]
 
 TASK_MODULES: dict[ComfyTask, tuple[int, ...]] = {
-    "operator": (1, 17),
-    "image_prompt": (6, 3, 13),
-    "video_prompt": (6, 11, 3),
-    "pose_prompt": (6, 14),
-    "inspiration": (6, 3, 13),
-    "qc": (2, 18),
+    "operator": (1, 6, 11, 12, 3, 13, 17, 19, 23, 22),
+    "image_prompt": (6, 3, 13, 19),
+    "video_prompt": (6, 23, 21, 11, 3),
+    "pose_prompt": (6, 14, 20),
+    "inspiration": (6, 3, 13, 20),
+    "qc": (2, 18, 22),
+    "batch_automation": (19, 22, 1),
+    "pbr_3d": (20, 12, 22),
+    "video_to_video": (23, 21, 11, 22),
 }
 
 TOPIC_MODULES = (
-    (("inpaint", "outpaint", "mask", "sam2", "segment anything"), (8, 9)),
+    (("video-to-video", "v2v", "motion transfer", "clothing replacement", "shoe replacement", "character replacement", "reference to video", "video background swap", "outfit swap video"), (23, 21, 11)),
+    (("automation", "folder", "batch", "resize", "watermark", "contact sheet", "outpaint stitch", "product photo"), (19,)),
+    (("trellis", "pixal", "3d", "mesh", "pbr", "glb", "dino", "angle lock"), (20, 12)),
+    (("minimax", "fasth3", "h3", "first_last_frame", "temporal", "interpolation", "video prompt"), (21, 11, 3)),
+    (("pixaroma", "composer", "image_name", "compare", "notify", "3d builder"), (22, 4)),
+    (("inpaint", "outpaint", "mask", "sam2", "segment anything"), (8, 9, 19)),
     (("relight", "ic-light"), (10,)),
-    (("trellis", "pixal", "3d", "mesh", "pbr", "ltx", "minimax", "hailuo", "flux"), (12,)),
     (("lora", "adapter"), (13,)),
     (("upscal", "hi-res", "hires", "controlnet", "regional", "faceid", "gguf", "fp8", "freeu", "pag", "wildcard", "liveportrait", "in-graph"), (14,)),
-    (("video", "wan", "svd", "animate", "motion"), (11, 6, 3)),
-    (("img2img", "image-to-image", "i2i"), (7,)),
-    (("flux", "sdxl", "sd3", "sd 3", "sd1.5"), (3, 6)),
-    (("sampler", "sampling", "scheduler"), (5,)),
-    (("loader", "decoder", "saver", "node classes"), (4,)),
-    (("invariant", "anti-pattern", "verification rules"), (16,)),
+    (("ltx", "video", "wan", "svd", "animate", "motion"), (12, 21, 11, 6, 3)),
+    (("img2img", "image-to-image", "i2i"), (7, 19)),
+    (("flux", "sdxl", "sd3", "sd 3", "sd1.5"), (3, 6, 19)),
+    (("sampler", "sampling", "scheduler"), (5, 21)),
+    (("loader", "decoder", "saver", "node classes"), (4, 22)),
+    (("invariant", "anti-pattern", "verification rules"), (16, 22)),
 )
 
 SECTION_TOPICS = {
@@ -58,6 +67,32 @@ SECTION_TOPICS = {
         "14.6": ("gguf", "fp8", "quantiz", "vram"),
         "14.7": ("wildcard", "in-graph", "llm"),
         "14.8": ("audio", "liveportrait"),
+    },
+    19: {
+        "19.1": ("folder", "batch", "resize", "social media"),
+        "19.2": ("outpaint", "stitch", "flux klein"),
+        "19.3": ("product", "watermark", "contact sheet"),
+    },
+    20: {
+        "20.1": ("trellis", "pixal", "pbr", "mesh", "birefnet", "dino"),
+        "20.2": ("vram", "int8", "quantiz", "sage"),
+        "20.3": ("angle", "flux klein", "3d builder", "camera"),
+    },
+    21: {
+        "21.1": ("fasth3", "8-step", "kitchen", "sparse"),
+        "21.2": ("text-to-video", "firstframe", "interpolation"),
+        "21.3": ("formula", "prompt", "temporal", "motion"),
+    },
+    22: {
+        "22.1": ("load image", "image_name", "path", "text"),
+        "22.2": ("composer", "birefnet", "layer", "blend"),
+        "22.3": ("compare", "notify", "verification"),
+    },
+    23: {
+        "23.1": ("reference to video", "minimaxh3", "ref_videos", "ref_images"),
+        "23.2": ("clothing", "outfit", "shoes", "tattoo", "background", "environment", "character replacement", "motion transfer"),
+        "23.3": ("prompt formula", "video 1", "picture 1", "semantic"),
+        "23.4": ("sampling", "res_multistep", "resolution", "frame budget"),
     },
 }
 
@@ -108,7 +143,16 @@ def _excerpts(number: int, module: str, query: str) -> list[str]:
     topics = SECTION_TOPICS[number]
     selected = [key for key, words in topics.items() if any(word in query for word in words)]
     if not selected:
-        selected = {12: ["12.1"], 13: ["13.2", "13.4"], 14: ["14.3"]}[number]
+        selected = {
+            12: ["12.1"],
+            13: ["13.2", "13.4"],
+            14: ["14.3"],
+            19: ["19.1"],
+            20: ["20.1"],
+            21: ["21.1"],
+            22: ["22.1"],
+            23: ["23.1"],
+        }.get(number, [next(iter(topics.keys()))])
     return [
         module[match.start():headings[index + 1].start() if index + 1 < len(headings) else len(module)].strip()
         for index, match in enumerate(headings)
@@ -124,7 +168,7 @@ def get_comfyui_context(task: ComfyTask, query: str = "") -> str:
     try:
         text = GUIDE_PATH.read_text(encoding="utf-8-sig")
         modules = _modules(text)
-        missing = set(range(1, 19)) - modules.keys()
+        missing = set(range(1, 24)) - modules.keys()
         if missing:
             raise ValueError(f"Missing curriculum modules: {sorted(missing)}")
         if any(not module.partition("\n")[2].strip() for module in modules.values()):
@@ -142,12 +186,18 @@ def get_comfyui_context(task: ComfyTask, query: str = "") -> str:
     context = OPERATING_RULES + f"Source: LLM training/comfyui_llm_learning_guide.md | SHA256: {digest}\n"
     lowered = query.casefold()
     selected = list(TASK_MODULES[task])
+    topic_selected = []
     if task != "qc":
         for keywords, numbers in TOPIC_MODULES:
             if any(keyword in lowered for keyword in keywords):
-                selected.extend(numbers)
+                topic_selected.extend(numbers)
     if task == "operator":
         selected.extend((2, 18))
+    if topic_selected:
+        if task == "operator" and 17 in selected:
+            selected = [selected[0]] + topic_selected + [17] + [m for m in selected[1:] if m != 17]
+        else:
+            selected = [selected[0]] + topic_selected + selected[1:]
 
     excerpts = [
         excerpt

@@ -2190,3 +2190,194 @@ When testing or fine-tuning the local LLM, evaluate its outputs using this four-
 | **Level 4: Architectural Fidelity** | Model-specific parameters accurately configured (channel counts, guidance nodes, sampling steps, LoRA weight budgets, Hi-Res denoise factors). | **Pass**: 16-channel latents for FLUX/SD3, correct guidance nodes, LoRA chains properly routed, Hi-Res Fix denoise between 0.30–0.45.<br>**Fail**: Direct 4K generation in single pass, or unrouted intermediate LoRA outputs. |
 
 
+
+---
+
+## Module 19: Batch Automation & Industrial Production Folder Loops (EP38 Architecture)
+
+Modern production environments cannot rely on single-canvas, one-at-a-time diffusion invocations. The EP38 architecture introduces deterministic, multi-asset batch processing pipelines capable of transforming, outpainting, watermarking, and re-rendering entire directories in a single DAG execution.
+
+### 19.1 Batch Folder Ingestion & Dynamic Parameter Binding
+In automated batch loops, manual file selection is replaced with directory-level ingestion:
+1. **Load Images from Folder (`LoadImagesFromFolder` / `PixaromaLoadFolder`):** Ingests an entire directory path. Unlike native ComfyUI batching which concatenates tensors into a 4D batch `[B, H, W, C]` (risking severe VRAM overflow when B > 8), folder automation streams images sequentially through the pipeline.
+2. **Dynamic Filename Propagation:** Upstream folder loaders output both the `IMAGE` tensor and an `image_name` string. Downstream nodes (`SaveImage`, `TextWatermark`, `RenameAndConvert`) ingest this string to preserve original naming conventions (e.g., `[image_name]_watermarked.jpg`) without blind numbered file collisions.
+3. **Multi-Aspect Ratio Decomposition:** In social media pipelines (Instagram/TikTok/Pinterest), a single input image is split across three parallel `ImageCropResize` branches:
+   - Square Feed (1:1 / 1080x1080)
+   - Vertical Reel/Story (9:16 / 1080x1920)
+   - Portrait Post (4:5 / 1080x1350)
+   All three branches execute concurrently, centering the subject without stretching, and terminate in dedicated destination subfolders.
+
+### 19.2 Pixel-Preserving Outpaint Stitching with Flux Klein
+Expanding canvas aspect ratios (e.g., converting 1:1 portraits to 16:9 cinematic backdrops) frequently introduces seam artifacts or alters the original subject. The Flux Klein Outpaint Stitch pattern guarantees exact pixel integrity:
+- **Pad Image for Outpaint:** Extends image canvas borders with neutral gray or noise padding while recording coordinate offsets `[top, bottom, left, right]`.
+- **Denoise Diffusion Pass:** Flux Klein 9B (`flux-2-klein-9b-fp8.safetensors`) samples the expanded canvas with denoise = 1.0 on the padded borders, guided by an expansion prompt (e.g., "extend modern studio environment, soft lighting, 8k").
+- **Outpaint Stitch (`OutpaintStitch`):** Composites the un-denoised original source image directly over the center bounding box of the diffusion output pixel-for-pixel. The original subject remains 100% mathematically identical, with zero diffusion hallucination or blurring on the primary subject.
+
+### 19.3 Automated E-Commerce & Product Staging
+Automated product photography pipelines execute a 4-stage pipeline per asset:
+1. **Subject Isolation:** `BiRefNet` / `RMBG-2.0` segments foreground products with high-precision alpha mattes.
+2. **Environment Synthesis:** Background replacement using studio lighting presets (podium, marble tabletop, soft specular rim lighting).
+3. **Dynamic Watermarking & Logo Ingestion:** `TextWatermark` and `AddLogo` dynamically calculate placement offsets via `MathNode` based on variable source resolutions (e.g., `offset_x = width * 0.05`).
+4. **Automated Contact Sheet Generation:** `ImageGrid` aggregates completed batch elements into an indexed review contact sheet with legible labels for client sign-off.
+
+---
+
+## Module 20: Trellis 2 & Pixal3D Native PBR Geometry Pipelines
+
+The transition from 2D pixel generation to 3D spatial production is governed by Trellis 2 and Pixal3D architectures, converting single-view imagery into textured polygonal meshes with full Physically Based Rendering (PBR) materials.
+
+### 20.1 Spatial Reconstruction Pipeline Architecture
+Generating true 3D geometry from a 2D raster image requires decoupled volumetric geometry extraction and surface texture synthesis:
+
+```
+[2D Source Image] 
+       │
+       ├──► [BiRefNet RMBG] ─────────────► [Isolated Alpha Cutout]
+       │                                             │
+       └──► [CLIPVisionLoader: DINO v3 ViT-L] ───────┤
+                                                     ▼
+                                      [Trellis2Conditioning / Pixal3DConditioning]
+                                                     │
+               ┌─────────────────────────────────────┴─────────────────────────────────────┐
+               ▼                                                                           ▼
+    [Trellis2ShapeStage]                                                        [Trellis2TextureStage]
+    (Geometry Latent Generation)                                                (PBR Texture Latent)
+               │                                                                           │
+               ▼                                                                           ▼
+    [VaeDecodeShapeTrellis]                                                     [VaeDecodeTextureTrellis]
+    (trellis_2_shape_vae_bf16)                                                 (trellis_2_texture_vae_bf16)
+               │                                                                           │
+               └─────────────────────────────────────┬─────────────────────────────────────┘
+                                                     ▼
+                                      [Remesh & Decimate: 25k - 50k faces]
+                                                     │
+                                                     ▼
+                                 [MeshToFile3D -> Export .GLB with PBR Maps]
+                                 (Albedo, Normal, Roughness, Metallic)
+```
+
+### 20.2 VRAM Optimization & Quantization (INT8 ConvRot)
+Standard FP32 3D diffusion pipelines exceed 32GB VRAM. Production deployments on 16GB cards (NVIDIA GeForce RTX 5070 Ti) and 6GB-12GB cards enforce:
+- **INT8 Quantization (`trellis_2_int8_convrot.safetensors` / `pixal3d_int8_convrot.safetensors`):** Reduces model memory footprint to under 4.2GB while preserving sub-millimeter geometric feature resolution.
+- **Dual VAE Decoupling:** Shape decoding (`trellis_2_shape_vae_bf16`) and texture decoding (`trellis_2_texture_vae_bf16`) execute in separate sequential memory allocations, clearing intermediate tensors before surface rasterization.
+- **SageAttention / Kitchen Attention Integration:** Startup flags `--use-sage-attention` allow 3D cross-attention modules to bypass quadratic memory scaling.
+
+### 20.3 Angle-Preserved 3D-to-Image Re-Rendering (Flux Klein 9B)
+Once a 3D asset is generated, marketing deliverables often demand photorealistic renders from controlled camera perspectives:
+1. **Interactive Camera Alignment:** `3D Builder` allows the operator or agent to set precise Euler camera angles (yaw, pitch, roll, FOV).
+2. **Depth & Normal Extraction:** The 3D viewport renders depth and surface normal passes from the selected camera matrix.
+3. **Flux Klein Angle Lock:** `FluxKlein3DToImage` conditions the diffusion model on the rendered 3D camera projection. The resulting image renders realistic skin, fabrics, and studio lighting while strictly locking the perspective to the underlying 3D geometry.
+
+---
+
+## Module 21: MiniMax FastH3 Temporal Video & Interpolation Engine
+
+MiniMax FastH3 represents the state-of-the-art in accelerated local video synthesis, reducing diffusion steps from 25–40 down to an ultra-fast 8-step sampling pass while maintaining temporal coherence and physical realism.
+
+### 21.1 Core Architecture & Sampling Parameters
+- **Pruned Quantized UNet:** `minimax_h3_ref2va_pruned_int8_convrot.safetensors` provides high inference velocity with minimal VRAM overhead.
+- **8-Step Fast Sampler:** Employs an optimized KSampler with `steps = 8`, `cfg = 1.0 - 2.5`, and customized noise schedule matching the FastH3 distillation profile.
+- **Kitchen & Sparse Attention Acceleration:** In-graph attention optimizers (`KitchenAttention` / `SparseAttention`) compress temporal cross-attention layers across video frame sequences, eliminating frame flickering and preventing OOM spikes during multi-frame latents.
+- **Dual Latent Decoding:**
+  - Video Frames: Decoded via `minimax_h3_video_vae_fp16.safetensors`.
+  - Audio Soundscape: Synthesized and decoded via `minimax_h3_audio_vae_fp32.safetensors`, providing temporally synced audio cues (foley, ambient environment).
+
+### 21.2 Generation Modalities
+1. **Text-to-Video (T2V):** Direct synthesis from complex cinematic temporal prompts.
+2. **FirstFrame-to-Video (Image-to-Video / I2V):** Conditions video motion on a static source image, animating facial expressions, hair movement, and camera trajectories while locking subject identity.
+3. **First-and-Last-Frame Interpolation:** Takes two distinct boundary images (Frame 0 and Frame N) and synthesizes a smooth, physics-consistent transitional video clip connecting them. Critical for scene transitions and story progression.
+
+### 21.3 Formulaic Temporal Prompt Engineering (Claude & Gemini Knowledge Standard)
+MiniMax H3 prompts require rigorous cinematic structuring to prevent camera drift and anatomical instability. Video prompts MUST adhere to the 5-element temporal formula:
+
+```markdown
+[SHOT TYPE & CAMERA MOVEMENT]: Slow cinematic forward dolly shot at eye level, gentle 15-degree clockwise roll, steady gimbal stabilization, 35mm lens perspective.
+[SUBJECT & MICRO-ACTION]: A stunning model subtly turns her head toward the camera, eyes making direct contact, lips parting softly into a natural teasing smile, loose hair strands swaying in the breeze.
+[PHYSICS & KINETICS]: Natural cloth deformation, silk dress fabric rippling smoothly with movement, authentic atmospheric dust motes drifting across the light beam.
+[LIGHTING EVOLUTION]: Soft golden hour volumetric sunlight streaming from camera-left, creating warm rim highlights across her shoulders and hair, gradual shadow deepening on camera-right.
+[AUDIO & ENVIRONMENT]: Gentle outdoor breeze rustling autumn leaves, distant soft jazz melody, pristine studio audio recording.
+```
+
+---
+
+## Module 22: Pixaroma Node Pack API Contracts & Headless Ergonomics
+
+The Pixaroma custom node ecosystem solves critical UI-to-API friction points, transforming manual canvas interactions into headless, programmatic pipeline components.
+
+### 22.1 Dynamic Signal & Path Routing
+- **`Load Image (Pixaroma)`:**
+  - Inputs: `image_path` (string) or clipboard buffer.
+  - Outputs: `IMAGE` (tensor), `MASK` (alpha tensor), `image_name` (string), `file_path` (string).
+  - *API Advantage:* Downstream nodes no longer need hardcoded output file names. The string output connects directly to `SaveImage.filename_prefix`, ensuring client and campaign metadata is carried throughout the pipeline.
+- **`Simple Show Text` & `Text Concatenate`:** Injects dynamic LLM-generated prompts, camera metadata, and date-stamps into conditioning text nodes without graph reloading.
+
+### 22.2 In-Graph Multi-Layer Compositing (`Image Composer`)
+Legacy ComfyUI workflows required external scripting (PIL, OpenCV) or Photoshop roundtrips to composite multiple generated elements. `Image Composer` handles this natively inside the ComfyUI DAG:
+- Integrates `BiRefNet` background cutout directly within the node.
+- Supports multi-layer stacking with affine transformations (Translation [X, Y], Uniform Scale [Sx, Sy], Rotation [theta]).
+- Provides blend mode operations (Normal, Multiply, Screen, Overlay) with sub-pixel anti-aliasing.
+
+### 22.3 Production Verification & Pipeline Signaling
+- **`Image Compare`:** Real-time visual comparison with split-slider and difference-mask calculation, allowing Iris QC agents to score retouching deltas.
+- **`Workflow Finish Notification` (`Notify`):** Emits OS-level notifications and audio chimes upon completion of extensive multi-image folder jobs, signaling WORKHORSE orchestrators that batch deliverables are ready for packaging and dispatch.
+
+---
+
+## Module 23: MiniMax H3 Multi-Reference Video-to-Video Transformation Engine
+
+MiniMax H3 introduces high-fidelity Video-to-Video (V2V) transformation via multi-reference cross-attention conditioning. Unlike conventional frame-by-frame diffusion (which suffers from severe temporal boiling and flickering), MiniMax H3 processes the input video as a unified 3D spatiotemporal volume, binding dynamic motion latents with static visual references (`ref_images`).
+
+### 23.1 Architecture of `MiniMaxH3ReferenceToVideo`
+The core engine node `MiniMaxH3ReferenceToVideo` ingests both temporal video frames and static image references:
+- **`ref_videos.ref_video_0` (Video 1):** Ingested via `VHS_LoadVideo`. Establishes the temporal backbone: body motion, velocity curves, choreography, camera trajectory, and frame timing.
+- **`ref_images.ref_image_0` through `ref_image_N` (Picture 1 ... Picture N):** High-resolution still images providing target visual attributes (wardrobes, shoes, jewelry, environments, or actor likenesses).
+- **Multi-Modal Encoders:**
+  - UNet: `minimax_h3_ref2va_int8_convrot.safetensors`
+  - Text & Multimodal Vision: `qwen3vl_32b_minimax_h3_int8_convrot.safetensors` (or `qwen3vl_8b_w4a8.safetensors`)
+  - Video VAE: `minimax_h3_video_vae_fp16.safetensors`
+  - Audio VAE: `minimax_h3_audio_vae_fp32.safetensors`
+- **Attention Acceleration:** `MiniMaxH3MemoryEfficientSageAttentionPatch` and `SolAttnPatch` optimize temporal cross-attention, preventing quadratic VRAM blowouts on long frame counts (124+ frames).
+
+### 23.2 Core Production Use Cases & Execution Patterns
+
+#### 1. Clothing & Wardrobe Replacement (Video Virtual Try-On)
+- **Role Assignment:** Video 1 = Source video of actor; Picture 1 = Reference photo of replacement clothing (e.g., olive green hoodie, evening gown, luxury swimwear).
+- **Mechanism:** The model segments the source garment latents and re-synthesizes the texture, seams, and fabric physics of Picture 1 onto the moving actor while preserving the underlying limb movement, breathing, and camera drift.
+- **Prompt Anchor:** *"Video 1 is the original video containing the woman. Picture 1 is the clothing reference. Replace the woman's existing top with an olive green zip-up hoodie from Picture 1 while preserving the exact original video performance, camera movement, timing, environment, lighting, and overall motion."*
+
+#### 2. Footwear, Accessory, Product & Tattoo Swapping
+- **Role Assignment:** Video 1 = Performer dancing or walking; Picture 1 = Commercial product shot (e.g., red sneakers, designer watch, intricate sleeve tattoo).
+- **Mechanism:** Replaces localized footwear, accessories, or skin markings with temporal consistency across 100+ frames without drift or detachment.
+- **Prompt Anchor:** *"Video 1 is the original reference video containing the performer for subject identity and motion. Picture 1 is the reference image of the red athletic shoes. Preserve the subject's identity, body kinetics, timing, and background while replacing footwear with the red shoes from Picture 1 consistently throughout the video."*
+
+#### 3. Background & Environment Swapping (Scene Relocation)
+- **Role Assignment:** Video 1 = Talent performance in a studio or plain room; Picture 1 = Photo of a luxury destination, cafe, or tropical resort.
+- **Mechanism:** Isolates foreground talent kinetics and compositing boundaries, projecting the lighting angle, reflections, and perspective of the new environment around the moving subject.
+- **Prompt Anchor:** *"Camera movement and overall performance from Video 1. Replace only the original background and environment with the cafe environment shown in Picture 1. Maintain realistic lighting, perspective, shadows, and seamless optical integration between the subject and the new environment."*
+
+#### 4. Character Replacement & Motion Choreography Transfer
+- **Role Assignment:** Video 1 = Motion capture actor (dance, martial arts, athletic stunt); Picture 1 = Target character or client likeness.
+- **Mechanism:** Erases the original actor and maps the target character's facial structure, hair, and physique onto the source choreography and camera path.
+- **Prompt Anchor:** *"Video 1 is the original reference video containing the actor and their motion. Picture 1 contains the new character. Completely remove the original actor from the video and replace them with the character from Picture 1 while preserving the exact body motion, choreography, timing, camera movement, and overall performance from Video 1."*
+
+### 23.3 The 3-Part Semantic Prompt Engineering Formula
+
+MiniMax H3's multimodal attention interprets references strictly through semantic text anchoring. Prompts MUST follow this 3-part formula:
+
+```markdown
+1. [REFERENCE IDENTIFIERS & ROLES]:
+   "Video 1 is the original video containing [Subject/Action] and establishes the motion, camera trajectory, and timing. Picture 1 is the reference image for [Target Garment / Environment / Character]."
+
+2. [PRIMARY MODIFICATION DIRECTIVE]:
+   "Replace [Element to change] from Video 1 with [Target element] shown in Picture 1. Ensure [specific details: fabric texture, logo, color, material sheen] matches Picture 1."
+
+3. [STRICT PRESERVATION INVARIANTS]:
+   "Preserve the exact original body movement, facial expressions, choreography, camera motion, frame timing, lighting direction, and overall cinematic performance from Video 1."
+```
+
+### 23.4 Sampling Parameters & Resolution Budgets
+- **Sampler & Scheduler:** `SamplerCustomAdvanced` paired with `BasicScheduler` using `res_multistep` (or `simple`), `steps = 20`, `denoise = 1.0`.
+- **Resolution Strategy:**
+  - Production Final: ~1.0 Megapixel (e.g., 1344x768 16:9 widescreen or 768x1344 9:16 vertical reel).
+  - Rapid Draft / Kinetic Preview: ~0.4 Megapixel (e.g., 832x480) for 3x faster turnaround during concept iteration.
+- **Frame Budget:** 81 to 124 frames at 24fps (3.5 to 5.2 seconds of fluid cinematic motion).

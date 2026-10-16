@@ -1,0 +1,772 @@
+50 Free ComfyUI Automation Workflows
+Intro
+0:00
+How many hours do you spend editing images one by one? In today's episode, I
+0:05
+have 50 workflows that do it for you. Remove backgrounds, restore old photos,
+0:11
+and make product shots, coloring pages, storyboards, comics, and character
+0:16
+sheets. Let the AI rename, sort, and caption whole folders all in one run.
+Before You Start - Update ComfyUI and Pixaroma
+0:24
+Before you start, update Comfy UI and the Pixaroma nodes. These workflows use
+0:30
+the newest Pixaroma nodes, so an older version shows red nodes. To check what
+0:35
+you have, doubleclick the canvas and add the version check node. The Pixar row
+0:41
+shows your version, and this node works in older versions, too. For the newest one, open pixaroma.com
+0:49
+and click help. The help page always shows the latest Pixarroma version at the top. If yours is older, pick the
+0:56
+comfy UI you have like easy install. Then update shows the steps. Each topic
+1:02
+has a short video with the steps written under it. Red nodes or a missing model?
+1:07
+Look under fix a problem. Once you are up to date, you are ready for the workflows.
+The Basics of Every Workflow
+1:15
+Let's start with the basics of every workflow. All the episode 38 workflows are here in
+1:22
+workflows on the left. If they are not here yet, the help page
+1:28
+shows how to add them. Every workflow has these buttons. Download models lists each model with
+1:35
+its download link and the folder where it goes. How to use has the steps and
+1:41
+tips for this workflow. Nodes info says what each node does and run times, how
+1:47
+long it takes. Press escape to close it. The colors tell you what each node is
+1:52
+for. Orange nodes load the models. Blue nodes are the ones you set, numbered in
+1:58
+order. Green nodes do the work, and the red one saves. Drag the canvas to see
+2:03
+the rest. To pick your pictures, click browse on load images from folder. Find
+2:09
+your folder. I put the episode 38 folder on my desktop. Open media inputs. Click
+2:14
+portraits and then okay. You can also paste a folder's path into the box.
+2:20
+Click pick images. Select all or click only the pictures you want and then
+2:25
+click done. Write your edit in the prompt or keep the example. Press run
+2:30
+once. One run sends every picture through one after the other.
+2:36
+The run timer shows how long it took. Your results are in Comfy UI's output folder in the folder save image shows.
+2:44
+Every workflow in this episode works this way. This workflow resizes every image in a
+1.1 Resize All Images in a Folder
+2:51
+folder in one run. First on load images from folder, paste your folders path or
+2:58
+click browse. Click pick images. Then select all and done. On longest side,
+3:05
+click the size you want like 1024. The gear opens the settings where you can
+3:11
+type your own sizes. The shapes can also crop every picture to a square or a wide
+3:16
+frame. Save image keeps each picture's name and saves it as a JPG.
+3:22
+Now press run once. The pictures are resized one by one. Your new copies are
+3:29
+in Comfy UI's output folder inside resized. Your original pictures are
+3:34
+never touched. This workflow turns every image in a
+1.2 Social Media Sizes for All Images in a Folder
+3:39
+folder into three social media sizes in one run. On load images from folder,
+3:46
+paste your folders path. Then pick images, select all, and done. The three
+3:52
+resize crop nodes set the sizes. A square post, a tall post, and a story.
+3:58
+Type any width and height you need. It crops from the middle and never stretches. Each size has its own save
+4:05
+image with its own folder. Press run. Four pictures in three sizes take about
+4:11
+a second. Your posts are in the output folder. Inside social media, one folder
+4:17
+for each size. This workflow puts your watermark on
+1.3 Watermark All Images in a Folder
+4:22
+every image in a folder in one run. On load images from folder, paste your
+4:28
+folder path. Then pick images, select all, and done. On text watermark, type
+4:35
+your own text. Pick the corner here. Then set the size, the colors, and the
+4:40
+opacity. Leave the size in percent so it looks the same on big and small
+4:45
+pictures. Press run. It takes less than a second. Your copies are in the output
+4:51
+folder inside watermarked. This workflow gives every image in a
+1.4 Rename and Convert All Images in a Folder
+4:57
+folder a clean new name with a number and converts it to another format. On
+5:03
+load images from folder, paste your folder's path. Then pick images, select
+5:09
+all, and done. On the text node, type the new name. Every copy gets this name
+5:15
+plus a number. Pick the format here, webp, jpg, or png. Press run. Your
+5:23
+renamed copies are in the output folder inside renamed, numbered one after the
+5:28
+other. This workflow removes the background from every image in a folder and saves
+1.5 Remove the Background from All Images in a Folder
+5:35
+two versions of each. It uses one small model listed in download models.
+5:42
+On load images from folder, paste your folder's path. Then pick images, select
+5:48
+all, and done. Remove background cuts out the subject in each image. This save
+5:54
+keeps it as a transparent PNG. This one puts it on white as a JPG for online
+5:59
+shops. Press run. Your images are in the output folder inside no background and
+6:05
+white background. To keep only one version, click the save you don't need and press CtrlM to mute it.
+1.6 Slideshow Video from All Images in a Folder
+6:14
+This workflow turns all the images in a folder into one slideshow video. On load
+6:20
+images from folder, paste your folders path. Then pick images, select all, and
+6:26
+done. This number sets how many seconds each image stays on screen. This one
+6:32
+sets the frames per second. The math node multiplies them. So there is no counting to do. Set the video size here.
+6:40
+This one is a square for a post. Press run.
+6:46
+The video plays right on the node. It is saved in the output folder inside slideshow.
+1.7 Contact Sheet of All Images in a Folder
+6:54
+This workflow puts every image in a folder on one contact sheet with its name under it. On load images from
+7:01
+folder, paste your folder's path. Then pick images. Select all and done. Image
+7:08
+grid lays them out with the columns, size, and background you choose. Type a
+7:14
+title here or leave it empty. Press run. The sheet is saved in the output folder
+7:20
+inside contact sheets. This workflow makes every image in a
+1.8 Upscale All Images in a Folder
+7:26
+folder bigger and sharper with an upscale model. It uses one small model
+7:32
+listed in download models. On load images from folder, paste your
+7:37
+folders path. Then pick images, select all, and done. The model makes each
+7:44
+image four times bigger and adds real detail. This number sets the final size.
+7:50
+0.5 makes it two times the original. Press run. Your images are in the output
+7:56
+folder inside upscaled with their original names.
+1.9 Add Your Logo to All Images in a Folder
+8:02
+This workflow puts your logo in the corner of every image in a folder. On
+8:07
+load images from folder, paste your folders path. Then pick images, select
+8:12
+all, and done. Load your logo here. Best as a PNG with a see-through background.
+8:19
+This number sets how far it sits from the edge. The math nodes work out the corner from each image's own size. Press
+8:26
+run. Your images are in the output folder inside with logo.
+2.1 Edit All Images in a Folder with One Prompt
+8:33
+This workflow gives every image in a folder the same edit with flux client.
+8:38
+It uses the flux klein models listed in download models.
+8:44
+On load images from folder, paste your folders path. Then pick images. Select
+8:49
+all and done. Type the edit in the prompt, the same for every image. This
+8:55
+one turns every portrait into a cute 3D character. Press run. The first run
+9:01
+loads the model. Then each image takes about 3 seconds. Every portrait comes back as a 3D character in the same pose.
+9:09
+They are saved in the output folder inside folderedit.
+2.2 Edit Each Image with Its Own Prompt
+9:15
+Here, every image in a folder gets its own prompt and one run edits them all.
+9:20
+Flux Klein does the edits again so there is nothing new to download on load
+9:26
+images from folder. Paste your folder's path. Then pick images. Select all and
+9:32
+done. Write one prompt per image in prompt multi. Prompt one goes to image
+9:38
+one. Prompt two to image two and so on. Prompt from list picks the prompt with
+9:44
+the same number. Press run. The mug goes to a cafe, the guitar to a studio, and
+9:50
+the sneaker to a mountain. Your new pictures wait in the output folder under paired edit.
+2.3 Coloring Pages from All Images in a Folder
+9:57
+Your photos can turn into coloring book pages a whole folder at a time. It is
+10:03
+the same Flux Klein setup as before, only the prompt is new. On load images
+10:08
+from folder, paste your folders path, then pick images, select all, and done.
+10:15
+The prompt asks for clean black outlines on white with no shading and no color.
+10:21
+Kids love pages made from their own pets, family, or toys. Press run. The
+10:27
+first run loads the model. Then each image takes about 3 seconds. Every photo
+10:32
+comes back as a clean page ready to print. Look for the pages in the output folder inside coloring pages.
+2.4 Make All Images in a Folder Wide (Outpaint)
+10:41
+Every photo in a folder gets wider here. and Flux Klein paints the new sides. It
+10:47
+is handy when a picture has to fill a wide screen like a video or a banner. On
+10:53
+load images from folder, paste your folder's path. Then pick images, select
+10:58
+all and done. Outpaint adds a gray border here to 16x9. The prompt tells
+11:05
+Klein to fill it by extending the scene. Outpaint stitch puts your original back
+11:10
+in the middle pixel for pixel. Press run. Each image comes back wide with new
+11:16
+sides that match. The new versions go to the output folder in a folder called wide.
+2.5 Product Photos from All Images in a Folder
+11:23
+If you sell online, this one turns plain product photos into clean studio shots.
+11:29
+Flux Klein builds the scene and your shop name goes on every picture. On load
+11:35
+images from folder, paste your folders path, then pick images, select all, and
+11:40
+done. The prompt sets the same studio scene for every product. Text watermark
+11:47
+stamps your shop name and notify rings when the whole folder is done. Press
+11:52
+run. Every product comes back on the same podium with your shop name. All the
+11:57
+shots end up in the output folder in product photos.
+2.6 Restore and Colorize Old Photos in a Folder
+12:02
+Faded old photos get a second life here, cleaned up and colored by Flux Klein.
+12:08
+The whole folder is done in one run, so you can step away while it works. Paste
+12:13
+the path of your old photos folder. Then pick images, select all, and done. The
+12:20
+prompt says what to fix and it works as it is. Press run. The first run loads
+12:25
+the model. Then each photo takes about 3 seconds. Every photo comes back clean,
+12:32
+sharp, and in color. Each photo lands in the output folder in restored. To keep
+12:38
+the photos black and white open how to use it shows the words to change in the
+12:43
+prompt. Write a few prompts. Press run once and
+3.1 One Image per Prompt
+12:49
+you get one image for each. Flux Klein makes the pictures with the models you already downloaded. Write your prompts
+12:56
+in prompt each one per row. Pick the picture size here. Press run. Each
+13:02
+prompt becomes its own image. One after the other preview image saves them in
+13:08
+the output folder inside prompt. Each one prompt with choices in square
+3.2 Every Prompt Combination with Brackets
+13:15
+brackets becomes a picture for every combination. Klein handles the drawing so there's nothing extra to set up. Put
+13:22
+the choices in square brackets split by a vertical bar. Three colors and two
+13:28
+vehicles make six prompts. Show text lists every prompt it made. Press run.
+13:34
+You get six images, every color with every vehicle. You get all six in the
+13:40
+output folder inside combinations. You type a subject once and see it in
+3.3 One Subject in Many Styles
+13:46
+six different styles. The pictures come from Flux Klein, the same model as before. Type your subject once in text
+13:55
+join prompt. Each holds one style per row. Each style is added to the end of
+14:00
+your subject. Press run. You get the same bunny in six styles. You'll find
+14:06
+the whole set in the output folder under styles.
+3.4 One Image, Many Edits
+14:12
+Take one picture and give it lots of different edits all in a single run.
+14:17
+Klein keeps the character the same in every edit, which is the fun part. Load
+14:22
+your picture here. Write one edit per row in prompt each. Here, the bunny goes
+14:27
+to a beach, a snowy village, Tokyo, and a magic forest. Press run. You get one
+14:34
+image for each edit, and the bunny stays the same. Every version ends up in the
+14:40
+output folder in many edits. Paste in a long list of prompts, and
+3.5 Queue a List of Prompts
+14:46
+this one works through all of them from a single click. It runs on Flux Klein, and it's quick, just a few seconds per
+14:53
+picture. Paste your prompts in prompt pack with a blank line between them.
+14:58
+Pick the picture size here. Prompt pack cues one run per prompt and works through them by itself. Press run. Each
+15:06
+prompt runs on its own, one after the other. The finished images collect in the output folder inside prompt pack.
+3.6 Random Prompts Every Run
+15:16
+Every run here builds a brand new random prompt and keeps a list of the ones it used. Klein draws each one, and you
+15:24
+never have to rewrite the prompt by hand. In the text node, curly brackets hold the choices. With dynamic prompts
+15:31
+on, every run picks one of each at random. Save text keeps every prompt it
+15:37
+picked. Press run. The first run also loads the models, so it takes the
+15:42
+longest. Press it again, and you get a new prompt and a new image. The pictures
+15:47
+pile up in the output folder in random prompts.
+3.7 Build a Prompt from Switches
+15:53
+You build the prompt here from parts that you simply switch on and off. Flux Klein draws it and you only flip
+16:00
+switches to change the prompt. Prompt stack keeps each part of the prompt in its own row. Switch place off and place
+16:07
+two on. Now she reads in a sunny park instead of a library. Press run. Show
+16:14
+text shows the prompt it built from the parts that are on. Your picture is in the output folder under prompt stack.
+3.8 Short Ideas into Finished Images
+16:22
+Type a few short ideas and a local AI turns each one into a full prompt and a
+16:28
+finished picture. Besides Flux Klein, it needs a small writer model and you'll
+16:33
+find both in download models. Type one short idea per line in prompt pack. AI
+16:39
+prompt turns each idea into a full detailed prompt on your own PC. Save
+16:45
+text keeps every prompt it wrote. Press run. Each idea runs on its own. The AI
+16:51
+writes and Klein draws. All the finished pictures go into the output folder in
+16:57
+ideas. Write a short story and you get a storyboard. The AI splits it into scenes
+3.9 Turn a Short Story into a Storyboard
+17:04
+and Klein draws each one. It uses the same small writer model as the ideas
+17:09
+workflow, so there's nothing new to set up. Type your story in AI prompt. The AI
+17:15
+splits it into six scenes with one prompt each. Text join adds the same style to every scene. Press run. Klein
+17:24
+draws each scene and image grid puts them together as a storyboard. Each scene plus the finished board goes to
+17:32
+the output folder in storyboard. From one picture of a character, you get
+3.10 Character Turnaround Sheet from One Image
+17:37
+a full turnaround sheet. front, 3/4, side, and back. Flux Klein reads your
+17:44
+picture and keeps the character the same from every side. Load your character here. Prompt each holds one view per
+17:52
+row. So Klein draws the same character from every side. Press run. Klein draws
+17:58
+the four views, one after the other. Image grid puts all the views side by
+18:03
+side as one sheet. Your finished sheet is ready in the output folder under turnaround.
+4.1 Loop Basics - Four Versions of One Prompt
+18:10
+Let's see how a loop works with the same prompt made in four rounds, each with its own seed. Klein draws each round and
+18:18
+the loop does the counting for you. Loop start sets how many rounds here? Four.
+18:25
+Math adds the round number to the seed. So each round gets a new seed. Combine
+18:30
+adds each round's image to the pile and loop end closes the loop. Press run. You get four versions of the
+18:37
+prompt from one run. The four versions are grouped in the output folder in loop
+18:42
+basics. Here, one picture gets built up step by step and each round edits the result of
+4.2 Loop - Build Up an Image Step by Step
+18:50
+the one before. Flux Klein edits it four times in a row, each time on top of the
+18:55
+last. Load your start picture here. Prompt multi holds one change per round.
+19:01
+a lemon tree, string lights, a cat, and a sunset. Loop end sends each result to
+19:07
+the next round. So, the changes add up. Press run. You see every round, and the
+19:12
+last one has all four changes. Every round is saved in the output folder
+19:18
+under loop buildup. This workflow makes one long photo strip
+4.3 Loop - Photo Strip from All Images in a Folder
+19:23
+from all the images in a folder with no AI model. Onload images from folder.
+19:29
+Paste your folder's path. Then pick images, select all, and done. Resize
+19:36
+crop makes every photo the same size. Loop start runs one round per photo.
+19:41
+Stitch images adds each photo to the right of the strip. Press run. All the
+19:47
+photos come back side by side in one picture. It is saved in the output
+19:52
+folder inside photo strip. You can make a four panel comic strip
+4.4 Loop - Comic Strip with the Same Character
+19:58
+here with the same character in every panel. Flux Klein draws every panel from
+20:04
+your own character picture. Load your character here. Prompt multi holds one
+20:09
+panel per row. Waking up, breakfast, a bike ride, and a goodbye at sunset. Each
+20:15
+round, Stitch Images adds the new panel to the right of the strip. Press run.
+20:21
+You get one comic strip and the bunny looks the same in every panel. The finished strip goes to the output folder
+20:28
+in comic strip. To compare settings side by side, this
+5.1 XY Plot - Steps and Samplers
+20:34
+one puts the steps across and three samplers down in one labeled grid. Klein
+20:40
+draws all 12 squares so you can compare them at a glance. Write your prompt
+20:45
+here. On the XY plot, the across card changes the steps. 1 2 4 and 8. The down
+20:53
+card changes the sampler. Four steps times three samplers makes 12 images.
+21:00
+Press run. The grid fills in one square at a time, all with the same seed. The
+21:06
+grid is not saved yet, so click save output. It goes to the output folder inside XY plot.
+5.2 XY Plot - Styles and Subjects
+21:14
+Now the grid tests words instead of settings. four styles across and three
+21:19
+subjects down. It's the quickest way to see which style suits your subject and Klein does the drawing. Write your
+21:26
+prompt in the text node. On the XY plot, the across card finds the words
+21:32
+watercolor painting and swaps in one style per line. A red fox, an old
+21:37
+lighthouse, and a little robot go on the down card. Press run. Klein draws the 12
+21:44
+squares one after the other. You get every style with every subject all with
+21:49
+the same seed. The grid is not saved yet. So click save output. It goes to
+21:54
+the output folder inside XY plot. Instead of waiting on big pictures, you
+5.3 Draft First, Then Finish
+22:01
+make a quick small draft first and only finish the one you like. Flux Klein
+22:06
+makes both the draft and the final picture. Write your prompt here. The
+22:12
+draft size is small, so each draft takes about a second, and the seed on random makes every draft new. Press run. Klein
+22:20
+makes a small draft first. The run stops at pause image and shows you the draft.
+22:26
+To try another one, press regenerate. A new draft comes right away. When you
+22:32
+like it, press continue. Klein redraws the same draft, big and sharp. The
+22:38
+finished picture goes into the output folder inside a folder called draft then
+22:43
+finish. This one turns a whole workflow into a simple app with everything you change in
+6.1 One Control Panel for the Whole Workflow
+22:50
+one panel. Under the hood, it's a normal flux client workflow, just easier to
+22:55
+use. Control panel holds the prompt, the size, the steps, and the seed. Each row
+23:02
+is wired to a setting on another node like the steps on the K sampler. So you
+23:08
+change everything in one place. Press run. Your picture shows up in the output
+23:13
+folder under control panel. One workflow can do two jobs with the
+6.2 One Workflow, Two Jobs
+23:19
+same model. A makes a picture from text and B edits a picture you give it. Flux
+23:25
+Klein loads only once here because both jobs share it. Job A uses this prompt.
+23:32
+Job B uses this picture and this edit prompt. Switch source flips all the
+23:37
+wires together with one click on A or B. Press run with A on. You get a new
+23:44
+picture from the prompt. Now click B and press run again. The same bunny is now
+23:49
+on a snowy mountain. Both pictures are stored in the output folder in two jobs.
+6.3 Turn Steps On and Off
+23:56
+Only the steps you switch on will run. Cut out the background, add a watermark,
+24:01
+or crop to story size. Just the cutout needs a model, the small one from the background workflow. On load images from
+24:09
+folder, paste your folders path. Then pick images, select all, and done. Each
+24:16
+step has its own preview image and saves its own copy. Mute switch turns each
+24:22
+step on or off. Here A and C are on and B is off. Press run. Only the cutout and
+24:30
+the story size run and the watermark step is skipped. Each step saves into
+24:35
+its own folder inside on off.
+6.4 Style Presets from a Dropdown
+24:40
+Keep your favorite styles in a drop down and one click adds the full style words to your prompt. Klein draws the picture
+24:48
+and the drop down does the typing for you. Type your subject in the text node.
+24:53
+Pick a style from the drop down here. Anime text join adds the style words to
+24:59
+your subject and show text shows the full prompt. Press run. The bakery comes
+25:04
+out in the anime style. Now click the arrow to switch to 3D clay and press run
+25:10
+again. The same bakery comes back as a clay model. The anime one and the clay
+25:15
+one are both in the output folder under style presets. This workflow resizes every image in a
+6.5 Math - Scale All Images in a Folder by Percent
+25:22
+folder by a percent and each image keeps its own shape. On load images from
+25:28
+folder, paste your folder's path. Then pick images, select all, and done. Type
+25:35
+the new size and percent here. 50 makes every image half its size. The two math
+25:40
+nodes work out the new width and height from each image's own size. Upscale
+25:46
+image resizes each one to that size. Press run. Show text lists the new
+25:52
+widths. The images are saved in the output folder inside scaled with the new
+25:57
+size and the name. Long wires across the canvas get messy.
+6.6 Set and Get - No Long Wires
+26:03
+So here set and get pass a connection without them. It's a regular flux client workflow just with a much cleaner
+26:10
+layout. Each set node stores one thing under a name. The model, the text
+26:16
+encoder, and the VAE. Each get node reads it back by the same name wherever
+26:21
+you need it. So the loaders stay on the left and no wire crosses the whole workflow. Press run. It works just like
+26:29
+a normal wire. The picture is written to the output folder in set get.
+7.1 Collect the Prompts from All Images in a Folder
+26:36
+This workflow reads the prompt saved inside every image in a folder and puts them all in one text file. On load
+26:44
+images from folder, paste your folders path, then pick images, select all, and
+26:50
+done. Prompt reader reads the prompt saved in each picture from Comfy UI,
+26:56
+Automatic 11-11, Forge, or Civotai. Save text collects every prompt in one list.
+27:04
+Press run. All six prompts come back, one after the other. The text file is
+27:10
+saved in the output folder inside old prompts.
+7.2 Re-create Old Images from Their Prompts
+27:15
+Your old images still carry their prompts and this one reads each prompt and makes the picture again with Flux
+27:22
+Klein. So even pictures from older models get a fresh new version. On load
+27:28
+images from folder, paste your folders path. Then pick images, select all, and
+27:34
+done. Prompt reader reads the prompt of each picture. To change all of them at
+27:39
+once, type extra words in text join. Press run. Klein makes each picture
+27:45
+again in the same shape. The new pictures are in the output folder in recreated. Image compare shows the old
+27:53
+and the new picture one over the other. Training. Allora needs a caption for
+7.3 Caption All Images in a Folder for LoRA Training
+28:00
+every image and this one writes them all for you. This one needs a model that can see pictures and it's in download
+28:07
+models. On load images from folder, paste your folder's path. Then pick
+28:13
+images, select all and done. AI prompt looks at each picture and writes one
+28:19
+caption. Type your trigger word here and it goes in front of every caption. Press
+28:25
+run. The AI writes the four captions, one after the other. Save text writes
+28:31
+one text file per picture with the same name. Save image keeps a copy of each
+28:36
+picture next to it. The captions and the pictures sit side by side in the output
+28:41
+folder in training set. Every image in a folder gets a copy with
+7.4 Rename Every Image by What Is in It
+28:47
+a name that actually says what is in it. It uses the same seeing model as the
+28:52
+captions workflow. On load images from folder, paste your folder's path, then
+28:58
+pick images, select all, and done. AI prompt looks at each picture and writes
+29:04
+a short name for it. Text join puts the old name and the new name together for the list. Press run. The AI names the
+29:13
+six pictures one after the other. Save text keeps the list of old and new
+29:18
+names. Save image saves each picture under its new name. The renamed copies
+29:24
+are in the output folder under named by AI. Every product in a folder gets its own
+7.5 The AI Writes an Edit for Every Image
+29:30
+scene here. A local AI writes the edit for each picture and Klein makes it. Two
+29:36
+models work together. One looks at the picture and Flux Klein makes the edit.
+29:41
+On load images from folder, paste your folders path. Then pick images, select
+29:47
+all, and done. AI prompt looks at each product and writes an edit that suits
+29:53
+it. Save text keeps every edit named like its picture. Press run. The AI
+29:59
+writes all the edits first, then Klein makes all the pictures. The results go to the output folder under AI scenes.
+30:07
+Image compare shows the before and after one over the other.
+7.6 Re-imagine All Images in a Folder in Another Style
+30:14
+A whole folder of pictures gets a new style here. The AI writes a prompt for each one and Klein draws it. It's the
+30:21
+same pair of models as the last workflow, so you're already set. On load images from folder, paste your folder's
+30:28
+path, then pick images, select all, and done. Type the new style in the AI
+30:35
+prompt box. Here, a cute 3D animated character. Save text keeps every prompt
+30:41
+named like its picture. Press run. The AI writes all the prompts first, then
+30:47
+Klein makes all the pictures. They are all in the output folder in re-imagined.
+30:53
+Image compare shows the before and after one over the other.
+8.1 Before and After Grid for All Images in a Folder
+30:59
+One prompt edits every image in a folder and a single grid shows each original
+31:04
+above its result. Klein does the edits and the grid lets you check them all at once. On load images from folder, paste
+31:12
+your folders path. Then pick images, select all, and done. Type your edit in
+31:18
+the prompt box. Here, every product becomes a toy made of clay. The nodes on
+31:24
+the right save each result and put them all in one grid. Press run. Klein edits
+31:30
+the four products one after the other. Each result goes to the output folder in
+31:35
+clay toys named like its picture. Image grid shows every original above its
+31:41
+result with the file names. The grid itself is saved below it as a JPG in the
+31:47
+same folder. The AI answers one yes or no question
+8.2 Keep Only the Images the AI Says Yes To
+31:52
+about every image and the images are sorted by the answer. The model that can see does the looking one picture at a
+31:59
+time. On load images from folder, paste your folders path. Then pick images,
+32:06
+select all, and done. AI prompt asks if there is a person in each picture and
+32:12
+answers with one word, yes or no. Text match sends the yes pictures to one save
+32:18
+node and the others to the second one. Press run. The pictures with a person go
+32:24
+to the output folder under with a person. The others are saved inside without a person.
+8.3 Sort All Images in a Folder into Subfolders by What Is in Them
+32:32
+A local AI looks at each image in a folder and sorts it into a subfolder from your list. It's the same seeing
+32:39
+model again and it all runs on your own PC. On load images from folder, paste
+32:45
+your folders path. Then pick images, select all and done. AI prompt picks one
+32:52
+word from a list like animal, food, or place, and that word becomes the folder.
+32:58
+Text join puts the word in front of the file name with a slash between them.
+33:03
+Press run. The AI looks at each picture, one after the other. Show text lists
+33:09
+where each picture went. Save image copies each picture into its folder inside sorted in the output folder.
+8.4 Fix the Caption Text Files, Then Make the Images Again
+33:18
+You can fix a folder's captions in one window, then make every image again from its caption in a new style. Your fixed
+33:26
+captions go straight to Flux Klein, which draws the new pictures. Caption
+33:31
+review is a new node, and its only setting is the folder. Paste your folder's path in the folder box. Then
+33:38
+click review captions. Every picture shows with its caption. A text file with the same name that says
+33:46
+what is in the picture. Laura training learns from these captions and an AI can
+33:51
+write them for you. The top line counts the pictures that still need one. You can find a word or show only the
+33:57
+pictures without a caption. Click a caption to fix it. Here, her yellow t-shirt becomes blue. Save changes.
+34:05
+writes it to her text file. Then close the window. It never runs with the workflow. It is just a window for
+34:12
+checking captions. On load images from folder, paste the same path. Then pick
+34:18
+images, select all, and done. Load texts from folder reads each picture's
+34:24
+caption. Paste the same path there, too. Type a style in the second box of text
+34:30
+join here. A soft watercolor painting.
+34:35
+Press run. Klein makes each picture again from its own caption. They go into
+34:41
+from captions in the output folder. Image grid shows every old picture above
+34:46
+its new one. And she now wears blue. A big folder is easier in parts. This
+8.5 Do a Big Image Folder in Parts
+34:53
+one skips every image that already has a result. So each run makes only what is
+34:58
+missing. Flux Klein does the edits and a big folder can take a while. So parts
+35:04
+really help. On load images from folder, paste your folders path and click pick
+35:10
+images. Skip pictures already done as on. It leaves out every picture that already has a result in winter products.
+35:17
+For a first part, pick only two pictures. Then click done. Save image
+35:23
+keeps each picture's name so the folder node can see which ones are done. Press
+35:28
+run. The first two are saved in winter products. Now pick all the pictures.
+35:33
+Click pick images. Select all and done. Press run again. Only the two that are
+35:39
+not done yet go through. Press run a third time and it stops at once with a
+35:44
+notice that there is nothing left to do. Each text file in a folder holds one
+8.6 One Image per Text File
+35:51
+prompt and you get one picture per file named after it. Klein draws each prompt
+35:57
+and you can write the files in any text editor. On load texts from folder, paste
+36:02
+the path of your folder of text files. The files are read in name order, so number them if the order matters. Press
+36:10
+run. Klein makes one picture for each text file. Each picture ends up in from
+36:15
+text files in the output folder named after its file. Image grid shows them
+36:21
+all with the file names. That's all for today. A big thank you to
+Thank You, Legends
+36:28
+all the legends, everyone who joined the channel membership, and everyone who donated to support the channel. I hope
+36:34
+you enjoyed the video. If you did, leave a like and a comment to help with the YouTube algorithm. Thanks for watching
+36:40
+and have a great day.
+36:46
+[music]
+

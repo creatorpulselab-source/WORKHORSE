@@ -6,6 +6,7 @@
     "port": 8800,
     "cuda_devices": "0,1",
     "dual_gpu_enabled": true,
+    "twitter_auto_post_enabled": true,
     "cuda_optimization": {
       "sage_attention_installed": true,
       "triton_installed": true,
@@ -149,6 +150,10 @@
       "linktree_url": "https://linktr.ee/CreatorMediaLab",
       "etsy_url": "https://www.etsy.com/shop/CreatorMediaLab",
       "fiverr_url": "https://www.fiverr.com/s/GPz71VL",
+      "fiverr_3d_pbr_url": "http://www.fiverr.com/s/Q22vdY2",
+      "fiverr_video_loop_url": "http://www.fiverr.com/s/p33Gy6Z",
+      "fiverr_retouch_url": "https://www.fiverr.com/s/GPz71VL",
+      "fiverr_relight_url": "https://www.fiverr.com/creatormedialab",
       "portal_url": "https://digitalcreatorassets-source.github.io/creatormedialab/",
       "publications": [
         "studio_wire",
@@ -160,6 +165,9 @@
         "enabled": false,
         "default_board_id": "",
         "daily_slot_time": "12:00"
+      },
+      "twitter": {
+        "auto_post_enabled": true
       },
       "video_posting": {
         "enabled": true,
@@ -175,6 +183,10 @@
       "twitter_url": "https://twitter.com/creatorpulselab",
       "portal_url": "https://digitalcreatorassets-source.github.io/creatormedialab/?pub=creator_pulse",
       "fiverr_url": "https://www.fiverr.com/s/GPz71VL",
+      "fiverr_3d_pbr_url": "http://www.fiverr.com/s/Q22vdY2",
+      "fiverr_video_loop_url": "http://www.fiverr.com/s/p33Gy6Z",
+      "fiverr_retouch_url": "https://www.fiverr.com/s/GPz71VL",
+      "fiverr_relight_url": "https://www.fiverr.com/creatormedialab",
       "etsy_url": "https://www.etsy.com/shop/CreatorMediaLab",
       "linktree_url": "https://linktr.ee/CreatorMediaLab",
       "publications": [
@@ -182,6 +194,9 @@
       ],
       "fiverr_video_reels_url": "http://www.fiverr.com/s/emmRYZm",
       "fiverr_tip_menus_url": "http://www.fiverr.com/s/GPPxKB3",
+      "twitter": {
+        "auto_post_enabled": true
+      },
       "video_posting": {
         "enabled": true,
         "slot_id": "slot_4_evening",
@@ -189,6 +204,7 @@
         "duration_seconds": 8
       }
     }
+
   },
   "comfyui": {
     "enabled": true,
@@ -207,7 +223,9 @@
       "min_quality_score": 7.5,
       "max_retries": 2,
       "reject_on_extra_limbs": true,
-      "reject_on_facial_distortion": true
+      "reject_on_facial_distortion": true,
+      "reject_on_foreground_occlusion": true,
+      "reject_on_nsfw": true
     },
     "default_checkpoint": "cyberrealisticXL_v80.safetensors",
     "flux_checkpoint": "cyberrealisticFlux_v25.safetensors"

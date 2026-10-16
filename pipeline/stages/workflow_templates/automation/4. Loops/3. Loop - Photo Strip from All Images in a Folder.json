@@ -1,0 +1,171 @@
+{
+  "1": {
+    "inputs": {
+      "LoadImagesFolderState": "{\"version\":1,\"folder\":\"\",\"recursive\":false,\"keepFolders\":false,\"skipDone\":false,\"doneFolder\":\"\",\"sort\":\"name\",\"sort_dir\":\"asc\",\"selected\":[],\"mode\":\"off\",\"max_mp\":1,\"longest_side\":1024,\"scale_factor\":1,\"fit_w\":1024,\"fit_h\":1024,\"cover_w\":1024,\"cover_h\":1024,\"ratio_preset\":\"1:1\",\"ratio_w\":1,\"ratio_h\":1,\"ratio_action\":\"crop\",\"pad_color\":\"#808080\",\"pad_top\":0,\"pad_bottom\":0,\"pad_left\":0,\"pad_right\":0,\"crop_anchor\":\"center\",\"crop_scale\":true,\"snap\":0,\"resample\":\"auto\",\"allow_upscale\":true}"
+    },
+    "class_type": "PixaromaLoadImagesFolder",
+    "_meta": {
+      "title": "Load Images from Folder Pixaroma (1. your folder)"
+    }
+  },
+  "2": {
+    "inputs": {
+      "width": 512,
+      "height": 512,
+      "image": [
+        "1",
+        0
+      ]
+    },
+    "class_type": "PixaromaResizeCrop",
+    "_meta": {
+      "title": "Resize Crop Pixaroma (2. size of each photo)"
+    }
+  },
+  "3": {
+    "inputs": {
+      "batch_size": 4096,
+      "images": [
+        "2",
+        0
+      ]
+    },
+    "class_type": "RebatchImages",
+    "_meta": {
+      "title": "Rebatch Images (all photos into one batch)"
+    }
+  },
+  "4": {
+    "inputs": {
+      "image": [
+        "3",
+        0
+      ]
+    },
+    "class_type": "GetImageSize",
+    "_meta": {
+      "title": "Get Image Size (batch_size = how many photos)"
+    }
+  },
+  "5": {
+    "inputs": {
+      "total": [
+        "4",
+        2
+      ]
+    },
+    "class_type": "PixaromaLoopStart",
+    "_meta": {
+      "title": "Loop Start Pixaroma (one round per photo)"
+    }
+  },
+  "6": {
+    "inputs": {
+      "batch_index": [
+        "5",
+        6
+      ],
+      "length": 1,
+      "image": [
+        "3",
+        0
+      ]
+    },
+    "class_type": "ImageFromBatch",
+    "_meta": {
+      "title": "Image From Batch (this round's photo)"
+    }
+  },
+  "7": {
+    "inputs": {
+      "direction": "left",
+      "match_image_size": true,
+      "spacing_width": 16,
+      "spacing_color": "white",
+      "image1": [
+        "6",
+        0
+      ],
+      "image2": [
+        "5",
+        0
+      ]
+    },
+    "class_type": "ImageStitch",
+    "_meta": {
+      "title": "Stitch Images (adds it to the right of the strip)"
+    }
+  },
+  "8": {
+    "inputs": {
+      "value1": [
+        "7",
+        0
+      ],
+      "loop": [
+        "5",
+        5
+      ]
+    },
+    "class_type": "PixaromaLoopEnd",
+    "_meta": {
+      "title": "Loop End Pixaroma (sends the strip to the next round)"
+    }
+  },
+  "9": {
+    "inputs": {
+      "images": [
+        "8",
+        0
+      ],
+      "SaveImageState": "{\"version\":1,\"folder\":\"\",\"pattern\":\"Photo Strip/strip_%counter%\",\"format\":\"jpg\",\"quality\":92,\"embedWorkflow\":true,\"civitaiMeta\":false,\"saveOnRun\":true,\"dateStyle\":\"yyyy-MM-dd\",\"counterDigits\":3,\"folded\":false,\"hideBarWhenFolded\":false,\"webpLossless\":false,\"inputSubfolders\":false,\"showOpen\":true,\"showCopy\":true,\"showFolder\":true,\"showPng\":true,\"showJpg\":true,\"showWebp\":true}"
+    },
+    "class_type": "PixaromaSaveImage",
+    "_meta": {
+      "title": "Save Image Pixaroma (the finished strip)"
+    }
+  },
+  "10": {
+    "inputs": {
+      "label_json": "{\"text\":\"Loop - Photo Strip from All Images in a Folder\",\"fontSize\":31,\"fontFamily\":\"Arial\",\"fontColor\":\"#ffffff\",\"textAlign\":\"left\",\"backgroundColor\":\"#f66744\",\"padding\":10,\"borderRadius\":0,\"opacity\":1,\"fontWeight\":\"normal\",\"lineHeight\":1}"
+    },
+    "class_type": "PixaromaLabel",
+    "_meta": {
+      "title": "Label Pixaroma"
+    }
+  },
+  "11": {
+    "inputs": {
+      "note_json": "{\"version\":1,\"content\":\"<h1>NODES USED IN THIS WORKFLOW</h1><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #b8b8b8\\\"><p>\\n\\n</p><p><b>No models to download.</b> Everything here is plain picture work, so it runs on any computer and it is fast, even without a strong graphics card.</p><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #b8b8b8\\\"><p>\\n\\n</p><h2><span data-ic=\\\"nodes-installed\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;Nodes Installed from Manager</h2><p>\\n\\n</p><ul><li>Pixaroma, version <b>1.4.183</b> or newer. A node shows red or missing? Update Pixaroma.</li></ul><p>\\n\\n</p><p><b>Which version is the newest?</b> The <b>Latest Pixaroma version</b> button shows it and what is new in it. The help page has the update steps for every kind of install.</p><p>\\n\\n</p><p><span class=\\\"pix-note-btnblock\\\"><a class=\\\"pix-note-rm\\\" style=\\\"background-color: #f66744\\\" href=\\\"https://workflows.pixaroma.com/latest/?need=1.4.183\\\" target=\\\"_blank\\\" rel=\\\"noopener noreferrer\\\">Latest Pixaroma version</a></span>&nbsp;<span class=\\\"pix-note-btnblock\\\"><a class=\\\"pix-note-rm\\\" style=\\\"background-color: #f66744\\\" href=\\\"https://workflows.pixaroma.com/help/#update\\\" target=\\\"_blank\\\" rel=\\\"noopener noreferrer\\\">How to update Pixaroma</a></span>&nbsp;</p><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #b8b8b8\\\"><p>\\n\\n</p><h2><span data-ic=\\\"puzzle\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;Something missing?</h2><p>\\n\\n</p><p>Each button opens a short video that shows the fix, with the steps written under it.</p><p>\\n\\n</p><p><span class=\\\"pix-note-btnblock\\\"><a class=\\\"pix-note-rm\\\" style=\\\"background-color: #f66744\\\" href=\\\"https://workflows.pixaroma.com/help/missing-nodes/\\\" target=\\\"_blank\\\" rel=\\\"noopener noreferrer\\\">Red or missing nodes</a></span>&nbsp;<span class=\\\"pix-note-btnblock\\\"><a class=\\\"pix-note-rm\\\" style=\\\"background-color: #f66744\\\" href=\\\"https://workflows.pixaroma.com/help/refresh/\\\" target=\\\"_blank\\\" rel=\\\"noopener noreferrer\\\">Buttons missing after an update</a></span>&nbsp;</p><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #b8b8b8\\\"><p>\\n\\n</p><h2><span data-ic=\\\"pixaroma\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;Resources</h2><p>\\n\\n</p><p>\\n  <a class=\\\"pix-note-discord\\\" href=\\\"https://discord.com/invite/gggpkVgBf3\\\" target=\\\"_blank\\\" rel=\\\"noopener noreferrer\\\">Join Discord</a>&nbsp;\\n  <a class=\\\"pix-note-yt\\\" href=\\\"https://www.youtube.com/@pixaroma\\\" target=\\\"_blank\\\" rel=\\\"noopener noreferrer\\\">Pixaroma YouTube Channel</a>&nbsp;\\n  <span class=\\\"pix-note-btnblock\\\"><a class=\\\"pix-note-rm\\\" style=\\\"background-color: #f66744\\\" href=\\\"https://workflows.pixaroma.com/help/report/\\\" target=\\\"_blank\\\" rel=\\\"noopener noreferrer\\\">Ask for help</a></span>&nbsp;\\n</p><p>\\n\\n</p>\",\"buttonColor\":\"#f66744\",\"lineColor\":\"#f66744\",\"backgroundColor\":\"#2a2a2a\",\"info\":{\"title\":\"Nodes to Install\",\"icon\":\"pixaroma\",\"color\":\"#f66744\"}}"
+    },
+    "class_type": "PixaromaInfo",
+    "_meta": {
+      "title": "Info Pixaroma"
+    }
+  },
+  "12": {
+    "inputs": {
+      "note_json": "{\"version\":1,\"content\":\"<h1>HOW TO USE</h1><p>\\n\\n</p><p>Makes ONE long picture from a folder of photos, side by side, like a photo booth strip or a before and after row. No AI is used: it shows how a loop can build one result from many pictures.</p><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #b8b8b8\\\"><p>\\n\\n</p><h2><span data-ic=\\\"folder-v1\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;Pick your folder</h2><p>\\n\\n</p><ol><li>On <b>Load Images from Folder Pixaroma</b>, click <b>Browse</b> and pick your folder, or paste the folder's path into the box.</li><li>Click <b>Pick images</b>, then <b>Select all</b>, or click only the pictures you want. The button shows how many are picked.</li><li>Press <b>Run</b> once. Leave the Run count at <b>1</b>: the node sends every picture through by itself, one after the other.</li></ol><p>\\n\\n</p><p>This workflow opens with <b>no folder picked</b>: choose your own folder, or try it first on the demo folder <b>Portraits</b> inside the <b>Media Inputs</b> folder that comes with these workflows.</p><p>\\n\\n</p><p><span data-ic=\\\"idea\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;A folder inside ComfyUI's own <code>input</code> or <code>output</code> folder works straight away. A folder anywhere else works too, but pick it once with <b>Browse</b>: that is how ComfyUI knows you allowed it.</p><p>\\n\\n</p><p><span data-ic=\\\"idea\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;Pictures go through in name order. Name them <code>01_</code>, <code>02_</code> and so on if the order matters.</p><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #b8b8b8\\\"><p>\\n\\n</p><h2><span data-ic=\\\"gear\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;Change the look</h2><p>\\n\\n</p><ul><li>The size of each photo: <b>Resize Crop Pixaroma</b>.</li><li>The gap and its color: <b>spacing_width</b> and <b>spacing_color</b> on <b>Stitch Images</b>.</li><li>A tall strip instead of a wide one: set the direction on Stitch Images to <b>up</b>.</li></ul><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #b8b8b8\\\"><p>\\n\\n</p><h2><span data-ic=\\\"workflow-v3\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;How a loop works</h2><p>\\n\\n</p><ul><li>Everything between <b>Loop Start</b> and <b>Loop End</b> runs again and again: <b>total</b> on Loop Start says how many rounds.</li><li>Loop Start's <b>index</b> says which round it is, counting from <b>0</b> (0, 1, 2, 3). A Math Expression turns it into what you need: <code>a + 1</code> for 1, 2, 3, 4, or <code>a + b</code> to add it to a seed.</li><li>The <b>value</b> slots carry things from one round to the next. What you plug into Loop End's value1 comes out of Loop Start's value1 in the NEXT round. After the last round it comes out of Loop End.</li><li>Wire Loop Start's <b>loop</b> output into Loop End's <b>loop</b> input: that is how the two know they belong together.</li></ul><p>\\n\\n</p><p><span data-ic=\\\"idea\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;This loop needs no count from you: Get Image Size counts the photos and sets the rounds. Wiring a number into total like this works on any loop.</p><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #b8b8b8\\\"><p>\\n\\n</p><h2><span data-ic=\\\"question-mark\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;Something not working?</h2><p>\\n\\n</p><p>Each button opens the answer on the Pixaroma help page.</p><p>\\n\\n</p><p><span class=\\\"pix-note-btnblock\\\"><a class=\\\"pix-note-rm\\\" style=\\\"background-color: #f66744\\\" href=\\\"https://workflows.pixaroma.com/help/faq/#q-folder-not-approved\\\" target=\\\"_blank\\\" rel=\\\"noopener noreferrer\\\">Folder not approved</a></span>&nbsp;<span class=\\\"pix-note-btnblock\\\"><a class=\\\"pix-note-rm\\\" style=\\\"background-color: #f66744\\\" href=\\\"https://workflows.pixaroma.com/help/faq/#q-save-other-folder\\\" target=\\\"_blank\\\" rel=\\\"noopener noreferrer\\\">Save to your own folder</a></span>&nbsp;<span class=\\\"pix-note-btnblock\\\"><a class=\\\"pix-note-rm\\\" style=\\\"background-color: #f66744\\\" href=\\\"https://workflows.pixaroma.com/help/look/\\\" target=\\\"_blank\\\" rel=\\\"noopener noreferrer\\\">Nodes look different from the video</a></span>&nbsp;</p><p>\\n\\n</p>\",\"buttonColor\":\"#f66744\",\"lineColor\":\"#f66744\",\"backgroundColor\":\"#2a2a2a\",\"info\":{\"title\":\"How to Use\",\"icon\":\"to-do\",\"color\":\"#2a9d8f\"}}"
+    },
+    "class_type": "PixaromaInfo",
+    "_meta": {
+      "title": "Info Pixaroma"
+    }
+  },
+  "13": {
+    "inputs": {
+      "note_json": "{\"version\":1,\"content\":\"<h1>WHAT EACH NODE DOES</h1><p>\\n\\n</p><p>The colour of a node tells you what kind of node it is. Nothing here needs changing except the blue ones.</p><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #b8b8b8\\\"><p>\\n\\n</p><h2><span data-ic=\\\"chip\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;The steps you set</h2><p>\\n\\n</p><p>Blue, and numbered. These are the only nodes you need to touch.</p><p>\\n\\n</p><ul><li><b>Load Images from Folder Pixaroma (1. your folder)</b> - Point it at a folder and pick the pictures. Press Run once and it sends every picture through the workflow, one after the other. Its <b>filename</b> output carries each picture's name to the save node, and <b>index</b> says which picture it is (1, 2, 3 ...).</li><li><b>Resize Crop Pixaroma (2. size of each photo)</b> - Makes every photo the same square size, here <b>512 x 512</b>. They must all be the same size to go into one batch.</li></ul><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #b8b8b8\\\"><p>\\n\\n</p><h2><span data-ic=\\\"chip\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;The helpers</h2><p>\\n\\n</p><p>Purple. They run by themselves and do the small jobs: count, pick, join or pass things along.</p><p>\\n\\n</p><ul><li><b>Rebatch Images (all photos into one batch)</b> - Collects the photos, which the folder node sends one by one, back into ONE batch, so the loop can pick them by number.</li><li><b>Get Image Size (batch_size = how many photos)</b> - Its <b>batch_size</b> output is the number of photos in the batch. It is wired into Loop Start's total, so the loop runs exactly once per photo, however many you pick.</li><li><b>Loop Start Pixaroma (one round per photo)</b> - Opens the loop. <b>total</b> comes from Get Image Size (one round per photo). <b>value1</b> carries the strip built so far: empty in round 1.</li><li><b>Loop End Pixaroma (sends the strip to the next round)</b> - Closes the loop and hands the longer strip to the next round. After the last round, value1 is the finished strip.</li></ul><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #b8b8b8\\\"><p>\\n\\n</p><h2><span data-ic=\\\"chip\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;The work</h2><p>\\n\\n</p><p>Green. They run by themselves.</p><p>\\n\\n</p><ul><li><b>Image From Batch (this round's photo)</b> - Takes ONE photo out of the batch: the one at this round's <b>index</b> (0 = the first photo).</li><li><b>Stitch Images (adds it to the right of the strip)</b> - Joins this round's photo and the strip so far into one picture, with a 16 px white gap. Direction <b>left</b> puts the old strip on the left, so the photos stay in order. In round 1 there is no strip yet, so the photo goes through alone.</li></ul><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #b8b8b8\\\"><p>\\n\\n</p><h2><span data-ic=\\\"checkmark\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;The result</h2><p>\\n\\n</p><p>Dark red, at the end.</p><p>\\n\\n</p><ul><li><b>Save Image Pixaroma (the finished strip)</b> - Saves the strip as JPG into <code>ComfyUI/output/Photo Strip</code>.</li></ul><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #b8b8b8\\\"><p>\\n\\n</p><h2><span data-ic=\\\"info\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;Readouts</h2><p>\\n\\n</p><p>Dark. Nothing to set: they show you what happened.</p><p>\\n\\n</p><ul><li><b>Run Timer</b> - The dark clock above the result shows how long the last Run took.</li></ul><p>\\n\\n</p>\",\"buttonColor\":\"#f66744\",\"lineColor\":\"#f66744\",\"backgroundColor\":\"#2a2a2a\",\"info\":{\"title\":\"Nodes Info\",\"icon\":\"node-v5\",\"color\":\"#3d7cc9\"}}"
+    },
+    "class_type": "PixaromaInfo",
+    "_meta": {
+      "title": "Info Pixaroma"
+    }
+  },
+  "14": {
+    "inputs": {},
+    "class_type": "PixaromaRunTimer",
+    "_meta": {
+      "title": "Run Timer Pixaroma"
+    }
+  }
+}

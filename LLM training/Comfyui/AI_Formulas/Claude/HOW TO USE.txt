@@ -1,0 +1,66 @@
+CLAUDE SETUP
+============
+
+Claude takes ONE file per formula. There is nothing to upload and nothing that can be
+left half set up: you paste the file, and that is the whole setup.
+
+  1. Open a new Claude conversation, or make a Claude Project.
+  2. Paste the whole file in. In a Project, put it in the project's custom instructions
+     instead and every new chat in that project already knows it.
+  3. Then describe the video you want, and attach the picture or pictures if the
+     formula takes them.
+
+
+WHICH FILE
+----------
+
+THE THREE SINGLE-MODE FORMULAS are the ones to use with the FastH3 workflows. Each does
+one job and its rules were written for that job:
+
+  Minimax H3 Text2Video - CLAUDE (paste) v1.txt
+      A video from words alone, with its own sound. Nothing attached.
+
+  Minimax H3 FirstFrame2Video - CLAUDE (paste) v1.txt
+      A video that STARTS on a picture you attach. One picture.
+      Attach it to the message where you ASK, not to the message where you paste
+      the formula.
+
+  Minimax H3 FirstAndLastFrame - CLAUDE (paste) v1.txt
+      A video that starts on one picture and ENDS on another. Two pictures, the first
+      frame first. This one also needs the number of seconds, because the closing
+      picture has to land on an exact second. Say it in your request and you will not
+      be asked for it.
+
+
+Match this to the model you actually loaded in ComfyUI.
+
+
+WHAT YOU GET BACK
+-----------------
+
+One code block, in the exact shape MiniMax H3 wants. Copy it into the Prompt node in
+the workflow and press Run.
+
+Sometimes there is one short line under the block. That line is for you and not for
+the workflow: it is the formula telling you it had to drop some of what you asked for
+to fit the seconds, or that your spoken line runs longer than the clip. Read it, and
+either accept it or ask again with a longer duration.
+
+The first-and-last-frame one may ask you a question instead, and only ever one: how
+many seconds.
+
+
+THINGS WORTH KNOWING
+--------------------
+
+  * ASK FOR WHAT YOU WANT IN PLAIN WORDS. "locked-off camera", "no music", "silent
+    clip", "add gentle acoustic guitar" all work and are all obeyed. You do not have
+    to learn the format; that is what the formula is for.
+  * DO NOT ASK FOR SUBTITLES. The video model speaks every line of text it finds, so a
+    subtitle makes it say the line twice. The formulas refuse them for that reason.
+  * A LINE TAKES ABOUT THREE WORDS A SECOND. Twenty words needs seven. The formula
+    keeps your words exactly as you wrote them and tells you if they will not fit; it
+    will never quietly shorten what somebody says.
+  * THE CLIP LENGTH COMES FROM THE WORKFLOW, not from the prompt, except in the
+    first-and-last-frame mode where the closing picture has to be placed in time.
+

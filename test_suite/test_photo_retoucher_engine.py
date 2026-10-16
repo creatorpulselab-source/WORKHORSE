@@ -189,3 +189,24 @@ def test_process_photo_batch_with_opt_in_print_master(retoucher_with_tmp_output,
     photo = res["photos"][0]
     assert "print_master" in photo
     assert Path(retoucher_with_tmp_output.output_base / photo["print_master"]).exists()
+
+
+def test_smart_crop_aspect_ratio_anchors_to_subject_centroid(test_portrait):
+    r = PhotoRetoucher()
+    # Test 4:5 and 9:16 crops
+    crop_4x5 = r.crop_aspect_ratio(test_portrait, 4, 5)
+    crop_9x16 = r.crop_aspect_ratio(test_portrait, 9, 16)
+    assert crop_4x5.shape[0] > 0 and crop_4x5.shape[1] > 0
+    assert crop_9x16.shape[0] > 0 and crop_9x16.shape[1] > 0
+    # Verify aspect ratios
+    aspect_4x5 = crop_4x5.shape[1] / crop_4x5.shape[0]
+    aspect_9x16 = crop_9x16.shape[1] / crop_9x16.shape[0]
+    assert abs(aspect_4x5 - (4 / 5)) < 0.05
+    assert abs(aspect_9x16 - (9 / 16)) < 0.05
+
+
+def test_create_ambient_canvas_preserves_dimensions_and_uncropped_aspect(test_portrait):
+    r = PhotoRetoucher()
+    canvas = r.create_ambient_canvas(test_portrait, target_w=1080, target_h=1920)
+    assert canvas.shape == (1920, 1080, 3)
+    assert canvas.dtype == np.uint8

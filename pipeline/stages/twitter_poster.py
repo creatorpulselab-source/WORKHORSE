@@ -258,3 +258,28 @@ class TwitterPoster:
                 "error": f"Twitter API error: {str(e)}",
                 "posted_partial": posted_ids
             }
+
+    def delete_tweet(self, handle: str, tweet_id: str) -> Dict[str, Any]:
+        """Deletes a single tweet via Twitter API v2."""
+        client = self.get_client(handle)
+        if not client:
+            return {"success": False, "error": f"Failed to authenticate client for {handle}"}
+        try:
+            res = client.delete_tweet(str(tweet_id), user_auth=True)
+            deleted = res.data.get("deleted", False) if res and hasattr(res, "data") and isinstance(res.data, dict) else True
+            return {"success": deleted, "tweet_id": str(tweet_id), "handle": handle}
+        except Exception as e:
+            return {"success": False, "tweet_id": str(tweet_id), "error": str(e)}
+
+    def delete_thread(self, handle: str, tweet_ids: List[str]) -> Dict[str, Any]:
+        """Deletes all tweets in a thread sequentially."""
+        results = []
+        all_ok = True
+        for tid in reversed(tweet_ids):  # Delete replies first, then root tweet
+            r = self.delete_tweet(handle, tid)
+            results.append(r)
+            if not r.get("success"):
+                all_ok = False
+            time.sleep(0.5)
+        return {"success": all_ok, "handle": handle, "deleted_count": sum(1 for r in results if r.get("success")), "results": results}
+

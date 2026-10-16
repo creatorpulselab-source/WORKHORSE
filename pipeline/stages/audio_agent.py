@@ -1,9 +1,12 @@
 from shared.gpu1_arbiter import gpu1_arbiter
 import os
 import sys
+import logging
 import subprocess
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Callable
+
+logger = logging.getLogger("workhorse.echo")
 
 # Prevent OpenMP PyTorch/CTranslate2 collision
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"

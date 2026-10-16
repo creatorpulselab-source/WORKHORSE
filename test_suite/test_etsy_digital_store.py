@@ -106,3 +106,72 @@ def test_zip_entries_are_relative_not_absolute_paths(store):
         for name in zf.namelist():
             assert not name.startswith("/")
             assert ":" not in name  # no Windows drive letter (e.g. "F:/...") leaked in
+
+
+def test_generate_3d_luts_produces_seven_valid_cube_files(store):
+    luts = store.generate_3d_luts(size=17)
+    assert len(luts) == 7
+    for fname, content in luts.items():
+        assert fname.endswith(".cube")
+        assert "LUT_3D_SIZE 17" in content
+        assert "TITLE " in content
+        assert "DOMAIN_MIN 0.0 0.0 0.0" in content
+        # Check that float entries exist
+        lines = [line for line in content.splitlines() if line and not line.startswith(("#", "TITLE", "LUT", "DOMAIN"))]
+        assert len(lines) == 17 * 17 * 17
+
+
+def test_generate_prompt_bible_produces_html_lookbook_and_text_guide(store):
+    bible = store.generate_prompt_bible()
+    assert "FLUX_and_Midjourney_Prompt_Bible.html" in bible
+    assert "PROMPT_BIBLE_QUICK_REFERENCE.txt" in bible
+
+    html = bible["FLUX_and_Midjourney_Prompt_Bible.html"]
+    assert "Photorealistic AI Prompt Bible" in html
+    assert "copyPrompt" in html
+    assert "cheat-sheet-grid" in html
+
+    txt = bible["PROMPT_BIBLE_QUICK_REFERENCE.txt"]
+    assert "MODEL ARCHITECTURE PROMPTING RULES" in txt
+    assert "LENS & OPTICS CHEAT SHEET" in txt
+
+
+def test_single_category_bundle_for_luts_and_prompts(store):
+    # 1. LUTs bundle
+    lut_result = store.bundle_etsy_product(product_type="luts")
+    assert lut_result["bundle_name"] == "ETSY_DIGITAL_CREATOR_LUTS_PACK"
+    with zipfile.ZipFile(lut_result["zip_path"]) as zf:
+        names = zf.namelist()
+    assert any(n.startswith("05_Cinematic_3D_LUTs/") and n.endswith(".cube") for n in names)
+    assert "05_Cinematic_3D_LUTs/INSTALLATION_GUIDE.txt" in names
+    assert not any(n.startswith("01_Lightroom_Presets/") for n in names)
+
+    # 2. Prompts bundle
+    prompt_result = store.bundle_etsy_product(product_type="prompts")
+    assert prompt_result["bundle_name"] == "ETSY_DIGITAL_CREATOR_PROMPTS_PACK"
+    with zipfile.ZipFile(prompt_result["zip_path"]) as zf:
+        names = zf.namelist()
+    assert "06_AI_Prompt_Engineering_Bible/FLUX_and_Midjourney_Prompt_Bible.html" in names
+    assert "06_AI_Prompt_Engineering_Bible/PROMPT_BIBLE_QUICK_REFERENCE.txt" in names
+    assert not any(n.startswith("01_Lightroom_Presets/") for n in names)
+
+
+def test_all_7_etsy_products_in_api():
+    from fastapi.testclient import TestClient
+    from dashboard.server import app, _get_session_secret, SESSION_COOKIE
+    from shared.auth import make_session_token
+
+    client = TestClient(app)
+    token = make_session_token(_get_session_secret())
+    client.cookies.set(SESSION_COOKIE, token)
+
+    res = client.get("/api/etsy/products")
+    assert res.status_code == 200
+    data = res.json()
+    assert data["status"] == "ok"
+    products = data["products"]
+    assert len(products) == 7
+
+    product_ids = [p["id"] for p in products]
+    assert product_ids == ["presets", "contracts", "posing", "templates", "luts", "prompts", "all"]
+

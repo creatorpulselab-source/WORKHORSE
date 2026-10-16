@@ -397,3 +397,34 @@ class OmniMarketer:
             except Exception:
                 continue
         return campaigns
+
+    def deploy_opportunity_kit(self, opp: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Deploys an end-to-end multi-channel marketing campaign for a scouted opportunity.
+        """
+        title = opp.get("title", "High-Converting Digital Product")
+        platform = opp.get("platform", "omni").lower()
+        if "etsy" in platform:
+            channel = "etsy"
+        elif "fiverr" in platform:
+            channel = "fiverr"
+        elif "social" in platform or "funnel" in platform:
+            channel = "social"
+        elif "website" in platform or "storefront" in platform:
+            channel = "website"
+        else:
+            channel = "omni"
+
+        custom_notes = (
+            f"Market Trend: {opp.get('market_trend', '')}\n"
+            f"Pricing & Revenue: {opp.get('potential_revenue', '')}\n"
+            f"Automation: {opp.get('workhorse_automation', '')}\n"
+            f"Marketing Hook: {opp.get('marketing_hook', '')}"
+        )
+        return self.generate_campaign(
+            channel=channel,
+            target_name=title,
+            target_url="https://digitalcreatorassets-source.github.io/creatormedialab/",
+            goal="conversions",
+            custom_notes=custom_notes
+        )

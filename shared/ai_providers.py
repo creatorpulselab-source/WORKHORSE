@@ -82,19 +82,13 @@ class AIProviderService:
             with open(img_path, "rb") as f:
                 return base64.b64encode(f.read()).decode("utf-8")
 
-    def call_ollama_text(self, prompt: str, system_prompt: str = "", model: Optional[str] = None) -> str:
+    def call_ollama_text(self, prompt: str, system_prompt: str = "", model: Optional[str] = None, num_ctx: int = 8192) -> str:
         url = f"{self.get_ollama_url()}/api/generate"
         active_model = model or self.get_text_model()
 
         # Dynamic Pre-Flight Block Swap on GPU 0
         vram_manager.prepare_for_model(active_model)
 
-        # Hybrid-reasoning models (e.g. Qwen3) can silently burn their whole token budget
-        # on hidden "thinking" and return an EMPTY "response" field on Ollama's /api/generate
-        # endpoint - a known Ollama bug/asymmetry (think:false is honored on /api/chat but
-        # not reliably on /api/generate). Prepending /no_think is the one workaround that
-        # actually suppresses thinking at the template level regardless of Ollama version,
-        # and we also still pass think:false in case this model/version does honor it.
         effective_system = f"/no_think\n{system_prompt}" if system_prompt else "/no_think"
 
         payload = {
@@ -106,9 +100,23 @@ class AIProviderService:
             "think": False,
             "options": {
                 "temperature": 0.7,
-                "top_p": 0.9
+                "top_p": 0.9,
+                "num_ctx": num_ctx
             }
         }
+        tracker = None
+        task_id = f"ollama_text_{int(os.getpid())}"
+        try:
+            from pipeline.stages.ai_operator import active_task_tracker
+            tracker = active_task_tracker
+            tracker.start_task(
+                agent="scribe",
+                task_desc=f"Scribe [6 C]: Generating text on {active_model} (GPU 0)...",
+                task_id=task_id,
+                progress=50
+            )
+        except Exception:
+            tracker = None
         try:
             resp = requests.post(url, json=payload, timeout=90)
             if resp.status_code == 200:
@@ -132,8 +140,14 @@ class AIProviderService:
             return f"Error from Local Ollama: HTTP {resp.status_code} - {resp.text}"
         except Exception as e:
             return f"Ollama connection error: {str(e)}"
+        finally:
+            if tracker:
+                try:
+                    tracker.finish_task(task_id)
+                except Exception:
+                    pass
 
-    def call_ollama_vision(self, prompt: str, image_paths: List[Path], system_prompt: str = "", model: Optional[str] = None, num_predict: int = 180, timeout: int = 60) -> str:
+    def call_ollama_vision(self, prompt: str, image_paths: List[Path], system_prompt: str = "", model: Optional[str] = None, num_predict: int = 350, timeout: int = 60, num_ctx: int = 4096) -> str:
         url = f"{self.get_ollama_url()}/api/generate"
         active_model = model or self.get_vision_model()
 
@@ -145,18 +159,35 @@ class AIProviderService:
             if Path(p).exists():
                 b64_images.append(self.image_to_base64(Path(p)))
 
+        effective_system = f"/no_think\n{system_prompt}" if system_prompt else "/no_think"
+
         payload = {
             "model": active_model,
             "prompt": prompt,
             "images": b64_images,
-            "system": system_prompt,
+            "system": effective_system,
             "stream": False,
             "keep_alive": "2m",
+            "think": False,
             "options": {
                 "temperature": 0.1,
-                "num_predict": num_predict
+                "num_predict": num_predict,
+                "num_ctx": num_ctx
             }
         }
+        tracker = None
+        task_id = f"ollama_vision_{int(os.getpid())}"
+        try:
+            from pipeline.stages.ai_operator import active_task_tracker
+            tracker = active_task_tracker
+            tracker.start_task(
+                agent="iris",
+                task_desc=f"Iris [77 Ir]: Inspecting visual frame on {active_model} (GPU 0)...",
+                task_id=task_id,
+                progress=60
+            )
+        except Exception:
+            tracker = None
         try:
             resp = requests.post(url, json=payload, timeout=timeout)
             if resp.status_code == 200:
@@ -185,6 +216,12 @@ class AIProviderService:
             except Exception:
                 pass
             return f"Ollama Vision error: {str(e)}"
+        finally:
+            if tracker:
+                try:
+                    tracker.finish_task(task_id)
+                except Exception:
+                    pass
 
     def generate(self, prompt: str, image_paths: Optional[List[Path]] = None, system_prompt: str = "") -> str:
         self.load_config()

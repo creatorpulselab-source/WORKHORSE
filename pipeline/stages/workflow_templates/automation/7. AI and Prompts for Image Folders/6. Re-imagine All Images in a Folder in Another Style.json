@@ -1,0 +1,274 @@
+{
+  "1": {
+    "inputs": {
+      "unet_name": "flux-2-klein-9b-fp8.safetensors",
+      "weight_dtype": "default"
+    },
+    "class_type": "UNETLoader",
+    "_meta": {
+      "title": "Load Diffusion Model (Flux 2 Klein 9B)"
+    }
+  },
+  "2": {
+    "inputs": {
+      "clip_name": "qwen_3_8b_fp8mixed.safetensors",
+      "type": "flux2",
+      "device": "default"
+    },
+    "class_type": "CLIPLoader",
+    "_meta": {
+      "title": "Load CLIP (Qwen 3 8B, reads the prompt)"
+    }
+  },
+  "3": {
+    "inputs": {
+      "vae_name": "flux2-vae.safetensors"
+    },
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "Load VAE (Flux 2)"
+    }
+  },
+  "4": {
+    "inputs": {
+      "clip_name": "qwen3vl_8b_int8_convrot.safetensors",
+      "type": "qwen_image",
+      "device": "default"
+    },
+    "class_type": "CLIPLoader",
+    "_meta": {
+      "title": "Load CLIP (Qwen3-VL 8B, looks at the pictures)"
+    }
+  },
+  "5": {
+    "inputs": {
+      "LoadImagesFolderState": "{\"version\":1,\"folder\":\"\",\"recursive\":false,\"keepFolders\":false,\"skipDone\":false,\"doneFolder\":\"\",\"sort\":\"name\",\"sort_dir\":\"asc\",\"selected\":[],\"mode\":\"max_mp\",\"max_mp\":1,\"longest_side\":1024,\"scale_factor\":1,\"fit_w\":1024,\"fit_h\":1024,\"cover_w\":1024,\"cover_h\":1024,\"ratio_preset\":\"1:1\",\"ratio_w\":1,\"ratio_h\":1,\"ratio_action\":\"crop\",\"pad_color\":\"#808080\",\"pad_top\":0,\"pad_bottom\":0,\"pad_left\":0,\"pad_right\":0,\"crop_anchor\":\"center\",\"crop_scale\":true,\"snap\":16,\"resample\":\"auto\",\"allow_upscale\":true}"
+    },
+    "class_type": "PixaromaLoadImagesFolder",
+    "_meta": {
+      "title": "Load Images from Folder Pixaroma (1. your pictures)"
+    }
+  },
+  "6": {
+    "inputs": {
+      "clip": [
+        "4",
+        0
+      ],
+      "image": [
+        "5",
+        0
+      ],
+      "AIPromptState": "{\"idea\":\"The new style: a cute 3D animated movie character, soft rounded shapes, big friendly eyes, bright colourful studio light.\",\"formula\":\"You write prompts for the Flux 2 Klein image model. Look at this picture and write a prompt that makes the SAME picture again in a new style. The new style is described in the next paragraph.\\n\\nKeep what is in the picture: the subject, the pose, the clothes or fur, the colours and the background, and describe all of it in the new style. One paragraph of 50 to 80 words in plain English, starting with the subject. Do not put any words or letters in the picture. Never answer with the style alone: the prompt must describe this picture.\\n\\nAnswer with the prompt only, with no title, no quotes and no notes.\",\"model\":\"\",\"clip_type\":\"minimax\",\"order\":\"idea\",\"sep\":\"newline\",\"seed\":7,\"temperature\":0.4,\"max_length\":200,\"top_k\":64,\"top_p\":0.95,\"min_p\":0.05,\"repetition_penalty\":1.05,\"presence_penalty\":0,\"do_sample\":true,\"thinking\":false,\"use_default_template\":true,\"release_model\":false}"
+    },
+    "class_type": "PixaromaAIPrompt",
+    "_meta": {
+      "title": "AI Prompt Pixaroma (2. type the style in the box)"
+    }
+  },
+  "7": {
+    "inputs": {
+      "text": [
+        "6",
+        0
+      ],
+      "name": [
+        "5",
+        4
+      ]
+    },
+    "class_type": "PixaromaSaveText",
+    "_meta": {
+      "title": "Save Text Pixaroma (keeps each prompt, named like its picture)"
+    }
+  },
+  "8": {
+    "inputs": {
+      "SeedState": "{\"runSeed\":2026}",
+      "seed": 2026
+    },
+    "class_type": "PixaromaSeed",
+    "_meta": {
+      "title": "Seed Pixaroma (3. random or fixed)"
+    }
+  },
+  "9": {
+    "inputs": {
+      "text": [
+        "7",
+        0
+      ],
+      "clip": [
+        "2",
+        0
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (reads the prompt)"
+    }
+  },
+  "10": {
+    "inputs": {
+      "conditioning": [
+        "9",
+        0
+      ]
+    },
+    "class_type": "ConditioningZeroOut",
+    "_meta": {
+      "title": "ConditioningZeroOut (empty negative)"
+    }
+  },
+  "11": {
+    "inputs": {
+      "width": [
+        "5",
+        2
+      ],
+      "height": [
+        "5",
+        3
+      ],
+      "batch_size": 1
+    },
+    "class_type": "EmptyFlux2LatentImage",
+    "_meta": {
+      "title": "Empty Flux 2 Latent (blank canvas)"
+    }
+  },
+  "12": {
+    "inputs": {
+      "seed": [
+        "8",
+        0
+      ],
+      "steps": 4,
+      "cfg": 1,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "denoise": 1,
+      "model": [
+        "1",
+        0
+      ],
+      "positive": [
+        "9",
+        0
+      ],
+      "negative": [
+        "10",
+        0
+      ],
+      "latent_image": [
+        "11",
+        0
+      ]
+    },
+    "class_type": "KSampler",
+    "_meta": {
+      "title": "KSampler (4 steps)"
+    }
+  },
+  "13": {
+    "inputs": {
+      "samples": [
+        "12",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE Decode (latent to picture)"
+    }
+  },
+  "14": {
+    "inputs": {
+      "images": [
+        "13",
+        0
+      ],
+      "name": [
+        "5",
+        4
+      ],
+      "SaveImageState": "{\"version\":1,\"folder\":\"\",\"pattern\":\"Re-imagined/%input%\",\"format\":\"png\",\"quality\":100,\"embedWorkflow\":true,\"civitaiMeta\":false,\"saveOnRun\":true,\"dateStyle\":\"yyyy-MM-dd\",\"counterDigits\":3,\"folded\":false,\"hideBarWhenFolded\":false,\"webpLossless\":false,\"inputSubfolders\":false,\"showOpen\":true,\"showCopy\":true,\"showFolder\":true,\"showPng\":true,\"showJpg\":true,\"showWebp\":true}"
+    },
+    "class_type": "PixaromaSaveImage",
+    "_meta": {
+      "title": "Save Image Pixaroma (keeps each picture's name)"
+    }
+  },
+  "15": {
+    "inputs": {
+      "image1": [
+        "5",
+        0
+      ],
+      "image2": [
+        "13",
+        0
+      ]
+    },
+    "class_type": "PixaromaCompare",
+    "_meta": {
+      "title": "Image Compare Pixaroma (before and after, drag across it)"
+    }
+  },
+  "16": {
+    "inputs": {
+      "label_json": "{\"text\":\"Re-imagine All Images in a Folder in Another Style\",\"fontSize\":31,\"fontFamily\":\"Arial\",\"fontColor\":\"#ffffff\",\"textAlign\":\"left\",\"backgroundColor\":\"#f66744\",\"padding\":10,\"borderRadius\":0,\"opacity\":1,\"fontWeight\":\"normal\",\"lineHeight\":1}"
+    },
+    "class_type": "PixaromaLabel",
+    "_meta": {
+      "title": "Label Pixaroma"
+    }
+  },
+  "17": {
+    "inputs": {
+      "note_json": "{\"version\":1,\"content\":\"<h1>MODELS AND NODES USED IN THIS WORKFLOW</h1><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #b8b8b8\\\"><p>\\n\\n</p><h2><span data-ic=\\\"model-v1\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;Load Diffusion Model</h2><p>\\n\\n</p><p>\\n<span class=\\\"pix-note-btnblock\\\">\\n  <a class=\\\"pix-note-dl\\\" style=\\\"background-color: #f66744\\\" href=\\\"https://huggingface.co/Winnougan/Klein9b-Distilled-Base-INT8-Convrot/resolve/main/flux-2-klein-9b-int8-convrot.safetensors\\\" target=\\\"_blank\\\" rel=\\\"noopener noreferrer\\\">Download flux-2-klein-9b-int8-convrot.safetensors<span class=\\\"pix-note-btnsize\\\">9.43 GB</span></a>\\n</span>&nbsp;\\n</p><p>\\n\\n</p><div class=\\\"pix-note-folderhint\\\" style=\\\"color: #f66744\\\">Place in: ComfyUI/models/diffusion_models/flux2</div><p>\\n\\n</p><p>Create the <code>flux2</code> folder if it does not exist.</p><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #b8b8b8\\\"><p>\\n\\n</p><h2><span data-ic=\\\"CLIP\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;Load CLIP</h2><p>\\n\\n</p><p>\\n<span class=\\\"pix-note-btnblock\\\">\\n  <a class=\\\"pix-note-dl\\\" style=\\\"background-color: #f66744\\\" href=\\\"https://huggingface.co/Comfy-Org/flux2-klein-9B/resolve/main/split_files/text_encoders/qwen_3_8b_fp8mixed.safetensors\\\" target=\\\"_blank\\\" rel=\\\"noopener noreferrer\\\">Download qwen_3_8b_fp8mixed.safetensors<span class=\\\"pix-note-btnsize\\\">8.66 GB</span></a>\\n</span>&nbsp;\\n</p><p>\\n\\n</p><div class=\\\"pix-note-folderhint\\\" style=\\\"color: #f66744\\\">Place in: ComfyUI/models/text_encoders</div><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #b8b8b8\\\"><p>\\n\\n</p><h2><span data-ic=\\\"VAE\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;Load VAE</h2><p>\\n\\n</p><p>\\n<span class=\\\"pix-note-btnblock\\\">\\n  <a class=\\\"pix-note-dl\\\" style=\\\"background-color: #f66744\\\" href=\\\"https://huggingface.co/Comfy-Org/flux2-dev/resolve/main/split_files/vae/flux2-vae.safetensors\\\" target=\\\"_blank\\\" rel=\\\"noopener noreferrer\\\">Download flux2-vae.safetensors<span class=\\\"pix-note-btnsize\\\">336 MB</span></a>\\n</span>&nbsp;\\n</p><p>\\n\\n</p><div class=\\\"pix-note-folderhint\\\" style=\\\"color: #f66744\\\">Place in: ComfyUI/models/vae</div><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #b8b8b8\\\"><p>\\n\\n</p><h2><span data-ic=\\\"checkmark\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;License</h2><p>\\n\\n</p><p>Flux 2 Klein 9B is made by Black Forest Labs and released under the <b>FLUX Non-Commercial License</b>. Read it before you use the model for paid work.</p><p>\\n\\n</p><p><span class=\\\"pix-note-btnblock\\\"><a class=\\\"pix-note-rm\\\" style=\\\"background-color: #f66744\\\" href=\\\"https://huggingface.co/black-forest-labs/FLUX.2-klein-9B\\\" target=\\\"_blank\\\" rel=\\\"noopener noreferrer\\\">Flux 2 Klein 9B model card</a></span>&nbsp;</p><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #b8b8b8\\\"><p>\\n\\n</p><h2><span data-ic=\\\"CLIP\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;Load CLIP (the model that looks at your pictures)</h2><p>\\n\\n</p><p>\\n<span class=\\\"pix-note-btnblock\\\">\\n  <a class=\\\"pix-note-dl\\\" style=\\\"background-color: #f66744\\\" href=\\\"https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/main/text_encoders/qwen3vl_8b_int8_convrot.safetensors\\\" target=\\\"_blank\\\" rel=\\\"noopener noreferrer\\\">Download qwen3vl_8b_int8_convrot.safetensors<span class=\\\"pix-note-btnsize\\\">9.35 GB</span></a>\\n</span>&nbsp;\\n</p><p>\\n\\n</p><div class=\\\"pix-note-folderhint\\\" style=\\\"color: #f66744\\\">Place in: ComfyUI/models/text_encoders</div><p>\\n\\n</p><p>Qwen3-VL 8B is a language model that can see. It reads each picture and writes the text. If you already have it from the Qwen Image 2.1 workflows, it is the same file.</p><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #b8b8b8\\\"><p>\\n\\n</p><p><span data-ic=\\\"warning-v1\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;After placing the files, restart ComfyUI or refresh model lists using the <b>R</b> shortcut.</p><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #b8b8b8\\\"><p>\\n\\n</p><h2><span data-ic=\\\"nodes-installed\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;Nodes Installed from Manager</h2><p>\\n\\n</p><ul><li>Pixaroma, version <b>1.4.203</b> or newer. A node shows red or missing? Update Pixaroma.</li></ul><p>\\n\\n</p><p><b>Which version is the newest?</b> The <b>Latest Pixaroma version</b> button shows it and what is new in it. The help page has the update steps for every kind of install.</p><p>\\n\\n</p><p><span class=\\\"pix-note-btnblock\\\"><a class=\\\"pix-note-rm\\\" style=\\\"background-color: #f66744\\\" href=\\\"https://workflows.pixaroma.com/latest/?need=1.4.203\\\" target=\\\"_blank\\\" rel=\\\"noopener noreferrer\\\">Latest Pixaroma version</a></span>&nbsp;<span class=\\\"pix-note-btnblock\\\"><a class=\\\"pix-note-rm\\\" style=\\\"background-color: #f66744\\\" href=\\\"https://workflows.pixaroma.com/help/#update\\\" target=\\\"_blank\\\" rel=\\\"noopener noreferrer\\\">How to update Pixaroma</a></span>&nbsp;</p><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #b8b8b8\\\"><p>\\n\\n</p><h2><span data-ic=\\\"puzzle\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;Something missing?</h2><p>\\n\\n</p><p>Each button opens a short video that shows the fix, with the steps written under it.</p><p>\\n\\n</p><p><span class=\\\"pix-note-btnblock\\\"><a class=\\\"pix-note-rm\\\" style=\\\"background-color: #f66744\\\" href=\\\"https://workflows.pixaroma.com/help/missing-nodes/\\\" target=\\\"_blank\\\" rel=\\\"noopener noreferrer\\\">Red or missing nodes</a></span>&nbsp;<span class=\\\"pix-note-btnblock\\\"><a class=\\\"pix-note-rm\\\" style=\\\"background-color: #f66744\\\" href=\\\"https://workflows.pixaroma.com/help/missing-models/\\\" target=\\\"_blank\\\" rel=\\\"noopener noreferrer\\\">A model file is missing</a></span>&nbsp;<span class=\\\"pix-note-btnblock\\\"><a class=\\\"pix-note-rm\\\" style=\\\"background-color: #f66744\\\" href=\\\"https://workflows.pixaroma.com/help/refresh/\\\" target=\\\"_blank\\\" rel=\\\"noopener noreferrer\\\">Buttons missing after an update</a></span>&nbsp;</p><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #b8b8b8\\\"><p>\\n\\n</p><h2><span data-ic=\\\"pixaroma\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;Resources</h2><p>\\n\\n</p><p>\\n  <a class=\\\"pix-note-discord\\\" href=\\\"https://discord.com/invite/gggpkVgBf3\\\" target=\\\"_blank\\\" rel=\\\"noopener noreferrer\\\">Join Discord</a>&nbsp;\\n  <a class=\\\"pix-note-yt\\\" href=\\\"https://www.youtube.com/@pixaroma\\\" target=\\\"_blank\\\" rel=\\\"noopener noreferrer\\\">Pixaroma YouTube Channel</a>&nbsp;\\n  <span class=\\\"pix-note-btnblock\\\"><a class=\\\"pix-note-rm\\\" style=\\\"background-color: #f66744\\\" href=\\\"https://workflows.pixaroma.com/help/report/\\\" target=\\\"_blank\\\" rel=\\\"noopener noreferrer\\\">Ask for help</a></span>&nbsp;\\n</p><p>\\n\\n</p>\",\"buttonColor\":\"#f66744\",\"lineColor\":\"#f66744\",\"backgroundColor\":\"#2a2a2a\",\"info\":{\"title\":\"Download Models\",\"icon\":\"download-model\",\"color\":\"#f66744\"}}"
+    },
+    "class_type": "PixaromaInfo",
+    "_meta": {
+      "title": "Info Pixaroma"
+    }
+  },
+  "18": {
+    "inputs": {
+      "note_json": "{\"version\":1,\"content\":\"<h1>HOW TO USE</h1><p>\\n\\n</p><p>Turn a whole folder into another style in one Run: a cartoon, a watercolor, a comic, a clay figure. A local AI looks at each picture and writes a prompt that keeps what is in it but in your style, and Klein makes it new.</p><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #b8b8b8\\\"><p>\\n\\n</p><h2><span data-ic=\\\"folder-v1\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;Pick your folder</h2><p>\\n\\n</p><ol><li>On <b>Load Images from Folder Pixaroma</b>, click <b>Browse</b> and pick your folder, or paste the folder's path into the box.</li><li>Click <b>Pick images</b>, then <b>Select all</b>, or click only the pictures you want. The button shows how many are picked.</li><li>Press <b>Run</b> once. Leave the Run count at <b>1</b>: the node sends every picture through by itself, one after the other.</li></ol><p>\\n\\n</p><p>This workflow opens with <b>no folder picked</b>: choose your own folder, or try it first on the demo folder <b>Portraits</b> inside the <b>Media Inputs</b> folder that comes with these workflows.</p><p>\\n\\n</p><p><span data-ic=\\\"idea\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;A folder inside ComfyUI's own <code>input</code> or <code>output</code> folder works straight away. A folder anywhere else works too, but pick it once with <b>Browse</b>: that is how ComfyUI knows you allowed it.</p><p>\\n\\n</p><p><span data-ic=\\\"idea\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;Pictures go through in name order. Name them <code>01_</code>, <code>02_</code> and so on if the order matters.</p><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #b8b8b8\\\"><p>\\n\\n</p><h2><span data-ic=\\\"text\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;Pick the style</h2><p>\\n\\n</p><ul><li>Type the style in the box of <b>AI Prompt Pixaroma</b>, after <i>The new style:</i>, like <i>a soft watercolor painting on rough paper</i>, <i>a black and white comic book drawing</i> or <i>a knitted wool toy</i>.</li><li>Describe the LOOK, not the subject: the subject comes from each picture.</li></ul><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #b8b8b8\\\"><p>\\n\\n</p><h2><span data-ic=\\\"idea\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;Re-imagine or edit?</h2><p>\\n\\n</p><ul><li>This one writes a NEW picture from a description, so the style can change everything, but faces and small details are not kept exactly.</li><li>To keep the picture and change only part of it, use an edit workflow instead, like <b>Edit All Images in a Folder with One Prompt</b> in folder 2.</li></ul><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #b8b8b8\\\"><p>\\n\\n</p><h2><span data-ic=\\\"question-mark\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;Something not working?</h2><p>\\n\\n</p><p>Each button opens the answer on the Pixaroma help page.</p><p>\\n\\n</p><p><span class=\\\"pix-note-btnblock\\\"><a class=\\\"pix-note-rm\\\" style=\\\"background-color: #f66744\\\" href=\\\"https://workflows.pixaroma.com/help/faq/#q-folder-not-approved\\\" target=\\\"_blank\\\" rel=\\\"noopener noreferrer\\\">Folder not approved</a></span>&nbsp;<span class=\\\"pix-note-btnblock\\\"><a class=\\\"pix-note-rm\\\" style=\\\"background-color: #f66744\\\" href=\\\"https://workflows.pixaroma.com/help/faq/#q-ai-prompt-local\\\" target=\\\"_blank\\\" rel=\\\"noopener noreferrer\\\">What AI Prompt needs</a></span>&nbsp;<span class=\\\"pix-note-btnblock\\\"><a class=\\\"pix-note-rm\\\" style=\\\"background-color: #f66744\\\" href=\\\"https://workflows.pixaroma.com/help/look/\\\" target=\\\"_blank\\\" rel=\\\"noopener noreferrer\\\">Nodes look different from the video</a></span>&nbsp;</p><p>\\n\\n</p>\",\"buttonColor\":\"#f66744\",\"lineColor\":\"#f66744\",\"backgroundColor\":\"#2a2a2a\",\"info\":{\"title\":\"How to Use\",\"icon\":\"to-do\",\"color\":\"#2a9d8f\"}}"
+    },
+    "class_type": "PixaromaInfo",
+    "_meta": {
+      "title": "Info Pixaroma"
+    }
+  },
+  "19": {
+    "inputs": {
+      "note_json": "{\"version\":1,\"content\":\"<h1>WHAT EACH NODE DOES</h1><p>\\n\\n</p><p>The colour of a node tells you what kind of node it is. Nothing here needs changing except the blue ones.</p><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #b8b8b8\\\"><p>\\n\\n</p><h2><span data-ic=\\\"model-v1\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;Models to download</h2><p>\\n\\n</p><p>Orange. Each one needs a file from the <b>Download Models</b> note.</p><p>\\n\\n</p><ul><li><b>Load Diffusion Model (Flux 2 Klein 9B)</b> - The image model, Flux 2 Klein 9B from Black Forest Labs. It is a fast 4-step model that can make a picture from words AND change a picture you give it.</li><li><b>Load CLIP (Qwen 3 8B, reads the prompt)</b> - Reads your prompt and turns the words into something the image model understands.</li><li><b>Load VAE (Flux 2)</b> - Turns the finished render into a picture you can see, and a picture into the model's own format.</li><li><b>Load CLIP (Qwen3-VL 8B, looks at the pictures)</b> - Qwen3-VL 8B, a language model that can SEE. It looks at each picture and describes it in your style. It runs on your own PC, nothing is sent online.</li></ul><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #b8b8b8\\\"><p>\\n\\n</p><h2><span data-ic=\\\"chip\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;The steps you set</h2><p>\\n\\n</p><p>Blue, and numbered. These are the only nodes you need to touch.</p><p>\\n\\n</p><ul><li><b>Load Images from Folder Pixaroma (1. your pictures)</b> - Point it at a folder and pick the pictures. Press Run once and it sends every picture through the workflow, one after the other. Its resize is set to <b>Max megapixels 1</b>, so every picture arrives at about 1 megapixel, the size Klein works best at, with its own shape kept. Its <b>width</b> and <b>height</b> go to the blank canvas, so each result has the size of its picture, and <b>filename</b> goes to the save node.</li><li><b>AI Prompt Pixaroma (2. type the style in the box)</b> - Shows each picture to Qwen3-VL. Its formula (the gear) asks for a prompt that makes the same picture again, and the <b>style</b> is what you type in its box. Change only the box to try another style.</li><li><b>Seed Pixaroma (3. random or fixed)</b> - The seed. <b>F</b> (fixed) gives the same result every Run, <b>R</b> (random) a new one each Run.</li></ul><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #b8b8b8\\\"><p>\\n\\n</p><h2><span data-ic=\\\"chip\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;The work</h2><p>\\n\\n</p><p>Green. They run by themselves.</p><p>\\n\\n</p><ul><li><b>CLIP Text Encode (reads the prompt)</b> - Reads the prompt through the text encoder.</li><li><b>ConditioningZeroOut (empty negative)</b> - An empty negative prompt. Klein runs at CFG 1, where the negative does nothing, but the KSampler still needs one plugged in.</li><li><b>Empty Flux 2 Latent (blank canvas)</b> - The blank canvas the picture is painted on, at the size it receives.</li><li><b>KSampler (4 steps)</b> - The render: 4 steps, CFG 1, euler, simple, the settings Klein is made for.</li><li><b>VAE Decode (latent to picture)</b> - Turns the finished render into a picture.</li></ul><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #b8b8b8\\\"><p>\\n\\n</p><h2><span data-ic=\\\"checkmark\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;The result</h2><p>\\n\\n</p><p>Dark red, at the end.</p><p>\\n\\n</p><ul><li><b>Save Image Pixaroma (keeps each picture's name)</b> - Saves each result as PNG into <code>ComfyUI/output/Re-imagined</code>, named like its picture.</li><li><b>Image Compare Pixaroma (before and after, drag across it)</b> - The old picture and the new one on top of each other. Drag across it to compare. It shows the last pair of the Run.</li></ul><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #b8b8b8\\\"><p>\\n\\n</p><h2><span data-ic=\\\"info\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;Readouts</h2><p>\\n\\n</p><p>Dark. Nothing to set: they show you what happened.</p><p>\\n\\n</p><ul><li><b>Save Text Pixaroma (keeps each prompt, named like its picture)</b> - Keeps every prompt the AI wrote. <b>One file per entry</b> is on (the gear), so each one is also saved as a .txt next to its picture in <code>ComfyUI/output/Re-imagined</code>, and passed on to Klein.</li><li><b>Run Timer</b> - The dark clock above the result shows how long the last Run took.</li></ul><p>\\n\\n</p>\",\"buttonColor\":\"#f66744\",\"lineColor\":\"#f66744\",\"backgroundColor\":\"#2a2a2a\",\"info\":{\"title\":\"Nodes Info\",\"icon\":\"node-v5\",\"color\":\"#3d7cc9\"}}"
+    },
+    "class_type": "PixaromaInfo",
+    "_meta": {
+      "title": "Info Pixaroma"
+    }
+  },
+  "20": {
+    "inputs": {
+      "note_json": "{\"version\":1,\"content\":\"<h1>RUN TIMES</h1><p>\\n\\n</p><p>Measured on a <b>24 GB RTX 4090</b> with this workflow, with the models already loaded. A different card gives different numbers, but the shape holds: the time grows with the number of pictures and their size.</p><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #b8b8b8\\\"><p>\\n\\n</p><table class=\\\"pix-note-grid\\\" style=\\\"--pix-note-grid-border: #f66744; --pix-note-grid-header-bg: #1a1a1a\\\"><thead><tr><th>What</th><th>Time</th></tr></thead><tbody><tr><td>The AI writing one prompt</td><td>about 3 to 4 s</td></tr><tr><td>Klein making one picture</td><td>about 2 s</td></tr><tr><td>4 pictures, start to end</td><td>about 19 s, models loading included</td></tr></tbody></table><p>\\n\\n</p><p>The AI writes ALL the prompts first, then Klein makes all the pictures, so each model loads only once per Run.</p><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #b8b8b8\\\"><p>\\n\\n</p><h2><span data-ic=\\\"warning-v1\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;The first Run of the session</h2><p>\\n\\n</p><p>The first Run after starting ComfyUI also has to load the models from disk (about 18 GB for Klein and its text encoder), so it takes longer. After that they stay loaded.</p><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #b8b8b8\\\"><p>\\n\\n</p><h2><span data-ic=\\\"run-timer\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;On a 16 GB card</h2><p>\\n\\n</p><p>Timed on an <b>RTX 4060 Ti 16 GB</b> with 32 GB of RAM:</p><p>\\n\\n</p><ul><li>Klein took about <b>3 to 6 times</b> as long, about 10 s even for one picture: Klein and its text encoder (17 GB together) do not fit in 16 GB, so parts of them load again on every Run, and a second Run is no faster.</li><li>The AI text step took about <b>2 times</b> as long.</li></ul><p>\\n\\n</p>\",\"buttonColor\":\"#f66744\",\"lineColor\":\"#f66744\",\"backgroundColor\":\"#2a2a2a\",\"info\":{\"title\":\"Run Times\",\"icon\":\"run-timer\",\"color\":\"#3f9a4f\"}}"
+    },
+    "class_type": "PixaromaInfo",
+    "_meta": {
+      "title": "Info Pixaroma"
+    }
+  },
+  "21": {
+    "inputs": {},
+    "class_type": "PixaromaRunTimer",
+    "_meta": {
+      "title": "Run Timer Pixaroma"
+    }
+  }
+}

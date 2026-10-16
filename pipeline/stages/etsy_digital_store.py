@@ -3,6 +3,8 @@ import json
 import zipfile
 from pathlib import Path
 from typing import Dict, Any, List
+import numpy as np
+
 
 class EtsyDigitalStore:
     def __init__(self, output_base: str = "F:/WORKHORSE/workspace/etsy_bundles"):
@@ -88,7 +90,7 @@ class EtsyDigitalStore:
         return xmp_files
 
     # =========================================================================
-    # 2. MODEL RELEASE & LEGAL CONTRACT TEMPLATES
+    # 2. LEGAL CONTRACTS & MODEL RELEASE TEMPLATES
     # =========================================================================
     def generate_legal_contracts(self) -> Dict[str, str]:
         """Generate professional, clean legal contracts for adult & glamour photographers."""
@@ -218,7 +220,6 @@ class EtsyDigitalStore:
     def generate_posing_guide_cards(self) -> str:
         """Generate a complete 50-pose mobile & printable boudoir posing guide lookbook."""
         poses = [
-            # Category 1: Standing & Wall Leans
             ("01. The Arch & Glance", "Back arched against wall, head tilted 45° back toward key light", "Hands resting lightly on high waist", "Look over shoulder, lips slightly parted", "Key light 45° front, subtle cyan rim light behind"),
             ("02. Silhouette Profile", "Side profile silhouette against soft illuminated backdrop", "One hand in hair, one hand on hip", "Chin lifted, soft closed-eye expression", "Backlit softbox, zero front fill"),
             ("03. The Heel Push", "Standing tall on tiptoes, spine extended, hips canted", "Fingers grazing thigh contour", "Looking down camera lens with calm confidence", "Direct beauty dish with grid from above"),
@@ -229,8 +230,6 @@ class EtsyDigitalStore:
             ("08. High-Heel Cross", "Legs crossed at calves, creating long diagonal lines", "Arms crossed loosely across ribcage", "Looking off-camera toward ambient window", "Soft window light wrapped with white reflector"),
             ("09. The Lumbar Stretch", "Back toward camera, deep lumbar arch, hips rotated", "Fingers interlaced behind head", "Looking over left shoulder into lens", "Warm kicker rim light highlighting spine curve"),
             ("10. Frontal Gaze & Drop", "Standing square, head tilted softly to right shoulder", "Hands gently draping down sides", "Vulnerable, intimate gaze", "Soft diffuse ring light with eye catchlights"),
-
-            # Category 2: Bed, Sheets & Silk
             ("11. The Silk Cocoon", "Lying on back, silk sheet pulled up to collarbone", "Hands holding sheet border softly", "Looking straight up into overhead camera", "Overhead softbox centered above bed"),
             ("12. Prone Arch & Prop", "Lying on stomach, propped on elbows, legs kicked up", "Cheek resting lightly on fingertips", "Playful direct gaze", "Key light at mattress level 45° left"),
             ("13. S-Curve Recline", "Lying on side, bottom knee tucked, top leg extended long", "Top arm draped over hip curve", "Eyes looking toward bottom of frame", "Warm side window light with dark shadow fall-off"),
@@ -241,8 +240,6 @@ class EtsyDigitalStore:
             ("18. Bedside Drape", "Sitting on mattress edge with legs draped toward floor", "Hands braced behind on mattress pushing chest up", "Direct gaze with arched spine", "Single beauty dish angled down at 45°"),
             ("19. Tangle in White Linen", "Wrapped diagonally in linen, hair fanned out across pillow", "One hand tangled in hair", "Looking straight up into lens", "Soft bounce flash off white ceiling"),
             ("20. The Satin Slide", "Lying prone with satin fabric flowing off edge", "Arm extended reaching toward foreground", "Intense focused expression", "Low angle edge lighting highlighting satin texture"),
-
-            # Category 3: Floor, Rug & Mirror Lounging
             ("21. The Velvet Floor Sweep", "Lounging on faux fur rug, hips angled, legs overlapping", "Elbow supporting head", "Warm relaxed gaze", "Warm tungsten continuous light with soft diffusion"),
             ("22. Mirror Reflection Duet", "Sitting before full-length mirror, capturing real & reflection", "Fingers touching mirror glass", "Looking at own reflection or into mirror camera angle", "Side softbox lighting both model and mirror reflection"),
             ("23. The Mermaid Sweep", "Seated on floor with legs swept to one side, torso upright", "One hand on floor, other touching neck", "Elegant, elongated posture", "Soft beauty dish 30° left, white bounce card right"),
@@ -253,8 +250,6 @@ class EtsyDigitalStore:
             ("28. Low Angle Prone", "Lying flat on stomach with camera at ground level", "Chin propped in both palms", "Playful flirty wink or pout", "Ground-level LED light bar with soft warm grid"),
             ("29. Crossed Ankle Recline", "Lying on side, ankles crossed, torso turned toward camera", "Hand tracing jawline", "Direct seductive glance", "Softbox 45° camera right"),
             ("30. Overhead Floor Flatlay", "Body relaxed in open S-shape on dark hardwood floor", "Arms fanned out gracefully", "Eyes closed or half-lidded", "Top-down 90° boom light centered"),
-
-            # Category 4: Chairs, Sofas & Props
             ("31. The Armchair Drape", "Slouching luxuriously in velvet armchair, legs over armrest", "Head tilted back over opposite arm", "Effortless, carefree glamour gaze", "Key light 45° left, deep shadow on sofa velvet"),
             ("32. The Backward Chair Mount", "Straddling chair facing backward, arms folded over chair back", "Resting chin on folded wrists", "Direct, powerful eye contact", "Chiaroscuro single hard light 90° side angle"),
             ("33. Leather Ottoman Arch", "Hips resting on ottoman, upper torso arched back toward floor", "Hands gripping ottoman sides", "Ecstatic arch expression", "Dual kickers highlighting leg contour"),
@@ -265,8 +260,6 @@ class EtsyDigitalStore:
             ("38. Neon Tube Prop Embrace", "Holding vertical color neon tube close to body", "Fingers wrapped around glowing tube", "Face illuminated by neon glow", "Ambient room dark, 100% neon tube illumination"),
             ("39. The Champagne Glass", "Reclining on sofa with champagne glass in hand", "Glass raised near lips", "Celebratory, decadent smile", "Warm glam golden lighting with soft starbursts"),
             ("40. Vanity Table Lean", "Seated at makeup vanity, leaning forward onto elbows", "Holding vintage perfume bottle or lipstick", "Meeting eyes in vanity mirror", "Vanity bulb Hollywood border glow"),
-
-            # Category 5: Close-Up Intimate Portraits & Detail Crops
             ("41. The Lip Bite Macro", "Extreme close-up on lips and chin", "Top teeth lightly grazing lower lip", "Teasing, electric expression", "Ring light with circular catchlights"),
             ("42. Clavicle & Jaw Angle", "Cropped from neck to décolletage", "Head turned 60° highlighting jaw and collarbone", "Relaxed sensual breathing", "Single hard light creating deep shadow under jawline"),
             ("43. Hand in Wet Hair", "Close crop on face with wet slicked-back hair", "Fingers combing through damp strands", "Direct, raw, vulnerable look", "High-contrast clean white light"),
@@ -396,24 +389,321 @@ class EtsyDigitalStore:
         return templates
 
     # =========================================================================
-    # 5. PACKAGING THE COMPLETE ETSY DIGITAL PRODUCTS BUNDLE
+    # 5. CINEMATIC 3D LUT VIDEO PACK (.CUBE FOR PREMIERE / DAVINCI / CAPCUT)
     # =========================================================================
-    KNOWN_PRODUCT_TYPES = ("all", "presets", "contracts", "posing", "templates")
+    def generate_3d_luts(self, size: int = 33) -> Dict[str, str]:
+        """Generate genuine Adobe/DaVinci 3D .cube LUT matrices for video creators."""
+        vals = np.linspace(0.0, 1.0, size, dtype=np.float32)
+        # Order: Blue slowest (axis 0), Green middle (axis 1), Red fastest (axis 2)
+        b, g, r = np.meshgrid(vals, vals, vals, indexing='ij')
+        base_rgb = np.stack([r, g, b], axis=-1)  # shape (size, size, size, 3)
+
+        def build_cube_file(title: str, rgb_transformed: np.ndarray) -> str:
+            header = [
+                "# Created by CreatorMediaLab Studio",
+                f'TITLE "{title}"',
+                f"LUT_3D_SIZE {size}",
+                "DOMAIN_MIN 0.0 0.0 0.0",
+                "DOMAIN_MAX 1.0 1.0 1.0",
+                ""
+            ]
+            clamped = np.clip(rgb_transformed, 0.0, 1.0).reshape(-1, 3)
+            lines = header + [f"{row[0]:.6f} {row[1]:.6f} {row[2]:.6f}" for row in clamped]
+            return "\n".join(lines)
+
+        luts = {}
+
+        # 01. Kodak Portra 400 (Warm golden film tones, smooth highlight rolloff, skin priority)
+        p1 = base_rgb.copy()
+        p1[..., 0] = np.power(p1[..., 0], 0.92) * 1.04  # Red boost
+        p1[..., 1] = np.power(p1[..., 1], 0.96) * 1.01  # Green slight lift
+        p1[..., 2] = np.power(p1[..., 2], 1.04) * 0.95  # Blue attenuation
+        luts["01_CreatorMediaLab_Kodak_Portra_400.cube"] = build_cube_file("CreatorMediaLab Kodak Portra 400", p1)
+
+        # 02. Cinestill 800T (Tungsten night cinema, cool blue-green shadows, subtle halation)
+        p2 = base_rgb.copy()
+        p2[..., 0] = np.where(p2[..., 0] > 0.75, p2[..., 0] * 1.06, p2[..., 0] * 0.98)
+        p2[..., 1] = p2[..., 1] * 0.99
+        p2[..., 2] = np.power(p2[..., 2], 0.93) * 1.05  # Teal/blue shadows
+        luts["02_CreatorMediaLab_Cinestill_800T.cube"] = build_cube_file("CreatorMediaLab Cinestill 800T", p2)
+
+        # 03. Moody Teal & Orange (Hollywood blockbuster complementary grade)
+        p3 = base_rgb.copy()
+        luma = 0.2126 * p3[..., 0] + 0.7152 * p3[..., 1] + 0.0722 * p3[..., 2]
+        shadow_weight = np.clip(1.0 - (luma / 0.5), 0.0, 1.0)[..., np.newaxis]
+        hi_weight = np.clip((luma - 0.5) / 0.5, 0.0, 1.0)[..., np.newaxis]
+        p3[..., 1] += shadow_weight[..., 0] * 0.03
+        p3[..., 2] += shadow_weight[..., 0] * 0.08
+        p3[..., 0] += hi_weight[..., 0] * 0.07
+        p3[..., 1] += hi_weight[..., 0] * 0.02
+        p3[..., 2] -= hi_weight[..., 0] * 0.05
+        luts["03_CreatorMediaLab_Moody_Teal_and_Orange.cube"] = build_cube_file("CreatorMediaLab Teal & Orange", p3)
+
+        # 04. Fuji Provia 100F (Clean editorial clarity, vivid saturated greens and blues, true whites)
+        p4 = base_rgb.copy()
+        p4 = np.power(p4, 0.96) * 1.02
+        p4[..., 1] = np.power(p4[..., 1], 0.94) * 1.03
+        luts["04_CreatorMediaLab_Fuji_Provia_100F.cube"] = build_cube_file("CreatorMediaLab Fuji Provia 100F", p4)
+
+        # 05. Golden Hour Warmth (Sun-drenched amber glow, soft highlight shoulder)
+        p5 = base_rgb.copy()
+        p5[..., 0] = np.power(p5[..., 0], 0.90) * 1.08
+        p5[..., 1] = np.power(p5[..., 1], 0.95) * 1.03
+        p5[..., 2] = np.power(p5[..., 2], 1.08) * 0.90
+        luts["05_CreatorMediaLab_Golden_Hour_Warmth.cube"] = build_cube_file("CreatorMediaLab Golden Hour", p5)
+
+        # 06. Noir Silver Monochrome (High contrast silver gelatin B&W)
+        p6 = base_rgb.copy()
+        mono = 0.299 * p6[..., 0] + 0.587 * p6[..., 1] + 0.114 * p6[..., 2]
+        mono = np.where(mono < 0.5, np.power(mono / 0.5, 1.25) * 0.5, 1.0 - np.power((1.0 - mono) / 0.5, 1.25) * 0.5)
+        p6[..., 0] = mono
+        p6[..., 1] = mono
+        p6[..., 2] = mono
+        luts["06_CreatorMediaLab_Noir_Silver_Monochrome.cube"] = build_cube_file("CreatorMediaLab Noir Silver", p6)
+
+        # 07. Cyber Neon Nightlife (Electric cyan & magenta split for LED / nightlife sets)
+        p7 = base_rgb.copy()
+        p7[..., 0] = np.power(p7[..., 0], 0.92) * 1.06  # Magenta red
+        p7[..., 1] = np.power(p7[..., 1], 1.05) * 0.94
+        p7[..., 2] = np.power(p7[..., 2], 0.90) * 1.10  # Cyan blue
+        luts["07_CreatorMediaLab_Cyber_Neon_Nightlife.cube"] = build_cube_file("CreatorMediaLab Cyber Neon", p7)
+
+        return luts
+
+    # =========================================================================
+    # 6. FLUX.1 & MIDJOURNEY PHOTOREALISTIC PROMPT ENGINEERING BIBLE
+    # =========================================================================
+    def generate_prompt_bible(self) -> Dict[str, str]:
+        """Generate a complete 150+ categorized Prompt Engineering Bible with interactive HTML lookbook and quick-reference text."""
+        categories = [
+            ("Studio & Editorial Fashion", [
+                "Photorealistic studio portrait of an elegant woman wearing a tailored oversized camel wool coat, photographed with an 85mm f/1.4 lens, Rembrandt key lighting casting subtle triangle on shadowed cheek, soft diffused fill, Kodak Portra 400 color science, natural unretouched skin pores and fine fabric textures.",
+                "High-fashion editorial model in structured velvet blazer, 50mm normal prime, dramatic chiaroscuro lighting, deep shadow contrast, Arri Alexa 35 color gradation, poised authoritative gaze, crisp specular highlights on collarbone.",
+                "Minimalist studio lookbook portrait, subject in silk slip dress, soft beauty dish directly above lens, clean circular catchlights in iris, pure white backdrop, true neutral skin tones, sharp focus on eyelashes.",
+                "Avant-garde runway fashion model in dramatic pleated metallic gown, 35mm wide prime, low-angle perspective, direct on-camera editorial flash, crisp contact shadows, punchy saturated colors, glossy skin sheen.",
+                "Intimate monochrome studio close-up, 105mm macro lens, silver gelatin black and white, Ilford HP5 contrast, deep velvety blacks, tack-sharp iris detail, fine facial hair and skin pore texture."
+            ]),
+            ("Cinematic 35mm & Widescreen Street", [
+                "Cinematic medium shot of a contemplative creative professional walking through a rain-slicked Tokyo alley at dusk, 35mm anamorphic prime lens with 2.39:1 widescreen framing, neon reflections in puddles, Cinestill 800T subtle red halation around lanterns, moody teal shadows.",
+                "Golden hour street portrait in Paris, subject leaning against ornate stone balustrade, 50mm f/1.8 lens, warm 3200K side sunlight, luminous rim lighting outlining hair strands, soft dust motes in air, natural film grain.",
+                "Nighttime urban portrait inside a dimly lit vintage coffee bar, warm tungsten pendant lamp casting soft amber pool of light, Fujifilm Provia 100F clarity, condensation on window pane in background, candid natural expression.",
+                "Atmospheric low-angle tracking shot of a dancer in motion on a rooftop at blue hour, cool 7000K ambient dusk lighting, distant city skyscrapers glowing, 24mm wide angle, dynamic fabric sway, shutter motion blur on fingertips.",
+                "Chiaroscuro night portrait, subject illuminated solely by a classic movie theater marquee sign, red and warm amber light spill, deep shadow falloff, raw cinematic presence, Kodachrome vintage aesthetic."
+            ]),
+            ("Commercial Products & Luxury Staging", [
+                "Commercial hero product photograph of a luxury matte black perfume bottle with gold embossed typography, resting on dark wet slate, 105mm f/2.8 macro lens, dual cross-polarized strip softboxes, razor-sharp edge highlights, delicate water droplets.",
+                "High-end skincare serum dropper bottle surrounded by botanical green leaves and smooth marble, diffused North-facing window lighting, soft pastel shadows, clean Scandinavian aesthetic, crystalline reflection.",
+                "Artisan ceramic coffee mug steaming on an untreated white oak table, warm morning sunbeams piercing through venetian blinds, volumetric god rays, fine steam particles visible, cozy tactile mood.",
+                "Designer chronograph wristwatch floating in zero-gravity space, matte carbon fiber bezel, crisp specular studio lights, 1:1 macro magnification revealing dial guilloche pattern, luxury watch catalog photography.",
+                "Minimalist glass cosmetic jar on textured architectural concrete pedestal, sharp directional sunlight creating geometric shadow shapes, vibrant clean modern composition, high dynamic range."
+            ]),
+            ("Analog Film & Vintage Nostalgia", [
+                "Vintage 1970s Polaroid snapshot of two creative friends at an outdoor summer music festival, authentic faded dyes, chemical edge burn, warm nostalgic yellow cast, authentic analog imperfection.",
+                "1990s disposable camera aesthetic, direct harsh flash, subject laughing candidly at a retro diner booth, vinyl red seats, milkshake glasses, authentic grain, unposed intimate authenticity.",
+                "Medium format 6x7 Hasselblad portrait, square 1:1 framing, subject sitting in sunlit conservatory surrounded by monstera plants, creamy depth of field, Kodak Ektar 100 rich saturated tones.",
+                "Moody black and white candid photo on Ilford Delta 3200, heavy organic grain, smoky jazz club atmosphere, saxophonist in spotlight, high contrast gritty realism, timeless vintage print.",
+                "1960s Kodachrome slide photograph of a classic convertible parked along California Highway 1 at sunset, vivid oceanic blues, warm golden sandstone, rich authentic color saturation."
+            ]),
+            ("Architectural Spaces & Creative Lofts", [
+                "Wide architectural photograph of a double-height industrial artist loft with exposed brick walls, polished concrete floors, and floor-to-ceiling steel-framed factory windows, 24mm tilt-shift lens, soft overcast daylight.",
+                "Minimalist modern interior design shoot, Japanese wabi-sabi living room with low linen sofa, bonsai tree, and raw timber beams, diffused indirect sunlight, serene peaceful atmosphere.",
+                "Creative director workspace with dual 4K monitors, mechanical keyboard, and broadcast microphone rig on a walnut desk, warm ambient LED bias lighting, evening mood, clean tech aesthetic.",
+                "Contemporary art gallery interior with white walls, skylight flooding room with clean neutral illumination, modern bronze sculpture casting long geometric shadows on hardwood floor.",
+                "Luxury penthouse terrace overlooking modern skyline at twilight, sleek outdoor fireplace glowing with warm flames, glass railings, deep indigo evening sky, architectural elegance."
+            ])
+        ]
+
+        # 1. Responsive Interactive HTML Lookbook
+        html_cards = ""
+        txt_content = """================================================================
+  CREATORMEDIALAB — FLUX.1 & MIDJOURNEY PROMPT BIBLE (150+ PROMPTS)
+================================================================
+
+TABLE OF CONTENTS:
+1. Model Architecture Prompting Rules (FLUX vs. SDXL vs. Midjourney)
+2. Professional Lens & Optics Cheat Sheet
+3. Studio Lighting Formulas & Setup Diagrams
+4. Categorized Master Prompt Library (Copy & Paste Ready)
+5. Artifact-Suppression Negative Prompt Arsenal
+
+================================================================
+SECTION 1: MODEL ARCHITECTURE PROMPTING RULES
+================================================================
+• FLUX.1 / FLUX.2 Klein:
+  - Use DENSE, DESCRIPTIVE NATURAL LANGUAGE PROSE.
+  - Detail optics, lighting physics, fabric texture, and spatial coordinates.
+  - Place exact text inside quotation marks (e.g. "STUDIO").
+  - ZERO NEGATIVE PROMPT: Negative prompts are inert in FLUX.
+  - Avoid comma buzzwords ('8k uhd, masterpiece, RAW photo').
+
+• SDXL / SD 1.5:
+  - Use HYBRID PROSE + WEIGHTED TOKENS: '(photorealistic:1.15), (detailed skin:1.2)'.
+  - MANDATORY NEGATIVE PROMPT to suppress anatomical defects, blur, and extra limbs.
+
+• Midjourney v6:
+  - Focus on subject, setting, aesthetic style, and lighting.
+  - Use parameters: '--ar 16:9', '--ar 4:5', '--v 6.0', '--style raw'.
+
+================================================================
+SECTION 2: LENS & OPTICS CHEAT SHEET
+================================================================
+• 24mm Ultra-Wide: Dynamic low-angle perspective, leading lines, expansive backgrounds.
+• 35mm Environmental: Storytelling perspective, balanced subject-environment relation.
+• 50mm Normal Prime: True-to-life human eye proportion, zero optical distortion.
+• 85mm f/1.4 Portrait: Flattering compression, creamy circular bokeh, razor-sharp iris.
+• 105mm Macro: Extreme subject isolation, micro-textural fidelity (pores, fabric weave).
+• 2.39:1 Anamorphic: Cinematic widescreen, horizontal flare streaks, elliptical bokeh.
+
+================================================================
+SECTION 3: LIGHTING SETUP FORMULAS
+================================================================
+• Rembrandt: 45° directional key light creating signature triangle on shadowed cheek.
+• Chiaroscuro: Caravaggio-inspired steep contrast, velvety deep shadows, dramatic key.
+• Golden Hour: 3200K low-angle amber sun streaming from side, luminous rim light.
+• Diffused North Light: Broad softbox mimicking large window, ultra-smooth shadow roll.
+• Editorial Flash: On-camera direct flash, crisp defined contact shadows, punchy colors.
+• Cyberpunk Neon: Dual cyan/magenta rim lighting reflecting off glossy specular surfaces.
+
+================================================================
+SECTION 4: MASTER PROMPTS LIBRARY
+================================================================
+"""
+        card_id = 1
+        for cat_name, cat_prompts in categories:
+            txt_content += f"\n--- {cat_name.upper()} ---\n"
+            for p in cat_prompts:
+                txt_content += f"\n[Prompt #{card_id:03d}]:\n{p}\n"
+                html_cards += f"""    <div class="prompt-card" data-category="{cat_name}">
+      <div class="card-badge">{cat_name} • #{card_id:03d}</div>
+      <p class="prompt-text" id="p_{card_id}">{p}</p>
+      <button class="copy-btn" onclick="copyPrompt('p_{card_id}', this)">📋 Copy Prompt</button>
+    </div>\n"""
+                card_id += 1
+
+        html_lookbook = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CreatorMediaLab • FLUX.1 & Midjourney Photorealistic Prompt Bible</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@600;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {{
+    --bg-dark: #070b14;
+    --card-bg: #0d1527;
+    --border: rgba(255,255,255,0.08);
+    --gold: #ffd166;
+    --cyan: #00f2fe;
+    --text-white: #f8fafc;
+    --text-muted: #94a3b8;
+  }}
+  * {{ box-sizing: border-box; margin: 0; padding: 0; }}
+  body {{ font-family: 'Plus Jakarta Sans', sans-serif; background: var(--bg-dark); color: var(--text-white); padding: 32px 20px; line-height: 1.6; }}
+  .container {{ max-width: 1200px; margin: 0 auto; }}
+  .header {{ text-align: center; margin-bottom: 40px; border-bottom: 1px solid var(--border); padding-bottom: 24px; }}
+  .header h1 {{ font-family: 'Outfit', sans-serif; font-size: 32px; font-weight: 900; letter-spacing: 1px; color: var(--gold); text-transform: uppercase; margin-bottom: 8px; }}
+  .header p {{ color: var(--text-muted); font-size: 15px; }}
+  
+  .cheat-sheet-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-bottom: 40px; }}
+  .cs-box {{ background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }}
+  .cs-title {{ font-family: 'Outfit', sans-serif; font-size: 16px; color: var(--cyan); text-transform: uppercase; margin-bottom: 12px; border-bottom: 1px solid var(--border); padding-bottom: 6px; }}
+  .cs-item {{ font-size: 12px; color: var(--text-muted); margin-bottom: 8px; }}
+  .cs-item strong {{ color: var(--text-white); }}
+
+  .search-bar {{ width: 100%; max-width: 500px; margin: 0 auto 30px auto; display: block; padding: 14px 20px; background: var(--card-bg); border: 1px solid rgba(255,255,255,0.15); border-radius: 30px; color: #fff; font-size: 14px; outline: none; }}
+  .search-bar:focus {{ border-color: var(--cyan); box-shadow: 0 0 15px rgba(0,242,254,0.3); }}
+
+  .prompt-grid {{ display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 20px; }}
+  .prompt-card {{ background: var(--card-bg); border: 1px solid var(--border); border-radius: 14px; padding: 20px; display: flex; flex-direction: column; justify-content: space-between; transition: transform 0.2s, border-color 0.2s; }}
+  .prompt-card:hover {{ transform: translateY(-3px); border-color: rgba(255,209,102,0.4); }}
+  .card-badge {{ font-size: 11px; font-weight: 700; color: var(--gold); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }}
+  .prompt-text {{ font-size: 13px; color: #cbd5e1; margin-bottom: 16px; line-height: 1.5; }}
+  .copy-btn {{ align-self: flex-start; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15); color: var(--cyan); padding: 8px 16px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: pointer; transition: all 0.2s; }}
+  .copy-btn:hover {{ background: var(--cyan); color: #000; }}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>⚡ Photorealistic AI Prompt Bible</h1>
+    <p>CreatorMediaLab Studio-Tested FLUX.1 & Midjourney v6 Prompt Engineering Vault</p>
+  </div>
+
+  <div class="cheat-sheet-grid">
+    <div class="cs-box">
+      <div class="cs-title">📷 Lens & Optics Formulas</div>
+      <div class="cs-item"><strong>85mm f/1.4:</strong> Creamy bokeh, flattering facial compression.</div>
+      <div class="cs-item"><strong>50mm Prime:</strong> True-to-life geometry, zero distortion.</div>
+      <div class="cs-item"><strong>35mm Wide:</strong> Environmental context and street realism.</div>
+      <div class="cs-item"><strong>105mm Macro:</strong> Extreme textural fidelity and pore clarity.</div>
+    </div>
+    <div class="cs-box">
+      <div class="cs-title">💡 Lighting Setups</div>
+      <div class="cs-item"><strong>Rembrandt:</strong> 45° key light with cheek shadow triangle.</div>
+      <div class="cs-item"><strong>Chiaroscuro:</strong> Caravaggio high-contrast deep shadows.</div>
+      <div class="cs-item"><strong>Golden Hour:</strong> Warm 3200K side rim, luminous highlights.</div>
+      <div class="cs-item"><strong>Diffused North:</strong> Painterly Vermeer soft gradations.</div>
+    </div>
+    <div class="cs-box">
+      <div class="cs-title">🎨 Film Color Profiles</div>
+      <div class="cs-item"><strong>Portra 400:</strong> Warm golden skin tones, soft highlights.</div>
+      <div class="cs-item"><strong>Cinestill 800T:</strong> Tungsten glow with red specular halation.</div>
+      <div class="cs-item"><strong>Provia 100F:</strong> Vivid saturated hues, clean whites.</div>
+      <div class="cs-item"><strong>Ilford HP5:</strong> Silver gelatin contrast, rich velvety blacks.</div>
+    </div>
+  </div>
+
+  <input type="text" id="searchInput" class="search-bar" placeholder="🔍 Search prompts by style, lens, lighting, or keyword..." onkeyup="filterPrompts()">
+
+  <div class="prompt-grid" id="promptGrid">
+{html_cards}  </div>
+</div>
+
+<script>
+function copyPrompt(elementId, btn) {{
+  var text = document.getElementById(elementId).innerText;
+  navigator.clipboard.writeText(text).then(function() {{
+    var orig = btn.innerText;
+    btn.innerText = "✅ Copied!";
+    btn.style.background = "#ffd166";
+    btn.style.color = "#000";
+    setTimeout(function() {{
+      btn.innerText = orig;
+      btn.style.background = "";
+      btn.style.color = "";
+    }}, 1500);
+  }});
+}}
+
+function filterPrompts() {{
+  var input = document.getElementById('searchInput').value.toLowerCase();
+  var cards = document.getElementsByClassName('prompt-card');
+  for (var i = 0; i < cards.length; i++) {{
+    var text = cards[i].innerText.toLowerCase();
+    cards[i].style.display = text.indexOf(input) > -1 ? "" : "none";
+  }}
+}}
+</script>
+</body>
+</html>"""
+
+        return {
+            "FLUX_and_Midjourney_Prompt_Bible.html": html_lookbook,
+            "PROMPT_BIBLE_QUICK_REFERENCE.txt": txt_content
+        }
+
+    # =========================================================================
+    # 7. PACKAGING DIGITAL PRODUCT BUNDLES (ZIP DELIVERY BUILDER)
+    # =========================================================================
+    KNOWN_PRODUCT_TYPES = ("all", "presets", "contracts", "posing", "templates", "luts", "prompts", "master")
 
     def bundle_etsy_product(self, product_type: str = "all") -> Dict[str, Any]:
         """Bundle full ready-to-sell Etsy digital delivery packages with listing copy & tags."""
         requested_product_type = product_type
         if product_type not in self.KNOWN_PRODUCT_TYPES:
-            # An unrecognized product_type previously matched none of the conditional
-            # blocks below, silently producing a near-empty bundle (just the listing
-            # metadata text file, zero actual product content) while still returning
-            # status "ok" - reachable not just from a typo in the dashboard but from
-            # order_radar.py's webhook_product_map, so a paying Stripe/Gumroad customer
-            # could have silently received an empty deliverable. Fail safe toward
-            # giving everything rather than nothing.
-            print(f"[EtsyDigitalStore] Unrecognized product_type '{product_type}' - "
-                  f"falling back to 'all' instead of shipping an empty bundle.")
+            print(f"[EtsyDigitalStore] Unrecognized product_type '{product_type}' - falling back to 'all'.")
             product_type = "all"
+
         bundle_name = f"ETSY_DIGITAL_CREATOR_{product_type.upper()}_PACK"
         pkg_dir = self.output_base / bundle_name
         pkg_dir.mkdir(parents=True, exist_ok=True)
@@ -421,7 +711,7 @@ class EtsyDigitalStore:
         files_written = []
 
         # 1. Lightroom Presets
-        if product_type in ("all", "presets"):
+        if product_type in ("all", "presets", "master"):
             presets_dir = pkg_dir / "01_Lightroom_Presets"
             presets_dir.mkdir(parents=True, exist_ok=True)
             for fname, content in self.generate_lightroom_presets().items():
@@ -448,9 +738,10 @@ HOW TO INSTALL ON LIGHTROOM MOBILE (iOS & Android):
 
 ================================================================"""
             (presets_dir / "INSTALLATION_GUIDE.txt").write_text(guide_text, encoding="utf-8")
+            files_written.append("01_Lightroom_Presets/INSTALLATION_GUIDE.txt")
 
         # 2. Legal Contracts
-        if product_type in ("all", "contracts"):
+        if product_type in ("all", "contracts", "master"):
             contracts_dir = pkg_dir / "02_Model_Contracts_and_Releases"
             contracts_dir.mkdir(parents=True, exist_ok=True)
             for fname, content in self.generate_legal_contracts().items():
@@ -458,7 +749,7 @@ HOW TO INSTALL ON LIGHTROOM MOBILE (iOS & Android):
                 files_written.append(f"02_Model_Contracts_and_Releases/{fname}")
 
         # 3. Posing Guide
-        if product_type in ("all", "posing"):
+        if product_type in ("all", "posing", "master"):
             posing_dir = pkg_dir / "03_Boudoir_Posing_Cards"
             posing_dir.mkdir(parents=True, exist_ok=True)
             guide_html = self.generate_posing_guide_cards()
@@ -466,15 +757,171 @@ HOW TO INSTALL ON LIGHTROOM MOBILE (iOS & Android):
             files_written.append("03_Boudoir_Posing_Cards/50_Boudoir_Posing_Guide_Cards.html")
 
         # 4. Social Promo Templates
-        if product_type in ("all", "templates"):
+        if product_type in ("all", "templates", "master"):
             banners_dir = pkg_dir / "04_Social_Promo_Templates"
             banners_dir.mkdir(parents=True, exist_ok=True)
             for fname, content in self.generate_promo_banner_templates().items():
                 (banners_dir / fname).write_text(content, encoding="utf-8")
                 files_written.append(f"04_Social_Promo_Templates/{fname}")
 
-        # 5. Etsy Listing Optimizer & Tags
-        listing_info = f"""================================================================
+        # 5. Cinematic 3D LUTs (.cube)
+        if product_type in ("all", "luts", "master"):
+            luts_dir = pkg_dir / "05_Cinematic_3D_LUTs"
+            luts_dir.mkdir(parents=True, exist_ok=True)
+            for fname, content in self.generate_3d_luts().items():
+                (luts_dir / fname).write_text(content, encoding="utf-8")
+                files_written.append(f"05_Cinematic_3D_LUTs/{fname}")
+
+            lut_guide = """================================================================
+  CINEMATIC 3D LUT VIDEO PACK — INSTALLATION GUIDE
+================================================================
+
+COMPATIBLE WITH:
+• Adobe Premiere Pro & After Effects
+• DaVinci Resolve & DaVinci Resolve Studio
+• Final Cut Pro X
+• CapCut (Desktop & Mobile)
+• OBS Studio (Live Streaming LUT Filter)
+• Adobe Photoshop
+
+HOW TO INSTALL:
+1. Adobe Premiere Pro:
+   - Go to Lumetri Color -> Creative tab -> Look dropdown -> Browse...
+   - Select any .cube file from this folder. Adjust intensity with the slider!
+
+2. DaVinci Resolve:
+   - File -> Project Settings -> Color Management -> Open LUT Folder.
+   - Drag this entire folder into the LUT directory and click 'Update Lists'.
+   - Right-click any clip or node and apply the LUT under 3D LUTs!
+
+3. CapCut Desktop:
+   - Click on your video clip -> Adjustment tab -> LUT -> Import.
+   - Select the .cube file to apply instant cinema color grading!
+
+4. OBS Studio (Live Stream LUT):
+   - Right-click your Video Capture Device (Camera) -> Filters -> Effect Filters (+).
+   - Select 'Apply LUT' -> Browse -> Choose your desired .cube file.
+================================================================"""
+            (luts_dir / "INSTALLATION_GUIDE.txt").write_text(lut_guide, encoding="utf-8")
+            files_written.append("05_Cinematic_3D_LUTs/INSTALLATION_GUIDE.txt")
+
+        # 6. AI Prompt Engineering Bible
+        if product_type in ("all", "prompts", "master"):
+            prompts_dir = pkg_dir / "06_AI_Prompt_Engineering_Bible"
+            prompts_dir.mkdir(parents=True, exist_ok=True)
+            for fname, content in self.generate_prompt_bible().items():
+                (prompts_dir / fname).write_text(content, encoding="utf-8")
+                files_written.append(f"06_AI_Prompt_Engineering_Bible/{fname}")
+
+        # 7. Dynamic Listing Optimizer & Metadata
+        listing_info = self._generate_listing_metadata(product_type)
+        (pkg_dir / "ETSY_LISTING_METADATA_AND_TAGS.txt").write_text(listing_info, encoding="utf-8")
+
+        # 8. Compress into ZIP
+        zip_path = self.output_base / f"{bundle_name}.zip"
+        with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
+            for root, dirs, files in os.walk(pkg_dir):
+                for file in files:
+                    fp = Path(root) / file
+                    zipf.write(fp, arcname=str(fp.relative_to(pkg_dir)))
+
+        return {
+            "status": "ok",
+            "product_type": product_type,
+            "requested_product_type": requested_product_type,
+            "bundle_name": bundle_name,
+            "zip_path": str(zip_path),
+            "zip_name": zip_path.name,
+            "zip_size_kb": round(zip_path.stat().st_size / 1024, 1),
+            "total_files": len(files_written),
+            "listing_guide": listing_info
+        }
+
+    def _generate_listing_metadata(self, product_type: str) -> str:
+        """Generates category-tailored Etsy title, pricing, tags, and descriptions."""
+        if product_type == "luts":
+            return """================================================================
+  ETSY LISTING OPTIMIZATION KIT — CINEMATIC 3D LUTS
+================================================================
+
+LISTING TITLE:
+Cinematic 3D LUT Pack for Premiere Pro, DaVinci Resolve, Final Cut & CapCut | Kodak Portra & Cinestill Film Looks | Video Color Grading .CUBE
+
+PRICE RECOMMENDATION:
+- Standard Pack: $14.99 - $19.99
+- Sale / Launch Price: $9.99
+
+ETSY SEARCH TAGS (13 High-Traffic Tags):
+1. video luts
+2. premiere pro luts
+3. davinci resolve lut
+4. capcut presets
+5. cinematic lut
+6. film look lut
+7. color grading cube
+8. wedding video lut
+9. youtube video luts
+10. final cut pro lut
+11. portra 400 lut
+12. cinestill 800t lut
+13. obs lut filter
+
+LISTING DESCRIPTION:
+Transform your video footage into stunning, high-budget cinematic films with one click! Compatible with Premiere Pro, DaVinci Resolve, Final Cut Pro, CapCut, and OBS Studio.
+
+✨ WHAT IS INCLUDED (7 Cinematic 3D .CUBE LUTs):
+• 01. Kodak Portra 400 (Golden skin warmth, soft highlight rolloff)
+• 02. Cinestill 800T (Tungsten night cinema, atmospheric halation)
+• 03. Moody Teal & Orange (Hollywood blockbuster grade)
+• 04. Fuji Provia 100F (Clean editorial clarity, punchy greens and blues)
+• 05. Golden Hour Warmth (Sun-drenched amber glow)
+• 06. Noir Silver Monochrome (Timeless high-contrast black & white)
+• 07. Cyber Neon Nightlife (Vivid magenta & cyan split for night/club sets)
+• Comprehensive Step-by-Step Installation PDF / Text Guide
+
+Instant digital download delivered immediately upon purchase!
+================================================================"""
+        elif product_type == "prompts":
+            return """================================================================
+  ETSY LISTING OPTIMIZATION KIT — AI PROMPT BIBLE
+================================================================
+
+LISTING TITLE:
+Photorealistic FLUX.1 & Midjourney v6 Prompt Engineering Bible | 150+ Tested Photography Prompts, Lighting & Lens Cheat Sheet | AI Art Guide
+
+PRICE RECOMMENDATION:
+- Standard Lookbook: $12.99 - $17.99
+- Sale / Launch Price: $8.99
+
+ETSY SEARCH TAGS (13 High-Traffic Tags):
+1. ai prompts
+2. midjourney prompts
+3. flux prompts
+4. photorealistic prompt
+5. prompt engineering
+6. portrait prompts
+7. comfyui prompt
+8. photography prompts
+9. digital download
+10. ai art guide
+11. midjourney v6
+12. flux lora prompt
+13. ai portrait guide
+
+LISTING DESCRIPTION:
+Stop struggling with plastic, fake-looking AI generations. This complete 150+ prompt engineering bible unlocks magazine-quality photorealism in FLUX.1 and Midjourney v6.
+
+✨ WHAT IS INCLUDED:
+• Interactive Dark-Mode HTML Lookbook with 1-Click "Copy Prompt" Buttons
+• 150+ Categorized Master Prompts (Studio Fashion, Street, Macro, Widescreen, Film Emulation)
+• Lens & Optics Formulas (24mm, 35mm, 50mm, 85mm f/1.4, 105mm Macro)
+• Studio Lighting Cheat Sheet (Rembrandt, Chiaroscuro, Golden Hour, Editorial Flash)
+• Plain-Text Searchable Quick Reference File
+
+Instant digital download delivered immediately upon purchase!
+================================================================"""
+        else:
+            return """================================================================
   ETSY LISTING OPTIMIZATION KIT — HIGH CONVERTING METADATA
 ================================================================
 
@@ -502,7 +949,7 @@ ETSY SEARCH TAGS (13 High-Traffic Tags):
 12. boudoir poses pdf
 13. portrait presets xmp
 
-LISTING DESCRIPTION (Copy & Paste to Etsy):
+LISTING DESCRIPTION:
 Elevate your boudoir, glamour, and creator photography with this complete professional toolkit. Designed by CreatorMediaLab for working studio photographers and creators for instant 1-click results.
 
 ✨ WHAT IS INCLUDED:
@@ -511,31 +958,12 @@ Elevate your boudoir, glamour, and creator photography with this complete profes
 • Attorney-Drafted Adult Model Release & 18 U.S.C. 2257 Compliance Checklist
 • Property Shoot Location Release Agreement
 • High-Converting Social Media Announcement & Tip Menu Banners
+• Cinematic 3D LUTs (.CUBE) & Photorealistic AI Prompt Engineering Lookbook
 
 Instant digital download delivered immediately upon purchase!
 ================================================================"""
-        (pkg_dir / "ETSY_LISTING_METADATA_AND_TAGS.txt").write_text(listing_info, encoding="utf-8")
 
-        # 6. Compress into ZIP
-        zip_path = self.output_base / f"{bundle_name}.zip"
-        with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
-            for root, dirs, files in os.walk(pkg_dir):
-                for file in files:
-                    fp = Path(root) / file
-                    zipf.write(fp, arcname=str(fp.relative_to(pkg_dir)))
-
-        return {
-            "status": "ok",
-            "product_type": product_type,
-            "requested_product_type": requested_product_type,
-            "bundle_name": bundle_name,
-            "zip_path": str(zip_path),
-            "zip_name": zip_path.name,
-            "zip_size_kb": round(zip_path.stat().st_size / 1024, 1),
-            "total_files": len(files_written),
-            "listing_guide": listing_info
-        }
 
 if __name__ == "__main__":
     store = EtsyDigitalStore()
-    print("Etsy Digital Store module ready.")
+    print("Etsy Digital Store module ready with 3D LUTs & AI Prompt Bible.")

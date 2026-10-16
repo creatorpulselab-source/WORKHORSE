@@ -1,0 +1,185 @@
+{
+  "1": {
+    "inputs": {
+      "LoadImagesFolderState": "{\"version\":1,\"folder\":\"\",\"recursive\":false,\"keepFolders\":false,\"skipDone\":false,\"doneFolder\":\"\",\"sort\":\"name\",\"sort_dir\":\"asc\",\"selected\":[],\"mode\":\"off\",\"max_mp\":1,\"longest_side\":1024,\"scale_factor\":1,\"fit_w\":1024,\"fit_h\":1024,\"cover_w\":1024,\"cover_h\":1024,\"ratio_preset\":\"1:1\",\"ratio_w\":1,\"ratio_h\":1,\"ratio_action\":\"crop\",\"pad_color\":\"#808080\",\"pad_top\":0,\"pad_bottom\":0,\"pad_left\":0,\"pad_right\":0,\"crop_anchor\":\"center\",\"crop_scale\":true,\"snap\":0,\"resample\":\"auto\",\"allow_upscale\":true}"
+    },
+    "class_type": "PixaromaLoadImagesFolder",
+    "_meta": {
+      "title": "Load Images from Folder Pixaroma (1. your folder)"
+    }
+  },
+  "2": {
+    "inputs": {
+      "image": "Logo.png",
+      "LoadImageMiniState": "{\"version\":1,\"mode\":\"longest_side\",\"max_mp\":1,\"longest_side\":160,\"scale_factor\":1,\"fit_w\":1024,\"fit_h\":1024,\"cover_w\":1024,\"cover_h\":1024,\"ratio_preset\":\"1:1\",\"ratio_w\":1,\"ratio_h\":1,\"ratio_action\":\"crop\",\"pad_color\":\"#808080\",\"pad_top\":0,\"pad_bottom\":0,\"pad_left\":0,\"pad_right\":0,\"crop_anchor\":\"center\",\"crop_scale\":true,\"snap\":0,\"resample\":\"auto\",\"allow_upscale\":true,\"orig_name\":\"Logo.png\"}"
+    },
+    "class_type": "PixaromaLoadImageMini",
+    "_meta": {
+      "title": "Load Image Mini Pixaroma (2. your logo, PNG)"
+    }
+  },
+  "3": {
+    "inputs": {
+      "image_info": [
+        "2",
+        1
+      ]
+    },
+    "class_type": "PixaromaImageInfo",
+    "_meta": {
+      "title": "Image Info Pixaroma (the logo's size and see-through parts)"
+    }
+  },
+  "4": {
+    "inputs": {
+      "mask": [
+        "3",
+        1
+      ]
+    },
+    "class_type": "InvertMask",
+    "_meta": {
+      "title": "InvertMask (show the logo, hide its background)"
+    }
+  },
+  "5": {
+    "inputs": {
+      "value": 32
+    },
+    "class_type": "PixaromaNumber",
+    "_meta": {
+      "title": "Number Pixaroma (3. distance from the edge, px)"
+    }
+  },
+  "6": {
+    "inputs": {
+      "expression": "a - b - c",
+      "values.a": [
+        "1",
+        2
+      ],
+      "values.b": [
+        "3",
+        2
+      ],
+      "values.c": [
+        "5",
+        0
+      ]
+    },
+    "class_type": "ComfyMathExpression",
+    "_meta": {
+      "title": "Math Expression (x = picture width - logo width - edge)"
+    }
+  },
+  "7": {
+    "inputs": {
+      "expression": "a - b - c",
+      "values.a": [
+        "1",
+        3
+      ],
+      "values.b": [
+        "3",
+        3
+      ],
+      "values.c": [
+        "5",
+        0
+      ]
+    },
+    "class_type": "ComfyMathExpression",
+    "_meta": {
+      "title": "Math Expression (y = picture height - logo height - edge)"
+    }
+  },
+  "8": {
+    "inputs": {
+      "x": [
+        "6",
+        1
+      ],
+      "y": [
+        "7",
+        1
+      ],
+      "resize_source": false,
+      "destination": [
+        "1",
+        0
+      ],
+      "source": [
+        "3",
+        0
+      ],
+      "mask": [
+        "4",
+        0
+      ]
+    },
+    "class_type": "ImageCompositeMasked",
+    "_meta": {
+      "title": "Image Composite Masked (puts the logo on the picture)"
+    }
+  },
+  "9": {
+    "inputs": {
+      "images": [
+        "8",
+        0
+      ],
+      "name": [
+        "1",
+        4
+      ],
+      "SaveImageState": "{\"version\":1,\"folder\":\"\",\"pattern\":\"With Logo/%input%_logo\",\"format\":\"jpg\",\"quality\":92,\"embedWorkflow\":true,\"civitaiMeta\":false,\"saveOnRun\":true,\"dateStyle\":\"yyyy-MM-dd\",\"counterDigits\":3,\"folded\":false,\"hideBarWhenFolded\":false,\"webpLossless\":false,\"inputSubfolders\":false,\"showOpen\":true,\"showCopy\":true,\"showFolder\":true,\"showPng\":true,\"showJpg\":true,\"showWebp\":true}"
+    },
+    "class_type": "PixaromaSaveImage",
+    "_meta": {
+      "title": "Save Image Pixaroma (keeps each picture's name)"
+    }
+  },
+  "10": {
+    "inputs": {
+      "label_json": "{\"text\":\"Add Your Logo to All Images in a Folder\",\"fontSize\":31,\"fontFamily\":\"Arial\",\"fontColor\":\"#ffffff\",\"textAlign\":\"left\",\"backgroundColor\":\"#f66744\",\"padding\":10,\"borderRadius\":0,\"opacity\":1,\"fontWeight\":\"normal\",\"lineHeight\":1}"
+    },
+    "class_type": "PixaromaLabel",
+    "_meta": {
+      "title": "Label Pixaroma"
+    }
+  },
+  "11": {
+    "inputs": {
+      "note_json": "{\"version\":1,\"content\":\"<h1>NODES USED IN THIS WORKFLOW</h1><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #b8b8b8\\\"><p>\\n\\n</p><p><b>No models to download.</b> Everything here is plain picture work, so it runs on any computer and it is fast, even without a strong graphics card.</p><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #b8b8b8\\\"><p>\\n\\n</p><h2><span data-ic=\\\"nodes-installed\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;Nodes Installed from Manager</h2><p>\\n\\n</p><ul><li>Pixaroma, version <b>1.4.183</b> or newer. A node shows red or missing? Update Pixaroma.</li></ul><p>\\n\\n</p><p><b>Which version is the newest?</b> The <b>Latest Pixaroma version</b> button shows it and what is new in it. The help page has the update steps for every kind of install.</p><p>\\n\\n</p><p><span class=\\\"pix-note-btnblock\\\"><a class=\\\"pix-note-rm\\\" style=\\\"background-color: #f66744\\\" href=\\\"https://workflows.pixaroma.com/latest/?need=1.4.183\\\" target=\\\"_blank\\\" rel=\\\"noopener noreferrer\\\">Latest Pixaroma version</a></span>&nbsp;<span class=\\\"pix-note-btnblock\\\"><a class=\\\"pix-note-rm\\\" style=\\\"background-color: #f66744\\\" href=\\\"https://workflows.pixaroma.com/help/#update\\\" target=\\\"_blank\\\" rel=\\\"noopener noreferrer\\\">How to update Pixaroma</a></span>&nbsp;</p><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #b8b8b8\\\"><p>\\n\\n</p><h2><span data-ic=\\\"puzzle\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;Something missing?</h2><p>\\n\\n</p><p>Each button opens a short video that shows the fix, with the steps written under it.</p><p>\\n\\n</p><p><span class=\\\"pix-note-btnblock\\\"><a class=\\\"pix-note-rm\\\" style=\\\"background-color: #f66744\\\" href=\\\"https://workflows.pixaroma.com/help/missing-nodes/\\\" target=\\\"_blank\\\" rel=\\\"noopener noreferrer\\\">Red or missing nodes</a></span>&nbsp;<span class=\\\"pix-note-btnblock\\\"><a class=\\\"pix-note-rm\\\" style=\\\"background-color: #f66744\\\" href=\\\"https://workflows.pixaroma.com/help/refresh/\\\" target=\\\"_blank\\\" rel=\\\"noopener noreferrer\\\">Buttons missing after an update</a></span>&nbsp;</p><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #b8b8b8\\\"><p>\\n\\n</p><h2><span data-ic=\\\"pixaroma\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;Resources</h2><p>\\n\\n</p><p>\\n  <a class=\\\"pix-note-discord\\\" href=\\\"https://discord.com/invite/gggpkVgBf3\\\" target=\\\"_blank\\\" rel=\\\"noopener noreferrer\\\">Join Discord</a>&nbsp;\\n  <a class=\\\"pix-note-yt\\\" href=\\\"https://www.youtube.com/@pixaroma\\\" target=\\\"_blank\\\" rel=\\\"noopener noreferrer\\\">Pixaroma YouTube Channel</a>&nbsp;\\n  <span class=\\\"pix-note-btnblock\\\"><a class=\\\"pix-note-rm\\\" style=\\\"background-color: #f66744\\\" href=\\\"https://workflows.pixaroma.com/help/report/\\\" target=\\\"_blank\\\" rel=\\\"noopener noreferrer\\\">Ask for help</a></span>&nbsp;\\n</p><p>\\n\\n</p>\",\"buttonColor\":\"#f66744\",\"lineColor\":\"#f66744\",\"backgroundColor\":\"#2a2a2a\",\"info\":{\"title\":\"Nodes to Install\",\"icon\":\"pixaroma\",\"color\":\"#f66744\"}}"
+    },
+    "class_type": "PixaromaInfo",
+    "_meta": {
+      "title": "Info Pixaroma"
+    }
+  },
+  "12": {
+    "inputs": {
+      "note_json": "{\"version\":1,\"content\":\"<h1>HOW TO USE</h1><p>\\n\\n</p><p>Puts your logo in the bottom right corner of every picture in a folder, in one Run. The Math nodes work out the corner from each picture's own size, so pictures of different sizes all get the logo in the same place. For text instead of a logo, use <b>3. Watermark All Images in a Folder</b>.</p><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #b8b8b8\\\"><p>\\n\\n</p><h2><span data-ic=\\\"folder-v1\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;Pick your folder</h2><p>\\n\\n</p><ol><li>On <b>Load Images from Folder Pixaroma</b>, click <b>Browse</b> and pick your folder, or paste the folder's path into the box.</li><li>Click <b>Pick images</b>, then <b>Select all</b>, or click only the pictures you want. The button shows how many are picked.</li><li>Press <b>Run</b> once. Leave the Run count at <b>1</b>: the node sends every picture through by itself, one after the other.</li></ol><p>\\n\\n</p><p>This workflow opens with <b>no folder picked</b>: choose your own folder, or try it first on the demo folder <b>Products</b> inside the <b>Media Inputs</b> folder that comes with these workflows.</p><p>\\n\\n</p><p><span data-ic=\\\"idea\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;A folder inside ComfyUI's own <code>input</code> or <code>output</code> folder works straight away. A folder anywhere else works too, but pick it once with <b>Browse</b>: that is how ComfyUI knows you allowed it.</p><p>\\n\\n</p><p><span data-ic=\\\"idea\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;Pictures go through in name order. Name them <code>01_</code>, <code>02_</code> and so on if the order matters.</p><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #b8b8b8\\\"><p>\\n\\n</p><h2><span data-ic=\\\"image\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;Your logo</h2><p>\\n\\n</p><ol><li>Click the picture on <b>2. your logo</b> to upload your own logo. A PNG with a see-through background looks best. The demo uses the Pixaroma logo <b>Logo.png</b> from the Media Inputs folder.</li><li>Bigger or smaller: open the gear on that node and change <b>Longest side</b> (160 px in the demo).</li><li>Closer to or further from the edge: change <b>3. distance from the edge</b>.</li></ol><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #b8b8b8\\\"><p>\\n\\n</p><h2><span data-ic=\\\"chip\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;Another corner</h2><p>\\n\\n</p><p>Change the two formulas. <b>a</b> = the picture's size, <b>b</b> = the logo's size, <b>c</b> = the distance from the edge:</p><p>\\n\\n</p><table class=\\\"pix-note-grid\\\" style=\\\"--pix-note-grid-border: #f66744; --pix-note-grid-header-bg: #1a1a1a\\\"><thead><tr><th>Corner</th><th>x formula</th><th>y formula</th></tr></thead><tbody><tr><td>Bottom right (the demo)</td><td><code>a - b - c</code></td><td><code>a - b - c</code></td></tr><tr><td>Bottom left</td><td><code>c</code></td><td><code>a - b - c</code></td></tr><tr><td>Top right</td><td><code>a - b - c</code></td><td><code>c</code></td></tr><tr><td>Top left</td><td><code>c</code></td><td><code>c</code></td></tr><tr><td>Centre</td><td><code>(a - b) / 2</code></td><td><code>(a - b) / 2</code></td></tr></tbody></table><p>\\n\\n</p><p><span data-ic=\\\"idea\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;A softer logo: make your PNG half see-through in your picture editor before you load it.</p><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #b8b8b8\\\"><p>\\n\\n</p><h2><span data-ic=\\\"question-mark\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;Something not working?</h2><p>\\n\\n</p><p>Each button opens the answer on the Pixaroma help page.</p><p>\\n\\n</p><p><span class=\\\"pix-note-btnblock\\\"><a class=\\\"pix-note-rm\\\" style=\\\"background-color: #f66744\\\" href=\\\"https://workflows.pixaroma.com/help/faq/#q-folder-not-approved\\\" target=\\\"_blank\\\" rel=\\\"noopener noreferrer\\\">Folder not approved</a></span>&nbsp;<span class=\\\"pix-note-btnblock\\\"><a class=\\\"pix-note-rm\\\" style=\\\"background-color: #f66744\\\" href=\\\"https://workflows.pixaroma.com/help/faq/#q-save-other-folder\\\" target=\\\"_blank\\\" rel=\\\"noopener noreferrer\\\">Save to your own folder</a></span>&nbsp;<span class=\\\"pix-note-btnblock\\\"><a class=\\\"pix-note-rm\\\" style=\\\"background-color: #f66744\\\" href=\\\"https://workflows.pixaroma.com/help/look/\\\" target=\\\"_blank\\\" rel=\\\"noopener noreferrer\\\">Nodes look different from the video</a></span>&nbsp;</p><p>\\n\\n</p>\",\"buttonColor\":\"#f66744\",\"lineColor\":\"#f66744\",\"backgroundColor\":\"#2a2a2a\",\"info\":{\"title\":\"How to Use\",\"icon\":\"to-do\",\"color\":\"#2a9d8f\"}}"
+    },
+    "class_type": "PixaromaInfo",
+    "_meta": {
+      "title": "Info Pixaroma"
+    }
+  },
+  "13": {
+    "inputs": {
+      "note_json": "{\"version\":1,\"content\":\"<h1>WHAT EACH NODE DOES</h1><p>\\n\\n</p><p>The colour of a node tells you what kind of node it is. Nothing here needs changing except the blue ones.</p><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #b8b8b8\\\"><p>\\n\\n</p><h2><span data-ic=\\\"chip\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;The steps you set</h2><p>\\n\\n</p><p>Blue, and numbered. These are the only nodes you need to touch.</p><p>\\n\\n</p><ul><li><b>Load Images from Folder Pixaroma (1. your folder)</b> - Point it at a folder and pick the pictures. Press Run once and every picture gets the logo, one after the other. Its resize is Off, so each picture keeps its own size. Its <b>width</b> and <b>height</b> go to the Math nodes.</li><li><b>Load Image Mini Pixaroma (2. your logo, PNG)</b> - Your logo, best as a PNG with a see-through background. Its gear is set to <b>Longest side 160</b>: the logo's longer side becomes 160 px. Change that number in the gear for a bigger or smaller logo.</li><li><b>Number Pixaroma (3. distance from the edge, px)</b> - How far the logo sits from the right and bottom edges, in pixels.</li></ul><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #b8b8b8\\\"><p>\\n\\n</p><h2><span data-ic=\\\"chip\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;The helpers</h2><p>\\n\\n</p><p>Purple. They run by themselves and do the small jobs: count, pick, join or pass things along.</p><p>\\n\\n</p><ul><li><b>Image Info Pixaroma (the logo's size and see-through parts)</b> - Reads the logo's finished <b>width</b> and <b>height</b> and its <b>mask</b>: which parts of the PNG are see-through.</li><li><b>InvertMask (show the logo, hide its background)</b> - Turns the mask around, so the logo itself shows and its see-through background does not. Without it you would paste the empty background instead of the logo.</li><li><b>Math Expression (x = picture width - logo width - edge)</b> - Works out where the logo starts from the left: <code>a - b - c</code> = the picture's width - the logo's width - the distance from the edge. It runs once PER picture, so a bigger picture still gets the logo in its corner.</li><li><b>Math Expression (y = picture height - logo height - edge)</b> - The same from the top: the picture's height - the logo's height - the distance from the edge.</li></ul><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #b8b8b8\\\"><p>\\n\\n</p><h2><span data-ic=\\\"chip\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;The work</h2><p>\\n\\n</p><p>Green. They run by themselves.</p><p>\\n\\n</p><ul><li><b>Image Composite Masked (puts the logo on the picture)</b> - Pastes the logo onto the picture at <b>x</b> and <b>y</b>, using the mask so only the logo shows. <b>resize_source</b> stays off: on, it would stretch the logo over the whole picture.</li></ul><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #b8b8b8\\\"><p>\\n\\n</p><h2><span data-ic=\\\"checkmark\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;The result</h2><p>\\n\\n</p><p>Dark red, at the end.</p><p>\\n\\n</p><ul><li><b>Save Image Pixaroma (keeps each picture's name)</b> - Saves each picture as JPG into <code>ComfyUI/output/With Logo</code>, named like its picture with <code>_logo</code> at the end.</li></ul><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #b8b8b8\\\"><p>\\n\\n</p><h2><span data-ic=\\\"info\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;Readouts</h2><p>\\n\\n</p><p>Dark. Nothing to set: they show you what happened.</p><p>\\n\\n</p><ul><li><b>Run Timer</b> - The dark clock above the result shows how long the last Run took.</li></ul><p>\\n\\n</p>\",\"buttonColor\":\"#f66744\",\"lineColor\":\"#f66744\",\"backgroundColor\":\"#2a2a2a\",\"info\":{\"title\":\"Nodes Info\",\"icon\":\"node-v5\",\"color\":\"#3d7cc9\"}}"
+    },
+    "class_type": "PixaromaInfo",
+    "_meta": {
+      "title": "Info Pixaroma"
+    }
+  },
+  "14": {
+    "inputs": {},
+    "class_type": "PixaromaRunTimer",
+    "_meta": {
+      "title": "Run Timer Pixaroma"
+    }
+  }
+}

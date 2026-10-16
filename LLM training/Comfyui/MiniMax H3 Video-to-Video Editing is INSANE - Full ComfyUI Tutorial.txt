@@ -1,0 +1,78 @@
+
+
+MiniMax H3 Video-to-Video Editing is INSANE | Full ComfyUI Tutorial
+
+Chapter 1: Introduction to Miniax H3
+0:000 secondsYou give Miniax H3 a video, tell it what you want to change, and it can transform the entire scene while keeping the
+0:088 secondsoriginal motion, camera movement, timing, or pretty much anything else you want to preserve inside Cam UI. Um, you
+0:1717 secondscan use a reference video and turn it into something completely different.
+0:2121 secondsWhether that's changing the character, replacing an outfit, creating an entirely new scene, copying a background
+0:2828 secondsor environment, or even transferring the motion from one video to another. Miniax
+0:3434 secondsH3 can take the motion and information from your reference video and use it to generate a completely new result. In
+0:4242 secondsthis video, I'm going to show you exactly how to set up this video tovideo workflow in Comfy UI with Miniax H3, how
+0:5050 secondsI structure the prompts, what settings I'm using, and a few different examples so you can see what is actually possible. So, let's jump straight into
+0:5858 secondsComfy UI example one, clothing replacement. So, let's go to Comfy UI.
+Chapter 2: Clothing replacement guide
+1:031 minute, 3 secondsAnd over here, you can see a video of this woman. And now, let me show you guys the image that we're going to use.
+1:101 minute, 10 secondsWe want to change uh the sweater or basically the girls t-shirt and uh replace it with this olive green hoodie.
+1:181 minute, 18 secondsUh we're using around one uh megapixel here which gives us a fairly decent balance between quality and generation
+1:251 minute, 25 secondstime. And this right here is the prompt which is obviously one of the most important parts of the entire workflow. We're using video one and picture one.
+1:331 minute, 33 secondsPicture one is our clothing reference.
+1:351 minute, 35 secondsSo the prompt is basically uh telling Miniax H3 exactly what picture one is supposed to do and what needs to be changed in the original video. For
+1:441 minute, 44 secondsexample, video one is the original video containing the woman. Picture one is the clothing reference. Replace the woman's
+1:521 minute, 52 secondsexisting top with an olive green zip-up hoodie while preserving the exact original video performance, camera movement, timing, environment, lighting,
+2:002 minutesand overall motion. And over here you can see the result. Now, you can create these prompts using uh chatgpt, claude,
+2:082 minutes, 8 secondsgemini, or pretty much any good LLM you want. Uh the important thing is that the prompt needs to be specific. You know, you don't want to simply say, you know,
+2:172 minutes, 17 secondschange her clothes. You want to clearly tell the model what the reference image is, what you want to change, and most importantly, what you want to preserve
+2:242 minutes, 24 secondsfrom the original video. Uh that's especially important when you're working with video to video because you want Miniax H3 to understand the role of each
+2:332 minutes, 33 secondsreference rather than just treating everything as a generic image. For the settings, I'm using res Multistep uh with 20 steps and I'm not using any Laura, Turboa or anything like that.
+2:442 minutes, 44 secondsHere I'm keeping the workflow relatively simple so you can see what Miniax H3 can actually do by itself. Uh example two,
+2:522 minutes, 52 secondsshoe replacement. Now let's take another example. This time, let's take this guy.
+Chapter 3: Shoe replacement workflow
+2:562 minutes, 56 secondsFor this one, let's say we're promoting a pair of shoes. So, we have our original video of the guy, and this is the image that we're going to use as our
+3:053 minutes, 5 secondsreference, these red Nike shoes. The idea is that we want the guy in the original video to wear these shoes.
+3:113 minutes, 11 secondsBasically, the same settings again, around 1 megapixel, around 7 seconds, and the same overall workflow. And this
+3:183 minutes, 18 secondsis the prompt. Video one is the original reference video containing the man and is provided for subject identity and performance. Picture one is the
+3:273 minutes, 27 secondsreference image of the red aesthetic shoes. Preserve the man's identity, body movement, entire performance, timing, and environment while replacing his uh
+3:363 minutes, 36 secondsfootwear with the red shoes from picture one. The man should be wearing the red shoes uh consistently throughout the video while dancing on the street. Now,
+3:453 minutes, 45 secondsI made a few corrections to the prompt here because, as you know, we're working with reference to video and video to video. So, we need to clearly define what each reference is being used for.
+3:563 minutes, 56 secondsThe more clearly you describe the references and the desired change, the easier it is for the model to understand what you're actually trying to achieve.
+4:044 minutes, 4 secondsAnd now, let's generate it and see what we get. So, um, you know, as you can see, the original performance is still there, but the footwear has been changed
+4:124 minutes, 12 secondsto the red shoes. From our reference image, this is something that can be really useful if you're working with product videos because instead of
+4:204 minutes, 20 secondscompletely recreating the video, you can use an existing performance and modify the product you're showing. Example
+4:274 minutes, 27 secondsthree, background replacement. Now, let's take another example. This time, I'm going to take this video of this woman. We're going to use this video as
+Chapter 4: Background environment swapping
+4:354 minutes, 35 secondsour original reference and we're going to replace the environment. And this is the image we're going to use. As you can
+4:424 minutes, 42 secondssee, this image has a completely different environment. Uh there's a cafe here. And uh we want to use this cafe as
+4:504 minutes, 50 secondsthe new background. So essentially, we're going to take the background and environment from the reference image while keeping the woman's original
+4:594 minutes, 59 secondsmovement from the from the video. Again, we're using the same basic settings. I'm using res multistep and as you can see
+5:075 minutes, 7 secondsthe video and now let's look at the prompt. So, we have video one which is our original video. And then we have
+5:155 minutes, 15 secondspicture one which contains the environment that we wanted to use. The prompt basically tells Miniax uh H3 what
+5:235 minutes, 23 secondseach reference represents and what we want it to change. Camera movement and overall performance from video one.
+5:305 minutes, 30 secondsReplace only the original background and environment with the cafe uh environment shown in picture one. Maintain realistic
+5:385 minutes, 38 secondslighting, perspective, shadows, and integration between the subject and the new environment. Uh this tells the model
+5:455 minutes, 45 secondsto focus specifically on replacing the environment rather than changing the subject. I'll also give you guys the
+5:525 minutes, 52 secondsprompt format and the Miniax H3 prompting guide that I'm using in the link down below in the description so
+5:595 minutes, 59 secondsyou can use the same structure for your own projects. And let's generate this one. So, as you can see, it replaces the
+6:076 minutes, 7 secondsbackground and environment while keeping the original movement. And this actually looks pretty pretty amazing and uh realistic. You can see that the cafe
+6:166 minutes, 16 secondsfrom the reference image has been transferred into the video while the woman is still performing, you know, the same movement from the original video.
+6:246 minutes, 24 secondsExample four, character replacement/motion transfer. Now, let's take one more example. This time, we're going to take this video of this girl.
+Chapter 5: Character replacement and closing
+6:326 minutes, 32 secondsFor this one, we're mainly interested in the motion. So, we're going to use this uh video as our motion reference and then uh replace the character
+6:406 minutes, 40 secondscompletely. As you can see, this is the original video. Uh, for this test I'm using around 0.4 megapixels because the
+6:486 minutes, 48 secondshigher resolutions were taking too much time to generate. And for a quick test like this, I don't really need the additional resolution. And now let's
+6:576 minutes, 57 secondslook at the prompt again. We have our original reference video, which is video one. Then we have picture one, which is
+7:047 minutes, 4 secondsthe character that we wanted to use. And this is where you want to be very clear about what you're asking the model to do. The prompt is video one is the
+7:137 minutes, 13 secondsoriginal reference video containing the woman and her motion. Picture one contains the new subject. Completely remove the original woman from the video
+7:217 minutes, 21 secondsand replace her with the subject from picture one while preserving the exact body motion, choreography, timing, camera movement, and overall performance
+7:307 minutes, 30 secondsfrom video one. So basically, we're telling Miniax H3, take the motion from video one, take the character from picture one, and combine them together.
+7:407 minutes, 40 secondsAnd now let's generate it. As you can see, we've replaced the original character uh with the new subject while maintaining, you know, the motion from
+7:487 minutes, 48 secondsthe reference video. So you can see that uh the character forming the same type of movement from the original video. And
+7:557 minutes, 55 secondsuh this is another really useful application of video to video because see this is how you can use MiniAX H3
+8:038 minutes, 3 secondsfor videotovideo editing inside Comfy UI. We've looked at several different examples. changing clothing, replacing shoes, changing the entire background
+8:128 minutes, 12 secondsand environment, and finally replacing the character while preserving the motion from the original video. And the key thing to remember is that your
+8:208 minutes, 20 secondsprompt structure matters a lot. Always clearly define what each reference is being used for, what you want Miniax H3 to change, and what you want it to
+8:298 minutes, 29 secondspreserve. Once you understand that, you can start experimenting with much more complicated videotovideo edits. If you guys enjoyed this video, make sure to
+8:378 minutes, 37 secondslike the video, subscribe to the channel, and let me know in the comments uh what you want to see
+
+Sync to video time

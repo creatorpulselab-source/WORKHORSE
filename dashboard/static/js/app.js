@@ -27,6 +27,7 @@ window.openWorkspaceFolder = async function(folderPath, folderLabel = "Workspace
 class AppController {
   constructor() {
     this.pollTelemetry();
+    this.initRealtimeAgentMonitor();
     this.initSettingsModal();
     this.initBrandModal();
     this.initVramManager();
@@ -192,10 +193,6 @@ class AppController {
     }
     if (openFolderBtn) {
       openFolderBtn.addEventListener("click", () => window.openWorkspaceFolder("F:/WORKHORSE/workspace/brand_assets", "Brand Assets & Banners"));
-        } catch (e) {
-          console.error("Error opening brand folder", e);
-        }
-      });
     }
   }
 
@@ -266,6 +263,209 @@ class AppController {
         launchBtn.innerHTML = `✨ Launch Local Prism Copy`;
       }
     });
+  }
+
+  initRealtimeAgentMonitor() {
+    this.pollAgentMonitor();
+    
+    // Toggle expand roster grid
+    const toggleBtn = document.getElementById("btn-toggle-monitor-expand");
+    const rosterGrid = document.getElementById("monitor-expand-roster");
+    if (toggleBtn && rosterGrid) {
+      toggleBtn.addEventListener("click", () => {
+        rosterGrid.classList.toggle("open");
+        const isOpen = rosterGrid.classList.contains("open");
+        toggleBtn.textContent = isOpen ? "👥 Collapse Roster" : `👥 Roster (${this.lastActiveCount || 0}/14 Active)`;
+      });
+    }
+
+    // Stop stuck/active job button
+    const stopBtn = document.getElementById("btn-monitor-stop-job");
+    if (stopBtn) {
+      stopBtn.addEventListener("click", async () => {
+        const jobId = stopBtn.dataset.jobId;
+        if (!jobId) return;
+        if (!confirm(`Are you sure you want to halt job ${jobId}? This will stop processing immediately.`)) return;
+        stopBtn.disabled = true;
+        stopBtn.textContent = "🛑 Halting...";
+        try {
+          const res = await fetch(`/api/pipeline/jobs/${jobId}/cancel`, { method: "POST" });
+          const data = await res.json();
+          if (res.ok) {
+            alert(`Job ${jobId} cancellation initiated.`);
+          } else {
+            alert(`Could not cancel job: ${data.detail || data.message}`);
+          }
+        } catch (e) {
+          alert(`Failed to cancel job: ${e.message}`);
+        } finally {
+          setTimeout(() => this.pollAgentMonitor(), 1000);
+        }
+      });
+    }
+
+    // Emergency abort all button
+    const abortBtn = document.getElementById("btn-monitor-emergency-abort");
+    if (abortBtn) {
+      abortBtn.addEventListener("click", async () => {
+        if (!confirm("EMERGENCY ABORT: Are you sure you want to stop all active pipeline jobs, ComfyUI renders, and purge local GPU VRAM?")) return;
+        abortBtn.disabled = true;
+        abortBtn.textContent = "🛑 Stopping All...";
+        try {
+          const res = await fetch("/api/monitor/stop-process", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ target: "emergency_stop" })
+          });
+          const data = await res.json();
+          alert(`Emergency Abort executed:\n${data.message}`);
+        } catch (e) {
+          alert(`Emergency abort error: ${e.message}`);
+        } finally {
+          abortBtn.disabled = false;
+          abortBtn.textContent = "🛑 Emergency Abort";
+          setTimeout(() => this.pollAgentMonitor(), 1200);
+        }
+      });
+    }
+  }
+
+  async pollAgentMonitor() {
+    try {
+      const res = await fetch("/api/monitor/agents-active");
+      if (res.ok) {
+        const data = await res.json();
+        this.updateAgentMonitorUI(data);
+      }
+    } catch (e) {
+      console.warn("Agent monitor poll error", e);
+    }
+    setTimeout(() => this.pollAgentMonitor(), 3000);
+  }
+
+  updateAgentMonitorUI(data) {
+    if (!data) return;
+    if (data.version && window.__WORKHORSE_VERSION__ && data.version !== window.__WORKHORSE_VERSION__) {
+      window.location.reload(true);
+      return;
+    }
+    this.lastActiveCount = data.active_count || 0;
+
+    const countBadge = document.getElementById("monitor-active-count-badge");
+    if (countBadge) countBadge.textContent = data.active_count || 0;
+
+    const statusBadge = document.getElementById("monitor-status-badge");
+    const pulseDot = document.getElementById("monitor-pulse-dot");
+    const taskText = document.getElementById("monitor-task-text");
+    const stopBtn = document.getElementById("btn-monitor-stop-job");
+    const progressRow = document.getElementById("monitor-progress-container");
+    const progressFill = document.getElementById("monitor-progress-fill");
+    const progressLabel = document.getElementById("monitor-progress-label");
+    const elapsedLabel = document.getElementById("monitor-elapsed-label");
+    const stalledWarning = document.getElementById("monitor-stalled-warning");
+
+    const hasActive = Boolean(data.has_active);
+    const hasStalled = Boolean(data.stalled_count > 0);
+    const primaryJob = (data.active_jobs && data.active_jobs.length > 0) ? data.active_jobs[0] : null;
+
+    if (hasStalled) {
+      if (statusBadge) {
+        statusBadge.className = "monitor-status-pill stalled";
+        statusBadge.innerHTML = `<span class="pulse-dot" style="background:#ef4444;"></span> ⚠️ STALLED (${data.stalled_count})`;
+      }
+      if (pulseDot) pulseDot.style.background = "#ef4444";
+      if (stalledWarning) {
+        stalledWarning.style.display = "block";
+        stalledWarning.textContent = `⚠️ STALLED: ${data.stalled_alerts[0]?.message || 'Process taking longer than expected'}`;
+      }
+    } else if (hasActive) {
+      if (statusBadge) {
+        statusBadge.className = "monitor-status-pill active";
+        statusBadge.innerHTML = `<span class="pulse-dot" style="background:#00f2fe;"></span> PROCESSING (${data.active_count} AGENTS)`;
+      }
+      if (pulseDot) pulseDot.style.background = "#00f2fe";
+      if (stalledWarning) stalledWarning.style.display = "none";
+    } else {
+      if (statusBadge) {
+        statusBadge.className = "monitor-status-pill";
+        statusBadge.innerHTML = `<span class="pulse-dot" style="background:#06d6a0;"></span> IDLE`;
+      }
+      if (pulseDot) pulseDot.style.background = "#06d6a0";
+      if (stalledWarning) stalledWarning.style.display = "none";
+    }
+
+    if (primaryJob) {
+      if (taskText) taskText.textContent = `${primaryJob.active_agent?.toUpperCase()}: ${primaryJob.agent_message || 'Processing stage...'}`;
+      if (stopBtn) {
+        stopBtn.style.display = "inline-flex";
+        stopBtn.disabled = false;
+        stopBtn.dataset.jobId = primaryJob.job_id;
+        stopBtn.textContent = `🛑 Stop Job (${primaryJob.active_agent?.toUpperCase()})`;
+      }
+      if (progressRow) progressRow.style.display = "flex";
+      if (progressFill) {
+        const pct = primaryJob.progress || 0;
+        progressFill.style.width = `${pct}%`;
+        progressFill.className = primaryJob.is_stalled ? "monitor-progress-fill stalled" : "monitor-progress-fill";
+      }
+      if (progressLabel) progressLabel.textContent = `Stage ${primaryJob.current_stage || 1}/8 · ${primaryJob.progress || 0}%`;
+      if (elapsedLabel) {
+        const sec = primaryJob.stage_elapsed_sec || 0;
+        const mins = Math.floor(sec / 60);
+        const remSecs = Math.floor(sec % 60);
+        elapsedLabel.textContent = `Stage Runtime: ${String(mins).padStart(2, '0')}:${String(remSecs).padStart(2, '0')}`;
+      }
+    } else if (hasActive) {
+      const activeAgent = data.agents?.find(a => a.state === 'active');
+      if (taskText) taskText.textContent = activeAgent ? `${activeAgent.name}: ${activeAgent.current_task}` : 'Active tasks running in studio...';
+      if (stopBtn) stopBtn.style.display = "none";
+      if (progressRow) progressRow.style.display = "none";
+    } else {
+      if (taskText) taskText.textContent = "All 14 Agents Standing By · Systems Idle";
+      if (stopBtn) stopBtn.style.display = "none";
+      if (progressRow) progressRow.style.display = "none";
+    }
+
+    // Active Agent Chips Strip
+    const chipsStrip = document.getElementById("monitor-agent-chips");
+    if (chipsStrip && data.agents) {
+      chipsStrip.innerHTML = data.agents.map(a => {
+        let cls = "agent-chip";
+        let dot = "⚪";
+        if (a.state === "stalled") {
+          cls += " stalled";
+          dot = "🔴";
+        } else if (a.state === "active") {
+          cls += " active";
+          dot = "🔵";
+        }
+        return `<span class="${cls}" title="${a.name} [${a.symbol}] — ${a.title}\nHardware: ${a.hardware}\nStatus: ${a.state.toUpperCase()}\nTask: ${a.current_task}">${dot} ${a.symbol} ${a.name}</span>`;
+      }).join("");
+    }
+
+    // Sync 3D character cards & chamber states with live backend telemetry
+    if (window.character3dEngine && data.agents) {
+      data.agents.forEach(a => {
+        const isWorking = (a.state === "active" || a.state === "stalled");
+        window.character3dEngine.setAgentState(a.id, isWorking ? "working" : "idle");
+      });
+    }
+
+    // Expandable Roster Grid
+    const rosterGrid = document.getElementById("monitor-expand-roster");
+    if (rosterGrid && data.agents && rosterGrid.classList.contains("open")) {
+      rosterGrid.innerHTML = data.agents.map(a => `
+        <div class="agent-status-tile ${a.state}">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <span style="font-size:12px; font-weight:800; color:#fff;">${a.symbol} ${a.name}</span>
+            <span style="font-size:9.5px; font-weight:700; padding:2px 6px; border-radius:4px; ${a.state === 'stalled' ? 'background:#ef4444; color:#fff;' : (a.state === 'active' ? 'background:#00f2fe; color:#000;' : 'background:rgba(255,255,255,0.08); color:#94a3b8;')}">${a.state.toUpperCase()}</span>
+          </div>
+          <div style="font-size:10px; color:#00f2fe; font-family:var(--font-mono);">${a.title}</div>
+          <div style="font-size:10px; color:#94a3b8; line-height:1.3; margin-top:2px;">${a.current_task}</div>
+          <div style="font-size:9px; color:#64748b; font-family:var(--font-mono); margin-top:3px;">⚡ ${a.hardware}</div>
+        </div>
+      `).join("");
+    }
   }
 }
 

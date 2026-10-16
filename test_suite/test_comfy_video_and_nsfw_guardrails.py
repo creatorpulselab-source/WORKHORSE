@@ -333,3 +333,109 @@ def test_herald_pre_post_filter_drops_boudoir_and_adult_files():
     for fn in blocked:
         fn_lower = Path(fn).name.lower()
         assert any(k in fn_lower for k in blocked_tokens), f"Expected {fn} to be matched by blocked_tokens"
+
+
+def test_iris_qc_scans_prompt_for_adult_keywords(tmp_path):
+    """Verify run_iris_qc_audit marks is_sfw=False and passed=False when prompt contains adult/boudoir keywords."""
+    from pipeline.stages.comfyui_bridge import ComfyUIBridge
+    bridge = ComfyUIBridge()
+    img = tmp_path / "WORKHORSE_Render_00099.png"
+    img.write_bytes(b"data")
+
+    mock_qc_resp = json.dumps({
+        "passed": True,
+        "is_sfw": True,
+        "aesthetic_score": 9.0,
+        "extra_limbs_detected": False,
+        "facial_distortion_detected": False,
+        "nudity_or_nsfw_detected": False,
+        "defects_summary": "Clean image.",
+        "modesty_notes": "Clean.",
+        "recommendation": "APPROVED"
+    })
+    with patch.object(bridge.ai, "call_ollama_vision", return_value=mock_qc_resp):
+        # Prompt has boudoir & lingerie
+        audit = bridge.run_iris_qc_audit(img, original_prompt="Boudoir mood, provocative pose, lingerie attire")
+        assert audit["passed"] is False
+        assert audit["is_sfw"] is False
+        assert audit["nudity_or_nsfw_detected"] is True
+        assert audit["recommendation"] == "REJECT_NSFW_CONTENT"
+
+
+def test_herald_verifies_media_against_iris_audit_strictly(tmp_path, monkeypatch):
+    """Verify Herald's _verify_media_is_strictly_sfw rejects images whose audit records contain adult prompts."""
+    from pipeline.stages.herald_scheduler import HeraldScheduler
+    scheduler = HeraldScheduler()
+
+    fake_audit_log = tmp_path / "comfy_qc_audit.json"
+    fake_audit_log.write_text(json.dumps([
+        {
+            "filename": "WORKHORSE_Render_00047__1791819733.png",
+            "passed": False,
+            "is_sfw": False,
+            "prompt": "boudoir mood, lingerie attire",
+            "recommendation": "REJECT_NSFW_CONTENT"
+        },
+        {
+            "filename": "CML_Studio_00010.png",
+            "passed": True,
+            "is_sfw": True,
+            "prompt": "Professional studio headshot with beauty dish",
+            "recommendation": "APPROVED"
+        }
+    ]), encoding="utf-8")
+
+    monkeypatch.setattr("pipeline.stages.herald_scheduler.Path", lambda p: fake_audit_log if "comfy_qc_audit.json" in str(p) else Path(p))
+
+    # Generic filename with adult audit must be blocked
+    assert scheduler._verify_media_is_strictly_sfw("WORKHORSE_Render_00047__1791819733.png") is False
+    # Clean SFW visual must be allowed
+    assert scheduler._verify_media_is_strictly_sfw("CML_Studio_00010.png") is True
+
+
+def test_herald_dispatch_slot_filters_non_sfw_tweets_for_both_accounts(tmp_path, monkeypatch):
+    """Verify dispatch_slot suppresses non-SFW tweet text for both @TheCreatorAsset and @creatorpulselab."""
+    config_file = tmp_path / "config.json"
+    config_file.write_text(json.dumps({
+        "marketing_channels": {
+            "main_brand": {"pinterest": {"enabled": False}},
+            "adult_creator_brand": {"video_posting": {"enabled": False}}
+        }
+    }))
+    state_file = tmp_path / "state.json"
+    scheduler = HeraldScheduler(config_path=str(config_file), state_file=str(state_file))
+
+    # Mock slot with contaminated tweets for both accounts
+    contaminated_slot = {
+        "slot_id": "slot_test",
+        "name": "Test Slot",
+        "target_time": "12:00",
+        "description": "Test",
+        "tweets": {
+            "creatorpulselab": [
+                "Follow these 7 boudoir photographers on TikTok — NSFW tips and OnlyFans growth.",
+                "Clean creator tip: Build a 3-tier digital template ladder for repeatable income. #CreatorEconomy"
+            ],
+            "TheCreatorAsset": [
+                "Boudoir photography posing secrets and sensual lighting tips. #Boudoir",
+                "Studio lighting rule: Feather your key light 45 degrees across the shoulder. #StudioPhotography"
+            ]
+        }
+    }
+    monkeypatch.setattr("pipeline.stages.herald_scheduler.DAILY_SLOTS", [contaminated_slot])
+
+    posted_tweets = {}
+    def mock_post_thread(handle, tweets, media_paths=None):
+        posted_tweets[handle] = tweets
+        return {"success": True}
+
+    monkeypatch.setattr(scheduler.twitter, "post_thread", mock_post_thread)
+    scheduler.dispatch_slot("slot_test")
+
+    # In both accounts, the boudoir/NSFW/OnlyFans tweet must be filtered out, leaving only clean SFW tweets
+    for handle, tw_list in posted_tweets.items():
+        for tw in tw_list:
+            tw_lower = tw.lower()
+            assert "boudoir" not in tw_lower, f"Boudoir leaked in @{handle} post: {tw}"
+            assert "onlyfans" not in tw_lower, f"OnlyFans leaked in @{handle} post: {tw}"
+            assert "nsfw" not in tw_lower, f"NSFW leaked in @{handle} post: {tw}"

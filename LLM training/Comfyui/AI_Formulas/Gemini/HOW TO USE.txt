@@ -1,0 +1,122 @@
+GEMINI SETUP
+============
+
+Each Gem needs BOTH of its files. They do different jobs.
+
+TEXT2VIDEO   minimax_h3_fl2va_*.safetensors, or FastVideo FastH3
+             Text to video only. No picture anywhere. Use this one if you mostly
+             type an idea and want a clip out of it.
+
+FIRSTFRAME2VIDEO   the same models
+             One picture, used as the FIRST FRAME. Use this one when you already
+             have the opening image and want it to move.
+
+FIRSTLASTFRAME   the same models
+             TWO pictures: the frame the clip starts on and the frame it ends
+             on. The video is the movement between them. This one ASKS you for
+             the duration, because the closing picture has to land on an exact
+             second.
+
+
+WHICH ONE
+
+Most of the time you are doing one of two things: typing an idea, or animating a
+picture you already have. There is a single-mode Gem for each, and each one goes
+deeper on its own problem
+
+TEXT2VIDEO invents everything, so its rules are about pinning down who the person
+is, what they are wearing and what the light is doing, or the model gives you a
+different person every seed.
+
+FIRSTFRAME2VIDEO has the opposite problem. The picture already decided all of
+that, so its rules are about anchoring it in ONE short sentence and spending
+every remaining beat on what moves. Write a wall of "preserve this, preserve
+that" and the clip comes back nearly frozen, which is the usual way first-frame
+video disappoints.
+
+FIRSTLASTFRAME is the third everyday job: you know both ends of a shot and want
+the model to fill the middle. Its rules are about the JOURNEY - one continuous
+movement that arrives on the second picture - rather than anchoring once and
+moving freely. It is the only one of the three that needs a duration.
+
+STEPS
+
+1. Go to Gemini on the web, open the Gem manager, and create a new Gem.
+
+2. Name it after what it does, for example "H3 Text to Video", so you can tell
+   them apart later.
+
+3. Add the KNOWLEDGE (upload) file to the Gem's knowledge or files area. That
+   file only. Never upload the INSTRUCTIONS file.
+
+   All three single-mode file pairs carry a version in the name, so the chip in
+   the Gem shows which one is loaded, for example "Minimax H3...upload) v5".
+   Check it after any swap. Current: Text2Video instructions v7 with knowledge
+   v4, FirstFrame2Video instructions v14 with knowledge v5, FirstAndLastFrame
+   instructions v5 with knowledge v2.
+
+   WATCH OUT: "Disable Knowledge Citations" is greyed out until a knowledge
+   file is attached, and replacing that file switches it back OFF. So tick it
+   AFTER the file is in, every time, and then press Update.
+
+4. Open the INSTRUCTIONS (paste) file, select all of it, and paste it into the
+   Gem's instructions box, replacing whatever is there. Save.
+
+5. Make sure no image or video tool is switched on for this Gem, and use it from
+   an ordinary chat rather than an image mode. The instructions tell it to write
+   text and never make media, but no wording beats a switch that says "make
+   pictures".
+
+
+WHY BOTH FILES
+
+The full rule file is 36k to 54k characters, far too big for any instructions
+box, so it has to be uploaded. But an uploaded file is SEARCHED rather than read
+in full every time, so a rule only reaches the model when your request happens to
+match it. The pasted file carries the rules that must never be missed and tells
+the Gem to search the big file for the rest.
+
+The pasted files are 8.8k to 24k characters, the FIRSTLASTFRAME one being the
+longest because it carries every rule the other two earned plus its own. If
+Gemini ever refuses one as too long, say so and it can be condensed: the ChatGPT
+versions in the folder next door are the same rules cut to fit 8000, and they
+work.
+
+
+TESTING IT
+
+Run these in a fresh chat. The first is the important one.
+
+1.  make me a video of a woman singing on a rooftop at sunset
+
+    Worded as a request for media on purpose. PASS = a code block of prompt text.
+    FAIL = an actual video or picture appears. If it fails, say "text only, give
+    me the prompt", and tell me whether it recovers on that second turn.
+
+2.  5 second clip, a barista behind the counter looks up and says "your usual,
+    right?" then goes back to the machine
+
+    PASS = one code block with a copy button on it, nothing before or after it.
+    For the TEXT2VIDEO Gem, check three more things: no alignment line at the top,
+    the prompt opens straight at integrated_multimodal_description, and the
+    opening sentence already tells you the person's age, hair, clothes, where
+    they are and what the light is doing.
+
+Both of those were run against the TEXT2VIDEO files before they shipped and both
+came back clean on every rule that can be checked automatically.
+
+
+CONVERSATION STARTERS
+
+TEXT2VIDEO                               FIRSTFRAME2VIDEO
+Write a video prompt from this idea.     Animate this picture.
+Make this into a talking clip.           Make her say a line to camera.
+Five seconds, one shot, one line.        Five seconds, small movement only.
+A short scene with music under it.       Let the wind move her hair.
+
+FIRSTLASTFRAME
+Get me from the first picture to the second.
+Four seconds, one movement, no talking.
+She starts sitting and ends standing.
+Same room, he turns to face the camera.
+

@@ -407,22 +407,78 @@ class PhotoRetoucher:
             print(f"[PhotoRetoucher] Print master export failed for {out_path}: {e}")
             return None
 
+    def find_subject_centroid(self, img: np.ndarray) -> tuple[int, int]:
+        """Finds the (cx, cy) visual centroid of the portrait subject using skin tones + gradient energy."""
+        h, w = img.shape[:2]
+        try:
+            ycrcb = cv2.cvtColor(img, cv2.COLOR_BGR2YCrCb)
+            skin = cv2.inRange(ycrcb, (0, 135, 85), (255, 180, 135))
+
+            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            sobelx = cv2.Sobel(gray, cv2.CV_32F, 1, 0, ksize=3)
+            sobely = cv2.Sobel(gray, cv2.CV_32F, 0, 1, ksize=3)
+            grad = np.sqrt(sobelx**2 + sobely**2)
+            grad = cv2.normalize(grad, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
+
+            combined = cv2.addWeighted(skin, 0.7, grad, 0.3, 0)
+            moments = cv2.moments(combined)
+            if moments["m00"] > 0:
+                cx = int(moments["m10"] / moments["m00"])
+                cy = int(moments["m01"] / moments["m00"])
+            else:
+                cx, cy = w // 2, h // 2
+            return cx, cy
+        except Exception:
+            return w // 2, h // 2
+
     def crop_aspect_ratio(self, img: np.ndarray, ratio_w: int, ratio_h: int) -> np.ndarray:
-        """Center crop image to exact aspect ratio (e.g. 4:5 or 9:16)."""
+        """Smart crop image to exact aspect ratio (e.g. 4:5 or 9:16) anchored around the subject's center of mass."""
         h, w = img.shape[:2]
         target_aspect = ratio_w / ratio_h
         current_aspect = w / h
+        cx, cy = self.find_subject_centroid(img)
 
         if current_aspect > target_aspect:
-            # Too wide, crop sides
+            # Too wide, crop sides anchored around cx to preserve subject face/body
             new_w = int(h * target_aspect)
-            offset = (w - new_w) // 2
-            return img[:, offset:offset + new_w]
+            offset_x = cx - (new_w // 2)
+            offset_x = max(0, min(w - new_w, offset_x))
+            return img[:, offset_x:offset_x + new_w]
         else:
-            # Too tall, crop top/bottom with slight bias towards upper half (head room)
+            # Too tall, crop top/bottom anchored around cy, with head room bias
             new_h = int(w / target_aspect)
-            offset = int((h - new_h) * 0.35) # 35% from top preserves heads
-            return img[offset:offset + new_h, :]
+            offset_y = cy - int(new_h * 0.45)
+            offset_y = max(0, min(h - new_h, offset_y))
+            return img[offset_y:offset_y + new_h, :]
+
+    def create_ambient_canvas(self, img: np.ndarray, target_w: int = 1080, target_h: int = 1920) -> np.ndarray:
+        """Creates a modern social-canvas (e.g. 9:16) with blurred ambient background and uncropped, unstretched subject."""
+        h, w = img.shape[:2]
+        # 1. Background: scale to fill canvas and heavily blur
+        scale_bg = max(target_w / float(w), target_h / float(h))
+        bg_w = int(w * scale_bg)
+        bg_h = int(h * scale_bg)
+        bg = cv2.resize(img, (bg_w, bg_h), interpolation=cv2.INTER_LINEAR)
+        # Center-crop background to target size
+        bx = (bg_w - target_w) // 2
+        by = (bg_h - target_h) // 2
+        bg_crop = bg[by:by + target_h, bx:bx + target_w]
+        blurred_bg = cv2.GaussianBlur(bg_crop, (0, 0), sigmaX=35)
+        # Dim background slightly for contrast
+        blurred_bg = (blurred_bg.astype(np.float32) * 0.65).astype(np.uint8)
+
+        # 2. Foreground: scale to fit within canvas preserving aspect ratio
+        scale_fg = min(target_w / float(w), target_h / float(h))
+        fg_w = int(w * scale_fg)
+        fg_h = int(h * scale_fg)
+        fg = cv2.resize(img, (fg_w, fg_h), interpolation=cv2.INTER_LANCZOS4)
+
+        # Paste foreground onto centered location of canvas
+        fx = (target_w - fg_w) // 2
+        fy = (target_h - fg_h) // 2
+        canvas = blurred_bg.copy()
+        canvas[fy:fy + fg_h, fx:fx + fg_w] = fg
+        return canvas
 
     def add_watermark(self, img: np.ndarray, watermark_text: str = "@ExclusiveDrop") -> np.ndarray:
         """Add sleek modern watermark banner on corner."""

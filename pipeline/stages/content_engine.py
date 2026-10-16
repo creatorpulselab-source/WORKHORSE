@@ -29,15 +29,32 @@ STATE_FILE = Path("F:/WORKHORSE/workspace/content_engine_state.json")
 
 # On-brand aesthetic presets (same vibe as Herald's BRAND_VIBES) blended with
 # whatever Cipher's daily radar sweep most recently surfaced as trending.
+# STRICT 100% SFW: All automated content generation is strictly SFW.
 BRAND_AESTHETIC_POOL = [
-    "boudoir mood, provocative pose, studio lighting, lingerie attire, luxury glamour",
-    "luxury velvet boudoir, warm candlelit glow, silk drapery, confident alluring gaze",
-    "golden hour glamour, sun-kissed glowing skin, intimate close framing, editorial"
+    "creative founder in a sunlit Scandinavian loft atelier, textured cashmere knitwear and ceramic coffee cup on rustic oak table",
+    "high-fashion director in an architectural concrete gallery, tailored charcoal wool coat and structured trousers, poised thoughtful posture",
+    "digital artist in an ambient neon-lit sound design bay, oversized Japanese streetwear pullover, modular synthesizers in background",
+    "editorial photographer standing beside full-length loft windows, textured ivory linen overshirt, holding a vintage rangefinder camera",
+    "contemporary entrepreneur on an outdoor urban terrace at twilight, tailored navy overcoat, distant city lights bokeh",
+    "media producer in a modern warm broadcast lounge, relaxed olive corduroy jacket, broadcast microphone on low-profile arm",
+    "fine art creative in a spacious industrial atelier, white poplin button-down with rolled sleeves, large canvas paintings in background",
+    "product designer examining prototypes in an airy sunlit workshop, minimalist raw denim work jacket, clean architectural lines",
+    "creative strategist in a quiet mid-century private library, tailored camel sweater, floor-to-ceiling dark walnut bookshelves",
+    "fashion stylist in an open-concept photo studio, structured raw silk collarless shirt, soft fabric rolls and C-stands in background",
+    "cinematographer in a post-production editing suite, relaxed black crewneck, dual color-grading monitors glowing softly",
+    "lifestyle creator in a sun-drenched Mediterranean limestone atrium, relaxed ivory linen resort attire, subtle palm shadows",
+    "modern ceramicist in a minimalist pottery studio, textured canvas apron over dark cotton tee, clay vessels on wooden shelves",
+    "independent publishing editor in a cozy sunlit cafe nook, tailored tweed blazer and spectacles, open notebook on marble tabletop",
+    "creative director standing in a brutalist gallery courtyard, modern minimalist monochrome styling, clean geometric shadow lines",
+    "sound engineer in a luxury acoustics studio, casual dark flannel shirt, glowing vintage tube preamps on mahogany console"
 ]
 
 NEGATIVE_PROMPT = (
-    "nude, nudity, naked, topless, bare breasts, exposed nipples, genitals, explicit, "
-    "nsfw, porn, sexual, uncensored, erotica, extra limbs, deformed hands, mutated fingers, "
+    "nude, nudity, naked, topless, bare breasts, exposed nipples, exposed genitals, explicit, "
+    "nsfw, porn, sexual, uncensored, erotica, boudoir, lingerie, underwear, bra, panties, "
+    "objects in front of face, microphone blocking face, tripod obscuring subject, camera cutting off head, "
+    "poles in front of body, clutter obscuring person, foreground obstruction, equipment blocking face, "
+    "boom mic in frame, extra limbs, deformed hands, mutated fingers, fused digits, "
     "bad anatomy, blurry, low quality, watermark, text, cartoon, illustration"
 )
 
@@ -48,15 +65,21 @@ class ContentEngine:
 
     def _build_prompt_from_trends(self) -> str:
         """Cipher's hand-off: blend today's already-synthesized trend theme (if the
-        morning radar sweep has run) with a brand-safe aesthetic preset."""
+        morning radar sweep has run) with a brand-safe dynamic aesthetic preset."""
+        from pipeline.stages.prompt_synthesizer import CINEMATIC_OPTICS, LIGHTING_SCHEMAS, COLOR_GRADING_PROFILES
+
         vault = trend_researcher.load_vault()
         themes = vault.get("daily_synthesis", {}).get("top_themes_today", [])
         theme_hint = random.choice(themes) if themes else "high-end creator monetization content"
         aesthetic = random.choice(BRAND_AESTHETIC_POOL)
+        lens = random.choice(CINEMATIC_OPTICS)["lens"]
+        lighting = random.choice(LIGHTING_SCHEMAS)["lighting"]
+        color = random.choice(COLOR_GRADING_PROFILES)["color_profile"]
+
         return (
-            f"Photorealistic portrait, {aesthetic}, inspired by today's trend theme: "
-            f"'{theme_hint}', 85mm lens, shallow depth of field, high-end editorial glamour, "
-            f"photorealistic"
+            f"Masterfully composed editorial photograph of a {aesthetic}. "
+            f"Thematically inspired by '{theme_hint}'. Photographed using an {lens}, illuminated by {lighting}. "
+            f"Color graded with {color}, capturing realistic skin textures, crisp fabric details, and refined depth."
         )
 
     def run_autonomous_cycle(self) -> Dict[str, Any]:
@@ -76,6 +99,7 @@ class ContentEngine:
             width=832,
             height=1216,
             style_preset="photorealism",
+            brand_target="creator_media_lab",
             auto_qc=True
         )
         if not img_res.get("success"):

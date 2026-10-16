@@ -1,0 +1,907 @@
+Image to 3D Made Easy-Trellis 2 +Pixal3D
+
+Introduction
+0:00
+Today we're turning a flat image into a
+0:02
+3D model inside Comfy UI. I'll show you
+0:05
+two workflows using Trellis 2 and Pixel
+0:07
+3D. Then we'll take those models and
+0:09
+turn them into quick renders without
+0:11
+needing a full 3D app. Don't skip this
+IMPORTANT - How to Update and Fix Nodes
+0:14
+part because it is important. My
+0:16
+Pixaroma nodes in manager are stuck on
+0:19
+an older version. So I will show you in
+0:21
+a minute how to update them manually. If
+0:23
+you have easy install then it is easy.
+0:26
+You just run this file and it will
+0:28
+update easy install and also the
+0:30
+Pixaroma nodes so you get the latest
+0:32
+version. We also need to update Comfy UI
+0:35
+because there are a lot of new Comfy UI
+0:37
+nodes needed for these 3D workflows.
+0:39
+When you see press any key to exit, you
+0:42
+know it has finished. If you do not have
+0:45
+easy installer, then you will need to
+0:47
+update manually. So what is going on
+0:50
+with Pixarroma nodes? If I look in the
+0:52
+registry, you can see that manager shows
+0:55
+a version from about 2 weeks ago. So,
+0:58
+you might think Pixarroma nodes are on
+1:00
+the latest version, but they are not
+1:02
+because at the time of recording, this
+1:04
+is the latest version from just a few
+1:06
+days ago. That happens because some kind
+1:08
+of scanner introduced new checks and a
+1:11
+lot of nodes are now stuck. You can see
+1:14
+creators asking for manual reviews
+1:16
+because that automatic scanner flags a
+1:18
+lot of nodes. It does not necessarily
+1:20
+mean there is something wrong with the
+1:21
+nodes, but it expects certain functions
+1:24
+to be done in a certain way. For
+1:26
+example, it did not like that my save
+1:28
+video node lets you select a folder
+1:30
+outside Comfy UI to save the video and
+1:32
+some other things that make the nodes
+1:34
+more useful. So, I am not sure when this
+1:36
+will be fixed and appear correctly in
+1:38
+manager, but until then, you can update
+1:40
+easily with easy installer or update
+1:42
+manually, which is also quite simple. Go
+1:45
+to Comfy UI. Then go to custom nodes and
+1:48
+look for the Comfy UI Pixaroma folder.
+1:51
+Then in this address bar, type cmd and
+1:54
+press enter. That will open command
+1:56
+prompt directly in that folder. Here you
+1:59
+only need to run one command. Type get,
+2:02
+leave a space, then type pull and press
+2:05
+enter. You can see that mine is already
+2:07
+up to date because I ran the easy
+2:09
+installer update earlier. That makes
+2:11
+sure you have the latest version unlike
+2:13
+manager which is currently behind by a
+2:15
+few versions. Now I can go back and
+2:18
+start comfy UI. I usually start comfy UI
+2:21
+with kitchen attention. Now if you do
+2:24
+not have easy install there is an
+2:26
+argument you can add to the startup BAT
+2:28
+file. So it starts with kitchen
+2:30
+attention enabled. You do not need extra
+2:32
+nodes inside the workflows. You can see
+2:35
+here that it says it is using that
+2:37
+attention now. And I am adding a version
+2:40
+check node so you can see which versions
+2:42
+I have for Comfy UI and Pixaroma nodes.
+2:45
+So make sure you have these versions or
+2:47
+newer to run my workflows without
+2:49
+problems. Download the workflows for
+2:52
+free. I prepared six workflows for
+2:54
+today. Let me start with the first one
+Trellis 2 Image-to-3D Workflow + Explanation
+2:56
+and my favorite using Trellis 2. We know
+2:59
+that until now it was a problem to set
+3:01
+up because it needed all kinds of
+3:02
+special dependencies. But now it works
+3:05
+with Comfy UI by default. You do not
+3:07
+need to know what every node does since
+3:09
+this workflow is a little more complex,
+3:11
+but it is still easy to use. As you
+3:14
+know, in this note on the left, I tell
+3:16
+you what you need to run the workflow.
+3:18
+Download all the models you need. Start
+3:20
+with the trellis model and make sure
+3:22
+that inside the diffusion folder, you
+3:24
+created a 3D folder so everything stays
+3:26
+organized. This workflow worked for me
+3:29
+even on a 6 GB VR RAM card. Then we have
+3:32
+the clip vision model that goes into
+3:34
+that folder. And this time we have two
+3:36
+VAE files, one for shape and one for
+3:39
+texture. Then we need a remove
+3:41
+background option so the model can see
+3:43
+the object we are trying to create in 3D
+3:46
+more clearly. You only need Comfy UI
+3:48
+nodes and Pixaroma nodes. Press R to
+3:51
+refresh the node definitions after you
+3:53
+download all the models and you should
+3:55
+be good to go. If you place the models
+3:57
+in a different folder, you need to
+3:59
+select the correct model from where you
+4:00
+saved it in these orange nodes. I also
+4:03
+added a big note here explaining what
+4:05
+each node does. I asked Claude to
+4:07
+investigate and simplify everything so
+4:09
+you can get an idea of what the nodes
+4:11
+do. Read that if you plan to make
+4:13
+changes to the workflow. You can
+4:15
+collapse it using this gray dot in the
+4:17
+top left corner so it does not take up
+4:19
+much space or you can even delete it
+4:21
+since it does not affect the workflow.
+4:23
+You can also find more notes from the
+4:25
+tests I did with different settings so
+4:27
+you have an idea of how it works and how
+4:29
+much VRAMm it uses with different
+4:31
+settings. You can see that I tested it
+4:33
+on both 6 GB VRAM and 24 GB VRAM cards.
+4:38
+On a 6 GB VRAM card, this workflow is
+4:41
+the fastest, but we will see later with
+4:44
+workflows 2, 3, and four how some of
+4:47
+them take a really long time. So, they
+4:49
+are not really worth using on a low VRAM
+4:51
+card. On a 24 GB VR RAM card, you get
+4:55
+faster results, but it still takes more
+4:57
+time if you want texture and higher
+4:59
+quality. So read those notes to get an
+5:01
+idea of what to expect. Now I will give
+5:04
+this workflow a test. Upload an image of
+5:07
+the subject you want to generate a 3D
+5:09
+model from. I used a fixed seed here,
+5:12
+but you can choose random or a new fix
+5:14
+seed. And that is all. Only two steps
+5:17
+from you. Then you press run. So the
+5:20
+workflow will take your image. Then it
+5:22
+will create a square image cropped in
+5:23
+the center since that works better with
+5:25
+the AI model. It also removes the
+5:28
+background using this model so the model
+5:30
+will see this new image on a black
+5:32
+background and can create the 3D model
+5:35
+more easily. Then it goes through a few
+5:37
+stages. I colored each stage differently
+5:39
+so you can have an idea of how it flows.
+5:42
+In stage one, it creates some kind of
+5:44
+blob. You can see this simple one that
+5:46
+looks like it is made from Lego pieces.
+5:49
+Then in stage two, the actual form of
+5:52
+the subject is created. For stage three,
+5:55
+the shape is refined and upscaled. You
+5:57
+can see that these settings can
+5:59
+influence the resolution, how many
+6:01
+triangles the model will have, and how
+6:03
+much time it will take to generate. Then
+6:05
+for stage four, we have the colors added
+6:08
+to that model. In the second workflow,
+6:10
+we will also have textures, but for this
+6:13
+one, it is just colors. And in the final
+6:15
+stage, we have cleanup, reducing the
+6:18
+number of polygons, smoothing the
+6:20
+surfaces and so on. So the result is
+6:23
+more usable. And we got this result. We
+6:26
+can preview it here and rotate it. It is
+6:28
+a 3D model that we can use in other 3D
+6:31
+software. You can hide the grid from
+6:33
+here if you want so you can see the
+6:34
+model better. It has an okay amount of
+6:37
+detail. It is not perfect, but for an
+6:40
+image to 3D workflow, it is not bad
+6:43
+considering it is free. I'm sure future
+6:45
+versions will get better and more
+6:47
+accurate just like it happened with
+6:49
+image and video models. The model is
+6:51
+saved in the output folder inside a new
+6:54
+3D folder with the trellis 2 prefix. In
+6:58
+fact, I will go and open the output
+7:00
+folder so we can see where that model is
+7:02
+saved. You can see that it creates this
+7:04
+GB file format which can contain both
+7:07
+the model and the texture baked in. I
+7:10
+can even test it if I open Blender which
+7:12
+is a free 3D program. I can drag that
+7:15
+model here and then a menu will appear
+7:17
+to import it and it is there but it is
+7:20
+inside that default cube that Blender
+7:22
+added. So I will select that cube and
+7:24
+delete it. And here is the 3D model. We
+7:28
+can rotate it and look at it from
+7:29
+different angles. And it is not bad
+7:31
+considering we got it from a flat image.
+7:34
+It would take quite a while to sculpt or
+7:36
+model this manually. And I am sure there
+7:38
+are tools in Blender that let you remesh
+7:40
+this thing to make it look even better.
+7:42
+It does have a lot of triangles, but it
+7:44
+is not that bad. It can be quite useful
+7:46
+for people who need quick 3D objects.
+7:49
+And I will show you later how you can
+7:51
+get better renders and comfy UI from a
+7:53
+3D model. The more complex the image is,
+7:56
+the more mistakes it can make. So I will
+7:58
+try it with this bunny explorer to see
+8:00
+what I can get. It removed the
+8:02
+background. Okay, for this one. Then we
+8:04
+got this 3D blob, but it is facing down,
+8:08
+so it does not keep the original camera
+8:10
+angle. You can rotate it after it is
+8:12
+finished. And this is the final bunny.
+8:15
+Since it has a lot of organic shapes,
+8:18
+the quality is a little lower, but you
+8:20
+also have to consider that to speed
+8:22
+things up, I used a lower upsample
+8:25
+setting. It also reduced the number of
+8:27
+triangles from around 4 million to a
+8:29
+little under 200,000. So, you can
+8:32
+increase that from here if you want.
+8:34
+Since right now we only have colors on
+8:36
+the model, we can try a second workflow
+8:38
+that has a bigger resolution and also
+Trellis 2 High-Quality Texture Workflow
+8:40
+adds textures. That one is set to around
+8:43
+700,000 faces by default instead. So I
+8:46
+am pressing run. And do not forget to
+8:48
+check the note to see what it does at
+8:50
+each stage since this one has more nodes
+8:53
+in it. You can see that it creates some
+8:55
+kind of textures for the model that are
+8:56
+wrapped around the surface with colors,
+8:59
+roughness, and other things used in 3D.
+9:02
+You can see this one took longer, over 2
+9:04
+minutes to generate. But on a 6 GB VR
+9:07
+RAM card, that can mean around 40
+9:09
+minutes. So, it depends a lot on your
+9:11
+card and what speed you get. Let me see
+9:13
+what I got. I can use this button to fit
+9:16
+the view or open it in the 3D viewer.
+9:18
+You can zoom in with the mouse wheel and
+9:20
+rotate the model around to inspect the
+9:22
+texture, the shape, and so on. It could
+9:25
+probably work in a game where you do not
+9:26
+need perfectly accurate objects. And
+9:29
+since this is higher quality, I will try
+9:32
+it again with the bunny to see if it
+9:33
+does a better job. And this is the
+9:35
+result. It seems to have more details
+9:37
+than before. So, it is a better quality
+9:40
+model, but it also takes more time. My
+9:43
+image also has fur on the bunny. So, I
+9:45
+assume that is harder to recreate
+9:47
+correctly. But the hat and the clothes
+9:49
+are quite smooth, so it really depends
+9:51
+on the image. And now, let me try Pixel
+Pixal3D Image-to-3D Workflow
+9:54
+3D. similar name to Pixaroma, but there
+9:57
+is no connection to Pixarroma. This
+9:59
+workflow has a few models in common, but
+10:01
+the main one is different. It uses the
+10:03
+pixel 3D model instead of trellis, and
+10:06
+it has one extra model that the other
+10:08
+workflows do not have. This extra model
+10:10
+is used for the camera angle. So, we get
+10:12
+the same angle as in our image when we
+10:14
+generate the 3D model because if we look
+10:17
+at trellis, you can see the angle of the
+10:19
+model is more like facing down and not
+10:21
+the same angle as our image. So if I run
+10:24
+this one now, you can see that after the
+10:26
+background is removed, it has some
+10:28
+camera angle nodes and now the model is
+10:31
+generated with the same camera angle as
+10:33
+our image. So if that angle is important
+10:36
+for you, then pixel might be better. But
+10:38
+keep in mind that it is slower than
+10:40
+trellis because it has to calculate that
+10:42
+angle. And we got the result again in
+10:44
+the same angle and everything seems good
+10:46
+and nice. But depending on the seed, I
+10:49
+guess it can invent things on the back
+10:51
+that should not be there. So if I rotate
+10:53
+it, you can see it has some extra things
+10:55
+that should not be there. It might be
+10:58
+good for characters or cases where you
+10:59
+want it to invent things on the back
+11:01
+that are not visible, but in this case,
+11:03
+I did not want extra things on the other
+11:05
+side. So in this case, I still prefer
+11:07
+Trellis. Now, let me try the slowest one
+Pixal3D Image-to-3D + PBR Textures Workflow
+11:10
+of all. It uses the same pixel model,
+11:13
+but now it adds textures instead of just
+11:15
+colors. The first generation can be
+11:18
+slower than the second one. On a 6 GB VR
+11:20
+RAM card, it took over two hours and I
+11:23
+had to stop it. But on a 24 GB VR RAM
+11:26
+card, it took over three minutes. So I
+11:29
+would say it is still not better than
+11:31
+Trellis and it still invented things on
+11:33
+the other side. So my suggestion is to
+11:36
+stick with workflows 1 and two using the
+11:38
+Trellis model. You can see in the
+11:40
+comparison that adding textures makes
+11:42
+the model size bigger and takes more
+11:44
+time. So maybe use the first one and
+11:46
+just increase the resolution and do not
+11:49
+limit the number of faces or triangles
+11:51
+so much if you have more VRAM to get
+11:53
+better quality. So if I compare all four
+11:56
+workflows really quickly tested on a 24
+Choosing the Best Image-to-3D Workflow
+11:59
+GB VR RAM card using this image as
+12:01
+input, the first two workflows with
+12:04
+Trellis do not keep the camera angle,
+12:06
+but they are faster. Pixel 3D keeps the
+12:09
+angle and can sometimes get more
+12:11
+accurate colors. For example, that
+12:14
+orange can be closer to the orange in my
+12:16
+original image when it adds textures.
+12:18
+But the problem appears when we rotate
+12:20
+the model with trellis. The other side
+12:23
+looks good, but the pixel model can
+12:25
+invent things on the other side that
+12:27
+should not be there. For quality, it
+12:30
+depends on how much you limit the model.
+12:32
+I made an extra workflow after I
+12:34
+finished recording for high VRAM cards
+12:36
+so you can get more details in the
+12:37
+model, but it also depends on what you
+12:39
+want to use it for. As you will see, we
+12:42
+can use a simpler model and still get
+12:44
+better details when we render it into an
+12:46
+image. You can pause here and look at
+12:48
+the differences between the models, how
+12:50
+they affect the file size and the number
+12:52
+of triangles, and then decide what works
+12:55
+best for you.
+12:58
+Now, let me show you how you can
+12:59
+generate an image from a 3D model using
+3D Model to Image with Flux Klein
+13:02
+a Flux client workflow. You can upload
+13:05
+one that you generated or use the one
+13:07
+that comes with the workflows archive.
+13:09
+Once it is loaded, you can zoom in using
+13:12
+the mouse wheel and rotate it with left
+13:14
+click and drag it to the position you
+13:16
+want. By the way, on the left you can
+13:18
+find what models are used in this
+13:20
+workflow. We talked before in a few
+13:22
+older episodes about flux client. The
+13:25
+difference is that instead of a load
+13:26
+image node, we have a model that gets
+13:28
+something like a screenshot of that 3D
+13:31
+model in the position where you put it.
+13:33
+So now I can run the workflow and I use
+13:36
+this prompt here. But you can give a
+13:39
+screenshot to chat GPT or Gemini and ask
+13:41
+for a more detailed realistic or game
+13:44
+style prompt to get exactly the look you
+13:46
+are after. And now we can compare how it
+13:49
+looked before and after. You can see it
+13:51
+is much clearer now, but again it
+13:53
+depends on the prompt and seed. So try a
+13:56
+few seeds to see how each seed makes
+13:58
+some changes to the gun and then you can
+14:00
+pick your favorite. So, I can go and
+14:02
+rotate the gun. Since we know it is hard
+14:03
+to prompt the exact angle you want,
+14:05
+doing it like this is much easier and it
+14:08
+only takes around 2 seconds to generate
+14:09
+on my computer. There is one problem
+14:12
+though. If you try to zoom in too much
+14:14
+or use the right mouse button to pan the
+14:16
+view and we try to get something like a
+14:18
+detail of it, when we run it, we get
+14:20
+something like this, which is not what I
+14:23
+wanted. So, unless it was in the center,
+14:25
+it did not know how to do it correctly.
+14:28
+The same can happen if you use portrait
+14:30
+or landscape and it is not square. It
+14:32
+will not get the exact angle. As you can
+14:35
+see, it is a little different because it
+14:37
+tried to accommodate that portrait ratio
+14:39
+in this case. But with a square ratio,
+14:42
+you can use fit to viewer, then just
+14:44
+rotate and zoom. And when you run it, it
+14:47
+should look good in the same position.
+14:49
+And you can go even higher. For example,
+14:52
+I can choose this size and run it. And
+14:54
+now we got a bigger image. I will try to
+14:56
+change the prompt to see if we can get
+14:58
+some camouflage colors on the gun and
+15:00
+maybe add a shelf behind it. And look at
+15:03
+that. It came out really nice. It kept
+15:05
+the shape and position and added the
+15:07
+colors I wanted. Try different seeds to
+15:09
+get some variation. Imagine how long it
+15:12
+would take to render this in 3D software
+15:14
+and change the materials. But now with
+15:16
+AI, we can get that in a few seconds
+15:18
+just by adjusting a text prompt. But
+15:21
+like I said, if you want to zoom in to
+15:23
+get some details with this workflow, it
+15:25
+will not work correctly. Or maybe I just
+15:27
+did not find the right prompt. But I
+3D Model to Image + Keep Camera Angle and Zoom
+15:30
+have a solution for that one as well in
+15:31
+workflow number six. So I will zoom in
+15:34
+on this gun now and also move it to the
+15:36
+left. Basically doing all the things we
+15:38
+tried in the other workflow that failed.
+15:40
+And then I run the workflow. You can see
+15:42
+in this note some den noiseise values
+15:44
+and how they affect the result. And if
+15:46
+we look at the result, it kept
+15:48
+everything, the composition and the
+15:50
+object details. That is because I used
+15:53
+0.7 for den noiseise. If I change the
+15:56
+noise to one and run it, you can see it
+15:58
+does not work well because it has too
+16:00
+much freedom to invent things. If I
+16:02
+change it to 0.5 and try again, now it
+16:05
+does not have enough freedom. So, it
+16:06
+barely changes anything. So, 0.7 to 0.8
+16:10
+is a good starting point. For this seed,
+16:13
+it kept it too similar. With the next
+16:15
+seed, it got a little better. I will
+16:17
+also try 0.75 to see how it works. But
+16:21
+again, it did not improve much. So,
+16:23
+having a prompt adapted to what you want
+16:25
+can help together with trying different
+16:28
+seeds and den noiseise values. I will
+16:30
+try a different prompt now, the one from
+16:32
+workflow 5. And look at that. We now
+16:35
+have camouflage and a zoomed-in view of
+16:37
+that weapon. Maybe I will remove the
+16:39
+shelf and put a black background
+16:41
+instead. So, play around. Maybe try a
+16:44
+fixed seed to get somewhat similar
+16:45
+colors and try different angles. Have
+16:48
+fun and enjoy the fast render generation
+16:51
+from 3D. And that's it for today. Thanks
+16:54
+so much to all the legends and everyone
+16:56
+who became a member or donated to
+16:58
+support the channel. I really appreciate
+17:00
+it. I hope you enjoyed the video. If you
+17:03
+did, leave a like and a comment to help
+17:05
+the channel. Thanks for watching. Have a
+17:07
+great day and I'll see you in the next
+17:08
+one.
+17:10
+[music]
+17:14
+[music]
+17:24
+[music]

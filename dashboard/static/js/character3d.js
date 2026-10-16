@@ -435,7 +435,7 @@
     }
 
     render(time) {
-      if (!this.ready || !this.gl) return;
+      if (!this.ready || !this.gl || this.el.offsetParent === null) return;
 
       const gl = this.gl;
       gl.useProgram(this.program);
@@ -604,12 +604,22 @@
       this.setAgentState(charKey, nextState);
     }
 
-    loop() {
-      const time = (performance.now() - this.startTime) * 0.001;
-      for (const k in this.instances) {
-        this.instances[k].render(time);
-      }
+    loop(now) {
       requestAnimationFrame(this.loop);
+      if (document.hidden) return;
+      if (!this._lastFrame) this._lastFrame = 0;
+      const interval = this._hasWorkingAgent ? 16 : 33;
+      if (now - this._lastFrame < interval) return;
+      this._lastFrame = now;
+
+      const time = (performance.now() - this.startTime) * 0.001;
+      let hasWorking = false;
+      for (const k in this.instances) {
+        const inst = this.instances[k];
+        if (inst.state === 'working') hasWorking = true;
+        inst.render(time);
+      }
+      this._hasWorkingAgent = hasWorking;
     }
   }
 

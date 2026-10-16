@@ -151,4 +151,6 @@ class GPU1Arbiter:
                 pass
         return {"is_locked": False, "active_task": None, "pid": None, "thread_id": None}
 
+    status = get_status
+
 gpu1_arbiter = GPU1Arbiter()

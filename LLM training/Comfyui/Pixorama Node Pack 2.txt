@@ -1,0 +1,1025 @@
+Pixorama Node Pack 2
+
+
+0:00
+In today's episode, I'll show you some
+0:01
+new nodes I created, plus a bunch of
+0:03
+cool updates you asked for in existing
+0:06
+nodes. From a brand new load image node
+0:08
+and workflow finish notifications to
+0:10
+handy utility nodes that make Comfy UI
+0:13
+smoother and easier to use. If you
+0:15
+updated Easy Install recently, you
+0:17
+should have this launcher. And from
+0:19
+here, you can click this button to
+0:21
+update Easy Install. If you don't see
+0:24
+it, you can use the bat file from the
+0:26
+Comfy UI folder to update it. Then we
+0:30
+can start Comfy UI from this button. You
+0:32
+will sometimes see that there is a new
+0:34
+Comfy UI update and you can use this
+0:37
+button to update it. Wait for it to
+0:39
+finish and after that you should have
+0:40
+the latest version. By the way, in the
+0:43
+latest version, you now have the most
+0:46
+useful folders here in the launcher. So
+0:48
+I can quickly open the models folder if
+0:50
+I want and you can just drag the models
+0:52
+into the right folder. You can also
+0:55
+check the other folders for workflows,
+0:57
+input, and output. And in the console,
+1:00
+you can see how many Pixaroma nodes we
+1:02
+have. So, we have a few more nodes today
+1:05
+compared to last week. So, now that
+1:07
+everything is updated, we can start
+1:09
+working. And speaking of folders, now we
+1:12
+also have the folders here in the
+1:14
+desktop version of Easy Installer. So,
+1:16
+it's really easy to find the output
+1:18
+folder. Now, here is the input folder.
+1:21
+Then we have the workflows folder where
+1:23
+you can organize your folders into
+1:25
+subfolders and place the workflows you
+1:27
+downloaded from my GitHub page or
+1:29
+Discord. All free of course and then in
+1:33
+the workflows menu if some workflows
+1:35
+don't appear you can use the refresh
+1:38
+button. So let's open a workflow from
+1:40
+episode 4 so I can show you real
+1:43
+practical examples for the nodes using
+1:45
+the Klein1 imageedit workflow. We used
+1:48
+this workflow in a few episodes already,
+1:50
+so you should have the models by now. If
+1:52
+not, just use the Pixaroma note to
+1:55
+download them. So, if I run this
+1:57
+workflow, it shows how I can edit an
+1:59
+image using the Flux Klein model. And
+2:02
+while it is rendering, let me show you
+2:04
+these new buttons also for screenshots
+2:06
+and video recording. And from this menu,
+2:09
+you have a lot of other tools that you
+2:11
+can explore, like the BAT files from the
+2:14
+add-ons folder, different torch options
+2:17
+and tools, and check the advanced tab
+2:19
+for more options like different input
+2:21
+and output folders. Give it a try and
+2:24
+see what it can do. And the homepage is
+2:26
+the actual GitHub page for this easy
+2:28
+installer, so you can check what's new.
+2:31
+So for this workflow, I had instructions
+2:33
+to replace the background in the image.
+2:35
+And here in this image compar node, we
+2:38
+can compare the before and after. But
+2:40
+let me show you how you can use Pixaroma
+2:42
+nodes to get even more control over what
+2:44
+the workflow does. Let's start with save
+2:47
+image. That only saves an image and
+2:49
+doesn't give you more options. I will
+2:51
+delete that node and instead I will
+2:53
+search for preview image Pixarroma
+2:56
+version and I will add that to the
+2:58
+canvas. Then from VED code I will
+3:01
+connect it. So now when I run it, I will
+3:03
+get a preview image and I can decide if
+3:05
+I want to save it or not. But you
+3:07
+already knew that from the last
+3:08
+episodes. So to convert it to a save
+3:11
+image node, we just select save from
+3:13
+here. So now it will always save. And
+3:16
+what is new that some of you asked for
+3:18
+besides save to disk and save to output
+3:21
+folder are these copy and open buttons.
+3:24
+So I can click on copy and it will copy
+3:26
+that image to the clipboard. And then I
+3:29
+can paste it with Ctrl +V into another
+3:31
+node that accepts it like load image
+3:34
+image composer and other nodes. I will
+3:37
+revert it to the previous version. And
+3:40
+now let's also replace this image compar
+3:42
+node with a Pixaroma node. Just check
+3:45
+where that node was connected so you can
+3:47
+redo the connections. So I am deleting
+3:49
+the node and searching for image compare
+3:52
+but this time the Pixarroma version. And
+3:54
+then I redo the connection from VAED
+3:57
+code. It's up to you which one you want
+3:59
+to be first, the one from via decode or
+4:01
+the original. And then you can compare
+4:04
+either by showing the first or second
+4:06
+image using the left to right mode and
+4:08
+so on. Play with the other options to
+4:11
+see what they do. Let me show you now
+4:13
+the brand new node I created for loading
+4:15
+images. So I will select this load image
+4:18
+node and delete it. Then I search for
+4:20
+load image and maybe add a P to find the
+4:22
+Pixaroma version faster. And now we redo
+4:26
+the connection. So now we have the same
+4:28
+load image node but with more options.
+4:30
+You can use this button to load an image
+4:32
+or you can drag and drop an image or
+4:35
+paste from the clipboard withtrl +v. It
+4:38
+will usually take the first image from
+4:40
+the input folder. So if you have more
+4:42
+images in the input folder you can
+4:45
+select them from this dropdown. So now
+4:47
+when we run it, it is the same workflow
+4:50
+and similar results. So until now it is
+4:52
+the same load image node just with more
+4:55
+buttons. And if you had it in preview
+4:57
+mode instead of save, you could use the
+4:59
+buttons to save it in the output folder.
+5:02
+So I can quickly go and check that the
+5:04
+image is there with the prefix img
+5:07
+because that was set up in the node. But
+5:09
+we have more options here. For example,
+5:12
+I can get the file name. I didn't
+5:15
+include the extension, only the file
+5:17
+name. So I can drag a link then press
+5:20
+the space bar while holding that link so
+5:23
+I can navigate and reach the node I want
+5:26
+and then I connect it to that file
+5:28
+prefix field. You can connect a string
+5:30
+there and it accepts I think 99
+5:33
+characters as the maximum. So if we look
+5:36
+at the file name it is called bunny
+5:38
+explorer. So now when I run the workflow
+5:41
+I should get a result that includes that
+5:42
+name. So if we check now in the output
+5:45
+folder, you can see we have bunny
+5:48
+explorer in the name. So it can be
+5:50
+useful sometimes to get generations that
+5:52
+include the name of the actual file you
+5:55
+used for reference so you can stay more
+5:58
+organized. Let me disconnect that now
+6:01
+and let me show you what else you can do
+6:03
+with this node. With the node selected,
+6:06
+press this info button. And now on the
+6:08
+right side, you have a panel that you
+6:09
+can close from this button. So when I
+6:12
+designed the node, I asked AI to add all
+6:15
+kinds of useful information here. But
+6:17
+because of how Comfy UI works, it cannot
+6:20
+format it how I want to show it clearly
+6:22
+and organized. So it is one long line
+6:24
+with all that info, but you should still
+6:27
+understand what it is about. So for that
+6:29
+prefix, you can read here or you can
+6:32
+read about the note at the top. So you
+6:34
+can see how it supports the date format.
+6:37
+So if we use something like that for the
+6:38
+prefix, we should get an output similar
+6:41
+to this. You can use Ctrl + C to copy
+6:44
+that text or you can just type it
+6:46
+manually. So I can put the date there.
+6:49
+And let's say I put only the year using
+6:51
+four letters for the year. If you put
+6:54
+only two, you will get the current year
+6:56
+like 26. But because I used four, I
+6:59
+should get 2026.
+7:02
+And after that, I add that slash and the
+7:05
+prefix for the file name. When I use a
+7:07
+slash, it will create a folder instead
+7:10
+and then put that img file there. But if
+7:13
+I don't use a slash and instead use a
+7:15
+line or something else, then it will use
+7:17
+the date and the prefix in the file
+7:19
+name. So if I go and run the workflow,
+7:23
+it should save that new file in that
+7:25
+year folder. So you can see here the
+7:27
+folder and inside we have the image with
+7:30
+that bunny prefix. And if you want to be
+7:32
+even more organized, you can add two
+7:35
+capital M letters for the month and then
+7:38
+two small D letters. And then if I run
+7:41
+it again, now we get a folder for each
+7:44
+new day. So the images are organized by
+7:47
+day. So you can create all kinds of
+7:49
+complex formats that way to organize the
+7:52
+folders however you want. Read the
+7:54
+instructions or give chat GPT a
+7:56
+screenshot of this info and ask it to
+7:58
+write the format you want. Let's
+8:01
+continue with load image. So until now
+8:04
+we had to add another node to resize the
+8:06
+image. So it is not too big for AI. Then
+8:09
+another node to get the image size if we
+8:11
+want to generate an image in a similar
+8:13
+size and ratio. So I wanted to simplify
+8:16
+that process and use a single node. I am
+8:19
+deleting these two nodes. So now we can
+8:21
+connect the width and height directly.
+8:23
+Now the image we generate is the same
+8:26
+size as the image we uploaded but there
+8:28
+can be a few pixels difference since
+8:30
+empty latent works with multiples of 16.
+8:33
+So now if I run it I get the same size.
+8:36
+Let's check the node to see the options
+8:39
+here on input. We can see the ratio and
+8:42
+the size. You have the square, the size
+8:45
+and the ratio here. So if I go and
+8:48
+select a different size and ratio image,
+8:50
+we can see those values are updated. Now
+8:52
+it is easier to know what ratio and size
+8:55
+you have because before you only had the
+8:57
+size. So if I run it, since it is big,
+9:01
+sometimes AI can struggle to keep things
+9:03
+consistent or you can run out of VRAM or
+9:07
+it can take a long time. In this case,
+9:10
+it worked even if it was 2K. But I
+9:13
+rarely work with such large sizes and
+9:15
+this AI model wasn't trained on that
+9:17
+size. So what can we do in that case? By
+9:21
+default, it is set to off. So the image
+9:24
+you input is the image you output. But
+9:27
+if I select another option like max
+9:29
+megapixel value, see how the output size
+9:32
+changed. So always check that before you
+9:35
+run the workflow to see what size you
+9:37
+will get. By default, it is 1 megapixel.
+9:41
+And you can see the output has values
+9:42
+that are not divisible by 16 or 64 the
+9:46
+way AI likes. So I like to use this snap
+9:49
+function and constrain it to multiples
+9:51
+of 64. Now you can see the size is a
+9:54
+multiple of 64 and AI will give you
+9:57
+better results. So I can run the
+9:59
+workflow now and this is the result we
+10:02
+got. It works fast and well. But you can
+10:05
+also adjust those values. If I put 1.5
+10:08
+for megapixels, you can see the new size
+10:11
+here. I can run it, but sometimes, like
+10:14
+I said, if it is too big, it might not
+10:17
+generate results so accurately. So, I
+10:20
+usually leave it at 1 megapixel or 1.2,
+10:24
+but it depends on the model. Another
+10:26
+useful one for different workflows like
+10:29
+video or image generation workflows can
+10:31
+be this longest side option. You can
+10:34
+constrain it. So no matter the ratio and
+10:36
+size, it resizes the image. So the
+10:39
+longest side is not bigger than the
+10:41
+value you set here. So we get an output
+10:44
+at that size. Then we have scale by
+10:47
+which keeps the ratio and just makes it
+10:49
+smaller or bigger. So now with a scale
+10:52
+of 1, it is the same value, but the
+10:55
+output looks different because we
+10:57
+constrained it to 64. So I can change it
+10:59
+to 32 or 16 and then we get the size we
+11:03
+want. You can also turn it off, but like
+11:06
+I said, sometimes it is safer to have at
+11:08
+least an 8 or 16 constraint there. So if
+11:11
+I use a two times upscale, I get a huge
+11:15
+image and I can adjust the constraint.
+11:18
+But you might sometimes have really
+11:20
+small images and want to make them
+11:21
+bigger. And if the image is already too
+11:24
+big, you don't want to make it even
+11:26
+bigger. In that case, you can turn off
+11:29
+allow upscaling. And you can see now it
+11:31
+should not make it bigger than it was.
+11:34
+But because we had that 64 constraint,
+11:36
+it adjusted to fit that. So if I turn it
+11:39
+off, you can see it leaves the image
+11:41
+untouched. It didn't make it bigger. And
+11:44
+if I enable upscaling now, I get that
+11:47
+two times upscale. So there are a lot of
+11:50
+options in this node. If you use fit
+11:52
+inside, it will keep the image ratio and
+11:55
+make the image fit inside the values you
+11:57
+put. So it can be quite useful and you
+12:00
+can keep adjusting it and see the live
+12:02
+update in the output without running the
+12:04
+workflow. Crop options does what it
+12:07
+says. It crops to the values you put. So
+12:10
+if I run it now, it will crop that image
+12:13
+to the square ratio you see here. So now
+12:15
+the result is this one. But if you want
+12:18
+even more control over the crop, you can
+12:20
+use an image crop node from the same
+12:22
+Pixaroma pack. But be careful with 64
+12:26
+since it might give you values you
+12:27
+didn't expect. For example, 720 is not
+12:31
+divisible by 64. So maybe use 16 for
+12:35
+that snap function. If I run it with 8,
+12:38
+the values are okay. I might work a
+12:40
+little bit on the node after I finish
+12:42
+this to see if I can round some numbers
+12:44
+better. And for match aspect ratio, it
+12:47
+does what it says. You can change the
+12:50
+ratio of the image. So I can make it
+12:53
+portrait if I want. And you can see the
+12:55
+new values here to know what to expect.
+12:58
+And the result is this one. So it looks
+13:00
+pretty good since the image was
+13:02
+centered. But that might not always be
+13:04
+the case. And if you enable the pad
+13:06
+version, it will not crop your image. It
+13:09
+will keep it identical and expand it
+13:11
+with color instead. So you can change
+13:14
+the color from the swatches or use this
+13:16
+for more colors and select the exact
+13:18
+color you want. So now when I run this
+13:21
+one, I noticed it takes a lot of time.
+13:24
+So I went and check the output and saw
+13:26
+the size is huge. So always check the
+13:28
+output before you run. I will go and
+13:31
+cancel this generation. The problem is
+13:34
+that I had a landscape image and it
+13:36
+added a lot of pixels to make it
+13:38
+portrait. So I will add a square image
+13:40
+that is smaller instead. Now you can see
+13:43
+the output is portrait but has a more
+13:45
+manageable size. So now I can run the
+13:48
+workflow. And if we look at what we got,
+13:51
+you can see that it added red at the top
+13:53
+and bottom and kept the image intact. So
+13:56
+this can be useful sometimes for
+13:57
+inpainting. And the result is this one.
+14:00
+It looks a little bit cartoonish because
+14:02
+I had cartoon in the prompt. Anyway, it
+14:04
+is something to keep in mind. And if you
+14:07
+want to get the node default, you can
+14:08
+just rightclick and recreate the node.
+14:11
+So now it has the default values. So I
+14:14
+can choose megapixel. Then I can snap if
+14:16
+I want and run the workflow and it is
+14:19
+all good. Let me change back to bunny
+14:21
+explorer. Sometimes you want to generate
+14:23
+a different ratio but without touching
+14:26
+the image that goes to the reference. So
+14:28
+AI can see the exact image and the
+14:31
+generation can be a different ratio. In
+14:34
+that case I like to add a resolution
+14:36
+node. So you can see I have width and
+14:39
+height here. So I can connect it to the
+14:41
+empty latent. Now it will take these
+14:43
+sizes instead of the sizes of the
+14:45
+reference image. So I can play with
+14:47
+resolution and select some default one
+14:50
+or use a custom ratio or resolution. So
+14:54
+let's say I select this portrait option.
+14:56
+I run the workflow and now you can see
+14:59
+the original is square but the result is
+15:01
+portrait ratio. So many times you might
+15:04
+want to change once to use the original
+15:06
+image ratio and sometimes a custom
+15:08
+ratio. So I made a new node that makes
+15:11
+that switch process easier. Double click
+15:14
+on the canvas, search for switch and you
+15:17
+have this one for width and height. So
+15:20
+now we can connect the first set of
+15:21
+width and height from load image. And
+15:24
+then I can connect the second set of
+15:26
+width and height from resolution. And
+15:28
+now that we have those, the results go
+15:30
+to empty latent. So now button A is on
+15:34
+by default and that takes the load image
+15:36
+width and height. So when I run it, you
+15:39
+can see I get a square ratio image since
+15:42
+my original image is square. And now if
+15:45
+I change to B, it will get this width
+15:48
+and height from the resolution node
+15:50
+which is portrait in this case. So the
+15:52
+result after running is portrait. It can
+15:55
+sometimes be harder to compare when they
+15:57
+are different ratios, but it does the
+15:59
+job. Now let me make some room here and
+16:02
+show you another node called WH which
+16:05
+stands for width and height. So here I
+16:08
+can put the values I want. Maybe I do a
+16:11
+landscape ratio. But now I don't have a
+16:13
+place to connect those since we already
+16:16
+have two. So let me add another switch
+16:19
+and I will connect this here and also
+16:22
+connect resolution here. And then I
+16:24
+connect it to the other switch node. So
+16:26
+now they are like branches similar to a
+16:28
+folder structure. So A will pick the
+16:31
+load image size. So if I run it, I get a
+16:34
+square image. If I select B and follow
+16:37
+the flow, you can see the next switch
+16:39
+with A and B again. So if I look at A
+16:42
+there, it will take that custom
+16:44
+landscape size. So when I run it, I get
+16:47
+a landscape size. And if I select B
+16:49
+there, it will take the resolution node
+16:52
+size. So now we get that portrait size.
+16:55
+So that is how you do it with three or
+16:57
+more different sizes. You can keep
+16:59
+adding nodes and make it more complex,
+17:01
+but I rarely need more than two since
+17:03
+the resolution node already has sizes
+17:06
+that are easy to pick. If you go to the
+17:08
+left side in the nodes menu, you can
+17:10
+search for Pixarroma and see all the
+17:13
+Pixarroma nodes in the list. So let's
+17:15
+see which one I didn't show you yet.
+17:17
+Let's pick this number Pixarroma node.
+17:20
+So this one has two outputs int and
+17:22
+float depending on the case where it is
+17:24
+needed. Width and height are usually
+17:27
+integers. So whole numbers. So I can
+17:30
+connect that value here and change it to
+17:32
+whatever value I need. So I can make a
+17:34
+duplicate and add another value here and
+17:36
+connect it to height. This is just an
+17:38
+example, but there are many cases for
+17:40
+video workflows when you need to do some
+17:42
+math or input a certain duration or
+17:45
+length. Let me duplicate it and also add
+17:47
+another node called save MP4. Let's say
+17:51
+I want to add 16 frames pers for a 1 2.2
+17:54
+workflow. You can see I cannot connect
+17:57
+the int output since FPS is not an
+17:59
+integer, but I can connect the float
+18:01
+output. So that is why it is useful to
+18:03
+have both and connect them where you
+18:05
+need them. Let me delete those nodes and
+18:08
+let me show you another node I made and
+18:10
+a few more I will probably make next
+18:12
+week that work with text. So this is
+18:14
+called text pixarroma and I can use it
+18:17
+to add text. So you can add any text
+18:20
+here and then drag a link and connect it
+18:22
+to the text encoder so it will use that
+18:24
+prompt instead. See it works just fine.
+18:28
+And you can also connect that prompt to
+18:30
+the file name prefix.
+18:33
+Just keep in mind it is limited to 99
+18:35
+characters and you can run it and get a
+18:38
+file name with a prompt in it. It will
+18:40
+just replace the spaces with underscores
+18:42
+to keep it compatible. Let me show you
+18:43
+some updates I added to other nodes like
+18:46
+image composer and image crop. So now
+18:48
+when I drag an image because of how the
+18:51
+node has multiple layers, it will open
+18:53
+the node and add the image on top. So
+18:56
+now you can just press save and the
+18:58
+image is inside that node. If I add
+19:01
+another image, it will add it again on
+19:03
+top and you can move it or resize it
+19:05
+however you want and then save it. And
+19:08
+for crop image, because it doesn't have
+19:10
+layers, it will just replace the image
+19:12
+with a new one. So I hope that is
+19:14
+helpful.
+19:18
+And the last node for today, this audio
+19:20
+react node had some bugs and I talked
+19:23
+more with AI to understand what was
+19:25
+going on. So now if you open the audio
+19:28
+react node and go to help, you can see
+19:30
+how much system RAM you need depending
+19:32
+on the image size and the audio length.
+19:35
+So, if you plan to do full HD, you need
+19:37
+around 16 GB of system RAM, not VRAM,
+19:42
+system RAM to do full HD. If you don't
+19:45
+have that, you can still try, but it
+19:47
+probably will not work. So, either use a
+19:50
+smaller image or a shorter audio file.
+19:53
+If you want to do a 3minut video, you
+19:55
+need around 100 GB free. Those values
+19:58
+refer not to the total RAM, but the free
+20:01
+RAM you still have when you open this
+20:03
+node. So if you look here, you can see
+20:06
+from 128 GB of system RAM, I only have
+20:10
+around 105 GB free because I am
+20:13
+recording and have a few programs open.
+20:15
+And to run this example, which is 15
+20:17
+seconds with a small image, I need
+20:20
+around 4 GB. So let me close this and
+20:24
+let me choose now from the audio node a
+20:26
+longer audio that has a 1 minute length.
+20:28
+Now when I open the node, you can see it
+20:31
+says I need around 17 GB free RAM to be
+20:34
+able to run this. And let me try now
+20:37
+with bigger images. I have this full HD
+20:40
+image and it says it needs 34 GB of RAM.
+20:44
+And if I go and try a 2K image, you will
+20:47
+see I need 60 GB of system RAM. So let
+20:51
+me do a test really quickly with a full
+20:53
+HD image at 1 minute length. So I can
+20:56
+run the workflow and check here how long
+20:58
+it takes. In my case, it took 44
+21:01
+seconds. And the result I got is this
+21:04
+one. [music]
+21:10
+[music]
+21:21
+That is all for today. [singing]
+21:25
+Thank you leans [music] and everyone
+21:29
+who subscribed to the membership.
+21:33
+I hope you enjoyed [music] today's
+21:35
+video. Leave a like and a comment to
+21:40
+help with the [music] YouTube algorithm.
+21:44
+Have a great day.

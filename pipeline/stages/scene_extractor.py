@@ -117,9 +117,6 @@ def cut_preview_video(video_path: Path, output_dir: Path, target_duration: int =
     gpu_flags = get_nvenc_flags() if encoder == "h264_nvenc" else []
     quality_flags = get_nvenc_quality_flags() if encoder == "h264_nvenc" else get_cpu_quality_flags()
 
-    gpu1_crops_locked = False
-    if encoder == "h264_nvenc":
-        gpu1_crops_locked = gpu1_arbiter.acquire("forge_nvenc", timeout_seconds=30)
     cmd = [
         "ffmpeg", "-y",
         "-ss", "0",
@@ -193,72 +190,77 @@ def generate_social_crops(preview_video: Path, output_dir: Path, progress_cb: Op
     gpu_flags = get_nvenc_flags() if encoder == "h264_nvenc" else []
     quality_flags = get_nvenc_quality_flags() if encoder == "h264_nvenc" else get_cpu_quality_flags()
 
-    # 9:16 crop filter (center crop), lanczos scaling for crisp cinematic resize
-    cmd_vertical = [
-        "ffmpeg", "-y",
-        "-i", str(preview_video),
-        "-vf", "crop=ih*(9/16):ih,scale=1080:1920:flags=lanczos",
-        "-c:v", encoder
-    ] + gpu_flags + quality_flags + [
-        "-pix_fmt", "yuv420p",
-        "-c:a", "aac",
-        str(v_path)
-    ]
+    gpu1_crops_locked = False
+    if encoder == "h264_nvenc":
+        gpu1_crops_locked = gpu1_arbiter.acquire("forge_nvenc", timeout_seconds=30)
+
     try:
-        res = subprocess.run(cmd_vertical, capture_output=True, timeout=120)
-        if res.returncode != 0 and encoder == "h264_nvenc":
-            # Fallback to CPU
-            cmd_vertical_cpu = [
-                "ffmpeg", "-y",
-                "-i", str(preview_video),
-                "-vf", "crop=ih*(9/16):ih,scale=1080:1920:flags=lanczos",
-                "-c:v", "libx264"
-            ] + get_cpu_quality_flags() + [
-                "-pix_fmt", "yuv420p",
-                "-c:a", "aac",
-                str(v_path)
-            ]
-            subprocess.run(cmd_vertical_cpu, capture_output=True, timeout=180)
-        if v_path.exists():
-            crops["vertical_9x16"] = v_path
-    except Exception:
-        pass
+        # 9:16 crop filter (center crop), lanczos scaling for crisp cinematic resize
+        cmd_vertical = [
+            "ffmpeg", "-y",
+            "-i", str(preview_video),
+            "-vf", "crop=ih*(9/16):ih,scale=1080:1920:flags=lanczos",
+            "-c:v", encoder
+        ] + gpu_flags + quality_flags + [
+            "-pix_fmt", "yuv420p",
+            "-c:a", "aac",
+            str(v_path)
+        ]
+        try:
+            res = subprocess.run(cmd_vertical, capture_output=True, timeout=120)
+            if res.returncode != 0 and encoder == "h264_nvenc":
+                # Fallback to CPU
+                cmd_vertical_cpu = [
+                    "ffmpeg", "-y",
+                    "-i", str(preview_video),
+                    "-vf", "crop=ih*(9/16):ih,scale=1080:1920:flags=lanczos",
+                    "-c:v", "libx264"
+                ] + get_cpu_quality_flags() + [
+                    "-pix_fmt", "yuv420p",
+                    "-c:a", "aac",
+                    str(v_path)
+                ]
+                subprocess.run(cmd_vertical_cpu, capture_output=True, timeout=180)
+            if v_path.exists():
+                crops["vertical_9x16"] = v_path
+        except Exception:
+            pass
 
-    if progress_cb:
-        progress_cb(f"Forge Agent: Generating 1:1 square feed cut ({encoder} on GPU 1)...", 85)
+        if progress_cb:
+            progress_cb(f"Forge Agent: Generating 1:1 square feed cut ({encoder} on GPU 1)...", 85)
 
-    # 1:1 square crop, lanczos scaling for crisp cinematic resize
-    cmd_square = [
-        "ffmpeg", "-y",
-        "-i", str(preview_video),
-        "-vf", "crop=min(iw\\,ih):min(iw\\,ih),scale=1080:1080:flags=lanczos",
-        "-c:v", encoder
-    ] + gpu_flags + quality_flags + [
-        "-pix_fmt", "yuv420p",
-        "-c:a", "aac",
-        str(s_path)
-    ]
-    try:
-        res = subprocess.run(cmd_square, capture_output=True, timeout=120)
-        if res.returncode != 0 and encoder == "h264_nvenc":
-            cmd_square_cpu = [
-                "ffmpeg", "-y",
-                "-i", str(preview_video),
-                "-vf", "crop=min(iw\\,ih):min(iw\\,ih),scale=1080:1080:flags=lanczos",
-                "-c:v", "libx264"
-            ] + get_cpu_quality_flags() + [
-                "-pix_fmt", "yuv420p",
-                "-c:a", "aac",
-                str(s_path)
-            ]
-            subprocess.run(cmd_square_cpu, capture_output=True, timeout=180)
-        if s_path.exists():
-            crops["square_1x1"] = s_path
-    except Exception:
-        pass
-
-    if gpu1_crops_locked:
-        gpu1_arbiter.release("forge_nvenc")
+        # 1:1 square crop, lanczos scaling for crisp cinematic resize
+        cmd_square = [
+            "ffmpeg", "-y",
+            "-i", str(preview_video),
+            "-vf", "crop=min(iw\\,ih):min(iw\\,ih),scale=1080:1080:flags=lanczos",
+            "-c:v", encoder
+        ] + gpu_flags + quality_flags + [
+            "-pix_fmt", "yuv420p",
+            "-c:a", "aac",
+            str(s_path)
+        ]
+        try:
+            res = subprocess.run(cmd_square, capture_output=True, timeout=120)
+            if res.returncode != 0 and encoder == "h264_nvenc":
+                cmd_square_cpu = [
+                    "ffmpeg", "-y",
+                    "-i", str(preview_video),
+                    "-vf", "crop=min(iw\\,ih):min(iw\\,ih),scale=1080:1080:flags=lanczos",
+                    "-c:v", "libx264"
+                ] + get_cpu_quality_flags() + [
+                    "-pix_fmt", "yuv420p",
+                    "-c:a", "aac",
+                    str(s_path)
+                ]
+                subprocess.run(cmd_square_cpu, capture_output=True, timeout=180)
+            if s_path.exists():
+                crops["square_1x1"] = s_path
+        except Exception:
+            pass
+    finally:
+        if gpu1_crops_locked:
+            gpu1_arbiter.release("forge_nvenc")
     return crops
 
 if __name__ == "__main__":

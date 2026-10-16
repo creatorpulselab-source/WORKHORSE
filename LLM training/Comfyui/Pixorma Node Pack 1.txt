@@ -1,0 +1,1036 @@
+
+Pixorma Node Pack 1
+
+0:02
+vibecoded my first node pack for Comfy
+0:05
+UI. So today I will show you a few of my
+0:07
+first experiments and what nodes I
+0:10
+created that are useful for me at least.
+0:13
+I am starting Comfy UI. And if you look
+0:15
+in the command window, you will see
+0:17
+something like fetching Comfy Registry.
+0:20
+It just means Comfy UI is downloading a
+0:22
+list of available nodes or updates from
+0:24
+the internet, the registry. So let it
+0:27
+finish. Since I added my nodes recently,
+0:29
+they will not appear in the manager
+0:31
+until it gets that entire list. Once you
+0:34
+see all startup tasks have been
+0:36
+completed, it is all good to go. So now
+0:39
+if I go to manager and custom nodes
+0:41
+manager, I can go to search and search
+0:44
+for Pixarroma. And now the nodes appear
+0:46
+here and can be installed from the
+0:48
+manager. You can click on the title and
+0:51
+it will lead to the GitHub page for this
+0:54
+node. I vibe coded this in a few days. I
+0:57
+might do a tutorial on how to vibe code
+0:59
+a simple custom node in the future if
+1:01
+you are interested. Now, the nodes work,
+1:04
+but they might still have some bugs
+1:06
+since the bigger the nodes are, the
+1:08
+harder it is for AI to find all those
+1:11
+mistakes. So, I created some nodes from
+1:15
+3D builder to painter, an image compare
+1:19
+node, some labels, a crop tool, and so
+1:23
+on. If for some reason you cannot
+1:25
+install from the manager since the node
+1:27
+is so new, you can also use the get
+1:30
+clone command in the custom nodes
+1:32
+folder. But if you have easy installer,
+1:35
+it is easy to install with a click.
+1:37
+Also, the image composer uses an AI
+1:40
+model to remove the background. So if
+1:42
+you use that function, you might need to
+1:44
+install a command if it does not
+1:46
+download the model automatically. You
+1:48
+can ask me questions about these nodes
+1:50
+on Discord. If you like the project, you
+1:53
+can give it a star and I will try to
+1:55
+build more useful nodes in the future.
+1:58
+So, let me close Comfy UI and show you
+2:00
+the easy way to get the nodes if you
+2:02
+have easy installer. You just open the
+2:04
+update easy installer bat file and it
+2:07
+will install all you need including
+2:09
+Pixaroma nodes and future nodes and
+2:11
+scripts as I do more tutorials. And of
+2:14
+course, it will fix dependencies so
+2:17
+Nunchaku and other things you installed
+2:19
+still work. Then you can press enter or
+2:21
+any key to exit. Now we can start comfy
+2:24
+UI. And if you look in the command
+2:26
+window, you can see the number of nodes.
+2:28
+And also I added that this does not work
+2:30
+with nodes 2. That means if you go to
+2:33
+the comfy UI menu, turn nodes 2 off
+2:36
+since many custom nodes will not work
+2:38
+with it yet. So now if I go to manager
+2:41
+and custom nodes manager and search for
+2:43
+Pixaroma, the nodes are installed. So
+2:47
+that is the easiest method to get the
+2:49
+Pixarroma nodes installed. Just update
+2:51
+easy installer and have all you need.
+2:54
+Now let's go and test these nodes.
+2:56
+Double click on the canvas and search
+2:58
+for Pixaroma. That way you can see all
+3:00
+the nodes I created. So far there are
+3:03
+seven, but more are coming. So let's
+3:06
+select one like 3D builder. This node
+3:09
+outputs an image. So we can connect a
+3:11
+preview image if you only do tests or a
+3:14
+save image if you want to save the
+3:16
+image. Then for width and height I can
+3:19
+preview those as text. So I created a
+3:21
+node for that also called simple show
+3:23
+text. Comfy UI does have a node for that
+3:27
+just the size is a little bigger and I
+3:29
+wanted something smaller for preview. So
+3:31
+I can duplicate that node and connect it
+3:34
+and it should show what text is coming
+3:36
+out from that output. So now if I run
+3:38
+it, I should get the width and height of
+3:40
+whatever image we create with that node.
+3:43
+If there is nothing there, it just puts
+3:45
+a default black image. So let's open
+3:48
+this builder. We can adjust the canvas
+3:50
+settings. Let's say I select landscape.
+3:53
+You can change the size manually and
+3:55
+keep the ratio you selected. You can
+3:57
+change the background color or add an
+3:59
+image if you want. So select any color
+4:02
+you want and if you want an image, you
+4:04
+can load that also. I added the image to
+4:06
+be fixed as a background, but you can
+4:08
+move that in 2D how you want or fit the
+4:11
+width and height. You can rotate and so
+4:14
+on. And if you are on the canvas, you
+4:16
+are moving things around like camera or
+4:19
+objects and so on. Use left mouse, right
+4:22
+mouse and mouse wheel to see what you
+4:25
+can do and experiment with settings. And
+4:28
+you can remove the background image at
+4:30
+any time. Let's try to load another
+4:32
+image maybe like this paper. If you used
+4:35
+a 3D software before, it should be
+4:37
+familiar. You have here transform tools,
+4:40
+so you can rotate, move, or scale the
+4:43
+object that is selected. It depends on
+4:45
+what sliders you select when you do
+4:47
+those transformations. It is not as
+4:49
+complex as Blender. These are just for
+4:51
+some quick objects when you need
+4:52
+something to have the right perspective
+4:54
+and shape. And when you save it, you get
+4:56
+exactly that image, and you can run it
+4:59
+and send it to the rest of the workflow
+5:01
+to edit more. In fact, it might be
+5:04
+better to show you how to use it in an
+5:05
+actual workflow. Let's go to the
+5:08
+workflows from episode 4 when we used an
+5:10
+edit model, but you can use any edit
+5:13
+models like Quen if you want or image to
+5:15
+image workflows. I will open this one
+5:18
+image edit workflow with Flux 9B since
+5:21
+it is smarter. Now here, instead of
+5:23
+loading an image, I will use my nodes.
+5:27
+So, let me delete these nodes. So we are
+5:29
+left with an empty latent for size and
+5:32
+we will connect our node to VAE encode.
+5:35
+Double click on the canvas. Search for
+5:37
+Pixarroma. Add the 3D builder node. Now
+5:40
+the image that comes from it goes to VAE
+5:43
+encode. I did not add a scale down node
+5:46
+here since I assume you use decent size
+5:49
+images not very big images. So I will
+5:53
+connect the width and height to the
+5:54
+empty latent. So the image that is
+5:56
+generated is the same size as the image
+5:59
+we use for reference. Now let's open the
+6:02
+3D builder and I will delete that object
+6:05
+that comes by default. Because of how
+6:07
+Comfy UI works, I need it to adapt to
+6:10
+how I add objects to have more options.
+6:13
+So you first select the 3D objects you
+6:15
+want, then adjust settings, then you add
+6:18
+it. You can zoom in with the mouse wheel
+6:20
+and if you do not like it, you can
+6:22
+remove it from the button or by pressing
+6:23
+the delete key while it is selected. For
+6:26
+example, for the cone, I can reduce the
+6:29
+number of sides to four so it will look
+6:31
+like a pyramid. So, I can add it to see
+6:33
+if I like how it looks. Maybe it is too
+6:36
+tall for my taste. Let's reduce the
+6:38
+height a little and add it again. That
+6:40
+looks quite nice. I can change the color
+6:43
+from here how I want.
+6:45
+Maybe I change the background color from
+6:47
+black to something like a sandy look.
+6:49
+You also have more sliders here for the
+6:51
+color. You can change the angle of the
+6:53
+light.
+6:55
+Move it up and down. Play with light
+6:57
+intensity. And you can always adjust the
+7:00
+canvas size how you want. Use right
+7:02
+mouse to pan around. And when you like
+7:04
+it, you can save it. And now you have
+7:07
+that image that you can use for
+7:09
+reference. Let's change the prompt to
+7:12
+say make it look real. and I will run
+7:14
+the workflow. And we got our result. I
+7:17
+forgot to connect the before image to
+7:19
+the image compare, but it is not a
+7:21
+problem since I wanted to show you
+7:22
+anyway what image compare I did. So,
+7:25
+double click on the canvas. Search for
+7:27
+Pixarroma or image compare. And let's
+7:30
+add this to the canvas. I am connecting
+7:32
+for image one, the original image, and
+7:35
+for image 2, the generated image that
+7:37
+comes from the VAE decode node. And
+7:40
+let's run the workflow again. And now we
+7:42
+can compare before and after. If we move
+7:44
+the slider from left to right, also up
+7:47
+and down. It looks nice when you have
+7:49
+outfit changes. Overlay is one that I
+7:52
+wanted for a while. I can move the
+7:55
+slider to slowly fade between images so
+7:57
+I can see better how it changed. And
+8:00
+difference shows the difference from the
+8:02
+image. It is more obvious when images
+8:04
+are quite similar and only a portion is
+8:07
+changed. So now I can do more edits to
+8:09
+that. Move it around. Add a sphere maybe
+8:12
+to the scene, move it around. You have
+8:14
+different camera angles from front,
+8:16
+back, and so on. Maybe you want some top
+8:19
+view. So, there are many options here.
+8:21
+And you can ask on Discord what things
+8:23
+do if you want to learn more. You can
+8:25
+also hide shadows on the ground, hide
+8:27
+the grid, or that gizmo. Besides
+8:30
+selecting the color of the object, you
+8:32
+can also use the eyropper to pick the
+8:34
+color you want, but it takes the actual
+8:36
+color of the pixels it sees, not the
+8:39
+exact color of the object. So, you can
+8:41
+pick color from menus or backgrounds and
+8:44
+so on. You can also change the light
+8:46
+color and you have a help button for
+8:48
+shortcuts. So, always check those help
+8:50
+buttons and the help tips you get at the
+8:52
+bottom of the page. You can also hide
+8:55
+layers or change the order of them. You
+8:58
+can duplicate a selected layer and just
+9:00
+have fun and create the composition you
+9:02
+have in mind. Then you save it and run
+9:05
+the workflow. You can also use images
+9:07
+for background and add objects so it
+9:09
+knows what shapes to create. Maybe you
+9:12
+want a new building or a new piece of
+9:13
+furniture. You can create those forms
+9:16
+and move them so they fit your image
+9:17
+perspective and then use the rest of the
+9:19
+workflows to replace that with real
+9:21
+furniture or a building. Let's delete
+9:24
+this one and move to the next node. This
+9:26
+one is called image composer. If you
+9:29
+remember a few episodes back with image
+9:31
+tricks, I tried to combine different
+9:33
+nodes to create what I need. Now I
+9:36
+created this node to make things easier.
+9:39
+Reconnect to va end code then to image
+9:41
+compare image one and also connect width
+9:44
+and height. And now the workflow is
+9:46
+adapted for this node. Open image
+9:48
+composer. Go to document setup and
+9:50
+choose the ratio you want. Adjust the
+9:53
+pixel value and it will keep that ratio.
+9:55
+And you can press enter or tab to apply
+9:57
+that. Then you can start adding images
+10:00
+like in Photoshop. So let's say I add
+10:02
+this image. You can move that image
+10:04
+around on the canvas. From the corners
+10:07
+you can resize it and to keep the ratio.
+10:10
+From the top you have a rotate button
+10:12
+and you can undo a few moves. Not
+10:14
+unlimited but should be enough. From the
+10:16
+sides you can stretch or distort. You
+10:19
+can delete a layer or add a new one or
+10:21
+duplicate. Then you have sliders here
+10:23
+also for different transforms like you
+10:26
+can fit the width and height. You can
+10:28
+flip the image. All the things that are
+10:30
+harder to do with simple nodes. Then you
+10:33
+can add another image. Let's say I add
+10:35
+this bunny. I can fit the height and
+10:37
+then remove the background from here.
+10:39
+This uses an AI model that it will
+10:41
+download the first time you use it. I
+10:43
+explain on GitHub what it is using and
+10:45
+how. So wait for it to download the
+10:48
+first time you use it. And you will see
+10:50
+when it finishes that this button
+10:52
+changes in the command window. It will
+10:55
+show how it downloads the model the
+10:57
+first time. And now the bunny does not
+10:59
+have the background anymore. And I can
+11:01
+move it around where I want. Drag from
+11:03
+the corners to resize it. Rotate it. Do
+11:06
+not worry. The bunny does not mind.
+11:08
+Click save to node. And now we have the
+11:11
+image there. How cool is that? Let me
+11:14
+change the prompt to say make bunny fit
+11:16
+the scene. Then I can run the workflow.
+11:19
+So, we need a better prompt. As you can
+11:21
+see, the difference was subtle. You can
+11:23
+barely see it. So, let me change the
+11:25
+prompt to add shadows on the floor and
+11:27
+run it again. Now, we can see how the
+11:29
+bunny fits there. And we can test
+11:31
+different compare modes to see what the
+11:33
+differences are, but I think this node
+11:35
+is quite useful. Let me know in the
+11:37
+comments if you like it. Let's change
+11:39
+the prompt to add soft shadows instead
+11:42
+and make the bunny hold one hand on the
+11:44
+bottle. Run the workflow again. And now
+11:46
+the bunny holds one hand on the bottle
+11:48
+like I asked. And the good part is that
+11:51
+I can go again to image composer. Select
+11:54
+the bunny. Maybe I flip it or add more
+11:57
+bunnies. Let's move it to this side and
+12:00
+save it. Run the workflow. And now the
+12:02
+bunny is on the other side. I really
+12:04
+like it.
+12:06
+Let me open the composer again. And now
+12:09
+I can select the bunny. And I wanted to
+12:11
+show you the eraser. When it is enabled,
+12:14
+you do not have access to transform and
+12:16
+you can use the eraser tool. You can
+12:19
+change the brush hardness and you can
+12:21
+start deleting the parts you do not
+12:22
+want. And I can save it and have that
+12:24
+modified version. And now when I run it,
+12:27
+I get this. Can you guess why it still
+12:29
+has ears since my reference image did
+12:32
+not? Let's check the prompt really
+12:34
+quick. It says make bunny fit the scene.
+12:37
+So a bunny has ears and that would fit
+12:39
+better. So, I will remove that and leave
+12:42
+only those shadows and bunny holding the
+12:44
+hand on the bottle. And now we got
+12:46
+exactly what we asked. And as edit
+12:48
+models get smarter, tools like this that
+12:51
+let you adjust images before you run
+12:53
+them in workflows will become more
+12:55
+useful. And if we go back to image
+12:58
+composer, we can select that bunny and
+13:00
+we can remove that mask that we got from
+13:02
+the eraser. And now the bunny got his
+13:05
+ears back. So no bunnies were harmed in
+13:08
+the process. So, just remember when the
+13:11
+eraser is enabled, you do not have the
+13:13
+transform controls on the image. When
+13:16
+you disable the eraser, you have those
+13:18
+controls back. So, I hope this short
+13:20
+introduction to the node will help you
+13:22
+get started. If you used Photoshop and
+13:24
+other image editing tools before, it
+13:27
+should look familiar. So, let's delete
+13:29
+now the node and move to the next one.
+13:31
+This time, I want to test the paint
+13:33
+node. Let's add it and connect the image
+13:35
+output. Do the same for width and
+13:37
+height. And also do not forget to
+13:39
+connect the image output to the image
+13:41
+compare node. For the prompt, I will use
+13:43
+something like make it look real and
+13:47
+let's open paint. It took a while to do
+13:50
+this node. I kept finding bugs and
+13:52
+fixing them, but I think it came out
+13:54
+pretty nice considering I did not touch
+13:56
+a line of code. So, you have the brush
+13:58
+that lets you paint. You have on top
+14:00
+different options for size, opacity, and
+14:03
+more settings. Also, you can change the
+14:06
+brush shape from here. You have a move
+14:08
+tool that lets you move that layer.
+14:11
+If you rotate something, it stays in
+14:13
+that position. But there are cases when
+14:16
+you want to apply those transformations
+14:17
+so other tools work properly, like fit,
+14:20
+width, and height. You can also flip it
+14:22
+and rotate it around and arrange the
+14:24
+position of the sketch to match what you
+14:26
+have in mind. I will take the brush and
+14:29
+this time I will add another layer.
+14:31
+Let's pick another color like red. And
+14:33
+now you can draw on that layer. You can
+14:35
+flatten the image to merge those layers
+14:37
+into one.
+14:39
+You can clear all and start over. Let's
+14:42
+say you change the document size and you
+14:45
+select landscape. Let's take a pencil,
+14:47
+maybe a black color. And now we can
+14:50
+start drawing. If you want a straight
+14:52
+line, click once to add a dot, then
+14:54
+press shift and click again to get a
+14:56
+straight line. So many functions are
+14:58
+similar to Photoshop and other image
+15:00
+editors. And if you go to help, you have
+15:03
+more shortcuts for different tools. And
+15:05
+do not forget to look at the bottom
+15:07
+since it changes depending on the tool
+15:09
+with useful info. Let's save it. And now
+15:12
+we have that image here. If I run it
+15:15
+with the make it real prompt, I get
+15:17
+something like this. So that was AI
+15:20
+interpreting what it saw. I really like
+15:22
+the overlay compare option for sketches.
+15:25
+Let's open Paint again and maybe I
+15:28
+create a new layer. Let's take the fill
+15:30
+tool and with this you can fill a shape
+15:33
+or entire layer. Let me delete that. And
+15:36
+now I am on the layer with the sketch.
+15:38
+So I can fill those closed shapes with
+15:40
+red. I can pick another color and fill
+15:43
+that bottom part also. Take a brush and
+15:45
+pick a color and draw more elements. And
+15:49
+if you want some exact color that
+15:51
+already exists, take the eyropper, click
+15:54
+on the color you want to pick, move to a
+15:56
+brush and start painting.
+15:59
+Save it. And now we have the updated
+16:01
+image. Okay, it saw some fire there, so
+16:05
+it is creative. But let's guide it a
+16:07
+little. Let's add to be a cute house in
+16:10
+the desert and run the workflow again.
+16:12
+And now we got a nice house there. You
+16:14
+need longer prompts if you want colors
+16:16
+more accurate and the same shapes. Let's
+16:19
+open Paint again, clear the canvas, and
+16:22
+this time I will load an image. I will
+16:24
+pick the bunny again. Let me change the
+16:26
+canvas to a ratio that fits the bunny
+16:28
+and I will use the fit buttons. Now
+16:31
+instead of brushes I will use shapes.
+16:34
+You have on top different shapes from
+16:37
+circles to triangles and so on and you
+16:40
+can change fill and stroke. Let's create
+16:42
+a new layer
+16:45
+and I will add a circle here. You can
+16:47
+move things around so other layers are
+16:49
+in front. So I will leave the red circle
+16:51
+on top. Editing seems to have a bug
+16:54
+again for the layer name, but I will fix
+16:56
+that another day. With the move tool, I
+16:58
+can move that circle in the position I
+17:00
+want and resize it. And I will save it
+17:03
+now. Then I will go to the prompt and
+17:05
+say replace the red circle with a soccer
+17:07
+ball. And I will run the workflow again.
+17:10
+And look at the result. We got a ball in
+17:12
+the exact same place and same shape. So
+17:15
+it is a very powerful way to control the
+17:18
+editing. And now I can go to paint and
+17:20
+do even more things. Let's say I move
+17:22
+the ball up so it looks at it maybe.
+17:25
+Save it. Run it. And now the ball is
+17:27
+there. Isn't that cool?
+17:30
+Go to paint again. Create a new layer.
+17:33
+Get the shape. I will use that
+17:35
+rectangle. Get a green color. And I will
+17:38
+do a rectangle here.
+17:41
+Save it. Then in the prompt, I will add
+17:44
+to replace the green rectangle with a
+17:45
+black cat looking at the bunny. And
+17:47
+let's see what we get. We have our cat
+17:50
+and our ball. So we controlled two
+17:52
+subjects both in placement and in size.
+17:55
+So I think that is quite useful a nice
+17:58
+way to do in painting. Google Flow added
+18:00
+something similar to their interface
+18:02
+recently. Let's test really quick the
+18:04
+image crop node. Reconnect all the
+18:06
+outputs really quick and let's open the
+18:08
+crop tool. From here we can load an
+18:11
+image. Let's say I get this bottle. Use
+18:14
+the squares around the image to resize
+18:16
+the crop area how you want. It is quite
+18:18
+easy to use. You can constrain to a
+18:21
+certain multiple like 64 since many AI
+18:24
+models like working with multiples of 8
+18:26
+or 64. You can select the crop ratio
+18:29
+from here also. Try a few. And you can
+18:32
+also swap the width with height. So
+18:35
+let's arrange it like this. And now I
+18:37
+will save it. Then I can go to the
+18:39
+prompt and let's try something simple
+18:41
+like make it red. I run it and now my
+18:45
+image is red. And when you want, you can
+18:47
+go back to crop, resize, and adjust it
+18:50
+the way you like it. And for those who
+18:52
+like sliders, I added those two for
+18:55
+exact values. So it is quite easy to
+18:57
+use. I do not think it needs too much
+18:59
+explanation. If I load another image, it
+19:02
+gets replaced. Let's make a square ratio
+19:05
+and move it in position. Save it to the
+19:08
+workflow. Run the workflow again. And
+19:10
+now the image is red. Let me be more
+19:13
+specific and let's make his hair red.
+19:16
+And now his hair is red. And let's see
+19:18
+what other nodes we have here. The
+19:20
+label. For this one, it was difficult
+19:23
+since because of how Comfy UI is built
+19:25
+after the update. Same like it happened
+19:27
+with the label from the RG3 node, we
+19:30
+cannot get rid of that title with the
+19:32
+pack name. So to edit a label, you just
+19:34
+doubleclick on it. And I made this nice
+19:37
+interface where you can edit the values
+19:39
+for the label. You can type everything
+19:41
+you want. You can try different fonts.
+19:43
+And when you save it, the label is
+19:45
+updated. You can increase the font size,
+19:48
+change the text colors and the
+19:50
+background color. Save it and the label
+19:52
+is updated. You can also make it more
+19:55
+creative. Maybe add emoji and arrows and
+19:57
+stuff to point to different things in
+19:59
+the workflow. If you want, you can add
+20:01
+multiple lines of text here and align
+20:03
+the position of the text. And you have
+20:06
+more sliders for different options on
+20:07
+how it looks. Make it big or small,
+20:10
+colorful or more desaturated. Do
+20:13
+whatever fits your vision. And also, if
+20:16
+you want it without a background, just
+20:18
+use this transparent background from
+20:20
+here. Too bad Comfy UI does not let us
+20:22
+remove the Node Pack title from there
+20:24
+like it did before.
+20:26
+That is all for today. Thanks for
+20:28
+watching. If you found something useful,
+20:31
+leave a like and a comment to help with
+20:33
+the YouTube algorithm. Thank you legends
+20:36
+and everyone who subscribed to the
+20:38
+membership. Have a great day.
+

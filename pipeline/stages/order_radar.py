@@ -272,11 +272,12 @@ class OrderRadar:
         if platform == "fiverr":
             buyers = ["velvet_muse_la", "glamour_sophia", "boudoir_jess", "creator_chloe", "studio_vixen"]
             gigs = [
-                ("gig_retouch", "I will color grade and retouch your glamour & model photo shoot", "VIP Studio Master Set ($75)", "$75.00"),
-                ("gig_teaser", "I will create a 60s viral video teaser & 9:16 vertical reels", "Social Promo Duo ($45)", "$45.00"),
-                ("gig_copy", "I will write high-converting social media captions and hashtag kits", "Weekly Release Plan ($40)", "$40.00"),
-                ("gig_banner", "I will design custom OnlyFans / Fansly promo banners and tip menus", "Banner & Tip Menu Duo ($45)", "$45.00")
+                ("gig_photo_to_3d", "Convert 2D photo into a 3D PBR model and textured GLB asset", "Pro Game & VR Asset ($75)", "$75.00"),
+                ("gig_photo_to_video", "Animate still photo into a 4K 60fps cinematic video loop", "Cinematic 4K Motion Scene ($65)", "$65.00"),
+                ("gig_relight", "Relight portrait and replace backdrop with luxury studio lighting", "Executive Studio Glow ($50)", "$50.00"),
+                ("gig_retouch", "Professionally retouch and color grade portraits and headshots", "Editorial Drop ($45)", "$45.00")
             ]
+
             gig_choice = random.choice(gigs)
             buyer = random.choice(buyers)
             order_data = {
@@ -304,8 +305,8 @@ class OrderRadar:
                 "package": "Master Digital Pack",
                 "amount": "$29.99",
                 "received_at": datetime.now().isoformat(),
-                "status": "fulfilled_auto",
-                "deadline": "Instant Digital Delivery (Completed by Etsy)",
+                "status": "pending",
+                "deadline": "Digital Download Delivery",
                 "raw_subject": f"Etsy Order #{order_num} from {buyer} — Payment Confirmed"
             }
 

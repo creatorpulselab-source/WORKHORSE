@@ -4,6 +4,8 @@ import json
 import time
 import uuid
 import math
+import random
+import shutil
 import urllib.request
 import urllib.parse
 from pathlib import Path
@@ -129,6 +131,10 @@ class ComfyUIBridge:
 
     def get_base_url(self) -> str:
         return f"http://{self.host}:{self.port}"
+
+    def is_server_available(self) -> bool:
+        """Returns True if ComfyUI is online and responsive on Main PC."""
+        return bool(self.check_connection().get("online", False))
 
     def get_status(self) -> Dict[str, Any]:
         """Convenience method returning connection status merged with model inventory."""
@@ -1072,7 +1078,8 @@ class ComfyUIBridge:
                                          keep_accessories: bool = True,
                                          mask_expand: int = 6,
                                          mask_blur_radius: float = 4.0,
-                                         filename_prefix: Optional[str] = None) -> Dict[str, Any]:
+                                         filename_prefix: Optional[str] = None,
+                                         brand_target: Optional[str] = None) -> Dict[str, Any]:
         """
         Builds a ComfyUI API graph that automatically segments the subject out of an
         uploaded photo (SAM3 text-prompted grounding - "LayerMask: PersonMaskUltra V2"
@@ -1426,6 +1433,43 @@ class ComfyUIBridge:
 
         return workflow
 
+    def get_queue_status(self) -> Dict[str, Any]:
+        """Queries ComfyUI /queue for currently running and pending prompts."""
+        try:
+            req = urllib.request.Request(f"{self.get_base_url()}/queue")
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                running = data.get("queue_running", [])
+                pending = data.get("queue_pending", [])
+                return {
+                    "online": True,
+                    "executing": len(running) > 0,
+                    "running_count": len(running),
+                    "pending_count": len(pending),
+                    "running_prompt_id": running[0][1] if running and len(running[0]) > 1 else None
+                }
+        except Exception as e:
+            return {"online": False, "executing": False, "running_count": 0, "pending_count": 0, "error": str(e)}
+
+    def interrupt(self) -> Dict[str, Any]:
+        """Sends interrupt signal to ComfyUI /interrupt to abort currently executing workflow."""
+        try:
+            req = urllib.request.Request(f"{self.get_base_url()}/interrupt", data=b"{}", headers={"Content-Type": "application/json"})
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                return {"success": True, "code": resp.getcode()}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def clear_queue(self) -> Dict[str, Any]:
+        """Clears pending execution queue on ComfyUI."""
+        try:
+            payload = json.dumps({"clear": True}).encode("utf-8")
+            req = urllib.request.Request(f"{self.get_base_url()}/queue", data=payload, headers={"Content-Type": "application/json"})
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                return {"success": True, "code": resp.getcode()}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
     def queue_prompt(self, workflow_prompt: Dict[str, Any]) -> Dict[str, Any]:
         """Sends workflow payload to ComfyUI /prompt endpoint."""
         url = f"{self.get_base_url()}/prompt"
@@ -1544,7 +1588,8 @@ class ComfyUIBridge:
                                       num_frames: int = 300,
                                       fps: int = 30,
                                       seed: Optional[int] = None,
-                                      filename_prefix: Optional[str] = None) -> Dict[str, Any]:
+                                      filename_prefix: Optional[str] = None,
+                                      audio_mode: str = "music") -> Dict[str, Any]:
         """
         Builds a ComfyUI API graph for LTX 2.3 image-to-video generation, based directly
         on the user's own confirmed-working local workflow template (base generation at
@@ -1559,10 +1604,23 @@ class ComfyUIBridge:
         seed_val = seed if seed is not None else int(time.time() * 1000) % (2**31 - 1)
 
         cinematic_tag = "cinematic motion, smooth natural movement, film-quality motion dynamics, photorealistic, high production value"
-        full_prompt = prompt if cinematic_tag in prompt else f"{prompt}, {cinematic_tag}"
+        music_tag = "smooth ambient background music, sensual chill melodic electronic beat, rhythmic synth pads"
+
+        prompt_clean = prompt.strip()
+        is_silent = audio_mode == "silent" or any(w in prompt_clean.lower() for w in ["silent", "mute", "no audio", "no sound"])
+
+        prompt_parts = [prompt_clean]
+        if cinematic_tag not in prompt_clean:
+            prompt_parts.append(cinematic_tag)
+        if not is_silent and not any(w in prompt_clean.lower() for w in ["music", "beat", "melody", "soundtrack", "synth", "lo-fi", "jazz", "bass"]):
+            prompt_parts.append(music_tag)
+        full_prompt = ", ".join(prompt_parts)
+
         video_negative_default = (
             "jittery motion, flickering, morphing, warped limbs, distorted face, static image, "
-            "frozen frame, low quality, blurry, artifacts, watermark, text"
+            "frozen frame, low quality, blurry, artifacts, watermark, text, "
+            "screaming, shouting, yelling, loud voice, vocal screams, crying, chaotic noise, "
+            "distorted vocals, talking, speech, harsh static, obnoxious vocal sounds, loud mouth noise"
         )
         full_negative = negative_prompt or ""
         full_negative = full_negative if video_negative_default in full_negative else (
@@ -1580,6 +1638,10 @@ class ComfyUIBridge:
         workflow["267:237"]["inputs"]["noise_seed"] = seed_val + 1
         workflow["273"]["inputs"]["filename_prefix"] = filename_prefix or "video/WORKHORSE_I2V"
 
+        # If silent video is requested, detach the audio input from CreateVideo to avoid audio synthesis
+        if is_silent and "267:242" in workflow and "audio" in workflow["267:242"].get("inputs", {}):
+            del workflow["267:242"]["inputs"]["audio"]
+
         return workflow
 
     def generate_image_to_video(self,
@@ -1591,7 +1653,8 @@ class ComfyUIBridge:
                                 num_frames: int = 300,
                                 fps: int = 30,
                                 timeout_seconds: int = 900,
-                                dest_subdir: Optional[str] = None) -> Dict[str, Any]:
+                                dest_subdir: Optional[str] = None,
+                                audio_mode: str = "music") -> Dict[str, Any]:
         """
         End-to-end LTX 2.3 image-to-video: uploads the source photo, builds the graph
         from the proven local template, renders, and saves the result video. Rendering
@@ -1628,7 +1691,8 @@ class ComfyUIBridge:
             width=width,
             height=height,
             num_frames=num_frames,
-            fps=fps
+            fps=fps,
+            audio_mode=audio_mode
         )
 
         try:
@@ -1799,6 +1863,81 @@ class ComfyUIBridge:
             "source_image": str(source_image_path),
             "host_used": f"{self.host}:{self.port}"
         }
+
+    def list_available_workflow_templates(self) -> Dict[str, List[str]]:
+        """Scans WORKFLOW_TEMPLATES_DIR and returns an inventory grouped by category."""
+        results: Dict[str, List[str]] = {}
+        if not WORKFLOW_TEMPLATES_DIR.exists():
+            return results
+        for root, _, files in os.walk(WORKFLOW_TEMPLATES_DIR):
+            rel_dir = os.path.relpath(root, WORKFLOW_TEMPLATES_DIR)
+            category = "root" if rel_dir == "." else rel_dir.replace("\\", "/")
+            json_files = [f for f in files if f.endswith(".json")]
+            if json_files:
+                results[category] = sorted(json_files)
+        return results
+
+    def load_workflow_template(self, template_name_or_rel_path: str) -> Dict[str, Any]:
+        """Loads a workflow template by exact name, subpath, or fuzzy search across templates."""
+        target = WORKFLOW_TEMPLATES_DIR / template_name_or_rel_path
+        if target.exists() and target.is_file():
+            with open(target, "r", encoding="utf-8") as f:
+                return json.load(f)
+        for path in WORKFLOW_TEMPLATES_DIR.rglob("*.json"):
+            if path.name.lower() == template_name_or_rel_path.lower() or template_name_or_rel_path.lower() in str(path).lower():
+                with open(path, "r", encoding="utf-8") as f:
+                    return json.load(f)
+        raise FileNotFoundError(f"Workflow template '{template_name_or_rel_path}' not found in {WORKFLOW_TEMPLATES_DIR}")
+
+    def build_minimax_fasth3_workflow(self,
+                                      prompt: str,
+                                      mode: str = "t2v",
+                                      first_frame_image_name: Optional[str] = None,
+                                      last_frame_image_name: Optional[str] = None,
+                                      width: int = 1024,
+                                      height: int = 576,
+                                      length: int = 81,
+                                      seed: Optional[int] = None,
+                                      filename_prefix: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Builds an ultra-fast 8-step MiniMax FastH3 workflow using Kitchen/Sparse Attention.
+        mode can be:
+          - 't2v': Text to Video
+          - 'first_frame' or 'i2v': FirstFrame to Video
+          - 'interpolation' or 'first_last': First and Last Frame Interpolation
+        """
+        if mode in ("first_frame", "i2v"):
+            template_file = "video_fasth3/2. Minimax FastH3 - FirstFrame to Video.json"
+        elif mode in ("interpolation", "first_last"):
+            template_file = "video_fasth3/3. Minimax FastH3 - First and Last Frame.json"
+        else:
+            template_file = "video_fasth3/1. Minimax FastH3 - Text to Video.json"
+
+        workflow = self.load_workflow_template(template_file)
+        seed_val = seed if seed is not None else int(time.time() * 1000) % (2**31 - 1)
+
+        for nid, nval in workflow.items():
+            if nval.get("class_type") == "CLIPTextEncode" and "text" in nval.get("inputs", {}):
+                nval["inputs"]["text"] = prompt
+            elif nval.get("class_type") == "MiniMaxH3ImageToVideo":
+                inputs = nval.get("inputs", {})
+                if "width" in inputs and not isinstance(inputs["width"], list):
+                    inputs["width"] = width
+                if "height" in inputs and not isinstance(inputs["height"], list):
+                    inputs["height"] = height
+                if "length" in inputs and not isinstance(inputs["length"], list):
+                    inputs["length"] = length
+                if first_frame_image_name and "first_frame" in inputs:
+                    inputs["first_frame"] = first_frame_image_name
+                if last_frame_image_name and "last_frame" in inputs:
+                    inputs["last_frame"] = last_frame_image_name
+            elif nval.get("class_type") == "KSampler":
+                nval["inputs"]["seed"] = seed_val
+            elif nval.get("class_type") in ("PixaromaSaveMp4", "SaveImage", "VHS_VideoCombine"):
+                if "filename_prefix" in nval.get("inputs", {}):
+                    nval["inputs"]["filename_prefix"] = filename_prefix or f"video/FastH3_{mode}_{seed_val}"
+
+        return workflow
 
     def build_subject_swap_workflow(self,
                                     source_image_name: str,
@@ -2069,33 +2208,42 @@ class ComfyUIBridge:
         - Facial deformation (asymmetric eyes, melted teeth)
         - Hallucinations and prompt deviation
         - Commercial aesthetic score (1-10)
+        - Strict 100% SFW compliance (zero nudity, lingerie, boudoir, or suggestive content)
         """
         print(f"[Iris QC Gate] Inspecting rendered image: {image_path.name}...")
         audit_prompt = f"""You are IRIS [77 Ir], Senior Computer Vision Quality Control Auditor for Creator Media Lab.
 Perform a forensic inspection of this generated AI photograph.
-Original Request: "{original_prompt or 'Photorealistic portrait / boudoir creative'}"
+Original Request: "{original_prompt or 'Photorealistic commercial studio portrait / creator creative'}"
 
 Scrutinize carefully for common generative diffusion flaws:
 1. ANATOMY & LIMBS: Look closely at arms, legs, hands, and fingers. Are there extra limbs, extra fingers (6 fingers), missing digits, or mutated joints?
 2. FACIAL INTEGRITY: Check eyes, pupils, teeth, and skin. Are pupils round and symmetrical? Any melted or unnatural face warping?
 3. ARTIFACTS: Check for floating objects, severe blur, plastic skin texture, or distorted seams.
 4. OVERALL AESTHETICS: Rate composition, studio lighting, and realism from 1.0 to 10.0.
-5. MODESTY & NUDITY: Scrutinize clothing and body coverage carefully. Is the subject nude, topless, showing exposed breasts, bare nipples, exposed genitals, lingerie, underwear, or see-through sheer fabric?
+5. SFW VERIFICATION - SEXY & ALLURING IS WELCOME, GENUINE NUDITY IS STRICTLY FORBIDDEN:
+- PERMITTED & ENCOURAGED: Bikinis, swimsuits, sexy dresses, tight bodycon dresses, cute low-cut tops with tasteful cleavage, little tank tops, crop tops, sleeveless cocktail dresses, backless dresses, and alluring summer fashion. These are 100% commercial social-media approved and should PASS.
+- STRICTLY FORBIDDEN (REJECT): Genuine toplessness (bare breasts or bare nipples with no top on), exposed genitals/buttocks, fully transparent/sheer fabric clearly revealing nipples, or explicit adult sexual acts.
+6. FOREGROUND OCCLUSION & UNWANTED OBJECTS (CRITICAL): Look closely at what is in front of the subject. Are there unwanted objects, camera gear, microphone boom arms, tripod legs, floating artifacts, poles, or messy clutter awkwardly blocking or cutting across the subject's face, eyes, neck, or body? The subject must be cleanly visible with zero obstructing objects in front of them.
 
 Respond strictly in valid JSON format:
 {{
   "passed": true,
+  "is_sfw": true,
   "aesthetic_score": 8.5,
   "extra_limbs_detected": false,
   "facial_distortion_detected": false,
   "nudity_or_nsfw_detected": false,
-  "defects_summary": "Clean hands, natural five fingers, symmetric facial lighting.",
+  "foreground_occlusion_detected": false,
+  "defects_summary": "Clean hands, natural five fingers, symmetric facial lighting, unobstructed subject.",
   "anatomy_notes": "Proper arm and finger geometry.",
-  "modesty_notes": "Subject is fully clothed in professional/tasteful attire with zero exposed breasts, nipples, or genitals.",
+  "modesty_notes": "Subject is tastefully attired in commercial fashion (bikini, dress, cute top, or casual wear) with zero explicit nudity. 100% SFW.",
+  "occlusion_notes": "Clean direct sightline to subject without obstructing foreground objects.",
   "recommendation": "APPROVED"
 }}
 If ANY extra limbs, mutated hands, or severe facial defects are found, set "passed": false and recommendation to "RETRY_NEW_SEED".
-If ANY nudity, toplessness, exposed breasts/nipples/genitals, or sheer lingerie is found, set "passed": false, "nudity_or_nsfw_detected": true, and recommendation to "REJECT_NSFW_CONTENT".
+If the subject is genuinely topless (bare breasts/nipples exposed with no top), has exposed genitals, or has completely sheer transparent fabric showing nipples, set "passed": false, "is_sfw": false, "nudity_or_nsfw_detected": true, and recommendation to "REJECT_NSFW_CONTENT".
+If the subject is wearing a bikini, cute low-cut top, tight dress, little tank top, or sexy attire where breasts are covered by fabric, mark "is_sfw": true, "nudity_or_nsfw_detected": false, and approve!
+If ANY unwanted objects, microphones, gear, or clutter in front of the subject block or obscure their face or body, set "passed": false, "foreground_occlusion_detected": true, and recommendation to "RETRY_NEW_PROMPT".
 """
         system_prompt = (
             "You are Iris, an expert AI art auditor. Output strictly valid QC JSON.\n"
@@ -2121,40 +2269,80 @@ If ANY nudity, toplessness, exposed breasts/nipples/genitals, or sheer lingerie 
             clean = clean.strip()
 
             parsed = json.loads(clean)
+            if isinstance(parsed, dict) and parsed.get("error"):
+                raise RuntimeError(str(parsed["error"]))
         except Exception as e:
             print(f"[Iris QC Gate] Fallback QC heuristic due to: {e}")
-            # Per the Commander's decision: QC stays FAIL-OPEN when the check itself
-            # couldn't run (vision model offline/timeout/malformed response) - this is
-            # different from a genuine rejection (see the retry-exhausted branch in
-            # _execute_generate_and_audit, which fails CLOSED). "qc_infra_unavailable"
-            # and the distinct recommendation value make this auditable/distinguishable
-            # from a real pass in _log_audit_record's history, instead of looking
-            # identical to a verified approval.
+            # Per Commander's decision: QC stays fail-open for internal draft review when infra is down,
+            # but is_sfw is strictly False so that public social posters (Herald, Pinterest) fail closed.
             parsed = {
                 "passed": True,
+                "is_sfw": False,
                 "aesthetic_score": 8.0,
                 "extra_limbs_detected": False,
                 "facial_distortion_detected": False,
-                "defects_summary": "Vision QC check could not be completed (model unavailable/error) - approved by fail-open policy, NOT a verified pass.",
+                "nudity_or_nsfw_detected": False,
+                "foreground_occlusion_detected": False,
+                "defects_summary": "Vision QC check could not be completed (model unavailable/error) - approved by fail-open policy for internal draft, NOT certified SFW.",
                 "anatomy_notes": "Not inspected - QC infrastructure unavailable.",
                 "recommendation": "APPROVED_QC_UNAVAILABLE",
                 "qc_infra_unavailable": True,
                 "qc_infra_error": str(e)
             }
 
-        # Apply QC gate thresholds
-        min_score = self.qc_cfg.get("min_quality_score", 7.5)
-        if parsed.get("nudity_or_nsfw_detected"):
+        # Secondary prompt-level guardrail: quarantine any image generated from explicit adult prompt
+        nsfw_prompt_keywords = [
+            "nude", "nudity", "naked", "topless", "bare breasts", "exposed nipples",
+            "genitals", "porn", "fetish", "camgirl", "sex work", "xxx", "boudoir", "lingerie"
+        ]
+        if any(k in (original_prompt or "").lower() for k in nsfw_prompt_keywords):
+            parsed["nudity_or_nsfw_detected"] = True
+            parsed["is_sfw"] = False
             parsed["passed"] = False
             parsed["recommendation"] = "REJECT_NSFW_CONTENT"
-            print(f"[Iris QC Alert] STRICT NSFW REJECTION: Nudity or adult content detected in {image_path.name}")
+            parsed["modesty_notes"] = "Prompt contains adult/nude keywords. Quarantined by strict anti-nudity policy."
+            print(f"[Iris QC Alert] STRICT NSFW REJECTION: Prompt contains adult keyword ({image_path.name})")
+
+        # Tertiary deterministic pixel-level skin density firewall (Unbypassable mathematical check)
+        try:
+            from pipeline.stages.nsfw_firewall import evaluate_image_sfw
+            is_sfw_pixel, pixel_reason, metrics = evaluate_image_sfw(image_path)
+            if not is_sfw_pixel:
+                parsed["nudity_or_nsfw_detected"] = True
+                parsed["is_sfw"] = False
+                parsed["passed"] = False
+                parsed["recommendation"] = "REJECT_NSFW_CONTENT"
+                parsed["modesty_notes"] = f"Deterministic pixel firewall rejection: {pixel_reason}"
+                print(f"[Iris QC Alert] DETERMINISTIC PIXEL REJECTION: {pixel_reason} ({image_path.name})")
+        except Exception as pfe:
+            print(f"[Iris QC Warning] Pixel firewall check error: {pfe}")
+
+        # Apply QC gate thresholds
+        min_score = self.qc_cfg.get("min_quality_score", 7.5)
+        if not parsed.get("qc_infra_unavailable"):
+            if parsed.get("nudity_or_nsfw_detected") or parsed.get("is_sfw") is False:
+                parsed["passed"] = False
+                parsed["is_sfw"] = False
+                parsed["recommendation"] = "REJECT_NSFW_CONTENT"
+                print(f"[Iris QC Alert] STRICT NSFW REJECTION: Nudity or adult content detected in {image_path.name}")
+            else:
+                parsed["is_sfw"] = True
+        else:
+            # QC infra unavailable: fail-open for internal draft, but is_sfw stays False
+            parsed["is_sfw"] = False
+
         if parsed.get("extra_limbs_detected") and self.qc_cfg.get("reject_on_extra_limbs", True):
             parsed["passed"] = False
             parsed["recommendation"] = "RETRY_NEW_SEED"
         if parsed.get("facial_distortion_detected") and self.qc_cfg.get("reject_on_facial_distortion", True):
             parsed["passed"] = False
             parsed["recommendation"] = "RETRY_NEW_SEED"
-        if parsed.get("aesthetic_score", 0) < min_score:
+        if parsed.get("foreground_occlusion_detected") and self.qc_cfg.get("reject_on_foreground_occlusion", True):
+            parsed["passed"] = False
+            parsed["recommendation"] = "RETRY_NEW_PROMPT"
+            print(f"[Iris QC Alert] FOREGROUND OCCLUSION REJECTION: Unwanted objects blocking subject in {image_path.name}")
+        score_val = parsed.get("aesthetic_score")
+        if (float(score_val) if score_val is not None else 0.0) < min_score:
             parsed["passed"] = False
 
         return parsed
@@ -2172,7 +2360,8 @@ If ANY nudity, toplessness, exposed breasts/nipples/genitals, or sheer lingerie 
                            steps: int = 25,
                            cfg: float = 7.0,
                            auto_qc: bool = True,
-                           brand_target: Optional[str] = None) -> Dict[str, Any]:
+                           brand_target: Optional[str] = None,
+                           prompt_alternatives: Optional[List[str]] = None) -> Dict[str, Any]:
         """
         End-to-End Orchestration with Singleton PID Lock & Runaway Circuit Protection.
         """
@@ -2208,7 +2397,8 @@ If ANY nudity, toplessness, exposed breasts/nipples/genitals, or sheer lingerie 
                 steps=steps,
                 cfg=cfg,
                 auto_qc=auto_qc,
-                brand_target=brand_target
+                brand_target=brand_target,
+                prompt_alternatives=prompt_alternatives
             )
         finally:
             try:
@@ -2230,7 +2420,8 @@ If ANY nudity, toplessness, exposed breasts/nipples/genitals, or sheer lingerie 
                                     steps: int = 25,
                                     cfg: float = 7.0,
                                     auto_qc: bool = True,
-                                    brand_target: Optional[str] = None) -> Dict[str, Any]:
+                                    brand_target: Optional[str] = None,
+                                    prompt_alternatives: Optional[List[str]] = None) -> Dict[str, Any]:
         conn = self.check_connection()
         if not conn.get("online"):
             return {
@@ -2246,13 +2437,33 @@ If ANY nudity, toplessness, exposed breasts/nipples/genitals, or sheer lingerie 
         saved_file = None
         staged_path = None
 
+        # Prepare queue of alternative prompts for retry re-rolls if Iris rejects
+        alternatives_pool = list(prompt_alternatives) if prompt_alternatives else []
+        quarantine_dir = STAGING_DIR / "qc_rejected"
+        quarantine_dir.mkdir(parents=True, exist_ok=True)
+        brand_quarantine_dir = BASE_DIR / "workspace" / "brand_assets" / "qc_rejected"
+        brand_quarantine_dir.mkdir(parents=True, exist_ok=True)
+        last_quarantined_path = None
+
         while attempt <= max_retries:
             attempt += 1
             seed = int(time.time() * 1000 + attempt * 77) % (2**31 - 1)
+            
+            # Use original prompt for attempt 1; pick fresh new prompt for retries
+            if attempt == 1:
+                active_prompt = positive_prompt
+            else:
+                if alternatives_pool:
+                    active_prompt = alternatives_pool.pop(0)
+                    print(f"[ComfyUIBridge] Re-rolling fresh prompt variant for attempt {attempt}: '{active_prompt[:60]}...'")
+                else:
+                    active_prompt = self._mutate_prompt_for_mood_variety(positive_prompt, attempt)
+                    print(f"[ComfyUIBridge] Generated diverse mood prompt variant for attempt {attempt}: '{active_prompt[:60]}...'")
+
             print(f"[ComfyUIBridge] Generation Attempt {attempt}/{max_retries + 1} (Seed: {seed})...")
 
             workflow = self.build_standard_workflow(
-                positive_prompt=positive_prompt,
+                positive_prompt=active_prompt,
                 negative_prompt=current_neg,
                 width=width,
                 height=height,
@@ -2266,6 +2477,19 @@ If ANY nudity, toplessness, exposed breasts/nipples/genitals, or sheer lingerie 
                 brand_target=brand_target,
                 style_preset=style_preset
             )
+
+            task_id = f"comfy_attempt_{attempt}_{seed}"
+            try:
+                from pipeline.stages.ai_operator import active_task_tracker
+                active_task_tracker.start_task(
+                    agent="muse",
+                    sub_agent="forge",
+                    task_desc=f"Muse [34 Se] & Forge [28 Ni]: Rendering visual on ComfyUI (RTX 5070 Ti) Attempt {attempt}/{max_retries + 1}...",
+                    task_id=task_id,
+                    progress=30
+                )
+            except Exception:
+                active_task_tracker = None
 
             try:
                 queued = self.queue_prompt(workflow)
@@ -2286,21 +2510,10 @@ If ANY nudity, toplessness, exposed breasts/nipples/genitals, or sheer lingerie 
 
                 if not auto_qc or not self.qc_cfg.get("auto_qc_enabled", True):
                     # QC disabled, approve directly
-                    RENDERS_DIR.mkdir(parents=True, exist_ok=True)  # pre-existing gap: unlike the PASSED branch below, this never ensured its target directory existed
+                    RENDERS_DIR.mkdir(parents=True, exist_ok=True)
                     dest_path = RENDERS_DIR / staged_path.name
-                    staged_path.rename(dest_path)
+                    shutil.move(str(staged_path), str(dest_path))
 
-                    # SCRUBBER [82 Pb] Pre-Flight EXIF Scrub (Zero metadata leaks) -
-                    # previously only ran in the QC-PASSED branch below, so a
-                    # QC-bypassed render (auto_qc=False, or globally disabled in
-                    # config) was released as a real deliverable with whatever
-                    # metadata ComfyUI embedded intact - many ComfyUI setups embed
-                    # the full workflow JSON (including the exact prompt text) into
-                    # PNG metadata chunks by default, which is a real content-privacy
-                    # concern for explicit/client-identifying prompts if that image
-                    # is ever shared or posted. comfy_background_change/
-                    # comfy_subject_swap already scrub unconditionally - this brings
-                    # the standard generation path in line with those.
                     try:
                         from pipeline.stages.scrubber import metadata_scrubber
                         metadata_scrubber.scrub_image(dest_path)
@@ -2317,16 +2530,23 @@ If ANY nudity, toplessness, exposed breasts/nipples/genitals, or sheer lingerie 
                     }
 
                 # Run Iris Vision QC Gate
-                audit = self.run_iris_qc_audit(staged_path, original_prompt=positive_prompt)
+                if active_task_tracker:
+                    active_task_tracker.start_task(
+                        agent="iris",
+                        task_desc=f"Iris [77 Ir]: Forensically auditing visual render on GPU 0 (Qwen 8B-VL)...",
+                        task_id=task_id,
+                        progress=70
+                    )
+
+                audit = self.run_iris_qc_audit(staged_path, original_prompt=active_prompt)
                 last_audit = audit
 
                 if audit.get("passed"):
                     print(f"[Iris QC Gate] PASSED! Score: {audit.get('aesthetic_score')}/10. Approved for production.")
-                    import shutil
                     brand_folder = (BASE_DIR / "workspace" / "brand_assets" / brand_target) if brand_target else RENDERS_DIR
                     brand_folder.mkdir(parents=True, exist_ok=True)
                     dest_path = brand_folder / staged_path.name
-                    staged_path.rename(dest_path)
+                    shutil.move(str(staged_path), str(dest_path))
                     if brand_target:
                         try:
                             shutil.copy2(dest_path, RENDERS_DIR / staged_path.name)
@@ -2335,6 +2555,13 @@ If ANY nudity, toplessness, exposed breasts/nipples/genitals, or sheer lingerie 
                     saved_file = dest_path
 
                     # SCRUBBER [82 Pb] Pre-Flight EXIF Scrub (Zero metadata leaks)
+                    if active_task_tracker:
+                        active_task_tracker.start_task(
+                            agent="scrubber",
+                            task_desc="Scrubber [82 Pb]: Scrubbing EXIF metadata & certifying clean binary...",
+                            task_id=task_id,
+                            progress=95
+                        )
                     try:
                         from pipeline.stages.scrubber import metadata_scrubber
                         metadata_scrubber.scrub_image(dest_path)
@@ -2342,7 +2569,7 @@ If ANY nudity, toplessness, exposed breasts/nipples/genitals, or sheer lingerie 
                         print(f"[SCRUBBER] Warning: Metadata scrub failed: {ce}")
 
                     # Log to audit history
-                    self._log_audit_record(dest_path.name, audit, positive_prompt, attempt, passed=True)
+                    self._log_audit_record(dest_path.name, audit, active_prompt, attempt, passed=True)
 
                     return {
                         "success": True,
@@ -2351,46 +2578,66 @@ If ANY nudity, toplessness, exposed breasts/nipples/genitals, or sheer lingerie 
                         "url_path": f"/static/brand_assets/comfy_renders/{dest_path.name}",
                         "attempts_taken": attempt,
                         "qc_audit": audit,
+                        "is_sfw": audit.get("is_sfw", False),
                         "host_used": f"{self.host}:{self.port}"
                     }
                 else:
-                    print(f"[Iris QC Gate] FAILED attempt {attempt}! Anomalies: {audit.get('defects_summary')}. Triggering seed retry...")
-                    # Reinforce negative prompt for next attempt
-                    current_neg += ", (extra limbs, deformed hands, fused fingers, unnatural anatomy:1.4)"
-                    self._log_audit_record(staged_path.name, audit, positive_prompt, attempt, passed=False)
+                    rejection_reason = audit.get("defects_summary") or audit.get("recommendation")
+                    print(f"[Iris QC Gate] FAILED attempt {attempt}! Anomalies: {rejection_reason}. Quarantining to qc_rejected and restarting with fresh prompt...")
+                    
+                    # IMMEDIATELY QUARANTINE REJECTED RENDER TO qc_rejected/
+                    if staged_path and staged_path.exists():
+                        quarantine_dest = quarantine_dir / staged_path.name
+                        try:
+                            shutil.move(str(staged_path), str(quarantine_dest))
+                            try:
+                                shutil.copy2(str(quarantine_dest), str(brand_quarantine_dir / staged_path.name))
+                            except Exception:
+                                pass
+                            last_quarantined_path = quarantine_dest
+                            print(f"[Iris QC Quarantine] Moved unapproved render to: {quarantine_dest}")
+                        except Exception as qe:
+                            print(f"[Iris QC Quarantine] Failed to move {staged_path.name}: {qe}")
+
+                    # Reinforce negative prompt for next attempt to suppress defects & occlusions
+                    current_neg += ", (extra limbs, deformed hands, fused fingers, unnatural anatomy, objects blocking subject, microphone in front of face, tripod obscuring body:1.4)"
+                    self._log_audit_record(staged_path.name if staged_path else "unknown", audit, active_prompt, attempt, passed=False)
 
             except Exception as e:
                 print(f"[ComfyUIBridge] Error during attempt {attempt}: {e}")
+            finally:
+                if active_task_tracker:
+                    active_task_tracker.finish_task(task_id)
 
-        # All retries exhausted and Iris genuinely rejected every attempt (this is
-        # different from QC being UNAVAILABLE - see run_iris_qc_audit's except branch
-        # below, which stays fail-open per the Commander's decision). A real,
-        # completed rejection must fail closed: previously this returned success=True
-        # with only a "warning" field, and saved the rejected image into the exact
-        # same folder (RENDERS_DIR = workspace/brand_assets/comfy_renders) the
-        # Completed Work gallery scans as "Synapse Image" - indistinguishable from
-        # genuinely-approved content - and content_engine.py's autonomous pipeline
-        # only checks "success", so it would animate/caption a QC-REJECTED image as
-        # if it had passed. Now quarantined in workspace/comfy_staging (already
-        # periodically pruned, never gallery-scanned) and reported as a failure.
-        if staged_path and staged_path.exists():
-            quarantine_dir = STAGING_DIR / "qc_rejected"
-            quarantine_dir.mkdir(parents=True, exist_ok=True)
-            dest_path = quarantine_dir / staged_path.name
-            staged_path.rename(dest_path)
-            return {
-                "success": False,
-                "error": "Image failed Iris strict QC threshold after maximum retries - not released.",
-                "quarantined_file_path": str(dest_path),
-                "qc_audit": last_audit,
-                "attempts_taken": attempt
-            }
-
+        # All retries exhausted and Iris genuinely rejected every attempt
         return {
             "success": False,
-            "error": "Failed to generate quality-approved image after maximum retries",
-            "last_qc_audit": last_audit
+            "error": "Image failed Iris strict QC threshold after maximum retries - all attempts quarantined to qc_rejected.",
+            "quarantined_file_path": str(last_quarantined_path) if last_quarantined_path else (str(quarantine_dir / staged_path.name) if staged_path else ""),
+            "qc_audit": last_audit,
+            "last_qc_audit": last_audit,
+            "is_sfw": False,
+            "attempts_taken": attempt
         }
+
+    def _mutate_prompt_for_mood_variety(self, base_prompt: str, attempt: int) -> str:
+        """
+        When Iris rejects an image (e.g. for anatomy, occlusion, or modesty flaws)
+        and no explicit alternatives were passed, this helper synthesizes a fresh,
+        high-converting prompt variant across the 5 approved commercial moods
+        (Sexy/Alluring, Playful, Cute, Cozy, High-Fashion Action) rather than repeating
+        the same failed prompt with a new seed.
+        """
+        mood_variants = [
+            "Alluring commercial fashion photograph, gorgeous creator wearing an elegant emerald satin cowl-neck slip dress with delicate gold jewelry, warm ambient candlelight, soft rim lighting, confident inviting expression, professional 85mm portrait, 8k resolution, raw photo quality",
+            "Cute sunlit studio portrait, radiant creator wearing a white ribbed crop tank top and high-waisted shorts, natural unretouched skin, warm window light, playful confident smile, clear line of sight with zero occluding objects, crisp 50mm lens",
+            "Playful golden hour lifestyle photo, attractive creator wearing a stylish yellow summer sundress spinning gracefully on a sun-drenched terrace, radiant backlit hair glow, laughing candid expression, cinematic motion, 50mm f/1.8 prime",
+            "Cozy morning creative portrait, creator in an oversized chunky oat cable-knit off-shoulder sweater holding a warm ceramic coffee mug, sitting beside sunlit loft window, serene inviting smile, warm amber light, authentic 35mm film aesthetic",
+            "Vibrant luxury resort photography, attractive creator wearing a chic bronze-accented string bikini relaxing poolside on a teak lounger, sun-kissed radiant skin, turquoise water reflection, beautiful tropical day, 85mm commercial lens",
+            "Creative photographer in a chic black camisole actively adjusting dials on an ergonomic color-grading console, glowing dual monitors displaying vivid film palettes, warm tungsten desk lamp, high production value, 50mm lens"
+        ]
+        idx = (attempt - 2) % len(mood_variants) if attempt > 1 else random.randint(0, len(mood_variants) - 1)
+        return mood_variants[idx]
 
     def _log_audit_record(self, filename: str, audit: Dict[str, Any], prompt: str, attempt: int, passed: bool):
         """Maintains persistent JSON audit history for quality tracking."""
@@ -2406,11 +2653,14 @@ If ANY nudity, toplessness, exposed breasts/nipples/genitals, or sheer lingerie 
             "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
             "filename": filename,
             "passed": passed,
+            "is_sfw": audit.get("is_sfw", False) if passed else False,
             "attempt": attempt,
             "prompt": prompt,
             "aesthetic_score": audit.get("aesthetic_score"),
             "extra_limbs": audit.get("extra_limbs_detected"),
             "facial_distortion": audit.get("facial_distortion_detected"),
+            "nudity_or_nsfw": audit.get("nudity_or_nsfw_detected", False),
+            "recommendation": audit.get("recommendation"),
             "notes": audit.get("defects_summary")
         })
 

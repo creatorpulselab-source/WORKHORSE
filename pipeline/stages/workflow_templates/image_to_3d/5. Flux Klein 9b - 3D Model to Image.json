@@ -1,0 +1,317 @@
+{
+  "6": {
+    "inputs": {
+      "text": "a professional product photograph of this sci-fi pistol, clean studio lighting, soft shadows, dark grey background, sharp focus, high detail. Keep the design and the colours. Smooth clean edges on the orange trim, straight crisp lines, evenly masked paint, no ragged or wobbly outlines, no lumpy surfaces",
+      "clip": [
+        "195",
+        0
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "3. Describe the image you want"
+    }
+  },
+  "163": {
+    "inputs": {
+      "seed": [
+        "307",
+        0
+      ],
+      "steps": 4,
+      "cfg": 1,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "denoise": 1,
+      "model": [
+        "194",
+        0
+      ],
+      "positive": [
+        "204",
+        0
+      ],
+      "negative": [
+        "205",
+        0
+      ],
+      "latent_image": [
+        "197",
+        0
+      ]
+    },
+    "class_type": "KSampler",
+    "_meta": {
+      "title": "4. Sampler"
+    }
+  },
+  "164": {
+    "inputs": {
+      "samples": [
+        "163",
+        0
+      ],
+      "vae": [
+        "196",
+        0
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "Decode"
+    }
+  },
+  "190": {
+    "inputs": {
+      "conditioning": [
+        "6",
+        0
+      ]
+    },
+    "class_type": "ConditioningZeroOut",
+    "_meta": {
+      "title": "Empty negative"
+    }
+  },
+  "194": {
+    "inputs": {
+      "unet_name": "flux-2-klein-9b-fp8.safetensors",
+      "weight_dtype": "default"
+    },
+    "class_type": "UNETLoader",
+    "_meta": {
+      "title": "Flux Klein 9b model"
+    }
+  },
+  "195": {
+    "inputs": {
+      "clip_name": "qwen_3_8b_fp8mixed.safetensors",
+      "type": "flux2",
+      "device": "default"
+    },
+    "class_type": "CLIPLoader",
+    "_meta": {
+      "title": "Text encoder (Qwen 3 8b)"
+    }
+  },
+  "196": {
+    "inputs": {
+      "vae_name": "flux2-vae.safetensors"
+    },
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "Flux 2 VAE"
+    }
+  },
+  "197": {
+    "inputs": {
+      "width": [
+        "316",
+        0
+      ],
+      "height": [
+        "316",
+        1
+      ],
+      "batch_size": 1
+    },
+    "class_type": "EmptyFlux2LatentImage",
+    "_meta": {
+      "title": "Output size"
+    }
+  },
+  "204": {
+    "inputs": {
+      "conditioning": [
+        "6",
+        0
+      ],
+      "latent": [
+        "206",
+        0
+      ]
+    },
+    "class_type": "ReferenceLatent",
+    "_meta": {
+      "title": "Reference the render (positive)"
+    }
+  },
+  "205": {
+    "inputs": {
+      "conditioning": [
+        "190",
+        0
+      ],
+      "latent": [
+        "206",
+        0
+      ]
+    },
+    "class_type": "ReferenceLatent",
+    "_meta": {
+      "title": "Reference the render (negative)"
+    }
+  },
+  "206": {
+    "inputs": {
+      "pixels": [
+        "315",
+        0
+      ],
+      "vae": [
+        "196",
+        0
+      ]
+    },
+    "class_type": "VAEEncode",
+    "_meta": {
+      "title": "Encode the 3D render"
+    }
+  },
+  "211": {
+    "inputs": {
+      "label_json": "{\"text\":\"Flux Klein 9b - 3D Model to Image\",\"fontSize\":36,\"fontFamily\":\"Arial\",\"fontColor\":\"#ffffff\",\"textAlign\":\"left\",\"backgroundColor\":\"#f66744\",\"padding\":10,\"borderRadius\":0,\"opacity\":1,\"fontWeight\":\"normal\",\"lineHeight\":1}"
+    },
+    "class_type": "PixaromaLabel",
+    "_meta": {
+      "title": "Label Pixaroma"
+    }
+  },
+  "250": {
+    "inputs": {
+      "image1": [
+        "315",
+        0
+      ],
+      "image2": [
+        "164",
+        0
+      ]
+    },
+    "class_type": "PixaromaCompare",
+    "_meta": {
+      "title": "3D render vs finished image"
+    }
+  },
+  "307": {
+    "inputs": {
+      "SeedState": "{\"runSeed\":4831264065124141}",
+      "seed": 4831264065124141
+    },
+    "class_type": "PixaromaSeed",
+    "_meta": {
+      "title": "Seed"
+    }
+  },
+  "309": {
+    "inputs": {
+      "note_json": "{\"version\": 1, \"content\": \"<h2>MODELS AND NODES USED IN THIS WORKFLOW</h2><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #777777\\\"><p>\\n\\n</p><h3><span data-ic=\\\"workflow-v1\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;How this works</h3><p>\\n\\n</p><ol>\\n  <li>Run one of the <b>Image to 3D Model</b> workflows first. It writes a <code>.glb</code> into <code>ComfyUI/output/3d</code>.</li>\\n  <li>On the <b>Load 3D</b> node press <b>upload 3d model</b> and pick that <code>.glb</code>. ComfyUI copies it into <code>input/3d</code> so the node can see it.</li>\\n  <li><b>Drag inside the 3D view to rotate</b> to the angle you want, then press Run.</li>\\n</ol><p>\\n\\n</p><p>Flux Klein redraws that angle as a finished picture. Because it is always the same 3D model, every angle you render is the <span style=\\\"color: #f66744\\\">same object</span>, which is what you cannot get by asking an image model for another view.</p><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #777777\\\"><p>\\n\\n</p><h3><span data-ic=\\\"model-v4\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;Load Diffusion Model</h3><p>\\n\\n<span class=\\\"pix-note-btnblock\\\"><a class=\\\"pix-note-dl\\\" style=\\\"background-color: #f66744\\\" href=\\\"https://huggingface.co/Winnougan/Klein9b-Distilled-Base-INT8-Convrot/resolve/main/flux-2-klein-9b-int8-convrot.safetensors\\\" target=\\\"_blank\\\" rel=\\\"noopener noreferrer\\\">Download flux-2-klein-9b-int8-convrot.safetensors<span class=\\\"pix-note-btnsize\\\">9.4 GB</span></a></span>&nbsp;\\n\\n</p><div class=\\\"pix-note-folderhint\\\" style=\\\"color: #f66744\\\">Place in: ComfyUI/models/diffusion_models/flux2</div><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #777777\\\"><p>\\n\\n</p><h3><span data-ic=\\\"CLIP\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;Load CLIP</h3><p>\\n\\n<span class=\\\"pix-note-btnblock\\\">\\n  <a class=\\\"pix-note-dl\\\" style=\\\"background-color: #f66744\\\" href=\\\"https://huggingface.co/Comfy-Org/flux2-klein-9B/resolve/main/split_files/text_encoders/qwen_3_8b_fp8mixed.safetensors\\\" target=\\\"_blank\\\" rel=\\\"noopener noreferrer\\\">Download qwen_3_8b_fp8mixed.safetensors<span class=\\\"pix-note-btnsize\\\">8.06 GB</span></a>\\n</span>&nbsp;\\n\\n</p><div class=\\\"pix-note-folderhint\\\" style=\\\"color: #f66744\\\">Place in: ComfyUI/models/text_encoders</div><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #777777\\\"><p>\\n\\n</p><h3><span data-ic=\\\"VAE\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;Load VAE</h3><p>\\n\\n<span class=\\\"pix-note-btnblock\\\">\\n  <a class=\\\"pix-note-dl\\\" style=\\\"background-color: #f66744\\\" href=\\\"https://huggingface.co/Comfy-Org/flux2-dev/resolve/main/split_files/vae/flux2-vae.safetensors\\\" target=\\\"_blank\\\" rel=\\\"noopener noreferrer\\\">Download flux2-vae.safetensors<span class=\\\"pix-note-btnsize\\\">320 MB</span></a>\\n</span>&nbsp;\\n\\n</p><div class=\\\"pix-note-folderhint\\\" style=\\\"color: #f66744\\\">Place in: ComfyUI/models/vae</div><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #777777\\\"><p>\\n\\n</p><p><span data-ic=\\\"warning-v1\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;After placing the files, <span style=\\\"color: #f66744\\\">restart</span> ComfyUI or refresh model lists using <span style=\\\"color: #f66744\\\">R</span> shortcut.</p><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #777777\\\"><p>\\n\\n</p><h3><span data-ic=\\\"nodes-installed\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;Custom Nodes</h3><p>\\n\\n</p><ul>\\n  <li>Pixaroma</li>\\n</ul><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #777777\\\"><p>\\n\\n</p><h3><span data-ic=\\\"pixaroma\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;Resources</h3><p>\\n\\n<span class=\\\"pix-note-btnblock\\\">\\n  <a class=\\\"pix-note-discord\\\" href=\\\"https://discord.com/invite/gggpkVgBf3\\\" target=\\\"_blank\\\" rel=\\\"noopener noreferrer\\\">Join Discord</a>\\n</span>&nbsp;\\n\\n<span class=\\\"pix-note-btnblock\\\">\\n  <a class=\\\"pix-note-yt\\\" href=\\\"https://www.youtube.com/@pixaroma\\\" target=\\\"_blank\\\" rel=\\\"noopener noreferrer\\\">Pixaroma YouTube Channel</a>\\n</span>&nbsp;</p>\", \"buttonColor\": \"#f66744\", \"lineColor\": \"#f66744\", \"width\": 530, \"height\": 807.0, \"backgroundColor\": \"#2a2a2a\"}"
+    },
+    "class_type": "PixaromaNote",
+    "_meta": {
+      "title": "Note Pixaroma"
+    }
+  },
+  "310": {
+    "inputs": {
+      "filename_prefix": "img",
+      "save_mode": "save",
+      "pixaroma_buttons": null,
+      "pixaroma_strip": null,
+      "image": [
+        "164",
+        0
+      ],
+      "CivitaiMeta": "0"
+    },
+    "class_type": "PixaromaPreview",
+    "_meta": {
+      "title": "The finished image"
+    }
+  },
+  "314": {
+    "inputs": {},
+    "class_type": "PixaromaRunTimer",
+    "_meta": {
+      "title": "Run Timer Pixaroma"
+    }
+  },
+  "315": {
+    "inputs": {
+      "model_file": "3d/scifiweapon3D.glb",
+      "upload 3d model": "upload3dmodel",
+      "upload extra resources": "uploadExtraResources",
+      "clear": "clear",
+      "image": {
+        "image": "threed/scene_1792082865694.png [temp]",
+        "mask": "threed/scene_mask_1792082865695.png [temp]",
+        "normal": "threed/scene_normal_1792082865695.png [temp]",
+        "camera_info": {
+          "position": {
+            "x": -0.15412003335061142,
+            "y": 0.09571239813510789,
+            "z": 1.9267901873607527
+          },
+          "target": {
+            "x": 0,
+            "y": 0,
+            "z": 0
+          },
+          "zoom": 1,
+          "cameraType": "perspective",
+          "quaternion": {
+            "x": -0.024715765388839798,
+            "y": -0.039886214640587336,
+            "z": -0.0009869058775595965,
+            "w": 0.9988980162357305
+          },
+          "fov": 35,
+          "aspect": 1,
+          "near": 0.01,
+          "far": 10000,
+          "frustum": {
+            "left": -5,
+            "right": 5,
+            "top": 5,
+            "bottom": -5
+          }
+        },
+        "recording": "",
+        "model_3d_info": []
+      },
+      "width": 1024,
+      "height": 1024
+    },
+    "class_type": "Load3D",
+    "_meta": {
+      "title": "1. Load your 3D model - drag to rotate"
+    }
+  },
+  "316": {
+    "inputs": {
+      "SizesState": "{\"version\": 1, \"sizes\": [[1024, 1024], [1280, 1280], [1536, 1536], [1152, 896], [1216, 832], [1344, 768], [1536, 640]], \"selected\": 0, \"orientation\": \"portrait\", \"snap\": 16, \"accent\": null, \"collapsed\": false, \"starred\": [], \"w\": 1024, \"h\": 1024}"
+    },
+    "class_type": "PixaromaSizes",
+    "_meta": {
+      "title": "2. Render size"
+    }
+  },
+  "319": {
+    "inputs": {
+      "note_json": "{\"version\": 1, \"content\": \"<h1>SETTINGS FOR YOUR CARD</h1><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #b8b8b8\\\"><p>\\n\\n</p><p>This workflow only redraws a picture, so there is nothing to tune for quality except the render size, which has its own note next to that node.</p><p>\\n\\n</p><h2><span data-ic=\\\"chip\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;What it costs</h2><table class=\\\"pix-note-grid\\\" style=\\\"--pix-note-grid-border: #f66744; --pix-note-grid-header-bg: #1a1a1a\\\"><thead><tr><th></th><th>Measured on a 24 GB RTX 4090</th></tr></thead><tbody><tr><td>A render at about 1 megapixel</td><td>2.6 seconds</td></tr><tr><td>The biggest size, 1536 x 1536</td><td>4.5 seconds</td></tr><tr><td>The first run after starting ComfyUI</td><td>about 7 seconds longer</td></tr><tr><td>Memory in use at the busiest moment</td><td>21.4 GB</td></tr></tbody></table><p>\\n\\n</p><p>That 21.4 GB is what ComfyUI chose to use when it had 24 GB free, not what the workflow needs. It spreads out when there is room and packs down when there is not, so a smaller card can still run this. It was only measured on the big card here, so treat a small card as untested rather than ruled out.</p><p>\\n\\n</p><h2><span data-ic=\\\"checkmark\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;The sampler</h2><p>Four steps at a CFG of 1 with <span style=\\\"color: #f66744\\\">euler</span> and <span style=\\\"color: #f66744\\\">simple</span>. Those are the turbo settings this model is built for and they do not need changing. If you want slightly crisper edges, try <span style=\\\"color: #f66744\\\">6 to 8 steps</span> - it costs roughly that much more time.</p><p>\\n\\n</p><h2><span data-ic=\\\"warning-v1\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;If you run out of memory</h2><ul><li><b>Lower the render size</b> first. It is by far the biggest lever here.</li><li>Close other programs using the graphics card, browsers included.</li><li>The 3D model itself barely matters. A 50 MB textured .glb loads no slower than a 6 MB one, because only the picture of it reaches the sampler.</li></ul><p>\\n\\n</p>\", \"buttonColor\": \"#f66744\", \"lineColor\": \"#f66744\", \"width\": 730, \"height\": 665, \"backgroundColor\": \"#2a2a2a\"}"
+    },
+    "class_type": "PixaromaNote",
+    "_meta": {
+      "title": "Settings for your card"
+    }
+  },
+  "320": {
+    "inputs": {
+      "note_json": "{\"version\": 1, \"content\": \"<h1>RENDER SIZE</h1><p>\\n\\n</p><hr class=\\\"pix-note-hr-solid\\\" style=\\\"color: #b8b8b8\\\"><p>\\n\\n</p><p>Every size in the list was run on a 24 GB RTX 4090 and checked. All seven came out at the exact size asked for, with no stretching and nothing repeated. <b>The three squares are listed first because they always keep the angle of your 3D view</b> - see the warning at the bottom.</p><p>\\n\\n</p><table class=\\\"pix-note-grid\\\" style=\\\"--pix-note-grid-border: #f66744; --pix-note-grid-header-bg: #1a1a1a\\\"><thead><tr><th>Size</th><th>Shape</th><th>Time</th></tr></thead><tbody><tr><td>1024 x 1024</td><td>square</td><td>2.6 s</td></tr><tr><td>1280 x 1280</td><td>square</td><td>3.5 s</td></tr><tr><td>1536 x 1536</td><td>square</td><td>4.5 s</td></tr><tr><td>1152 x 896</td><td>4:3</td><td>2.6 s</td></tr><tr><td>1216 x 832</td><td>3:2</td><td>2.6 s</td></tr><tr><td>1344 x 768</td><td>16:9</td><td>2.6 s</td></tr><tr><td>1536 x 640</td><td>wide</td><td>2.6 s</td></tr></tbody></table><p>\\n\\n</p><p>Anything around one megapixel costs the same 2.6 seconds, so pick the shape you want rather than the smallest one. Going bigger is what costs time. The first run after starting ComfyUI adds about 7 seconds while the model loads.</p><p>\\n\\n</p><p>Use <span style=\\\"color: #f66744\\\">Portrait</span> / <span style=\\\"color: #f66744\\\">Landscape</span> on the node to flip any of them, so a tall version of each is already there.</p><p>\\n\\n</p><h2><span data-ic=\\\"warning-v1\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;Leave the 3D grid off</h2><p>The 3D view is photographed exactly as you see it, and that picture is what the model works from. With the grid on, its lines are captured too and can turn up in the finished image. It is off in this workflow. If you switch it on to line something up, switch it back before you Run.</p><p>\\n\\n</p><h2><span data-ic=\\\"warning-v1\\\" class=\\\"pix-note-ic\\\" contenteditable=\\\"false\\\" style=\\\"color: #f66744\\\"></span>&nbsp;Tall shapes can tilt the object</h2><p>The 3D view is photographed at the size set on the <span style=\\\"color: #f66744\\\">Load 3D</span> node, which is 1024 x 1024. The render size only changes the shape of the finished picture, not that photograph.</p><p>So if you pick a tall size, the model is given a square photograph and a tall frame to fill, and it is free to tilt the weapon to fill the space. Tested at 640 x 1536 on four seeds: <span style=\\\"color: #f66744\\\">two kept the angle and two rotated it</span>, one of them by about sixty degrees.</p><p><b>Landscape and square are safe.</b> All seven sizes were clean in landscape. If you want a tall picture and the angle matters, set the <span style=\\\"color: #f66744\\\">width and height on the Load 3D node</span> to the same shape as your render size, then drag inside the 3D view once so it takes a fresh photograph at that shape. Proven in testing: once the photograph matches the frame, both of the seeds that had rotated kept the angle.</p><p>Or use <span style=\\\"color: #f66744\\\">6. Keep the Angle</span>, the other Flux Klein workflow in this set. It paints the picture on top of your 3D view instead of composing a new one, so the angle survives any shape, and the picture size comes from the Load 3D node rather than a list.</p><p>\\n\\n</p>\", \"buttonColor\": \"#f66744\", \"lineColor\": \"#f66744\", \"width\": 480.0, \"height\": 1165.0, \"backgroundColor\": \"#2a2a2a\"}"
+    },
+    "class_type": "PixaromaNote",
+    "_meta": {
+      "title": "About the render size"
+    }
+  }
+}

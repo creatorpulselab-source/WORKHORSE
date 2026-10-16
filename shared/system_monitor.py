@@ -4,8 +4,21 @@ import subprocess
 import requests
 from typing import Dict, Any, List
 
+import time
+from threading import Lock
+
+_cache_lock = Lock()
+_gpu_cache = {"data": None, "expires": 0.0}
+_system_stats_cache = {"data": None, "expires": 0.0}
+_ollama_models_cache = {"data": None, "expires": 0.0}
+
 def get_gpu_stats() -> List[Dict[str, Any]]:
-    """Retrieve real-time metrics for all NVIDIA GPUs using nvidia-smi."""
+    """Retrieve real-time metrics for all NVIDIA GPUs using nvidia-smi with 2s TTL cache."""
+    now = time.time()
+    with _cache_lock:
+        if _gpu_cache["data"] is not None and now < _gpu_cache["expires"]:
+            return _gpu_cache["data"]
+
     gpus = []
     try:
         cmd = [
@@ -48,10 +61,19 @@ def get_gpu_stats() -> List[Dict[str, Any]]:
             "utilization_gpu_percent": 12,
             "temperature_c": 35
         }]
+
+    with _cache_lock:
+        _gpu_cache["data"] = gpus
+        _gpu_cache["expires"] = now + 2.0
     return gpus
 
 def get_system_stats() -> Dict[str, Any]:
-    """Retrieve system CPU, RAM, Disk, and GPU metrics."""
+    """Retrieve system CPU, RAM, Disk, and GPU metrics with 2s TTL cache."""
+    now = time.time()
+    with _cache_lock:
+        if _system_stats_cache["data"] is not None and now < _system_stats_cache["expires"]:
+            return _system_stats_cache["data"]
+
     gpus = get_gpu_stats()
     
     # Disk stats for F: drive
@@ -65,7 +87,7 @@ def get_system_stats() -> Dict[str, Any]:
     except Exception:
         disk_pct = 0
 
-    return {
+    stats = {
         "gpus": gpus,
         "disk": {
             "drive": "F:",
@@ -75,9 +97,19 @@ def get_system_stats() -> Dict[str, Any]:
             "percent_used": disk_pct
         }
     }
+    with _cache_lock:
+        _system_stats_cache["data"] = stats
+        _system_stats_cache["expires"] = now + 2.0
+    return stats
 
 def get_ollama_models(ollama_url: str = "http://127.0.0.1:11434") -> Dict[str, Any]:
-    """Check Ollama availability and list local models."""
+    """Check Ollama availability and list local models with 10s TTL cache."""
+    now = time.time()
+    with _cache_lock:
+        if _ollama_models_cache["data"] is not None and now < _ollama_models_cache["expires"]:
+            return _ollama_models_cache["data"]
+
+    res = {"online": False, "models": []}
     try:
         resp = requests.get(f"{ollama_url}/api/tags", timeout=4)
         if resp.status_code == 200:
@@ -93,10 +125,14 @@ def get_ollama_models(ollama_url: str = "http://127.0.0.1:11434") -> Dict[str, A
                     "is_vision": "vision" in caps or "vl" in m.get("name", "").lower(),
                     "capabilities": caps
                 })
-            return {"online": True, "models": models}
+            res = {"online": True, "models": models}
     except Exception:
         pass
-    return {"online": False, "models": []}
+
+    with _cache_lock:
+        _ollama_models_cache["data"] = res
+        _ollama_models_cache["expires"] = now + 10.0
+    return res
 
 if __name__ == "__main__":
     import json

@@ -186,6 +186,24 @@ class PinterestPoster:
                 if marker in path_lower:
                     return False, f"Blocked: source path '{source_path}' is associated with the adult content brand/niche ('{marker}')."
 
+            # Iris QC & SFW Audit Gate verification
+            audit_log_path = Path("F:/WORKHORSE/workspace/comfy_qc_audit.json")
+            if audit_log_path.exists():
+                try:
+                    records = safe_read_json(audit_log_path, default=[])
+                    img_name = Path(source_path).name
+                    for r in records:
+                        if r.get("filename") == img_name:
+                            if not r.get("passed") or r.get("is_sfw") is False or r.get("nudity_or_nsfw"):
+                                return False, f"Blocked: image '{img_name}' failed Iris QC SFW verification."
+                            prompt_str = (r.get("prompt") or "").lower()
+                            for kw in PINTEREST_BLOCKED_KEYWORDS:
+                                if kw in prompt_str:
+                                    return False, f"Blocked: image prompt for '{img_name}' contains disallowed term '{kw}'."
+                            break
+                except Exception:
+                    pass
+
         return True, ""
 
     def _is_duplicate_pin(self, text: str) -> bool:

@@ -32,9 +32,9 @@ class MetadataScrubber:
 
             with Image.open(in_p) as img:
                 # Create a completely clean pixel image without info dict (strips EXIF, XMP, ICC)
-                data = list(img.getdata())
-                clean_img = Image.new(img.mode, img.size)
-                clean_img.putdata(data)
+                clean_img = Image.frombytes(img.mode, img.size, img.tobytes())
+                if img.mode == "P" and img.getpalette():
+                    clean_img.putpalette(img.getpalette())
 
                 # Save clean image without any metadata headers
                 fmt = img.format or ("PNG" if in_p.suffix.lower() == ".png" else "JPEG")

@@ -156,16 +156,15 @@ class NewsletterManager:
         except Exception:
             pass
 
-    def _get_daily_scribe_content(self, pub_id: str, auto_generate: bool = True) -> Optional[Dict[str, Any]]:
+    def _get_daily_scribe_content(self, pub_id: str, auto_generate: bool = True, force_refresh: bool = False) -> Optional[Dict[str, Any]]:
         """Returns today's Scribe-generated content for pub_id, generating and caching
-        it on first call of the day. Returns None (never raises) if generation fails,
-        so every caller can gracefully fall back to its static copy. Retries once before
-        giving up, since a single transient Ollama hiccup used to immediately fall back
-        to the same static body for the rest of the day."""
+        it on first call of the day. If force_refresh=True, bypasses existing cache.
+        Returns None (never raises) if generation fails, so every caller can gracefully
+        fall back to its static copy."""
         today_key = datetime.now().strftime("%Y-%m-%d")
         cache = safe_read_json(self.scribe_cache_path, default={})
         cached_entry = cache.get(pub_id)
-        if cached_entry and cached_entry.get("date") == today_key and cached_entry.get("content"):
+        if not force_refresh and cached_entry and cached_entry.get("date") == today_key and cached_entry.get("content"):
             return cached_entry["content"]
 
         if not auto_generate:
@@ -193,6 +192,11 @@ class NewsletterManager:
                         {"title": f"Monetization Strategy: {t['tier']}", "snippet": f"Objective: {t['purpose']}. Strategic architecture for maximizing retention and average tip volume."}
                         for t in matrix.get("creator_monetization", {}).get("token_pricing_sweet_spots", [])
                     ]
+                elif pub_id == "creator_blueprint":
+                    research_articles = [
+                        {"title": "The Micro-Asset Shift", "snippet": "Selling $19 high-margin digital templates instead of long courses."},
+                        {"title": "Automated Syndication", "snippet": "Creating once and syndicating across 4 marketing channels."}
+                    ]
         except Exception as e:
             print(f"[NewsletterManager] Could not load research context for {pub_id}: {e}")
 
@@ -219,8 +223,20 @@ class NewsletterManager:
             print(f"[NewsletterManager] Scribe daily content generation attempt {attempt + 1}/2 failed for {pub_id}: {last_error}")
 
         if not result:
-            self._log_fallback_incident(pub_id, last_error or "unknown error")
-            return None
+            # Resilient procedural fallback: guarantees publication content changes daily even offline
+            try:
+                scribe = self._get_scribe()
+                result = scribe.generate_dynamic_daily_fallback(
+                    pub_id=pub_id,
+                    pub_name=pub["name"],
+                    audience=pub["audience"],
+                    funnel_blurb=pub["funnel"],
+                    today_str=datetime.now().strftime("%A, %B %d, %Y"),
+                    research_articles=research_articles
+                )
+            except Exception as fe:
+                self._log_fallback_incident(pub_id, f"{last_error or 'unknown error'} (procedural fallback failed: {fe})")
+                return None
 
         cache[pub_id] = {"date": today_key, "content": result}
         atomic_write_json(self.scribe_cache_path, cache)
@@ -764,17 +780,33 @@ class NewsletterManager:
     # ──────────────────────────────────────────────────────────────────────────
     # RESPONSIVE HORIZONTAL (PC) / VERTICAL (MOBILE) EMAIL BUILDERS
     # ──────────────────────────────────────────────────────────────────────────
-    def _load_iris_verified_filenames(self) -> set:
-        """Returns the set of filenames with a passed=true IRIS QC audit record."""
+    def _load_iris_verified_filenames(self, require_sfw: bool = True) -> set:
+        """Returns the set of filenames with a passed=true IRIS QC audit record.
+        When require_sfw=True, strictly excludes any record flagged non-SFW,
+        rejected for NSFW, or generated with an adult/boudoir prompt."""
         audit_log = self.workspace / "comfy_qc_audit.json"
         verified = set()
+        blocked_prompt_words = [
+            "boudoir", "lingerie", "underwear", "bra", "panties", "nude", "nudity", "naked",
+            "topless", "bare breasts", "exposed nipples", "genitals", "sheer", "erotic",
+            "nsfw", "porn", "adult", "fetish", "cam"
+        ]
         if audit_log.exists():
             try:
                 with open(audit_log, "r", encoding="utf-8") as f:
                     records = json.load(f)
                 for r in records:
-                    if r.get("passed") and r.get("filename"):
-                        verified.add(r["filename"])
+                    if not (r.get("passed") and r.get("filename")):
+                        continue
+                    if require_sfw:
+                        if r.get("is_sfw") is False or r.get("nudity_or_nsfw"):
+                            continue
+                        if r.get("recommendation") == "REJECT_NSFW_CONTENT":
+                            continue
+                        prompt_str = (r.get("prompt") or "").lower()
+                        if any(k in prompt_str for k in blocked_prompt_words):
+                            continue
+                    verified.add(r["filename"])
             except Exception:
                 pass
         return verified
@@ -783,19 +815,30 @@ class NewsletterManager:
         """
         Retrieves the latest IRIS-QC-verified visual render for the SPECIFIC brand.
         - 'creator_pulse' / 'creatorpulselab': searches workspace/brand_assets/creator_pulse_lab
-        - 'studio_wire' / 'creator_blueprint' / 'TheCreatorAsset': searches workspace/brand_assets/creator_media_lab
-        Falls back to brand prefix filtering (CPL_ vs CML_).
-        Only ever returns a file with a passed=true record in comfy_qc_audit.json - a
-        test render or a render that failed QC must never be auto-attached to a live post.
+        - 'studio_wire' / 'TheCreatorAsset': searches workspace/brand_assets/creator_media_lab
+        - 'creator_blueprint': strictly searches for digital workstation / media scaling assets (no studio lights)
+        Falls back to brand prefix filtering (CPL_ vs CML_ vs CBP_).
+        STRICT 100% SFW: Only returns a file with a passed=true and is_sfw=true record in comfy_qc_audit.json.
         """
-        is_pulse = any(k in pub_id.lower() for k in ["pulse", "boudoir", "cam", "adult", "cpl"])
-        target_subfolder = "creator_pulse_lab" if is_pulse else "creator_media_lab"
-        target_prefix = "CPL_" if is_pulse else "CML_"
-        verified_names = self._load_iris_verified_filenames()
+        is_pulse = any(k in pub_id.lower() for k in ["pulse", "cpl"])
+        is_blueprint = "blueprint" in pub_id.lower()
+        if is_blueprint:
+            target_subfolder = "creator_blueprint"
+            target_prefix = "CBP_"
+        elif is_pulse:
+            target_subfolder = "creator_pulse_lab"
+            target_prefix = "CPL_"
+        else:
+            target_subfolder = "creator_media_lab"
+            target_prefix = "CML_"
+        verified_names = self._load_iris_verified_filenames(require_sfw=True)
 
         def _latest_verified(files: List[Path]) -> Optional[Path]:
             # STRICT NSFW GUARD: drop any file with adult/boudoir keywords in filename
-            blocked = ["boudoir", "nude", "naked", "nsfw", "topless", "lingerie", "porn", "explicit", "erotic"]
+            blocked = [
+                "boudoir", "nude", "naked", "nsfw", "topless", "lingerie", "porn", "explicit",
+                "erotic", "charlette", "margo", "melissa"
+            ]
             clean_files = [f for f in files if not any(b in f.name.lower() for b in blocked)]
             verified_files = [f for f in clean_files if f.name in verified_names]
             if not verified_files:
@@ -822,12 +865,58 @@ class NewsletterManager:
             if picked:
                 return picked
 
-        # 3. Fallback: only an IRIS-verified render, regardless of brand prefix - never
-        # fall back to "whatever file is newest" since that can be an unaudited test render
-        renders_dir = self.workspace / "brand_assets" / "comfy_renders"
+        # 3. For creator_blueprint, also check for verified workstation/asset renders across brand folders
+        if is_blueprint:
+            audit_log = self.workspace / "comfy_qc_audit.json"
+            if audit_log.exists():
+                try:
+                    with open(audit_log, "r", encoding="utf-8") as f:
+                        records = json.load(f)
+                    workstation_names = set()
+                    ws_keywords = [
+                        "workstation", "workspace", "dashboard", "tablet", "dual monitor",
+                        "editing suite", "macbook", "ipad", "console", "monitors", "flat-lay"
+                    ]
+                    for r in records:
+                        if r.get("passed") and r.get("is_sfw") is not False and not r.get("nudity_or_nsfw") and r.get("filename"):
+                            p = (r.get("prompt") or "").lower()
+                            if any(w in p for w in ws_keywords):
+                                workstation_names.add(r["filename"])
+                    candidate_dirs = [
+                        self.workspace / "brand_assets" / "creator_media_lab",
+                        self.workspace / "brand_assets" / "creator_pulse_lab",
+                        renders_dir,
+                    ]
+                    ws_files = []
+                    seen_names = set()
+                    for cdir in candidate_dirs:
+                        if cdir.exists():
+                            for f in cdir.iterdir():
+                                if f.is_file() and f.name in workstation_names and f.name not in seen_names:
+                                    ws_files.append(f)
+                                    seen_names.add(f.name)
+                    # Prefer a workstation visual distinct from creator_pulse / studio_wire's current lead image
+                    other_leads = set()
+                    for other_pub in ("creator_pulse", "studio_wire"):
+                        other_vis = self.get_latest_comfy_visual(other_pub)
+                        if other_vis:
+                            other_leads.add(other_vis.name)
+                    distinct_ws = [f for f in ws_files if f.name not in other_leads]
+                    picked = _latest_verified(distinct_ws) or _latest_verified(ws_files)
+                    if picked:
+                        return picked
+                except Exception:
+                    pass
+            # No matching workstation image found -> return None to use clean IMG_CREATOR_FLYWHEEL
+            return None
+
+        # 4. Fallback for photography studio wire: IRIS-verified SFW render matching CML
         if renders_dir.exists():
-            all_files = [f for f in renders_dir.iterdir() if f.is_file() and f.suffix.lower() in [".png", ".jpg", ".jpeg", ".webp"]]
-            picked = _latest_verified(all_files)
+            filtered_cml = [
+                f for f in renders_dir.iterdir()
+                if f.is_file() and f.name.startswith("CML_") and f.suffix.lower() in [".png", ".jpg", ".jpeg", ".webp"]
+            ]
+            picked = _latest_verified(filtered_cml)
             if picked:
                 return picked
 
@@ -855,14 +944,91 @@ class NewsletterManager:
         except Exception:
             pass
 
-    def get_publication_visual_embed(self, pub_id: str = "creator_pulse", topic_text: Optional[str] = None) -> Dict[str, str]:
+    def ensure_fresh_daily_newsletter_visual(self, pub_id: str = "creator_pulse", topic_text: Optional[str] = None, force: bool = False) -> Optional[Path]:
+        """
+        Retrieves today's fresh IRIS-verified visual render for the publication.
+        If today's verified image does not exist yet and ComfyUI is online,
+        autonomously triggers generation of a topic-matched, Iris-verified SFW render.
+        Falls back safely to the latest available verified visual if ComfyUI is offline.
+        """
+        latest = self.get_latest_comfy_visual(pub_id)
+        today_key = datetime.now().strftime("%Y-%m-%d")
+        if latest and latest.exists():
+            try:
+                render_date = datetime.fromtimestamp(latest.stat().st_mtime).strftime("%Y-%m-%d")
+                if render_date == today_key:
+                    return latest
+            except Exception:
+                pass
+
+        # Guard against repeated generation loops if a daily attempt was already made recently
+        attempt_key = f"visual_gen_attempted_{pub_id}_{today_key}"
+        cache = safe_read_json(self.scribe_cache_path, default={})
+        last_attempt_ts = float(cache.get(attempt_key, 0) or 0)
+        if not force and (time.time() - last_attempt_ts) < 3600:
+            return latest
+
+        # Attempt fresh generation on Main PC (RTX 5070 Ti) via ComfyUI bridge
+        try:
+            from pipeline.stages.comfyui_bridge import comfy_bridge
+            if comfy_bridge.is_server_available():
+                cache[attempt_key] = time.time()
+                atomic_write_json(self.scribe_cache_path, cache)
+                is_pulse = any(k in pub_id.lower() for k in ["pulse", "cpl"])
+                brand_target = "creator_pulse_lab" if is_pulse else "creator_media_lab"
+                from pipeline.stages.herald_scheduler import herald_scheduler, BRAND_VIBES
+                vibe = BRAND_VIBES.get(brand_target)
+                if vibe:
+                    from pipeline.stages.ai_operator import active_task_tracker
+                    vis_task_id = f"daily_vis_{pub_id}"
+                    active_task_tracker.start_task(
+                        agent="scribe",
+                        sub_agent="iris",
+                        task_desc=f"Scribe [6 C] & Iris [77 Ir]: Generating '{pub_id}' visual on RTX 5070 Ti & QC auditing on GPU 0...",
+                        task_id=vis_task_id,
+                        progress=35
+                    )
+                    try:
+                        prompt = herald_scheduler._craft_topic_visual_prompt(brand_target, topic_text, variant_seed=0)
+                        alt_prompts = [
+                            herald_scheduler._craft_topic_visual_prompt(brand_target, topic_text, variant_seed=i)
+                            for i in range(1, 3)
+                        ]
+                        gen_res = comfy_bridge.generate_and_audit(
+                            positive_prompt=prompt,
+                            negative_prompt=vibe["negative_prompt"],
+                            checkpoint="epicrealismXL_vxviiCrystalclear.safetensors",
+                            brand_target=brand_target,
+                            auto_qc=True,
+                            prompt_alternatives=alt_prompts
+                        )
+                        if gen_res.get("success") and gen_res.get("qc_audit", {}).get("passed") and gen_res.get("qc_audit", {}).get("is_sfw", False):
+                            fresh_path = Path(gen_res.get("file_path"))
+                            if fresh_path.exists():
+                                print(f"[NewsletterManager] Fresh daily visual generated & Iris-certified for {pub_id}: {fresh_path.name}")
+                                return fresh_path
+                    finally:
+                        active_task_tracker.finish_task(vis_task_id)
+        except Exception as e:
+            print(f"[NewsletterManager] Notice: ComfyUI fresh visual generation skipped for {pub_id} ({e})")
+
+        return latest
+
+    def get_publication_visual_embed(self, pub_id: str = "creator_pulse", topic_text: Optional[str] = None, allow_generate: bool = False) -> Dict[str, str]:
         """
         Returns image src and captions for newsletters.
         If an approved ComfyUI 5070 Ti render exists, embeds it dynamically.
         Otherwise falls back to the default diagram CDN.
+        Note: allow_generate defaults to False so dashboard previews never block on ComfyUI/Vision QC.
         """
         import base64
-        visual_path = self.get_latest_comfy_visual(pub_id)
+        if pub_id == "creator_blueprint" and (not topic_text or "light" in topic_text.lower() or "dish" in topic_text.lower()):
+            topic_text = "Modern creative workstation with iPad Pro revenue dashboard, dual color-calibrated displays, digital assets"
+        visual_path = (
+            self.ensure_fresh_daily_newsletter_visual(pub_id, topic_text=topic_text)
+            if allow_generate
+            else self.get_latest_comfy_visual(pub_id)
+        )
         if visual_path and visual_path.exists():
             self._warn_if_visual_stale(pub_id, visual_path)
             try:
@@ -871,13 +1037,17 @@ class NewsletterManager:
                 data_uri = f"data:{mime};base64,{b64}"
                 url_path = f"/static/brand_assets/comfy_renders/{visual_path.name}"
                 is_pulse = any(k in pub_id.lower() for k in ["pulse", "boudoir", "cam", "adult", "cpl"])
+                is_blueprint = "blueprint" in pub_id.lower()
                 topic_clean = html.escape(topic_text[:65]) if topic_text else None
                 if is_pulse:
-                    caption = f"💋 Figure 4.1 &bull; {topic_clean} (RTX 5070 Ti &bull; Iris [77 Ir] Verified)" if topic_clean else "💋 Figure 4.1 &bull; Luxury Boudoir & Monetization Styling (RTX 5070 Ti &bull; Iris [77 Ir] Verified)"
-                    subcaption = "Warm Rim Lighting &bull; Intimate Velvet & Satin Texture"
+                    caption = f"💋 Figure 4.1 &bull; Visual Result: 2-Light Rim Depth (RTX 5070 Ti &bull; Iris Verified)"
+                    subcaption = "Key Softbox + Warm Rim Kicker &bull; 3D Hair & Studio Separation"
+                elif is_blueprint:
+                    caption = f"⚡ Figure 2.1 &bull; Blueprint Architecture: Digital Workstation & Asset Flywheel (RTX 5070 Ti &bull; Iris Verified)"
+                    subcaption = "Packaging Specialized Knowledge &bull; Multi-Channel Storefront Scaling"
                 else:
-                    caption = f"📸 Figure 4.1 &bull; {topic_clean} (RTX 5070 Ti &bull; Iris [77 Ir] Verified)" if topic_clean else "📸 Figure 4.1 &bull; Editorial Studio Masterclass (RTX 5070 Ti &bull; Iris [77 Ir] Verified)"
-                    subcaption = "5600K Key + Kodak Portra 400 Calibration &bull; Magazine Depth of Field"
+                    caption = f"📸 Figure 3.1 &bull; Visual Result: 45° Key + Clamshell Fill (RTX 5070 Ti &bull; Iris Verified)"
+                    subcaption = "Feathered 5600K Key + Silver Reflector &bull; Soft Wrap-Around Fall-Off"
 
                 return {
                     "src": data_uri,
@@ -916,21 +1086,21 @@ class NewsletterManager:
             "pub": pub_id
         }
 
-    def get_html_preview(self, pub_id: str = "creator_pulse") -> str:
+    def get_html_preview(self, pub_id: str = "creator_pulse", force_refresh: bool = False) -> str:
         today_str = datetime.now().strftime("%A, %B %d, %Y")
 
         if pub_id == "creator_pulse":
-            return self._build_creator_pulse_html(today_str)
+            return self._build_creator_pulse_html(today_str, force_refresh=force_refresh)
         elif pub_id == "studio_wire":
-            return self._build_studio_wire_html(today_str)
+            return self._build_studio_wire_html(today_str, force_refresh=force_refresh)
         elif pub_id == "creator_blueprint":
-            return self._build_creator_blueprint_html(today_str)
+            return self._build_creator_blueprint_html(today_str, force_refresh=force_refresh)
         else:
             return self._build_dispensary_deals_html(today_str)
 
     # ── 1. THE DAILY CREATOR PULSE ──────────────────────────────────────────
-    def _build_creator_pulse_html(self, today_str: str) -> str:
-        scribe_content = self._get_daily_scribe_content("creator_pulse") or {}
+    def _build_creator_pulse_html(self, today_str: str, force_refresh: bool = False) -> str:
+        scribe_content = self._get_daily_scribe_content("creator_pulse", force_refresh=force_refresh) or {}
         issue_number = self._get_daily_issue_number("creator_pulse", start_at=42)
         lead_headline = html.escape(scribe_content.get("lead_headline") or "Why Tight Face-Framing Crops Are Beating Full-Body Feeds")
         visual_info = self.get_publication_visual_embed("creator_pulse", topic_text=lead_headline)
@@ -989,6 +1159,34 @@ class NewsletterManager:
 
         ladder_headline = html.escape(scribe_content.get("ladder_headline") or 'The "Ladder Milestone" System For Cam & Live Streams')
         ladder_intro = html.escape(scribe_content.get("ladder_intro") or "Static tip menus hit donation ceilings quickly because viewers feel like they are purchasing an isolated item. Replacing static lists with a Progressive Ladder creates collective room momentum:")
+        default_tiers = [
+            {"tier": "Tier 1", "tokens": "150 Tokens", "action": "Whispered audio secret", "trigger": "Low barrier entry"},
+            {"tier": "Tier 2", "tokens": "450 Tokens", "action": "Song request & outfit change", "trigger": "Interactive collaboration"},
+            {"tier": "Tier 3 (Peak)", "tokens": "900 Tokens", "action": "VIP private polaroid drop", "trigger": "Exclusivity climax"}
+        ]
+        raw_tiers = scribe_content.get("ladder_tiers")
+        tiers = raw_tiers if isinstance(raw_tiers, list) and len(raw_tiers) >= 3 else default_tiers
+        tier_blocks = []
+        for idx, t in enumerate(tiers[:3]):
+            default = default_tiers[idx]
+            t_tier = html.escape(str(t.get("tier") or default["tier"]))
+            t_tokens = html.escape(str(t.get("tokens") or default["tokens"]))
+            t_action = html.escape(str(t.get("action") or default["action"]))
+            t_trigger = html.escape(str(t.get("trigger") or default["trigger"]))
+            row_bg = " style='background:rgba(255,255,255,0.02);'" if idx % 2 == 1 else ""
+            t_color = "#ffd166" if "Peak" in t_tier or idx == 2 else "#10b981"
+            tier_blocks.append(f"""            <tr{row_bg}>
+              <td style='padding:10px;border:1px solid rgba(255,255,255,0.08);font-weight:bold;'>{t_tier}</td>
+              <td style='padding:10px;border:1px solid rgba(255,255,255,0.08);color:{t_color};font-weight:bold;'>{t_tokens}</td>
+              <td style='padding:10px;border:1px solid rgba(255,255,255,0.08);'>{t_action}</td>
+              <td style='padding:10px;border:1px solid rgba(255,255,255,0.08);'>{t_trigger}</td>
+            </tr>""")
+        ladder_tiers_html = "\n".join(tier_blocks)
+
+        visual_setup_headline = html.escape(scribe_content.get("visual_setup_headline") or 'The "2-Light Rim Formula" For Phone & Webcam Streaming')
+        visual_setup_intro = html.escape(scribe_content.get("visual_setup_intro") or "Most creators rely on a single ring light placed right in front of their face. This flattens your facial features and creates washed-out skin. Adding a single $25 warm accent light behind your shoulder creates instant 3-dimensional depth:")
+        visual_setup_pro_tip = html.escape(scribe_content.get("visual_setup_pro_tip") or "Set Key Light to 5600K clean white; dial Warm Rim Light to 3200K amber. The color temperature contrast separates hair from dark studio walls instantly.")
+
         retention_headline = html.escape(scribe_content.get("retention_headline") or 'The "First 60 Minutes" Renewal Rule')
         retention_body = html.escape(scribe_content.get("retention_body") or "82% of subscriber churn happens silently when a fan's rebill fails or they toggle off auto-renew. Setting a daily morning habit to send a personalized 1-sentence DM (\"Saw you've been here since March, unlocking today's set on your profile as a thank you\") recovers up to 28% of expired fans before they delete the app.")
         return f"""<!DOCTYPE html>
@@ -1099,62 +1297,78 @@ class NewsletterManager:
               <th align='left' style='padding:10px;border:1px solid rgba(255,255,255,0.08);'>Action</th>
               <th align='left' style='padding:10px;border:1px solid rgba(255,255,255,0.08);'>Viewer Trigger</th>
             </tr>
-            <tr>
-              <td style='padding:10px;border:1px solid rgba(255,255,255,0.08);font-weight:bold;'>Tier 1</td>
-              <td style='padding:10px;border:1px solid rgba(255,255,255,0.08);color:#10b981;font-weight:bold;'>150 Tokens</td>
-              <td style='padding:10px;border:1px solid rgba(255,255,255,0.08);'>Whispered audio secret</td>
-              <td style='padding:10px;border:1px solid rgba(255,255,255,0.08);'>Low barrier entry</td>
-            </tr>
-            <tr style='background:rgba(255,255,255,0.02);'>
-              <td style='padding:10px;border:1px solid rgba(255,255,255,0.08);font-weight:bold;'>Tier 2</td>
-              <td style='padding:10px;border:1px solid rgba(255,255,255,0.08);color:#10b981;font-weight:bold;'>450 Tokens</td>
-              <td style='padding:10px;border:1px solid rgba(255,255,255,0.08);'>Song request & outfit change</td>
-              <td style='padding:10px;border:1px solid rgba(255,255,255,0.08);'>Interactive collaboration</td>
-            </tr>
-            <tr>
-              <td style='padding:10px;border:1px solid rgba(255,255,255,0.08);font-weight:bold;'>Tier 3 (Peak)</td>
-              <td style='padding:10px;border:1px solid rgba(255,255,255,0.08);color:#ffd166;font-weight:bold;'>900 Tokens</td>
-              <td style='padding:10px;border:1px solid rgba(255,255,255,0.08);'>VIP private polaroid drop</td>
-              <td style='padding:10px;border:1px solid rgba(255,255,255,0.08);'>Exclusivity climax</td>
-            </tr>
+{ladder_tiers_html}
           </table>
         </div>
       </td>
     </tr>
 
-    <!-- INFORMATION AREA 4: LIGHTING & VISUAL AESTHETIC (HORIZONTAL ON PC, VERTICAL ON MOBILE) -->
+    <!-- INFORMATION AREA 4: LIGHTING & VISUAL PRODUCTION (GRAPHICAL FLOOR-PLAN CARD & MATCHING VISUAL RESULT) -->
     <tr>
       <td class='mobile-pad' style='padding:18px 36px;'>
         <div style='display:inline-block;background:rgba(59,130,246,0.15);color:#60a5fa;font-size:11px;font-weight:800;letter-spacing:1px;padding:3px 10px;border-radius:4px;text-transform:uppercase;margin-bottom:8px;'>
           SECTION 4 &bull; LIGHTING & VISUAL PRODUCTION
         </div>
-        <h2 style='margin:0 0 10px 0;font-size:20px;color:#ffffff;'>The "2-Light Rim Formula" For Phone & Webcam Streaming</h2>
+        <h2 style='margin:0 0 10px 0;font-size:20px;color:#ffffff;'>{visual_setup_headline}</h2>
         <p style='margin:0 0 16px 0;font-size:14px;line-height:1.65;color:#cbd5e1;'>
-          Most creators rely on a single ring light placed right in front of their face. This flattens your facial features and creates washed-out skin. Adding a single $25 warm accent light behind your shoulder creates instant 3-dimensional depth:
+          {visual_setup_intro}
         </p>
 
         <!-- 2-COLUMN RESPONSIVE DIAGRAM CONTAINER: HORIZONTAL ON PC, VERTICAL ON MOBILE -->
         <div class='row-fluid' style='font-size:0;text-align:left;'>
           
-          <!-- LEFT COLUMN: SCHEMATIC SPECIFICATIONS & RULES -->
+          <!-- LEFT COLUMN: VISUAL FLOOR-PLAN SCHEMATIC -->
           <div class='col-half col-pad-right' style='display:inline-block;width:100%;max-width:364px;vertical-align:top;box-sizing:border-box;margin-right:16px;'>
-            <div class='ascii-diagram' style='background:#060a14;border:1px solid rgba(96,165,250,0.3);border-radius:8px;padding:14px;font-family:Consolas,monaco,monospace;font-size:11px;color:#93c5fd;line-height:1.55;margin-bottom:12px;overflow-x:auto;max-width:100%;box-sizing:border-box;'>
-[WARM RIM (3200K)] ── (Behind Hair) ──┐<br>
-                                       ↓<br>
-               [ CREATOR / MODEL ]<br>
-                        ↑<br>
-[KEY SOFTBOX (5600K)] ── 45° Angle ───┘<br>
-                        ↑<br>
-            [ 4K PHONE / CAM @ EYE ]
+            
+            <div style='background:#060a14;border:1px solid rgba(96,165,250,0.4);border-radius:10px;padding:14px;margin-bottom:12px;box-sizing:border-box;'>
+              <div style='display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(255,255,255,0.08);padding-bottom:8px;margin-bottom:12px;'>
+                <span style='font-size:10.5px;font-weight:800;letter-spacing:1px;color:#60a5fa;text-transform:uppercase;'>📐 STUDIO FLOOR PLAN &bull; 2-LIGHT RIG</span>
+                <span style='font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.06);padding:2px 6px;border-radius:4px;'>TOP-DOWN VIEW</span>
+              </div>
+              
+              <!-- TOP: WARM RIM LIGHT (BEHIND SUBJECT) -->
+              <div style='background:rgba(251,191,36,0.12);border:1px solid rgba(251,191,36,0.4);border-radius:6px;padding:8px 10px;margin-bottom:8px;text-align:center;'>
+                <div style='font-size:11.5px;font-weight:bold;color:#facc15;'>💡 WARM RIM ACCENT (3200K AMBER)</div>
+                <div style='font-size:10.5px;color:#cbd5e1;margin-top:2px;'>Positioned behind subject &bull; 45° angle to hair/shoulders</div>
+              </div>
+              
+              <!-- DIRECTIONAL ARROW DOWN -->
+              <div style='text-align:center;font-size:12px;color:#facc15;margin:-4px 0 4px 0;'>&darr; <em>amber hair separation kicker</em> &darr;</div>
+
+              <!-- CENTER: SUBJECT -->
+              <div style='background:rgba(247,37,133,0.15);border:1px solid rgba(247,37,133,0.5);border-radius:8px;padding:10px;text-align:center;margin-bottom:6px;'>
+                <div style='font-size:13px;font-weight:bold;color:#ffffff;'>👤 CREATOR / TALENT (CENTER STAGE)</div>
+                <div style='font-size:10.5px;color:#fda4af;'>Facing forward towards 4K camera</div>
+              </div>
+
+              <!-- DIRECTIONAL ARROW UP -->
+              <div style='text-align:center;font-size:12px;color:#60a5fa;margin:4px 0 -4px 0;'>&uarr; <em>5600K daylight facial illumination</em> &uarr;</div>
+
+              <!-- BOTTOM ROW: KEY LIGHT & CAMERA -->
+              <div style='display:table;width:100%;margin-top:8px;'>
+                <div style='display:table-cell;width:49%;vertical-align:top;background:rgba(96,165,250,0.12);border:1px solid rgba(96,165,250,0.4);border-radius:6px;padding:8px;text-align:center;'>
+                  <div style='font-size:11px;font-weight:bold;color:#93c5fd;'>💡 KEY SOFTBOX (5600K)</div>
+                  <div style='font-size:10px;color:#cbd5e1;margin-top:2px;'>45° Front &bull; Eye Level &bull; Soft Diffused</div>
+                </div>
+                <div style='display:table-cell;width:2%;'></div>
+                <div style='display:table-cell;width:49%;vertical-align:top;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.15);border-radius:6px;padding:8px;text-align:center;'>
+                  <div style='font-size:11px;font-weight:bold;color:#ffffff;'>📱 4K CAM / PHONE</div>
+                  <div style='font-size:10px;color:#cbd5e1;margin-top:2px;'>Center Eye-Level Horizon &bull; 3.5 ft</div>
+                </div>
+              </div>
             </div>
+
             <div style='background:#090d18;border-left:3px solid #60a5fa;padding:10px 14px;border-radius:0 6px 6px 0;font-size:12px;color:#94a3b8;line-height:1.5;'>
-              <strong style='color:#e2e8f0;'>Pro Tip:</strong> Set Key Light to 5600K clean white; dial Warm Rim Light to 3200K amber. The color temperature contrast separates hair from dark studio walls instantly.
+              <strong style='color:#e2e8f0;'>Pro Tip:</strong> {visual_setup_pro_tip}
             </div>
           </div>
 
-          <!-- RIGHT COLUMN: HIGH-RESOLUTION VISUAL DIAGRAM IMAGE -->
+          <!-- RIGHT COLUMN: HIGH-RESOLUTION MATCHING VISUAL RESULT IMAGE -->
           <div class='col-half' style='display:inline-block;width:100%;max-width:364px;vertical-align:top;box-sizing:border-box;'>
             <div style='border-radius:10px;overflow:hidden;border:1px solid rgba(247,37,133,0.4);background:#090d18;box-shadow:0 8px 25px rgba(0,0,0,0.7);'>
+              <div style='background:rgba(247,37,133,0.2);padding:6px 12px;font-size:10.5px;font-weight:800;color:#f72585;letter-spacing:1px;text-transform:uppercase;'>
+                ✨ MATCHING VISUAL RESULT &bull; REAL-WORLD RENDER
+              </div>
               <img src="{img_src}" alt="Creator Studio Visual" width="364" style="width:100%;max-width:364px;height:auto;display:block;margin:0 auto;border:none;">
               <table width='100%' cellspacing='0' cellpadding='0' border='0' style='background:#060a14;border-top:1px solid rgba(255,255,255,0.06);padding:10px 14px;'>
                 <tr>
@@ -1240,8 +1454,8 @@ class NewsletterManager:
 </html>"""
 
     # ── 2. THE SHUTTER & STUDIO WIRE ─────────────────────────────────────────
-    def _build_studio_wire_html(self, today_str: str) -> str:
-        scribe_content = self._get_daily_scribe_content("studio_wire") or {}
+    def _build_studio_wire_html(self, today_str: str, force_refresh: bool = False) -> str:
+        scribe_content = self._get_daily_scribe_content("studio_wire", force_refresh=force_refresh) or {}
         issue_number = self._get_daily_issue_number("studio_wire", start_at=88)
         lead_headline = html.escape(scribe_content.get("lead_headline") or "Why Digital Sensor Highlights Look Brittle (And How To Fix It)")
         visual_info = self.get_publication_visual_embed("studio_wire", topic_text=lead_headline)
@@ -1273,6 +1487,10 @@ class NewsletterManager:
               <td style='padding:10px;border:1px solid rgba(255,255,255,0.08);'>{characteristic}</td>
             </tr>""")
         recipe_rows_html = "\n".join(recipe_row_blocks)
+
+        lighting_headline = html.escape(scribe_content.get("lighting_headline") or "The 45° Feathered Beauty Dish with Clamshell Fill")
+        lighting_intro = html.escape(scribe_content.get("lighting_intro") or "This is the primary lighting setup used in high-end cosmetic and glamour editorial campaigns. By feathering the beauty dish just in front of the model's nose, the center hotspot bypasses the face and only the soft edge illuminates the skin:")
+        lighting_specs = html.escape(scribe_content.get("lighting_specs") or "Distance 3.5 ft from model. Power set key light to f/5.6 on incident meter; curved silver reflector bounces 1.5 stops lower for seamless neck shadow transition.")
 
         directing_headline = html.escape(scribe_content.get("directing_headline") or "3 Micro-Cues That Eliminate Client Stiffness Instantly")
         directing_intro = html.escape(scribe_content.get("directing_intro") or 'Never tell a client or model to "smile naturally" or "relax" - it immediately makes them conscious of their posture. Instead, direct micro-movements:')
@@ -1378,39 +1596,72 @@ class NewsletterManager:
       </td>
     </tr>
 
-    <!-- INFORMATION AREA 3: STUDIO LIGHTING BLUEPRINT (HORIZONTAL ON PC, VERTICAL ON MOBILE) -->
+    <!-- INFORMATION AREA 3: STUDIO LIGHTING BLUEPRINT (GRAPHICAL FLOOR-PLAN CARD & MATCHING VISUAL RESULT) -->
     <tr>
       <td class='mobile-pad' style='padding:18px 36px;'>
         <div style='display:inline-block;background:rgba(59,130,246,0.15);color:#60a5fa;font-size:11px;font-weight:800;letter-spacing:1px;padding:3px 10px;border-radius:4px;text-transform:uppercase;margin-bottom:8px;'>
           SECTION 3 &bull; STUDIO LIGHTING BLUEPRINT
         </div>
-        <h2 style='margin:0 0 10px 0;font-size:20px;color:#ffffff;'>The 45° Feathered Beauty Dish with Clamshell Fill</h2>
+        <h2 style='margin:0 0 10px 0;font-size:20px;color:#ffffff;'>{lighting_headline}</h2>
         <p style='margin:0 0 16px 0;font-size:14px;line-height:1.65;color:#cbd5e1;'>
-          This is the primary lighting setup used in high-end cosmetic and glamour editorial campaigns. By feathering the beauty dish just in front of the model's nose, the center hotspot bypasses the face and only the soft edge illuminates the skin:
+          {lighting_intro}
         </p>
 
         <!-- 2-COLUMN RESPONSIVE DIAGRAM CONTAINER: HORIZONTAL ON PC, VERTICAL ON MOBILE -->
         <div class='row-fluid' style='font-size:0;text-align:left;'>
           
-          <!-- LEFT COLUMN: SCHEMATIC SPECIFICATIONS & RULES -->
+          <!-- LEFT COLUMN: VISUAL STUDIO FLOOR PLAN SCHEMATIC -->
           <div class='col-half col-pad-right' style='display:inline-block;width:100%;max-width:364px;vertical-align:top;box-sizing:border-box;margin-right:16px;'>
-            <div class='ascii-diagram' style='background:#060a14;border:1px solid rgba(0,242,254,0.3);border-radius:8px;padding:14px;font-family:Consolas,monaco,monospace;font-size:11px;color:#67e8f9;line-height:1.55;margin-bottom:12px;overflow-x:auto;max-width:100%;box-sizing:border-box;'>
-[KEY: 22" BEAUTY DISH] ── 45° Feather ──┐<br>
-                                         ↓<br>
-                [ MODEL / SUBJECT ]<br>
-                                         ↑<br>
-[FILL: SILVER REFLECTOR] ── Upward ─────┘<br>
-                        ↑<br>
-          [ 85mm f/1.8 @ f/5.6 ]
+            
+            <div style='background:#060a14;border:1px solid rgba(0,242,254,0.4);border-radius:10px;padding:14px;margin-bottom:12px;box-sizing:border-box;'>
+              <div style='display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(255,255,255,0.08);padding-bottom:8px;margin-bottom:12px;'>
+                <span style='font-size:10.5px;font-weight:800;letter-spacing:1px;color:#00f2fe;text-transform:uppercase;'>📐 STUDIO FLOOR PLAN &bull; 45° CLAMSHELL</span>
+                <span style='font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.06);padding:2px 6px;border-radius:4px;'>TOP-DOWN VIEW</span>
+              </div>
+              
+              <!-- TOP-RIGHT: KEY LIGHT (22" BEAUTY DISH) -->
+              <div style='background:rgba(0,242,254,0.12);border:1px solid rgba(0,242,254,0.4);border-radius:6px;padding:8px 10px;margin-bottom:8px;text-align:center;'>
+                <div style='font-size:11.5px;font-weight:bold;color:#00f2fe;'>💡 KEY: 22" BEAUTY DISH (5600K @ f/5.6)</div>
+                <div style='font-size:10.5px;color:#cbd5e1;margin-top:2px;'>45° Feather across bridge of nose &bull; 3.5 ft distance</div>
+              </div>
+              
+              <!-- DIRECTIONAL ARROW DOWN -->
+              <div style='text-align:center;font-size:12px;color:#00f2fe;margin:-4px 0 4px 0;'>&searr; <em>45° feathered cheekbone fall-off</em> &searr;</div>
+
+              <!-- CENTER: SUBJECT -->
+              <div style='background:rgba(14,165,233,0.15);border:1px solid rgba(14,165,233,0.5);border-radius:8px;padding:10px;text-align:center;margin-bottom:6px;'>
+                <div style='font-size:13px;font-weight:bold;color:#ffffff;'>👤 MODEL / TALENT (CENTER STAGE)</div>
+                <div style='font-size:10.5px;color:#bae6fd;'>Sculpted cheekbones & velvety skin roll-off</div>
+              </div>
+
+              <!-- DIRECTIONAL ARROW UP -->
+              <div style='text-align:center;font-size:12px;color:#38bdf8;margin:4px 0 -4px 0;'>&uarr; <em>silver reflector fill bouncing upward (-1.5 stops)</em> &uarr;</div>
+
+              <!-- BOTTOM ROW: REFLECTOR & CAMERA -->
+              <div style='display:table;width:100%;margin-top:8px;'>
+                <div style='display:table-cell;width:49%;vertical-align:top;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.2);border-radius:6px;padding:8px;text-align:center;'>
+                  <div style='font-size:11px;font-weight:bold;color:#f8fafc;'>🪞 SILVER CLAMSHELL</div>
+                  <div style='font-size:10px;color:#cbd5e1;margin-top:2px;'>Chest Height &bull; Fills Neck Shadows</div>
+                </div>
+                <div style='display:table-cell;width:2%;'></div>
+                <div style='display:table-cell;width:49%;vertical-align:top;background:rgba(0,242,254,0.08);border:1px solid rgba(0,242,254,0.3);border-radius:6px;padding:8px;text-align:center;'>
+                  <div style='font-size:11px;font-weight:bold;color:#67e8f9;'>📷 85mm f/1.8 @ f/5.6</div>
+                  <div style='font-size:10px;color:#cbd5e1;margin-top:2px;'>Eye-Level Horizon &bull; 7 ft distance</div>
+                </div>
+              </div>
             </div>
+
             <div style='background:#090d18;border-left:3px solid #00f2fe;padding:10px 14px;border-radius:0 6px 6px 0;font-size:12px;color:#94a3b8;line-height:1.5;'>
-              <strong style='color:#e2e8f0;'>Specs:</strong> Distance 3.5 ft from model. Power set key light to f/5.6 on incident meter; curved silver reflector bounces 1.5 stops lower for seamless neck shadow transition.
+              <strong style='color:#e2e8f0;'>Specs:</strong> {lighting_specs}
             </div>
           </div>
 
-          <!-- RIGHT COLUMN: HIGH-RESOLUTION VISUAL DIAGRAM IMAGE -->
+          <!-- RIGHT COLUMN: HIGH-RESOLUTION MATCHING VISUAL RESULT IMAGE -->
           <div class='col-half' style='display:inline-block;width:100%;max-width:364px;vertical-align:top;box-sizing:border-box;'>
             <div style='border-radius:10px;overflow:hidden;border:1px solid rgba(0,242,254,0.4);background:#090d18;box-shadow:0 8px 25px rgba(0,0,0,0.7);'>
+              <div style='background:rgba(0,242,254,0.2);padding:6px 12px;font-size:10.5px;font-weight:800;color:#00f2fe;letter-spacing:1px;text-transform:uppercase;'>
+                ✨ MATCHING VISUAL RESULT &bull; REAL-WORLD RENDER
+              </div>
               <img src="{img_src}" alt="Editorial Studio Lighting" width="364" style="width:100%;max-width:364px;height:auto;display:block;margin:0 auto;border:none;">
               <div style="padding:10px 14px;background:#060a14;border-top:1px solid rgba(255,255,255,0.06);display:flex;justify-content:space-between;align-items:center;">
                 <span style="font-size:11.5px;color:#00f2fe;font-weight:bold;">{caption}</span>
@@ -1510,15 +1761,79 @@ class NewsletterManager:
 </html>"""
 
     # ── 3. THE CREATOR BLUEPRINT ─────────────────────────────────────────────
-    def _build_creator_blueprint_html(self, today_str: str) -> str:
-        scribe_content = self._get_daily_scribe_content("creator_blueprint") or {}
+    def _build_creator_blueprint_html(self, today_str: str, force_refresh: bool = False) -> str:
+        scribe_content = self._get_daily_scribe_content("creator_blueprint", force_refresh=force_refresh) or {}
         issue_number = self._get_daily_issue_number("creator_blueprint", start_at=19)
         lead_headline = html.escape(scribe_content.get("lead_headline") or "The Micro-Asset Shift: Why $15 Digital Downloads Outsell $500 Courses")
+        visual_info = self.get_publication_visual_embed("creator_blueprint", topic_text=lead_headline)
+        img_src = visual_info["src"]
+        caption = visual_info["caption"]
+        subcaption = visual_info["subcaption"]
         lead_body = html.escape(scribe_content.get("lead_body") or "Creator monetization has permanently shifted away from bloated 10-hour video masterclasses toward instant, tangible micro-assets. Modern buyers want immediate utility: Lightroom .XMP presets, stream bio kits, prompt cheat sheets, and editing templates. These digital downloads have 100% gross margins, zero fulfillment labor, and instant gratification.")
+        
+        flywheel_headline = html.escape(scribe_content.get("flywheel_headline") or "How To Turn A Single Skill Into A 3-Tier Passive Revenue Engine")
+        flywheel_intro = html.escape(scribe_content.get("flywheel_intro") or "Here is the exact 3-stage progression to build cash flow without relying on luck:")
+        default_phases = [
+            {"phase": "Phase 1: High-Touch Client Validation", "desc": "Sell custom photo retouching on Fiverr ($15-$75) to validate demand and client styles."},
+            {"phase": "Phase 2: Productize into Digital Downloads", "desc": "Package validated color profiles into .XMP presets and Etsy templates with zero shipping cost."},
+            {"phase": "Phase 3: Syndicated Micro-Content", "desc": "Publish daily educational insights across social feeds and route all audience traffic directly to your digital storefront or link-in-bio hub."}
+        ]
+        raw_phases = scribe_content.get("flywheel_phases")
+        flywheel_phases = raw_phases if isinstance(raw_phases, list) and len(raw_phases) >= 3 else default_phases
+        phase_blocks = []
+        for p in flywheel_phases[:3]:
+            phase_name = html.escape(str(p.get("phase") or ""))
+            phase_desc = html.escape(str(p.get("desc") or ""))
+            phase_blocks.append(f"""            <div style='background:#090d18;padding:12px 14px;border-radius:6px;border-left:4px solid #eab308;margin-bottom:8px;'>
+              <strong style='color:#eab308;font-size:13px;'>{phase_name}</strong>
+              <p style='margin:3px 0 0 0;font-size:12px;color:#cbd5e1;line-height:1.4;'>{phase_desc}</p>
+            </div>""")
+        flywheel_phases_html = "\n".join(phase_blocks)
+
         pipeline_headline = html.escape(scribe_content.get("pipeline_headline") or 'The "Create Once, Syndicate 4x" Pipeline')
         pipeline_intro = html.escape(scribe_content.get("pipeline_intro") or "Never write content for a single platform. Every time you develop one piece of visual knowledge (e.g. a color grading tip), dispatch it through this 4-way pipeline:")
+        default_pipeline_rows = [
+            {"format": "4-Tweet Educational Thread", "destination": "Social Feeds (Twitter/X)", "cta": "Digital Storefront Bio"},
+            {"format": "HTML Email Digest", "destination": "Subscriber Inbox (Herald Engine)", "cta": "Etsy & Fiverr Direct"},
+            {"format": "Markdown Article", "destination": "Blog / Substack / SEO Hub", "cta": "Preset Bundle"}
+        ]
+        raw_pipeline = scribe_content.get("pipeline_rows")
+        pipeline_rows = raw_pipeline if isinstance(raw_pipeline, list) and len(raw_pipeline) >= 3 else default_pipeline_rows
+        pipeline_row_blocks = []
+        for idx, r in enumerate(pipeline_rows[:3]):
+            row_bg = " style='background:rgba(255,255,255,0.02);'" if idx % 2 == 1 else ""
+            fmt = html.escape(str(r.get("format") or ""))
+            dest = html.escape(str(r.get("destination") or ""))
+            cta = html.escape(str(r.get("cta") or ""))
+            pipeline_row_blocks.append(f"""            <tr{row_bg}>
+              <td style='padding:10px;border:1px solid rgba(255,255,255,0.08);font-weight:bold;'>{fmt}</td>
+              <td style='padding:10px;border:1px solid rgba(255,255,255,0.08);'>{dest}</td>
+              <td style='padding:10px;border:1px solid rgba(255,255,255,0.08);color:#10b981;'>{cta}</td>
+            </tr>""")
+        pipeline_rows_html = "\n".join(pipeline_row_blocks)
+
+        conversion_headline = html.escape(scribe_content.get("conversion_headline") or 'The "Rule of 4" For Mobile Link-in-Bio Landing Pages')
+        conversion_intro = html.escape(scribe_content.get("conversion_intro") or "Adding 15 confusing buttons to your Linktree destroys conversion rates through choice paralysis. High-converting creator bios follow the Rule of 4:")
+        default_conversion_rules = [
+            "Primary Service: Pro Retouching & Color Grading on Fiverr (high trust).",
+            "Primary Digital Asset: Signature Lightroom Presets & Bio Kits on Etsy (instant gratification).",
+            "Free Community / Organic: Daily Tips & Case Studies on Social Feeds (Twitter/X).",
+            "Private Access: VIP Waitlist or Direct Studio Inquiry."
+        ]
+        raw_rules = scribe_content.get("conversion_rules")
+        conversion_rules = raw_rules if isinstance(raw_rules, list) and len(raw_rules) >= 4 else default_conversion_rules
+        rule_items = []
+        for rule in conversion_rules[:4]:
+            r_str = str(rule)
+            if ":" in r_str:
+                parts = r_str.split(":", 1)
+                rule_items.append(f"<li><strong>{html.escape(parts[0].strip())}:</strong> {html.escape(parts[1].strip())}</li>")
+            else:
+                rule_items.append(f"<li><strong>{html.escape(r_str.strip())}</strong></li>")
+        conversion_rules_html = "\n          ".join(rule_items)
+
         math_headline = html.escape(scribe_content.get("math_headline") or "You Only Need 200 Targeted Clicks A Month For $1,000")
-        math_body = html.escape(scribe_content.get("math_body") or "Creators often think they need 100,000 viral views to make money. With a $25 average order value on Etsy and a 2.5% landing page conversion rate, exactly 7 sales per week generates $700-$1,000/month in passive profit. That requires only 6 to 7 visitors per day clicking your Linktree from Twitter/X. Consistency in daily automated posting beats viral lottery tickets every single time.")
+        math_body = html.escape(scribe_content.get("math_body") or "Creators often think they need 100,000 viral views to make money. With a $25 average order value on digital downloads and a 2.5% landing page conversion rate, exactly 7 sales per week generates $700-$1,000/month in steady profit. That requires only 6 to 7 visitors per day clicking your storefront link from your social feeds. Consistency in daily high-value publishing beats viral lottery tickets every single time.")
         return f"""<!DOCTYPE html>
 <html>
 <head>
@@ -1580,54 +1895,70 @@ class NewsletterManager:
       </td>
     </tr>
 
-    <!-- INFORMATION AREA 2: THE 3-STEP FLYWHEEL (HORIZONTAL ON PC, VERTICAL ON MOBILE) -->
+    <!-- INFORMATION AREA 2: THE 3-STEP FLYWHEEL (GRAPHICAL PIPELINE CARD & MATCHING VISUAL RESULT) -->
     <tr>
       <td class='mobile-pad' style='padding:18px 36px;'>
         <div style='display:inline-block;background:rgba(234,179,8,0.15);color:#eab308;font-size:11px;font-weight:800;letter-spacing:1px;padding:3px 10px;border-radius:4px;text-transform:uppercase;margin-bottom:8px;'>
           SECTION 2 &bull; THE $0 TO $5K FLYWHEEL
         </div>
-        <h2 style='margin:0 0 10px 0;font-size:20px;color:#ffffff;'>How To Turn A Single Skill Into A 3-Tier Passive Revenue Engine</h2>
+        <h2 style='margin:0 0 10px 0;font-size:20px;color:#ffffff;'>{flywheel_headline}</h2>
         <p style='margin:0 0 16px 0;font-size:14px;line-height:1.65;color:#cbd5e1;'>
-          Here is the exact 3-stage progression to build cash flow without relying on luck:
+          {flywheel_intro}
         </p>
 
         <!-- 2-COLUMN RESPONSIVE FLYWHEEL CONTAINER: HORIZONTAL ON PC, VERTICAL ON MOBILE -->
         <div class='row-fluid' style='font-size:0;text-align:left;'>
           
-          <!-- LEFT COLUMN: 3 PHASES & SCHEMATIC ROUTING -->
+          <!-- LEFT COLUMN: 3 PHASES & VISUAL PIPELINE SCHEMATIC -->
           <div class='col-half col-pad-right' style='display:inline-block;width:100%;max-width:364px;vertical-align:top;box-sizing:border-box;margin-right:16px;'>
             
-            <div style='background:#090d18;padding:12px 14px;border-radius:6px;border-left:4px solid #eab308;margin-bottom:8px;'>
-              <strong style='color:#eab308;font-size:13px;'>Phase 1: High-Touch Client Validation</strong>
-              <p style='margin:3px 0 0 0;font-size:12px;color:#cbd5e1;line-height:1.4;'>Sell custom photo retouching on Fiverr ($15-$75) to validate demand and client styles.</p>
-            </div>
+{flywheel_phases_html}
 
-            <div style='background:#090d18;padding:12px 14px;border-radius:6px;border-left:4px solid #eab308;margin-bottom:8px;'>
-              <strong style='color:#eab308;font-size:13px;'>Phase 2: Productize into Digital Downloads</strong>
-              <p style='margin:3px 0 0 0;font-size:12px;color:#cbd5e1;line-height:1.4;'>Package validated color profiles into .XMP presets and Etsy templates with zero shipping cost.</p>
-            </div>
+            <!-- VISUAL PIPELINE ARCHITECTURE CARD -->
+            <div style='background:#060a14;border:1px solid rgba(234,179,8,0.4);border-radius:10px;padding:12px;margin-top:10px;box-sizing:border-box;'>
+              <div style='display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(255,255,255,0.08);padding-bottom:6px;margin-bottom:8px;'>
+                <span style='font-size:10.5px;font-weight:800;letter-spacing:1px;color:#eab308;text-transform:uppercase;'>📐 3-STAGE FLOW ARCHITECTURE</span>
+                <span style='font-size:10px;color:#94a3b8;background:rgba(255,255,255,0.06);padding:2px 6px;border-radius:4px;'>PASSIVE FUNNEL</span>
+              </div>
 
-            <div style='background:#090d18;padding:12px 14px;border-radius:6px;border-left:4px solid #eab308;margin-bottom:10px;'>
-              <strong style='color:#eab308;font-size:13px;'>Phase 3: Automated Micro-Content</strong>
-              <p style='margin:3px 0 0 0;font-size:12px;color:#cbd5e1;line-height:1.4;'>Automate daily threads on `@TheCreatorAsset` and route traffic directly to your Linktree.</p>
-            </div>
+              <!-- STAGE 1: SERVICE VALIDATION -->
+              <div style='background:rgba(234,179,8,0.1);border-left:3px solid #eab308;padding:8px 10px;border-radius:0 6px 6px 0;margin-bottom:6px;'>
+                <strong style='font-size:11.5px;color:#facc15;'>1. Client Service Validation (Fiverr)</strong>
+                <div style='font-size:10.5px;color:#cbd5e1;'>Custom retouching validates real client demand & color preferences.</div>
+              </div>
 
-            <div style='background:#060a14;border:1px solid rgba(234,179,8,0.3);border-radius:6px;padding:10px 12px;font-family:Consolas,monaco,monospace;font-size:11px;color:#facc15;line-height:1.5;'>
-[FIVERR: SERVICE] ── Validation ──→ [ETSY: PRESETS]<br>
-                                         ↓ Auto<br>
-[LINKTREE HUB] ←── 100% Traffic ─── [TWITTER / X]
+              <div style='text-align:center;font-size:11px;color:#eab308;margin:-2px 0 2px 0;'>&darr; <em>productize validated styles into instant assets</em> &darr;</div>
+
+              <!-- STAGE 2: DIGITAL PRODUCTIZATION -->
+              <div style='background:rgba(16,185,129,0.1);border-left:3px solid #10b981;padding:8px 10px;border-radius:0 6px 6px 0;margin-bottom:6px;'>
+                <strong style='font-size:11.5px;color:#34d399;'>2. Digital Storefront Scaling (Etsy)</strong>
+                <div style='font-size:10.5px;color:#cbd5e1;'>Turn color grades into .XMP presets and stream templates (100% margin).</div>
+              </div>
+
+              <div style='text-align:center;font-size:11px;color:#10b981;margin:-2px 0 2px 0;'>&darr; <em>syndicate educational micro-content</em> &darr;</div>
+
+              <!-- STAGE 3: AUDIENCE SYNDICATION -->
+              <div style='background:rgba(96,165,250,0.1);border-left:3px solid #60a5fa;padding:8px 10px;border-radius:0 6px 6px 0;'>
+                <strong style='font-size:11.5px;color:#93c5fd;'>3. Social Syndication &rarr; Linktree Hub</strong>
+                <div style='font-size:10.5px;color:#cbd5e1;'>Educational threads route 100% of organic feed traffic to digital downloads.</div>
+              </div>
             </div>
 
           </div>
 
-          <!-- RIGHT COLUMN: HIGH-RESOLUTION VISUAL DIAGRAM IMAGE -->
+          <!-- RIGHT COLUMN: HIGH-RESOLUTION VISUAL ARCHITECTURE IMAGE -->
           <div class='col-half' style='display:inline-block;width:100%;max-width:364px;vertical-align:top;box-sizing:border-box;'>
             <div style='border-radius:10px;overflow:hidden;border:1px solid rgba(234,179,8,0.4);background:#090d18;box-shadow:0 8px 25px rgba(0,0,0,0.7);'>
-              <img src="{IMG_CREATOR_FLYWHEEL}" alt="Creator Studio Flywheel Architecture" width="364" style="width:100%;max-width:364px;height:auto;display:block;margin:0 auto;border:none;">
-              <div style="padding:10px 14px;background:#060a14;border-top:1px solid rgba(255,255,255,0.06);display:flex;justify-content:space-between;align-items:center;">
-                <span style="font-size:11.5px;color:#eab308;font-weight:bold;">⚡ Figure 2.1 &bull; 3-Tier Flywheel</span>
-                <span style="font-size:11px;color:#94a3b8;">Service &rarr; Asset &rarr; Automation</span>
+              <div style='background:rgba(234,179,8,0.2);padding:6px 12px;font-size:10.5px;font-weight:800;color:#eab308;letter-spacing:1px;text-transform:uppercase;'>
+                ✨ MATCHING VISUAL RESULT &bull; ASSET WORKSTATION
               </div>
+              <img src="{img_src}" alt="Creator Studio Flywheel Architecture" width="364" style="width:100%;max-width:364px;height:auto;display:block;margin:0 auto;border:none;">
+              <table width='100%' cellspacing='0' cellpadding='0' border='0' style='background:#060a14;border-top:1px solid rgba(255,255,255,0.06);padding:10px 14px;'>
+                <tr>
+                  <td align='left' style='font-size:11.5px;color:#eab308;font-weight:bold;'>{caption}</td>
+                  <td align='right' style='font-size:11px;color:#94a3b8;'>{subcaption}</td>
+                </tr>
+              </table>
             </div>
           </div>
 
@@ -1652,21 +1983,7 @@ class NewsletterManager:
               <th align='left' style='padding:10px;border:1px solid rgba(255,255,255,0.08);'>Destination</th>
               <th align='left' style='padding:10px;border:1px solid rgba(255,255,255,0.08);'>Call-to-Action Link</th>
             </tr>
-            <tr>
-              <td style='padding:10px;border:1px solid rgba(255,255,255,0.08);font-weight:bold;'>4-Tweet Thread</td>
-              <td style='padding:10px;border:1px solid rgba(255,255,255,0.08);'>Twitter/X (@TheCreatorAsset)</td>
-              <td style='padding:10px;border:1px solid rgba(255,255,255,0.08);color:#10b981;'>Linktree Bio</td>
-            </tr>
-            <tr style='background:rgba(255,255,255,0.02);'>
-              <td style='padding:10px;border:1px solid rgba(255,255,255,0.08);font-weight:bold;'>HTML Email Digest</td>
-              <td style='padding:10px;border:1px solid rgba(255,255,255,0.08);'>Subscriber Inbox (Herald Engine)</td>
-              <td style='padding:10px;border:1px solid rgba(255,255,255,0.08);color:#10b981;'>Etsy & Fiverr Direct</td>
-            </tr>
-            <tr>
-              <td style='padding:10px;border:1px solid rgba(255,255,255,0.08);font-weight:bold;'>Markdown Article</td>
-              <td style='padding:10px;border:1px solid rgba(255,255,255,0.08);'>Blog / Substack / SEO Hub</td>
-              <td style='padding:10px;border:1px solid rgba(255,255,255,0.08);color:#10b981;'>Preset Bundle</td>
-            </tr>
+{pipeline_rows_html}
           </table>
         </div>
       </td>
@@ -1678,15 +1995,12 @@ class NewsletterManager:
         <div style='display:inline-block;background:rgba(16,185,129,0.15);color:#10b981;font-size:11px;font-weight:800;letter-spacing:1px;padding:3px 10px;border-radius:4px;text-transform:uppercase;margin-bottom:8px;'>
           SECTION 4 &bull; CONVERSION ARCHITECTURE
         </div>
-        <h2 style='margin:0 0 10px 0;font-size:20px;color:#ffffff;'>The "Rule of 4" For Mobile Link-in-Bio Landing Pages</h2>
+        <h2 style='margin:0 0 10px 0;font-size:20px;color:#ffffff;'>{conversion_headline}</h2>
         <p style='margin:0 0 12px 0;font-size:14px;line-height:1.65;color:#cbd5e1;'>
-          Adding 15 confusing buttons to your Linktree destroys conversion rates through choice paralysis. High-converting creator bios follow the <strong>Rule of 4</strong>:
+          {conversion_intro}
         </p>
         <ol style='margin:0 0 6px 0;padding-left:20px;font-size:13.5px;line-height:1.7;color:#cbd5e1;'>
-          <li><strong>Primary Service:</strong> Pro Retouching & Color Grading on Fiverr (high trust).</li>
-          <li><strong>Primary Digital Asset:</strong> Signature Lightroom Presets & Bio Kits on Etsy (instant gratification).</li>
-          <li><strong>Free Community / Organic:</strong> Daily Tips on Twitter/X (@TheCreatorAsset).</li>
-          <li><strong>Private Access:</strong> VIP Waitlist or Direct Studio Inquiry.</li>
+          {conversion_rules_html}
         </ol>
       </td>
     </tr>
@@ -1969,7 +2283,7 @@ Modern buyers prefer $15-$35 instant micro-assets (Lightroom presets, stream tem
 ## 2. 📐 The 3-Step Flywheel Architecture
 1. **Phase 1: High-Touch Client Validation (Fiverr Gig)**: Sell custom retouching to validate willingness to pay.
 2. **Phase 2: Productize into Digital Downloads (Etsy Storefront)**: Turn color grades into .XMP files and digital bundles.
-3. **Phase 3: Automated Micro-Content (Twitter/X & Linktree Hub)**: Dispatch daily educational threads on `@TheCreatorAsset` routing 100% of organic traffic to your Linktree hub.
+3. **Phase 3: Syndicated Micro-Content (Social Feeds & Digital Hub)**: Dispatch daily educational insights across social feeds routing 100% of organic traffic to your digital storefront or link-in-bio hub.
 
 ## 3. 🤖 Create Once, Syndicate 4x Pipeline
 Turn 1 core tip into: 1 Twitter Thread + 1 HTML Email Digest + 1 Markdown Article + 1 Pinterest Infographic.
@@ -2039,7 +2353,7 @@ Check your OMMU registry portal before placing orders. Florida's 70-day rolling 
 
         elif pub_id == "studio_wire":
             return [
-                "1/4 📸 Stop using cheap Instagram filters on paid client photo shoots.\n\nHere is the exact color science behind the Kodak Portra 400 film aesthetic in Lightroom 🧵👇 @TheCreatorAsset",
+                "1/4 📸 Stop using cheap Instagram filters on paid client photo shoots.\n\nHere is the exact color science behind the Kodak Portra 400 film aesthetic in Lightroom 🧵👇",
                 "2/4 1. The RGB Tone Curve Secret:\n\nRaise your black point to 18-22 on the RGB curve. It softens harsh digital sensors and gives that velvety film shadow roll-off magazine editors love.",
                 "3/4 2. Authentic Skin Science:\n\nDrop Orange saturation by -4% and raise Orange luminance by +8%. This makes skin look luminous and clean without changing eye makeup tones.",
                 f"4/4 Download our 5-Preset Editorial .XMP Bundle on Etsy ({ETSY_URL}) or book studio retouching on Fiverr ({FIVERR_URL}).\n\nSubscribe free to Studio Wire: {PORTAL_STUDIO_URL} 📸 Follow @TheCreatorAsset"
@@ -2047,7 +2361,7 @@ Check your OMMU registry portal before placing orders. Florida's 70-day rolling 
 
         elif pub_id == "creator_blueprint":
             return [
-                "1/4 ⚡ If I had to build a digital creator studio from $0 in 2026, here is the exact 3-step flywheel I'd run 🧵👇 @TheCreatorAsset",
+                "1/4 ⚡ If I had to build a digital creator studio from $0 in 2026, here is the exact 3-step flywheel I'd run 🧵👇",
                 "2/4 Step 1: Sell high-ticket services first (photo retouching / video edits on Fiverr) to validate real client demand.",
                 "3/4 Step 2: Productize your workflow. Turn your color grades into .XMP presets and sell them on Etsy while you sleep.",
                 f"4/4 Explore our pro creative tools, presets, and retouching services: {LINKTREE_URL}\n\nSubscribe free to The Creator Blueprint: {PORTAL_BLUEPRINT_URL} 🚀 Follow @TheCreatorAsset"
@@ -2059,6 +2373,8 @@ Check your OMMU registry portal before placing orders. Florida's 70-day rolling 
                 "2/3 Top discounts today: 40% off whole flower at Trulieve, 35% off live rosin carts at MUV, and 25% off edibles at Curaleaf.",
                 f"3/3 Private invite-only briefing. Free Florida MMTC updates: {PORTAL_DISPENSARY_URL}"
             ]
+
+    get_blog_post_markdown = get_markdown_article
 
 
 # Global singleton instance export

@@ -13,7 +13,10 @@ class WorkhorseOutputViewer {
       </header>
       <p class="output-viewer-note">View here first. Download only if you want to keep a copy.</p>
       <div class="output-viewer-body"></div>
-      <footer><a class="btn-cyber" data-preview-download download>Download original</a></footer>`;
+      <footer>
+        <a class="btn-cyber" data-preview-download download>Download original</a>
+        <button type="button" class="btn-cyber" data-preview-delete style="color: #ff4d6d; border-color: rgba(255,77,109,0.4); margin-left: 8px;">🗑️ Delete File</button>
+      </footer>`;
     this.dialog.setAttribute('aria-labelledby', 'output-viewer-title');
     document.body.appendChild(this.dialog);
     this.body = this.dialog.querySelector('.output-viewer-body');
@@ -35,6 +38,36 @@ class WorkhorseOutputViewer {
       event.preventDefault();
       this.open(JSON.parse(button.dataset.workhorseView));
     });
+
+    document.addEventListener('click', async event => {
+      const delBtn = event.target.closest('[data-workhorse-delete]');
+      if (!delBtn) return;
+      event.preventDefault();
+      event.stopPropagation();
+      try {
+        const payload = JSON.parse(delBtn.dataset.workhorseDelete);
+        await this.confirmAndDelete(payload);
+      } catch (err) {
+        console.error(err);
+      }
+    });
+
+    const modalDelBtn = this.dialog.querySelector('[data-preview-delete]');
+    if (modalDelBtn) {
+      modalDelBtn.addEventListener('click', async () => {
+        if (!this.currentMediaItem) return;
+        const url = new URL(this.currentMediaItem.download_url, location.origin);
+        const category = url.searchParams.get('category');
+        const path = url.searchParams.get('path');
+        const filename = this.currentMediaItem.filename || this.currentMediaItem.title;
+        if (category && path) {
+          const deleted = await this.confirmAndDelete({ category, path, filename });
+          if (deleted) {
+            this.dialog.close();
+          }
+        }
+      });
+    }
   }
 
   escape(value) {
@@ -72,15 +105,45 @@ class WorkhorseOutputViewer {
   actions(item) {
     try {
       const media = this.normalize(item);
+      const delPayload = this.escape(JSON.stringify({
+        category: item.category,
+        path: item.rel_path,
+        filename: item.filename
+      }));
       return `<div class="output-card-actions">
         <button type="button" class="btn-cyber" data-workhorse-view="${this.escape(JSON.stringify(media))}">View</button>
         <a class="btn-cyber" href="${this.escape(media.download_url)}" download>Download</a>
+        <button type="button" class="btn-cyber" data-workhorse-delete="${delPayload}" title="Delete this file" style="color: #ff4d6d; border-color: rgba(255,77,109,0.35);">🗑️</button>
       </div>`;
     } catch (e) {
       const dl = item.download_url || item.url || '#';
       return `<div class="output-card-actions">
         <a class="btn-cyber" href="${this.escape(dl)}" download>Download</a>
       </div>`;
+    }
+  }
+
+  async confirmAndDelete({ category, path, filename }) {
+    const displayName = filename || path || 'this item';
+    if (!confirm(`Are you sure you want to permanently delete "${displayName}" from WORKHORSE?\n\nThis cannot be undone.`)) {
+      return false;
+    }
+    try {
+      const res = await fetch('/api/outputs/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ category, path })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || `Failed to delete (${res.status})`);
+      
+      if (window.workBaysManager && typeof window.workBaysManager.refreshCompletedWork === 'function') {
+        window.workBaysManager.refreshCompletedWork();
+      }
+      return true;
+    } catch (err) {
+      alert(`Deletion failed: ${err.message}`);
+      return false;
     }
   }
 
@@ -95,6 +158,7 @@ class WorkhorseOutputViewer {
   }
 
   async open(item) {
+    this.currentMediaItem = item;
     this.controller?.abort();
     this.controller = new AbortController();
     const signal = this.controller.signal;
