@@ -68,6 +68,22 @@ class BlenderBridge:
             "handshake": handshake_info,
         }
 
+    def check_status(self) -> Dict[str, Any]:
+        """Health snapshot for Synapse diagnostics.
+
+        Blender work can run two ways: through the live MCP socket (fast, uses the open GUI session) or by
+        spawning headless `blender --background` (the automatic fallback in execute_mcp_code). The integration is
+        healthy if EITHER works, so both are reported separately."""
+        conn = self.check_connection()
+        return {
+            "mcp_socket_online": bool(conn.get("mcp_online")),
+            "cli_available": bool(conn.get("blender_exe_exists")),
+            "blender_exe": conn.get("blender_exe"),
+            "host": conn.get("host"),
+            "port": conn.get("port"),
+            "handshake": conn.get("handshake"),
+        }
+
     def execute_mcp_code(self, code: str, timeout: float = 180.0) -> Dict[str, Any]:
         """Executes a Python `bpy` script inside the live Blender 5.2 MCP session.
         Falls back to headless Blender 5.2 CLI if the MCP socket is not active."""

@@ -79,6 +79,24 @@ class DaVinciResolveBridge:
             print(f"[DaVinciResolveBridge] Warning loading DaVinciResolveScript: {exc}")
         return None
 
+    def check_status(self) -> Dict[str, Any]:
+        """Cheap health snapshot used by Synapse's system diagnostics (no Resolve API call, no launch)."""
+        running = False
+        try:
+            out = subprocess.run(
+                ["tasklist", "/FI", "IMAGENAME eq Resolve.exe", "/NH"],
+                capture_output=True, text=True, timeout=5,
+            ).stdout
+            running = "Resolve.exe" in out
+        except Exception:
+            pass
+        return {
+            "resolve_installed": self.resolve_exe.exists(),
+            "mcp_binary_exists": self.resolve_mcp_exe.exists(),
+            "scripting_module_exists": self.script_module_path.exists(),
+            "resolve_running": running,
+        }
+
     def get_resolve(self, launch_headless_if_needed: bool = False):
         """Returns the live DaVinci Resolve Studio `resolve` app object if connected."""
         bmd = self._load_bmd_module()
@@ -506,4 +524,9 @@ else:
             lut_path=lut_path,
             super_scale=super_scale,
         )
+
+
+
+# Global singleton (mirrors blender_bridge) - used by Synapse system diagnostics.
+davinci_resolve_bridge = DaVinciResolveBridge()
 

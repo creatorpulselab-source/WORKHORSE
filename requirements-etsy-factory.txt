@@ -1,0 +1,6 @@
+trimesh
+shapely
+manifold3d
+fonttools
+mapbox-earcut
+networkx
