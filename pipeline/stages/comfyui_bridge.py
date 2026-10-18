@@ -374,14 +374,35 @@ class ComfyUIBridge:
                             time.sleep(2)
                             continue
                         outputs = history[prompt_id].get("outputs", {})
-                        for node_output in outputs.values():
+                        # Prioritize Node "322" (Save3DAdvanced final PBR result) and any type=="output" .glb
+                        # over intermediate preview nodes (e.g. Node "246" rough voxel blob in type=="temp").
+                        output_glbs = []
+                        temp_glbs = []
+                        ordered_nodes = []
+                        if "322" in outputs:
+                            ordered_nodes.append(("322", outputs["322"]))
+                        for nid, nout in outputs.items():
+                            if nid != "322":
+                                ordered_nodes.append((nid, nout))
+                        for nid, node_output in ordered_nodes:
                             for key, value in node_output.items():
                                 if isinstance(value, list):
                                     for item in value:
                                         if isinstance(item, dict) and str(item.get("filename", "")).lower().endswith(".glb"):
-                                            return item
-                                        if isinstance(item, str) and item.lower().endswith(".glb"):
-                                            return {"filename": Path(item).name, "subfolder": str(Path(item).parent) if Path(item).parent != Path(".") else "", "type": "output"}
+                                            if item.get("type", "output") == "output" or nid == "322":
+                                                output_glbs.append(item)
+                                            else:
+                                                temp_glbs.append(item)
+                                        elif isinstance(item, str) and item.lower().endswith(".glb"):
+                                            output_glbs.append({
+                                                "filename": Path(item).name,
+                                                "subfolder": str(Path(item).parent) if Path(item).parent != Path(".") else "",
+                                                "type": "output"
+                                            })
+                        if output_glbs:
+                            return output_glbs[0]
+                        if temp_glbs:
+                            return temp_glbs[-1]
                         if outputs:
                             # Execution completed but no .glb reference surfaced in history UI data.
                             return None
@@ -412,29 +433,19 @@ class ComfyUIBridge:
 
     def build_pixal3d_trellis2_workflow(self,
                                         source_image_name: str,
-                                        texture_resolution: int = 4096,
+                                        texture_resolution: int = 2048,
+                                        upsample_resolution: str = "1024",
+                                        remesh_resolution: int = 512,
+                                        target_face_count: int = 200000,
                                         use_trellis2: bool = True,
                                         filename_prefix: Optional[str] = None,
                                         seed: Optional[int] = None) -> Dict[str, Any]:
         """
         Builds a ComfyUI API graph for full-PBR image-to-3D generation, based on the
-        Commander's own exported "Pixal3D & TRELLIS.2" workflow template - a far more
-        capable pipeline than the Hunyuan3D path (generate_3d_character_mesh/
-        build_image_to_3d_mesh_workflow): it bakes REAL multi-channel PBR texture maps
-        (base color, metallic, roughness, normal, ambient occlusion) onto the mesh via
-        MoGe geometry estimation + a 3-stage Trellis2 shape/texture/upsample pipeline,
-        instead of tinting the whole mesh with one flat color.
-
-        use_trellis2=True (the template's own default) routes through the Trellis2
-        conditioning/model path; False falls back to the simpler Pixal3DConditioning
-        path already present as a secondary branch in the same graph (useful if a
-        Trellis2-specific model/VAE ever goes missing on the Main PC).
-
-        Only patches the handful of fields that actually need to vary per-call (source
-        image, texture resolution, engine switch, output name, and randomized sampler
-        seeds for generation variety) - the rest of this 60+ node graph is submitted
-        exactly as exported, matching the same minimal-patch philosophy already used
-        for the MiniMax H3 template rather than hand-rebuilding an intricate graph.
+        Commander's own exported "Pixal3D & TRELLIS.2" workflow template.
+        It bakes REAL multi-channel PBR texture maps (base color, metallic, roughness,
+        normal, ambient occlusion) onto the mesh via MoGe geometry estimation + a
+        3-stage Trellis2 shape/texture/upsample pipeline.
         """
         template_path = WORKFLOW_TEMPLATES_DIR / "pixal3d_trellis2_img23d_template.json"
         with open(template_path, "r", encoding="utf-8") as f:
@@ -444,12 +455,14 @@ class ComfyUIBridge:
 
         workflow["122"]["inputs"]["image"] = source_image_name
         workflow["288"]["inputs"]["value"] = texture_resolution
+        if "94" in workflow and "target_resolution" in workflow["94"].get("inputs", {}):
+            workflow["94"]["inputs"]["target_resolution"] = str(upsample_resolution)
+        if "241" in workflow and "resolution" in workflow["241"].get("inputs", {}):
+            workflow["241"]["inputs"]["resolution"] = int(remesh_resolution)
+        if "186" in workflow and "target_face_count" in workflow["186"].get("inputs", {}):
+            workflow["186"]["inputs"]["target_face_count"] = int(target_face_count)
         workflow["316"]["inputs"]["value"] = use_trellis2
         workflow["322"]["inputs"]["filename_prefix"] = filename_prefix or f"3D/WORKHORSE_PBR_{seed_base}"
-        # Randomize all 4 KSampler stages (shape, texture, upsample, and the
-        # Pixal3D/Trellis2-conditioning first pass) together from one seed so a
-        # fresh generation doesn't reuse the template's hardcoded example seeds
-        # (56/43/42/42) every single time.
         for node_id, offset in (("3", 0), ("12", 1), ("18", 2), ("23", 2)):
             workflow[node_id]["inputs"]["seed"] = (seed_base + offset) % (2**31 - 1)
 
@@ -458,14 +471,19 @@ class ComfyUIBridge:
     def generate_image_to_3d_pbr(self,
                                  source_image_path: Union[str, Path],
                                  output_name: Optional[str] = None,
-                                 texture_resolution: int = 4096,
+                                 texture_resolution: int = 2048,
+                                 upsample_resolution: str = "1024",
+                                 remesh_resolution: int = 512,
+                                 target_face_count: int = 200000,
                                  use_trellis2: bool = True,
+                                 export_stl_via_blender: bool = True,
                                  timeout_seconds: int = 900) -> Dict[str, Any]:
         """
         End-to-end full-PBR image-to-3D conversion: uploads a reference image, runs it
-        through the Pixal3D/Trellis2 pipeline on the Main PC (RTX 5070 Ti), and saves
-        the resulting textured .glb (with real baked base color/metallic/roughness/
-        normal/AO maps) to workspace/brand_assets/comfy_3d_pbr_renders/.
+        through the Pixal3D/Trellis2 pipeline on the Main PC (RTX 5070 Ti), saves
+        the resulting textured .glb to workspace/brand_assets/comfy_3d_pbr_renders/,
+        and optionally post-processes via Blender 5.2 MCP to generate a watertight
+        3D-printable .stl and studio preview renders.
         """
         conn = self.check_connection()
         if not conn.get("online"):
@@ -488,6 +506,9 @@ class ComfyUIBridge:
         workflow = self.build_pixal3d_trellis2_workflow(
             source_image_name=uploaded_name,
             texture_resolution=texture_resolution,
+            upsample_resolution=upsample_resolution,
+            remesh_resolution=remesh_resolution,
+            target_face_count=target_face_count,
             use_trellis2=use_trellis2,
             filename_prefix=f"3D/WORKHORSE_PBR_{clean_name}"
         )
@@ -512,10 +533,12 @@ class ComfyUIBridge:
         except Exception as e:
             return {"success": False, "error": f"ComfyUI PBR 3D generation failed: {e}"}
 
-        dest_path = PBR_3D_RENDERS_DIR / f"{clean_name}_{int(time.time())}.glb"
+        PBR_3D_RENDERS_DIR.mkdir(parents=True, exist_ok=True)
+        ts = int(time.time())
+        dest_path = PBR_3D_RENDERS_DIR / f"{clean_name}_{ts}.glb"
         staged_path.rename(dest_path)
 
-        return {
+        result: Dict[str, Any] = {
             "success": True,
             "glb_path": str(dest_path),
             "source_image": str(source_image_path),
@@ -523,6 +546,218 @@ class ComfyUIBridge:
             "texture_resolution": texture_resolution,
             "host_used": f"{self.host}:{self.port}"
         }
+
+        if export_stl_via_blender:
+            try:
+                from pipeline.stages.blender_bridge import blender_bridge
+                stl_dest = PBR_3D_RENDERS_DIR / f"{clean_name}_{ts}.stl"
+                blender_res = blender_bridge.process_glb_to_printable_stl_and_renders(
+                    input_glb_path=dest_path,
+                    output_glb_path=dest_path,
+                    output_stl_path=stl_dest,
+                    preview_dir=PBR_3D_RENDERS_DIR / "previews",
+                    asset_prefix=clean_name,
+                    add_pedestal_base=True
+                )
+                result["stl_path"] = str(stl_dest)
+                result["blender_postprocess"] = blender_res
+            except Exception as be:
+                result["blender_error"] = str(be)
+
+        return result
+
+    def generate_3d_glb_stl_from_idea_or_image(
+        self,
+        idea_prompt: Optional[str] = None,
+        source_image_path: Optional[Union[str, Path]] = None,
+        output_name: Optional[str] = None,
+        texture_resolution: int = 2048,
+        add_pedestal_base: bool = True,
+        target_height_mm: float = 100.0,
+        seed: Optional[int] = None,
+    ) -> Dict[str, Any]:
+        """
+        Unified Etsy/Fiverr 3D (.GLB + Watertight .STL) Generator:
+        Supports creating expert-level 3D PBR game assets (.GLB) and 100% watertight
+        3D-printable sculptures (.STL) either:
+          - FROM AN IMAGE (`source_image_path` provided), OR
+          - FROM AN IDEA (`idea_prompt` provided -> automatically renders an isolated
+            three-quarter studio 3D concept plate on ComfyUI first, then runs Trellis 2
+            HQ + PBR and Blender 5.2 Voxel-Remesh STL post-processing).
+        """
+        mode = "from_image"
+        img_path = Path(source_image_path) if source_image_path else None
+
+        if img_path is None or not img_path.exists():
+            if not idea_prompt or not str(idea_prompt).strip():
+                return {
+                    "success": False,
+                    "error": "Provide either an existing source_image_path or an idea_prompt to generate a 3D .GLB + .STL asset.",
+                }
+            mode = "from_idea"
+            clean_idea = str(idea_prompt).strip()
+            concept_prompt = (
+                f"three-quarter front view of {clean_idea}, centered complete object visible, "
+                "isolated on solid neutral grey studio background, soft even studio product lighting, "
+                "ultra detailed 3d sculpt render, no text, no watermark"
+            )
+            concept_neg = (
+                "text, letters, words, watermark, signature, cluttered background, cropped, cut off, "
+                "multiple objects, blurry, flat 2d, harsh cast shadows, frame, border"
+            )
+            gen_concept = self.generate_and_audit(
+                positive_prompt=concept_prompt,
+                negative_prompt=concept_neg,
+                width=1024,
+                height=1024,
+                steps=24,
+                cfg=6.5,
+                seed=seed,
+                auto_qc=False,
+            )
+            if not gen_concept.get("success") or not gen_concept.get("file_path"):
+                return {
+                    "success": False,
+                    "mode": mode,
+                    "error": f"Failed to render 3D concept plate from idea: {gen_concept.get('error')}",
+                }
+            img_path = Path(gen_concept["file_path"])
+
+        res = self.generate_image_to_3d_pbr(
+            source_image_path=img_path,
+            output_name=output_name or (img_path.stem if img_path else "etsy_3d_asset"),
+            texture_resolution=texture_resolution,
+            use_trellis2=True,
+            export_stl_via_blender=True,
+        )
+        res["creation_mode"] = mode
+        res["concept_image"] = str(img_path)
+        return res
+
+    def generate_etsy_svg_from_idea_or_image(
+        self,
+        idea_prompt: Optional[str] = None,
+        source_image_path: Optional[Union[str, Path]] = None,
+        output_name: str = "custom_etsy_stencil",
+        stencil_mode: str = "full_color",
+        num_layers: int = 6,
+        top_text: str = "",
+        bottom_text: str = "",
+        extrude_3d_medallion: bool = False,
+        output_dir: Optional[Union[str, Path]] = None,
+        seed: int = 910500,
+    ) -> Dict[str, Any]:
+        """
+        Unified Etsy/Fiverr .SVG Stencil Generator (Full-Color Layered Stencil OR B&W Vinyl Cut):
+        Supports creating Cricut/Silhouette/Glowforge-ready .SVG + 300 DPI .PNG assets either:
+          - FROM AN IMAGE (`source_image_path` provided), OR
+          - FROM AN IDEA (`idea_prompt` provided -> renders a text-free stencil illustration on
+            ComfyUI first, adds optional crisp OpenType vector banner typography so zero AI
+            gibberish text ever appears, and vectorizes into clean closed SVG paths).
+        Optionally also extrudes the resulting .SVG in Blender 5.2 into a 100mm watertight 3D
+        relief medallion (.STL + .GLB) when `extrude_3d_medallion=True`.
+        """
+        from PIL import Image
+        import build_full_color_and_clean_svg_kit as svg_builder
+
+        out_dir = Path(output_dir) if output_dir else (BASE_DIR / "workspace" / "media_kits" / "06_SVG_TShirt_Vinyl_Cut_Files")
+        out_dir.mkdir(parents=True, exist_ok=True)
+        slug = output_name.strip().replace(" ", "_").lower()
+
+        creation_mode = "from_image"
+        img_path = Path(source_image_path) if source_image_path else None
+
+        if img_path and img_path.exists():
+            pil_img = Image.open(img_path).convert("RGB")
+        else:
+            if not idea_prompt or not str(idea_prompt).strip():
+                return {
+                    "success": False,
+                    "error": "Provide either an existing source_image_path or an idea_prompt to generate an Etsy .SVG asset.",
+                }
+            creation_mode = "from_idea"
+            clean_idea = str(idea_prompt).strip()
+            neg_strict_no_text = (
+                "text, letters, words, typography, font, writing, alphabet, numbers, watermark, signature, "
+                "banner text, gibberish, logo letters, blurry, photorealistic, 3d shading, gradient, grey background"
+            )
+            if stencil_mode.lower() in ("bw", "b&w", "black_and_white", "bw_cut", "vinyl_cut"):
+                pos_prompt = (
+                    f"pure black and white vector stencil line art of {clean_idea}, stark solid black ink on pure "
+                    "white background, crisp bold woodcut screenprint stencil outlines, no text, no letters, no words, "
+                    "center isolated graphic"
+                )
+            else:
+                pos_prompt = (
+                    f"flat vector screenprint stencil illustration of {clean_idea}, {num_layers} solid flat colors, "
+                    "crisp clean color blocks, isolated on solid background, zero gradients, no text, no letters, "
+                    "no words, cricut layered vinyl stencil style"
+                )
+            pil_img = svg_builder.render_comfy_sdxl(
+                positive=pos_prompt,
+                negative=neg_strict_no_text,
+                seed=seed,
+                prefix=f"SVG_Custom_{slug}",
+            )
+
+        if top_text or bottom_text:
+            pil_img = svg_builder.add_clean_vector_banner_text(
+                pil_img,
+                top_text=top_text or "",
+                bottom_text=bottom_text or "",
+                is_bw=(stencil_mode.lower() in ("bw", "b&w", "black_and_white", "bw_cut", "vinyl_cut")),
+            )
+
+        master_png = out_dir / f"{slug}_master.png"
+        svg_path = out_dir / f"{slug}.svg"
+        preview_png = out_dir / f"{slug}_vector_preview.png"
+        pil_img.save(master_png)
+
+        if stencil_mode.lower() in ("bw", "b&w", "black_and_white", "bw_cut", "vinyl_cut"):
+            stats = svg_builder.vectorize_bw_to_svg(
+                pil_img,
+                svg_path=svg_path,
+                preview_png_path=preview_png,
+                title_text=f"{output_name} - B&W Cut SVG",
+            )
+            strip_png = None
+        else:
+            strip_png = out_dir / f"{slug}_layers_strip.png"
+            stats = svg_builder.vectorize_full_color_stencil_to_svg(
+                pil_img,
+                svg_path=svg_path,
+                preview_png_path=preview_png,
+                layer_strip_png_path=strip_png,
+                num_layers=num_layers,
+                title_text=f"{output_name} - Full-Color Stencil SVG",
+            )
+
+        result: Dict[str, Any] = {
+            "success": svg_path.exists() and svg_path.stat().st_size > 500,
+            "creation_mode": creation_mode,
+            "stencil_mode": stencil_mode,
+            "svg_path": str(svg_path),
+            "master_png": str(master_png),
+            "vector_preview_png": str(preview_png),
+            "layers_strip_png": str(strip_png) if strip_png else None,
+            "stats": stats,
+        }
+
+        if extrude_3d_medallion and svg_path.exists():
+            from pipeline.stages.blender_bridge import blender_bridge
+            med_glb = out_dir / f"{slug}_3d_medallion.glb"
+            med_stl = out_dir / f"{slug}_3d_medallion.stl"
+            med_prev = out_dir / f"{slug}_3d_medallion_render.png"
+            b_res = blender_bridge.extrude_svg_to_3d_stl_and_glb(
+                svg_path=svg_path,
+                output_glb_path=med_glb,
+                output_stl_path=med_stl,
+                preview_png_path=med_prev,
+                target_diameter_mm=100.0,
+            )
+            result["medallion_3d"] = b_res
+
+        return result
 
     def build_client_character_workflow(self,
                                         character_name: str,
@@ -1548,9 +1783,16 @@ class ComfyUIBridge:
                         outputs = history[prompt_id].get("outputs", {})
                         videos = []
                         for node_output in outputs.values():
-                            for key in ("videos", "gifs", "images"):
-                                if key in node_output:
+                            for key in ("videos", "gifs", "images", "mp4", "video"):
+                                if key in node_output and isinstance(node_output[key], list):
                                     videos.extend(node_output[key])
+                            for val in node_output.values():
+                                if isinstance(val, list):
+                                    for item in val:
+                                        if isinstance(item, dict) and str(item.get("filename", "")).lower().endswith(".mp4") and item not in videos:
+                                            videos.append(item)
+                                        elif isinstance(item, str) and item.lower().endswith(".mp4"):
+                                            videos.append({"filename": Path(item).name, "subfolder": str(Path(item).parent) if Path(item).parent != Path(".") else "", "type": "output"})
                         if videos:
                             return videos
             except RuntimeError:
@@ -1894,9 +2136,11 @@ class ComfyUIBridge:
                                       mode: str = "t2v",
                                       first_frame_image_name: Optional[str] = None,
                                       last_frame_image_name: Optional[str] = None,
+                                      longest_side: int = 864,
+                                      duration_seconds: int = 5,
                                       width: int = 1024,
                                       height: int = 576,
-                                      length: int = 81,
+                                      length: int = 124,
                                       seed: Optional[int] = None,
                                       filename_prefix: Optional[str] = None) -> Dict[str, Any]:
         """
@@ -1916,28 +2160,140 @@ class ComfyUIBridge:
         workflow = self.load_workflow_template(template_file)
         seed_val = seed if seed is not None else int(time.time() * 1000) % (2**31 - 1)
 
+        # Patch First Frame (node 236) and Last Frame (node 244) on PixaromaLoadImageMini
+        if first_frame_image_name and "236" in workflow and workflow["236"].get("class_type") == "PixaromaLoadImageMini":
+            workflow["236"]["inputs"]["image"] = first_frame_image_name
+            try:
+                st = json.loads(workflow["236"]["inputs"].get("LoadImageMiniState", "{}"))
+                st["orig_name"] = first_frame_image_name
+                workflow["236"]["inputs"]["LoadImageMiniState"] = json.dumps(st)
+            except Exception:
+                pass
+
+        if last_frame_image_name and "244" in workflow and workflow["244"].get("class_type") == "PixaromaLoadImageMini":
+            workflow["244"]["inputs"]["image"] = last_frame_image_name
+            try:
+                st = json.loads(workflow["244"]["inputs"].get("LoadImageMiniState", "{}"))
+                st["orig_name"] = last_frame_image_name
+                workflow["244"]["inputs"]["LoadImageMiniState"] = json.dumps(st)
+            except Exception:
+                pass
+
         for nid, nval in workflow.items():
-            if nval.get("class_type") == "CLIPTextEncode" and "text" in nval.get("inputs", {}):
-                nval["inputs"]["text"] = prompt
-            elif nval.get("class_type") == "MiniMaxH3ImageToVideo":
-                inputs = nval.get("inputs", {})
+            ctype = nval.get("class_type", "")
+            inputs = nval.get("inputs", {})
+            if ctype == "CLIPTextEncode" and "text" in inputs:
+                inputs["text"] = prompt
+            elif ctype == "PixaromaPrompt":
+                inputs["PromptState"] = json.dumps({"text": prompt, "order": "mine", "sep": ", "})
+            elif ctype == "PixaromaLongestSide":
+                inputs["LongestSideState"] = json.dumps({
+                    "size": longest_side,
+                    "ratio": "keep",
+                    "step": 32,
+                    "anchor": "center",
+                    "allow_upscale": True,
+                    "resample": "auto"
+                })
+            elif ctype == "PixaromaDuration":
+                inputs["DurationState"] = json.dumps({
+                    "seconds": duration_seconds,
+                    "fps": 24,
+                    "step": 17,
+                    "plus": 5,
+                    "minFrames": 5,
+                    "mode": "recipe",
+                    "formula": ""
+                })
+            elif ctype == "PixaromaSeed":
+                inputs["SeedState"] = json.dumps({"runSeed": seed_val})
+                inputs["seed"] = seed_val
+            elif ctype == "MiniMaxH3ImageToVideo":
                 if "width" in inputs and not isinstance(inputs["width"], list):
                     inputs["width"] = width
                 if "height" in inputs and not isinstance(inputs["height"], list):
                     inputs["height"] = height
                 if "length" in inputs and not isinstance(inputs["length"], list):
                     inputs["length"] = length
-                if first_frame_image_name and "first_frame" in inputs:
-                    inputs["first_frame"] = first_frame_image_name
-                if last_frame_image_name and "last_frame" in inputs:
-                    inputs["last_frame"] = last_frame_image_name
-            elif nval.get("class_type") == "KSampler":
-                nval["inputs"]["seed"] = seed_val
-            elif nval.get("class_type") in ("PixaromaSaveMp4", "SaveImage", "VHS_VideoCombine"):
-                if "filename_prefix" in nval.get("inputs", {}):
-                    nval["inputs"]["filename_prefix"] = filename_prefix or f"video/FastH3_{mode}_{seed_val}"
+            elif ctype == "KSampler":
+                if not isinstance(inputs.get("seed"), list):
+                    inputs["seed"] = seed_val
+            elif ctype in ("PixaromaSaveMp4", "SaveImage", "VHS_VideoCombine"):
+                if "filename_prefix" in inputs:
+                    inputs["filename_prefix"] = filename_prefix or f"video/FastH3_{mode}_{seed_val}"
 
         return workflow
+
+    def generate_video_fasth3(self,
+                              first_frame_path: Union[str, Path],
+                              prompt: str,
+                              last_frame_path: Optional[Union[str, Path]] = None,
+                              duration_seconds: int = 5,
+                              longest_side: int = 864,
+                              seed: Optional[int] = None,
+                              timeout_seconds: int = 600,
+                              dest_subdir: Optional[str] = None) -> Dict[str, Any]:
+        """
+        End-to-end 8-step MiniMax FastH3 FirstFrame-to-Video (or First-and-Last-Frame)
+        generation on ComfyUI (RTX 5070 Ti).
+        """
+        conn = self.check_connection()
+        if not conn.get("online"):
+            return {"success": False, "error": f"ComfyUI on Main PC is offline ({conn.get('host')}:{conn.get('port')})."}
+
+        first_frame_path = Path(first_frame_path)
+        if not first_frame_path.exists():
+            return {"success": False, "error": f"First frame image not found: {first_frame_path}"}
+
+        try:
+            up_first = self.upload_image_to_comfy(first_frame_path)
+            up_last = self.upload_image_to_comfy(Path(last_frame_path)) if last_frame_path else None
+        except Exception as e:
+            return {"success": False, "error": f"Failed to upload frame image(s) to ComfyUI: {e}"}
+
+        mode = "first_last" if up_last else "first_frame"
+        workflow = self.build_minimax_fasth3_workflow(
+            prompt=prompt,
+            mode=mode,
+            first_frame_image_name=up_first,
+            last_frame_image_name=up_last,
+            longest_side=longest_side,
+            duration_seconds=duration_seconds,
+            seed=seed,
+            filename_prefix=f"video/FastH3_{first_frame_path.stem}"
+        )
+
+        try:
+            queued = self.queue_prompt(workflow)
+            prompt_id = queued.get("prompt_id")
+            if not prompt_id:
+                return {"success": False, "error": f"No prompt_id returned by ComfyUI. node_errors: {queued.get('node_errors')}"}
+
+            videos = self.wait_for_video_execution(prompt_id, timeout_seconds=timeout_seconds)
+            if not videos:
+                return {"success": False, "error": "ComfyUI FastH3 video generation timed out or yielded no video output"}
+
+            first_vid = videos[0]
+            staged_path = self.download_video(
+                filename=first_vid["filename"],
+                subfolder=first_vid.get("subfolder", ""),
+                folder_type=first_vid.get("type", "output")
+            )
+        except Exception as e:
+            return {"success": False, "error": f"ComfyUI FastH3 video generation failed: {e}"}
+
+        video_dir = (VIDEO_RENDERS_DIR / dest_subdir) if dest_subdir else VIDEO_RENDERS_DIR
+        video_dir.mkdir(parents=True, exist_ok=True)
+        dest_path = video_dir / staged_path.name
+        staged_path.rename(dest_path)
+
+        return {
+            "success": True,
+            "file_path": str(dest_path),
+            "filename": dest_path.name,
+            "mode": mode,
+            "host_used": f"{self.host}:{self.port}"
+        }
 
     def build_subject_swap_workflow(self,
                                     source_image_name: str,

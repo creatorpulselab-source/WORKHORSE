@@ -28,9 +28,9 @@ TASK_MODULES: dict[ComfyTask, tuple[int, ...]] = {
 
 TOPIC_MODULES = (
     (("video-to-video", "v2v", "motion transfer", "clothing replacement", "shoe replacement", "character replacement", "reference to video", "video background swap", "outfit swap video"), (23, 21, 11)),
-    (("automation", "folder", "batch", "resize", "watermark", "contact sheet", "outpaint stitch", "product photo"), (19,)),
-    (("trellis", "pixal", "3d", "mesh", "pbr", "glb", "dino", "angle lock"), (20, 12)),
-    (("minimax", "fasth3", "h3", "first_last_frame", "temporal", "interpolation", "video prompt"), (21, 11, 3)),
+    (("automation", "folder", "batch", "resize", "watermark", "contact sheet", "outpaint stitch", "product photo", "svg", "stencil", "cricut", "silhouette", "glowforge", "vinyl cut", "vectorize", "comfy_generate_svg"), (19,)),
+    (("trellis", "pixal", "3d", "mesh", "pbr", "glb", "dino", "angle lock", "blender", "stl", "watertight", "manifold", "voxel remesh", "3d print", "medallion"), (20, 12)),
+    (("minimax", "fasth3", "h3", "first_last_frame", "temporal", "interpolation", "video prompt", "viral director", "viral video", "handheld_camera", "micro_cinema", "fast_cut", "one_take_shot", "time_lapse", "davinci", "resolve", "super scale", "superscale", "optical flow", "resolvemcp"), (21, 11, 3)),
     (("pixaroma", "composer", "image_name", "compare", "notify", "3d builder"), (22, 4)),
     (("inpaint", "outpaint", "mask", "sam2", "segment anything"), (8, 9, 19)),
     (("relight", "ic-light"), (10,)),
@@ -72,16 +72,20 @@ SECTION_TOPICS = {
         "19.1": ("folder", "batch", "resize", "social media"),
         "19.2": ("outpaint", "stitch", "flux klein"),
         "19.3": ("product", "watermark", "contact sheet"),
+        "19.4": ("svg", "stencil", "cricut", "silhouette", "glowforge", "vinyl", "vectorize", "comfy_generate_svg"),
     },
     20: {
         "20.1": ("trellis", "pixal", "pbr", "mesh", "birefnet", "dino"),
         "20.2": ("vram", "int8", "quantiz", "sage"),
         "20.3": ("angle", "flux klein", "3d builder", "camera"),
+        "20.4": ("blender", "stl", "watertight", "manifold", "voxel", "remesh", "3d print", "medallion"),
     },
     21: {
         "21.1": ("fasth3", "8-step", "kitchen", "sparse"),
         "21.2": ("text-to-video", "firstframe", "interpolation"),
         "21.3": ("formula", "prompt", "temporal", "motion"),
+        "21.4": ("viral", "handheld_camera", "micro_cinema", "fast_cut", "one_take_shot", "time_lapse", "many edits", "comfy_viral_video_director"),
+        "21.5": ("davinci", "resolve", "super scale", "superscale", "optical flow", "resolvemcp", "lut", "h264_nvidia"),
     },
     22: {
         "22.1": ("load image", "image_name", "path", "text"),

@@ -207,11 +207,11 @@ I provide physically accurate neural portrait relighting and realistic environme
         
         # Gig-specific delivery highlights
         gig_deliverable_bullets = {
-            "gig_photo_to_3d": """- Master 3D Asset Package (.GLB, .OBJ, and .USDZ files).
-- High-Resolution PBR Texture Maps (Base Color, Normal, Roughness, Metallic).
+            "gig_photo_to_3d": """- Master 3D Asset Package (.GLB, Watertight 3D-Printable .STL, .OBJ, and .USDZ files).
+- High-Resolution PBR Texture Maps (Base Color, Normal, Roughness, Metallic) + Blender 5.2 Manifold Proof.
 - 360° Turntable Video Preview showcasing geometry and lighting.
 - Browser-based 3D interactive viewer for quick 1-click preview.""",
-            "gig_photo_to_video": """- Ultra-HD 4K 60fps Seamless Looping Master Video (MP4 & ProRes).
+            "gig_photo_to_video": """- Ultra-HD 4K 60fps Seamless Looping Master Video (MP4 & ProRes, DaVinci Resolve Super Scale mastered).
 - Formatted crops for both 16:9 Widescreen and 9:16 Vertical Reels/Shorts.
 - Atmospheric sound design and ambient audio track.
 - Seamless loop playback verification (zero stutter).""",

@@ -963,7 +963,64 @@ Elevate your boudoir, glamour, and creator photography with this complete profes
 Instant digital download delivered immediately upon purchase!
 ================================================================"""
 
+    # =========================================================================
+    # 8. ETSY .SVG STENCILS & .GLB / .STL 3D ASSETS (FROM IDEA OR FROM IMAGE)
+    # =========================================================================
+    def create_svg_stencil_asset(
+        self,
+        idea_prompt: str = "",
+        source_image_path: str = "",
+        output_name: str = "etsy_stencil",
+        stencil_mode: str = "full_color",
+        num_layers: int = 6,
+        top_text: str = "",
+        bottom_text: str = "",
+        extrude_3d_medallion: bool = False,
+    ) -> Dict[str, Any]:
+        """
+        Generates an expert-level Etsy .SVG asset (6-Layer Full-Color Stencil or B&W Vinyl Cut)
+        either from a text idea (`idea_prompt`) OR from an existing image (`source_image_path`),
+        with optional clean OpenType banner typography (`top_text`, `bottom_text`) and optional
+        Blender 5.2 3D relief medallion extrusion (`.STL` + `.GLB`).
+        """
+        from pipeline.stages.comfyui_bridge import comfy_bridge
+        return comfy_bridge.generate_etsy_svg_from_idea_or_image(
+            idea_prompt=idea_prompt or None,
+            source_image_path=source_image_path or None,
+            output_name=output_name,
+            stencil_mode=stencil_mode,
+            num_layers=num_layers,
+            top_text=top_text,
+            bottom_text=bottom_text,
+            extrude_3d_medallion=extrude_3d_medallion,
+        )
+
+    def create_3d_glb_stl_asset(
+        self,
+        idea_prompt: str = "",
+        source_image_path: str = "",
+        output_name: str = "etsy_3d_sculpt",
+        texture_resolution: int = 2048,
+        add_pedestal_base: bool = True,
+        target_height_mm: float = 100.0,
+    ) -> Dict[str, Any]:
+        """
+        Generates an expert-level Etsy/Fiverr 3D PBR game asset (`.GLB`) and 100% watertight
+        voxel-remeshed 3D-printable model (`.STL`) via ComfyUI Trellis 2 HQ + Blender 5.2 MCP,
+        either from a text idea (`idea_prompt`) OR from an existing image (`source_image_path`).
+        """
+        from pipeline.stages.comfyui_bridge import comfy_bridge
+        return comfy_bridge.generate_3d_glb_stl_from_idea_or_image(
+            idea_prompt=idea_prompt or None,
+            source_image_path=source_image_path or None,
+            output_name=output_name,
+            texture_resolution=texture_resolution,
+            add_pedestal_base=add_pedestal_base,
+            target_height_mm=target_height_mm,
+        )
+
 
 if __name__ == "__main__":
     store = EtsyDigitalStore()
-    print("Etsy Digital Store module ready with 3D LUTs & AI Prompt Bible.")
+    print("Etsy Digital Store module ready with 3D LUTs, AI Prompt Bible, SVG Stencils & 3D GLB/STL.")
+

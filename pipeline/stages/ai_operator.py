@@ -347,9 +347,10 @@ You have complete operational mastery over the studio's ComfyUI diffusion and ge
    - Fast, physics-grounded camera motion and fabric dynamics via SageAttention optimization. Invoked via {"tool": "comfy_image_to_video", "engine": "ltx2.3", ...}.
 4. MiniMax H3 Sensual Video Engine:
    - Dedicated local video engine tuned for intimate, boudoir, and fluid motion. Adult-gated: only activates when the Commander has enabled Adult Content Mode or explicitly requests adult content. Invoked via {"tool": "comfy_image_to_video", "engine": "minimax_h3", "adult_tuning": true, ...}.
-5. Pixal3D / Trellis 2 Full-PBR 3D Asset Pipeline:
-   - Transforms 2D concept photos into production-ready .glb 3D meshes with full PBR textures (albedo/base color, metallic, roughness, normal, and ambient occlusion up to 4096k resolution).
-   - Invoked via {"tool": "comfy_generate_3d_pbr", "image": "...", "texture_resolution": 4096, "use_trellis2": true}.
+5. Pixal3D / Trellis 2 Full-PBR 3D Asset Pipeline + Blender 5.2 Watertight .STL:
+   - Transforms 2D concept photos OR text ideas into production-ready .glb 3D meshes with full PBR textures (albedo/base color, metallic, roughness, normal up to 4096k resolution) AND 100% watertight manifold 3D-printable .stl sculptures via Blender 5.2 Marching-Cubes Voxel Remesh (`voxel_size=0.012`, `boundary_edges=0`, `nonmanifold_edges=0`, 100mm scale).
+   - Supports BOTH "From Image" (`"image": "..."`) and "From Idea" (`"prompt": "..."`, which automatically renders an isolated 3D studio concept plate on ComfyUI first).
+   - Invoked via {"tool": "comfy_generate_3d_pbr", "image": "...", "prompt": "...", "output_name": "...", "texture_resolution": 2048, "use_trellis2": true}.
 6. Subject Swap & Identity Preservation Workflow:
    - Replaces the person in a photo while locking in the exact source pose, wardrobe, lighting, and background composition using a reference face photo. Essential for identity/tattoo anonymity.
    - Invoked via {"tool": "comfy_subject_swap", "image": "...", "reference_face_image": "..."}.
@@ -376,6 +377,14 @@ You have complete operational mastery over the studio's ComfyUI diffusion and ge
     - Multi-reference spatiotemporal video editing using MiniMaxH3ReferenceToVideo (`pipeline/stages/workflow_templates/video_v2v/`).
     - Preserves source kinetics, choreography, timing, and camera motion from Video 1 while transforming outfits (clothing swap/VTON), footwear/accessories/tattoos, backgrounds (scene relocation to new reference environment), or entire characters (motion transfer) guided by Picture 1...N.
     - Uses the 3-part prompt formula: [Reference Roles: Video 1 vs Picture 1], [Modification Directive: exact change], and [Strict Preservation Invariants: choreography, camera kinetics, timing].
+16. Full-Color 6-Layer Stencil & B&W Vinyl Cut .SVG Vectorization Pipeline:
+    - Creates Cricut, Silhouette Cameo, and Glowforge-ready mathematical .SVG vector cut files + 300 DPI .PNG masters from EITHER an Idea (`"prompt"`) OR an Uploaded Image (`"image"`).
+    - Supports `stencil_mode="full_color"` (CIE-LAB K-Means 6-layer color separation into distinct `<g id="Layer_XX_HEX">` SVG groups + layer separation strip) and `stencil_mode="bw_cut"` (stark B&W woodcut vinyl cut paths), plus zero-gibberish OpenType vector banner typography (`top_text`, `bottom_text`) and optional Blender 5.2 3D relief medallion extrusion (`extrude_3d_medallion: true`).
+    - Invoked via {"tool": "comfy_generate_svg", "prompt": "...", "image": "...", "output_name": "...", "stencil_mode": "full_color|bw_cut", "num_layers": 6, "top_text": "...", "bottom_text": "...", "extrude_3d_medallion": false}.
+17. Single-Image 5-Mode Viral Video Director + DaVinci Resolve Studio 21.1+ Super Scale:
+    - Transforms a single static photo into a multi-shot viral video reel across 5 director modes (`handheld_camera`, `micro_cinema`, `fast_cut`, `one_take_shot`, `time_lapse`) by chaining Flux 2 Klein 9B (`4. One Image, Many Edits.json`) multi-angle keyframe synthesis with MiniMax FastH3 (`FirstFrame` & `FirstLastFrame` pullback reveal).
+    - Automatically masters every reel in DaVinci Resolve Studio 21.1.1 using Neural Engine `Super Scale` (2x, 3x, or 4x via `timeline_item.SetProperty("Super Scale", 3)`), Optical Flow Enhanced Better (`imageMotionEstimationMode="enhancedBetter"`), 33x33x33 `.cube` 3D LUT color grading, and hardware `H264_NVIDIA` encoding.
+    - Invoked via {"tool": "comfy_viral_video_director", "image": "filename.jpg", "mode": "handheld_camera|micro_cinema|fast_cut|one_take_shot|time_lapse", "super_scale": 3}.
 
 AUTONOMOUS HEALING & OVERWATCH SENTINEL DUTIES:
 You are the central nervous system keeping WORKHORSE operating 24/7 without crashes or data corruption:
@@ -395,7 +404,7 @@ You are the central nervous system keeping WORKHORSE operating 24/7 without cras
    - Herald's scheduler verifies actual confirmed recipient delivery before marking daily newsletter or Twitter slots complete. Missed slots are healed with staggered retries (up to 3 times) before escalating via notify_commander.
    - You can inspect or force dispatches via {"tool": "check_daily_schedule"} and {"tool": "herald_dispatch_now"}.
 6. Full-Spectrum System Diagnostics:
-   - {"tool": "system_diagnostics"} conducts a forensic multi-component audit across: Ollama, ComfyUI Render Bridge, Dual RTX 3060 VRAM, GPU 1 Arbiter, Drive F: storage, Newsletter Subscribers DB, Herald Scheduler, Order Radar IMAP config, Twitter/Pinterest API credentials, and FFmpeg binary availability.
+   - {"tool": "system_diagnostics"} conducts a forensic multi-component audit across: Ollama, ComfyUI Render Bridge, Blender 5.2 MCP/CLI, DaVinci Resolve Studio 21.1+ Super Scale/MCP, Dual RTX 3060 VRAM, GPU 1 Arbiter, Drive F: storage, Newsletter Subscribers DB, Herald Scheduler, Order Radar IMAP config, Twitter/Pinterest API credentials, and FFmpeg binary availability.
 
 THE WORKHORSE AGENT ROSTER (PERIODIC TABLE OF AGENTS - EXPERT CERTIFICATIONS):
 All 11 core agents and 3 auxiliary specialists possess deep, authoritative domain mastery and clear responsibilities:
@@ -434,12 +443,12 @@ However, to protect commercial accounts and live client delivery, the following 
 - Triggering mass immediate newsletter email blasts to thousands of subscribers.
 - Auto-publishing autonomous content engine drops (staged for manual Commander review).
 
-COMPLETE TOOL INVENTORY (40 REGISTERED TOOLS):
+COMPLETE TOOL INVENTORY (42 REGISTERED TOOLS):
 When the user asks you to inspect, check, or execute a task, you can invoke:
 - {"tool": "check_daily_schedule"}: Inspects whether today's newsletters and tweets were sent, slots executed, and error logs.
 - {"tool": "herald_dispatch_now", "slot_id": "all|slot_1_morning|slot_2_midday|..."}: Dispatches today's newsletters or tweets immediately.
 - {"tool": "radar_scan_now"}: Forces an instant IMAP scan of digitalcreatorassets@gmail.com for new Fiverr & Etsy orders.
-- {"tool": "system_diagnostics"}: Runs comprehensive health probes across Ollama, ComfyUI, Dual GPUs, Arbiter, Storage, FFmpeg, and DBs.
+- {"tool": "system_diagnostics"}: Runs comprehensive health probes across Ollama, ComfyUI, Blender 5.2, DaVinci Resolve Studio, Dual GPUs, Arbiter, Storage, FFmpeg, and DBs.
 - {"tool": "fix_vram_overflow"}: Forces garbage collection and purges GPU memory cache across both GPUs.
 - {"tool": "comfy_status"}: Pings ComfyUI on Main PC (RTX 5070 Ti 16GB) to verify connection, VRAM, and readiness.
 - {"tool": "comfy_generate", "prompt": "...", "checkpoint": "...", "loras": [...]}: Renders on 5070 Ti with Iris QC audit.
@@ -447,8 +456,10 @@ When the user asks you to inspect, check, or execute a task, you can invoke:
 - {"tool": "gpu_guardrails_status"}: Live check of Dual RTX 3060 utilization, VRAM, and all hardware circuit breakers.
 - {"tool": "comfy_generate_glb", "agent": "synapse|iris|aura|echo|forge|cipher|herald|mercury|scribe"}: Renders an interactive 3D GLB model on RTX 5070 Ti for the dashboard card.
 - {"tool": "comfy_background_change", "image": "...", "prompt": "...", "negative_prompt": "..."}: Auto-segments subject (SAM3) out of an uploaded photo and swaps in a brand-new background.
-- {"tool": "comfy_image_to_video", "image": "filename.jpg", "prompt": "motion description", "negative_prompt": "...", "width": 720, "height": 1280, "num_frames": 300, "fps": 30, "engine": "ltx2.3|minimax_h3", "duration_seconds": 10, "adult_tuning": false}: Animates a still photo into video on RTX 5070 Ti (Aliases: comfy_generate_video, image_to_video). For user uploaded photos, use the exact filename or path from [USER ATTACHED MEDIA AVAILABLE ON DISK].
-- {"tool": "comfy_generate_3d_pbr", "image": "...", "output_name": "...", "texture_resolution": 4096, "use_trellis2": true}: Converts still image into real full-PBR-textured 3D model (.glb) via Trellis 2 pipeline.
+- {"tool": "comfy_image_to_video", "image": "filename.jpg", "prompt": "motion description", "negative_prompt": "...", "width": 720, "height": 1280, "num_frames": 300, "fps": 30, "engine": "ltx2.3|minimax_h3|fasth3", "duration_seconds": 10, "adult_tuning": false}: Animates a still photo into video on RTX 5070 Ti (Aliases: comfy_generate_video, image_to_video). For user uploaded photos, use the exact filename or path from [USER ATTACHED MEDIA AVAILABLE ON DISK].
+- {"tool": "comfy_generate_3d_pbr", "image": "...", "prompt": "...", "output_name": "...", "texture_resolution": 2048, "use_trellis2": true}: Generates a full-PBR-textured 3D model (.glb) AND 100% watertight 3D-printable sculpture (.stl) via Trellis 2 + Blender 5.2 Voxel Remesh from EITHER an uploaded/existing image ("image") OR a text idea ("prompt").
+- {"tool": "comfy_generate_svg", "prompt": "...", "image": "...", "output_name": "...", "stencil_mode": "full_color|bw_cut", "num_layers": 6, "top_text": "...", "bottom_text": "...", "extrude_3d_medallion": false}: Generates an Etsy/Fiverr Cricut/Silhouette/Glowforge .SVG cut file + 300 DPI .PNG (6-layer full-color stencil or B&W vinyl cut) from EITHER a text idea ("prompt") OR an uploaded image ("image"), with optional Blender 5.2 3D relief medallion (.STL + .GLB).
+- {"tool": "comfy_viral_video_director", "image": "filename.jpg", "mode": "handheld_camera|micro_cinema|fast_cut|one_take_shot|time_lapse", "super_scale": 3}: Runs the 5-Mode Single-Image Viral Video Director (Flux 2 Klein 9B multi-angle edits + MiniMax FastH3 + DaVinci Resolve Studio 21.1+ Neural Engine Super Scale 2x/3x/4x + 3D LUT + H264_NVIDIA).
 - {"tool": "comfy_generate_client_character", "character_name": "charlette|margo|melissa", "prompt": "..."}: Generates an image using pre-trained client-identity LoRAs (strictly adult-gated).
 - {"tool": "comfy_subject_swap", "image": "...", "reference_face_image": "...", "prompt": "..."}: Full-subject identity swap preserving pose, outfit, and setting.
 - {"tool": "comfy_remote_purge"}: Remotely unloads models and frees 16GB VRAM on RTX 5070 Ti (Main PC).
@@ -1048,7 +1059,33 @@ class AIOperatorEngine:
         except Exception as e:
             report["components"]["subscribers_db"] = {"status": "error", "error": str(e)}
 
-        # 11. Overall status determination
+        # 11. Blender 5.2 MCP + Headless CLI Bridge
+        try:
+            from pipeline.stages.blender_bridge import blender_bridge
+            b_stat = blender_bridge.check_status()
+            b_ok = bool(b_stat.get("cli_available") or b_stat.get("mcp_socket_online"))
+            report["components"]["blender"] = {
+                "status": "ok" if b_ok else "standby",
+                "cli_available": bool(b_stat.get("cli_available")),
+                "mcp_socket_online": bool(b_stat.get("mcp_socket_online")),
+            }
+        except Exception as e:
+            report["components"]["blender"] = {"status": "standby", "error": str(e)}
+
+        # 12. DaVinci Resolve Studio 21.1+ Super Scale & ResolveMCP Bridge
+        try:
+            from pipeline.stages.davinci_resolve_bridge import davinci_resolve_bridge
+            d_stat = davinci_resolve_bridge.check_status()
+            d_ok = bool(d_stat.get("resolve_installed") or d_stat.get("mcp_binary_exists"))
+            report["components"]["davinci_resolve"] = {
+                "status": "ok" if d_ok else "standby",
+                "resolve_installed": bool(d_stat.get("resolve_installed")),
+                "mcp_binary_exists": bool(d_stat.get("mcp_binary_exists")),
+            }
+        except Exception as e:
+            report["components"]["davinci_resolve"] = {"status": "standby", "error": str(e)}
+
+        # 13. Overall status determination
         if any(c.get("status") in ("offline", "corrupted", "error") for c in report["components"].values()):
             report["overall_status"] = "error"
         elif report["issues"]:
@@ -1117,7 +1154,9 @@ class AIOperatorEngine:
         "comfy_generate": ("forge", "Forge [28 Ni]: Rendering FLUX.1 studio diffusion on RTX 5070 Ti"),
         "comfy_generate_glb": ("forge", "Forge [28 Ni]: Rendering 3D GLB character mesh on RTX 5070 Ti"),
         "comfy_background_change": ("forge", "Forge [28 Ni]: Segmenting subject with SAM3 & swapping background on RTX 5070 Ti"),
-        "comfy_generate_3d_pbr": ("forge", "Forge [28 Ni]: Generating full PBR textured 3D model via Trellis 2"),
+        "comfy_generate_3d_pbr": ("forge", "Forge [28 Ni]: Generating full PBR .GLB & watertight .STL 3D model via Trellis 2 + Blender 5.2"),
+        "comfy_generate_svg": ("forge", "Forge [28 Ni]: Generating Etsy layered color stencil or B&W vinyl cut .SVG"),
+        "comfy_viral_video_director": ("forge", "Forge [28 Ni]: Running 5-Mode Single-Image Viral Video Director + DaVinci Super Scale"),
         "comfy_generate_client_character": ("forge", "Forge [28 Ni]: Rendering client character identity LoRA on RTX 5070 Ti"),
         "comfy_subject_swap": ("forge", "Forge [28 Ni]: Executing full-subject identity swap on RTX 5070 Ti"),
         
@@ -1470,6 +1509,17 @@ class AIOperatorEngine:
             "comfy_i2v": "comfy_image_to_video",
             "comfy_generate_image": "comfy_generate",
             "generate_image": "comfy_generate",
+            "generate_svg": "comfy_generate_svg",
+            "make_svg": "comfy_generate_svg",
+            "etsy_svg": "comfy_generate_svg",
+            "create_svg": "comfy_generate_svg",
+            "generate_3d": "comfy_generate_3d_pbr",
+            "generate_stl": "comfy_generate_3d_pbr",
+            "make_stl": "comfy_generate_3d_pbr",
+            "create_3d_stl": "comfy_generate_3d_pbr",
+            "viral_video_director": "comfy_viral_video_director",
+            "single_image_viral_video": "comfy_viral_video_director",
+            "viral_video": "comfy_viral_video_director",
         }
         tool_name = TOOL_ALIASES.get(tool_name, tool_name)
         result = {"status": "ok", "tool": tool_name}
@@ -2306,27 +2356,38 @@ class AIOperatorEngine:
 
         elif tool_name == "comfy_generate_3d_pbr":
             filename = tool_call.get("image", "").strip()
+            idea_prompt = (tool_call.get("prompt") or tool_call.get("idea") or "").strip()
             try:
-                if batch_dir or attached_files:
-                    img_path = self._resolve_marketing_source_image(filename, batch_dir=batch_dir, attached_files=attached_files)
-                else:
-                    img_path = self._resolve_marketing_source_image(filename)
-                if not img_path or not img_path.exists():
-                    return {"status": "error", "tool": tool_name, "error": f"Source image not found: {filename or '(no image provided)'}"}
-                if not img_path.exists():
-                    return {"status": "error", "error": f"Source image not found: {filename}"}
+                img_path = None
+                if filename or batch_dir or attached_files:
+                    if batch_dir or attached_files:
+                        img_path = self._resolve_marketing_source_image(filename, batch_dir=batch_dir, attached_files=attached_files)
+                    else:
+                        img_path = self._resolve_marketing_source_image(filename)
 
                 from pipeline.stages.comfyui_bridge import comfy_bridge
-                pbr_res = comfy_bridge.generate_image_to_3d_pbr(
-                    source_image_path=img_path,
-                    output_name=tool_call.get("output_name"),
-                    texture_resolution=int(tool_call.get("texture_resolution", 4096)),
-                    use_trellis2=bool(tool_call.get("use_trellis2", True))
-                )
+                if (not img_path or not img_path.exists()) and idea_prompt and not filename:
+                    pbr_res = comfy_bridge.generate_3d_glb_stl_from_idea_or_image(
+                        idea_prompt=idea_prompt,
+                        output_name=tool_call.get("output_name"),
+                        texture_resolution=int(tool_call.get("texture_resolution", 2048)),
+                    )
+                else:
+                    if not img_path or not img_path.exists():
+                        return {"status": "error", "tool": tool_name, "error": f"Source image not found: {filename or '(no image provided)'}"}
+                    pbr_res = comfy_bridge.generate_image_to_3d_pbr(
+                        source_image_path=img_path,
+                        output_name=tool_call.get("output_name"),
+                        texture_resolution=int(tool_call.get("texture_resolution", 4096)),
+                        use_trellis2=bool(tool_call.get("use_trellis2", True))
+                    )
                 if pbr_res.get("success"):
-                    result["message"] = f"SYNAPSE [100 Fm]: Full-PBR 3D model generated on RTX 5070 Ti (baked base color/metallic/roughness/normal/AO maps). Saved to: {pbr_res.get('glb_path')}."
+                    stl_note = f" + Watertight .STL ({pbr_res.get('stl_path')})" if pbr_res.get("stl_path") else ""
+                    result["message"] = f"SYNAPSE [100 Fm]: Full-PBR 3D model generated on RTX 5070 Ti (baked base color/metallic/roughness/normal/AO maps). Saved to: {pbr_res.get('glb_path')}{stl_note}."
                     result["details"] = pbr_res
                     self._attach_media(result, pbr_res.get("glb_path"), title="3D PBR model")
+                    if pbr_res.get("stl_path"):
+                        self._attach_media(result, pbr_res.get("stl_path"), title="3D Printable STL")
                 else:
                     result["status"] = "warning"
                     result["message"] = f"SYNAPSE [100 Fm]: 3D PBR generation failed: {pbr_res.get('error')}"
@@ -2334,6 +2395,72 @@ class AIOperatorEngine:
             except Exception as e:
                 result["status"] = "error"
                 result["error"] = str(e)
+
+        elif tool_name == "comfy_generate_svg":
+            filename = tool_call.get("image", "").strip()
+            idea_prompt = (tool_call.get("prompt") or tool_call.get("idea") or "").strip()
+            output_name = (tool_call.get("output_name") or "custom_etsy_stencil").strip()
+            stencil_mode = (tool_call.get("stencil_mode") or "full_color").strip()
+            top_text = (tool_call.get("top_text") or "").strip()
+            bottom_text = (tool_call.get("bottom_text") or "").strip()
+            extrude_3d = bool(tool_call.get("extrude_3d_medallion", False))
+            try:
+                img_path = None
+                if filename:
+                    if batch_dir or attached_files:
+                        img_path = self._resolve_marketing_source_image(filename, batch_dir=batch_dir, attached_files=attached_files)
+                    else:
+                        img_path = self._resolve_marketing_source_image(filename)
+
+                from pipeline.stages.comfyui_bridge import comfy_bridge
+                svg_res = comfy_bridge.generate_etsy_svg_from_idea_or_image(
+                    idea_prompt=idea_prompt or None,
+                    source_image_path=img_path if (img_path and img_path.exists()) else None,
+                    output_name=output_name,
+                    stencil_mode=stencil_mode,
+                    num_layers=int(tool_call.get("num_layers", 6)),
+                    top_text=top_text,
+                    bottom_text=bottom_text,
+                    extrude_3d_medallion=extrude_3d,
+                )
+                if svg_res.get("success"):
+                    result["message"] = f"SYNAPSE [100 Fm]: Etsy SVG ({stencil_mode}) generated ({svg_res.get('creation_mode')}). Saved to: {svg_res.get('svg_path')}."
+                    result["details"] = svg_res
+                    self._attach_media(result, svg_res.get("svg_path"), title="Etsy Vector SVG")
+                    self._attach_media(result, svg_res.get("vector_preview_png"), title="SVG Vector Preview")
+                else:
+                    result["status"] = "warning"
+                    result["message"] = f"SYNAPSE [100 Fm]: SVG generation failed: {svg_res.get('error')}"
+                    result["details"] = svg_res
+            except Exception as e:
+                result["status"] = "error"
+                result["error"] = str(e)
+
+        elif tool_name == "comfy_viral_video_director":
+            filename = tool_call.get("image", "").strip()
+            mode = (tool_call.get("mode") or "handheld_camera").strip().lower()
+            super_scale = int(tool_call.get("super_scale", 3))
+            try:
+                if batch_dir or attached_files:
+                    img_path = self._resolve_marketing_source_image(filename, batch_dir=batch_dir, attached_files=attached_files)
+                else:
+                    img_path = self._resolve_marketing_source_image(filename)
+                if not img_path or not img_path.exists():
+                    return {"status": "error", "tool": tool_name, "error": f"Source image not found: {filename or '(no image provided)'}"}
+                from pipeline.stages.single_image_viral_director import SingleImageViralDirector
+                director = SingleImageViralDirector()
+                dir_res = director.render_viral_mode_video(
+                    source_image_path=img_path,
+                    mode=mode,
+                    super_scale=super_scale,
+                )
+                result["message"] = f"SYNAPSE [100 Fm]: Viral Video Director ('{dir_res.get('mode_name')}') rendered + DaVinci Resolve Super Scale {super_scale}x mastered: {dir_res.get('output_mp4')}."
+                result["details"] = dir_res
+                self._attach_media(result, dir_res.get("output_mp4"), title=f"Viral Reel ({dir_res.get('mode_name')})")
+            except Exception as e:
+                result["status"] = "error"
+                result["error"] = str(e)
+
 
         elif tool_name == "comfy_generate_client_character":
             character_name = tool_call.get("character_name", "").strip()
@@ -2500,7 +2627,10 @@ class AIOperatorEngine:
             "make image move", "move for me", "make the picture move", "make this picture move",
             "image to video", "photo to video", "turn into video", "turn this into a video",
             "generate video", "create video", "retouch", "smooth skin", "color grade",
-            "swap background", "change background", "convert to 3d", "make 3d", "3d model", "pbr"
+            "swap background", "change background", "convert to 3d", "make 3d", "3d model", "pbr",
+            "make stl", "convert to stl", "3d print", "make svg", "convert to svg", "stencil",
+            "cricut", "vinyl cut", "viral video", "handheld_camera", "micro_cinema", "fast_cut",
+            "one_take_shot", "time_lapse", "super scale"
         ]
         msg_lower = (message or "").lower()
         if any(kw in msg_lower for kw in action_keywords):

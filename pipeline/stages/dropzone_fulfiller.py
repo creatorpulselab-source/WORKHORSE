@@ -204,9 +204,9 @@ class DropzoneFulfiller:
                 # Step D: Detect Gig Type and Generate Tailored Delivery Note
                 detected_gig = "gig_retouch"
                 lower_order = order_name.lower()
-                if any(k in lower_order for k in ["3d", "mesh", "glb", "trellis", "pixal"]):
+                if any(k in lower_order for k in ["3d", "mesh", "glb", "stl", "trellis", "pixal", "blender"]):
                     detected_gig = "gig_photo_to_3d"
-                elif any(k in lower_order for k in ["video", "loop", "anim", "motion", "cinemagraph"]):
+                elif any(k in lower_order for k in ["video", "loop", "anim", "motion", "cinemagraph", "viral"]):
                     detected_gig = "gig_photo_to_video"
                 elif any(k in lower_order for k in ["relight", "backdrop", "lighting", "headshot"]):
                     detected_gig = "gig_relight"
@@ -214,7 +214,7 @@ class DropzoneFulfiller:
                     detected_gig = "gig_teaser"
                 elif any(k in lower_order for k in ["copy", "caption"]):
                     detected_gig = "gig_copy"
-                elif any(k in lower_order for k in ["banner", "tip_menu", "menu"]):
+                elif any(k in lower_order for k in ["banner", "tip_menu", "menu", "svg", "stencil", "cricut"]):
                     detected_gig = "gig_banner"
 
                 delivery_note = self.bot.generate_delivery_note(detected_gig, client_name=order_name)

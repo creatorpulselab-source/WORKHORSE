@@ -50,8 +50,13 @@ OUTPUT_CATEGORIES: Dict[str, Dict[str, Any]] = {
     },
     "marketing_3d_models": {
         "dir": BASE_DIR / "workspace" / "brand_assets" / "comfy_3d_pbr_renders",
-        "media_type": "model_3d", "label": "🧊 3D Model", "recursive": False,
+        "media_type": "model_3d", "label": "🧊 3D Model (.GLB / .STL)", "recursive": True,
         "group": "synapse"
+    },
+    "viral_video_director": {
+        "dir": BASE_DIR / "workspace" / "shorts_out",
+        "media_type": "video", "label": "🎬 Viral Video Director (Super Scale)", "recursive": True,
+        "extensions": (".mp4", ".mov"), "group": "synapse"
     },
     "banners": {
         "dir": BASE_DIR / "workspace" / "brand_assets" / "banners",
@@ -114,6 +119,16 @@ OUTPUT_CATEGORIES: Dict[str, Dict[str, Any]] = {
         "media_type": "archive", "label": "🛒 Etsy Product Bundle", "recursive": False,
         "extensions": (".zip",), "group": "etsy"
     },
+    "etsy_svg_cut_files": {
+        "dir": BASE_DIR / "workspace" / "media_kits" / "06_SVG_TShirt_Vinyl_Cut_Files",
+        "media_type": "image", "label": "✂️ Etsy SVG Stencil & Cut File", "recursive": False,
+        "extensions": (".svg", ".png", ".jpg"), "group": "etsy"
+    },
+    "etsy_3d_stl_glb_assets": {
+        "dir": BASE_DIR / "workspace" / "media_kits" / "03_3D_Maker_PBR_Prop_Design",
+        "media_type": "model_3d", "label": "🧊 Etsy 3D STL & GLB Asset", "recursive": False,
+        "extensions": (".glb", ".stl", ".png", ".jpg"), "group": "etsy"
+    },
 }
 
 GROUP_LABELS = {
@@ -124,9 +139,9 @@ GROUP_LABELS = {
 }
 
 DEFAULT_MEDIA_EXTENSIONS = {
-    "image": (".png", ".jpg", ".jpeg", ".webp"),
+    "image": (".png", ".jpg", ".jpeg", ".webp", ".svg"),
     "video": (".mp4", ".mov", ".webm"),
-    "model_3d": (".glb", ".gltf"),
+    "model_3d": (".glb", ".gltf", ".stl"),
     "archive": (".zip",)
 }
 

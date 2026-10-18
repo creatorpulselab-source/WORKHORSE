@@ -2220,6 +2220,14 @@ Automated product photography pipelines execute a 4-stage pipeline per asset:
 3. **Dynamic Watermarking & Logo Ingestion:** `TextWatermark` and `AddLogo` dynamically calculate placement offsets via `MathNode` based on variable source resolutions (e.g., `offset_x = width * 0.05`).
 4. **Automated Contact Sheet Generation:** `ImageGrid` aggregates completed batch elements into an indexed review contact sheet with legible labels for client sign-off.
 
+
+
+### 19.4 Full-Color 6-Layer Stencil & B&W Vinyl Cut .SVG Vectorization Pipeline
+For Etsy and Fiverr digital cut-file storefronts (Cricut, Silhouette Cameo, Glowforge Laser), WORKHORSE synthesizes mathematical `.SVG` vector paths + 300 DPI `.PNG` masters from either an **Idea (`prompt`)** or an **Uploaded Image (`image`)** via `comfy_bridge.generate_etsy_svg_from_idea_or_image()` (`{"tool": "comfy_generate_svg", ...}`):
+1. **Strict Zero-Gibberish Text & Vector Banner Typography:** Diffusion models frequently hallucinate garbled letters inside stencil emblems. WORKHORSE enforces a strict `no text, no letters, no words, no alphabet` negative prompt during ComfyUI SDXL generation, then composites crisp, mathematically rendered OpenType typography ribbons (`add_clean_vector_banner_text`) prior to vectorization.
+2. **CIE-LAB K-Means 6-Layer Color Stencil Separation (`stencil_mode="full_color"`):** Bilateral filtering flattens diffusion micro-noise into solid screenprint color regions, K-Means clustering in perceptual CIE-LAB space isolates 6 distinct color layers sorted back-to-front by area, and OpenCV hierarchical contour tracing (`RETR_CCOMP` with `fill-rule="evenodd"`) exports each color into its own named `<g id="Layer_01_HEX" fill="#HEX">` SVG group alongside a 6-panel layer separation strip (`_layers_strip.png`).
+3. **B&W Woodcut Vinyl Cut Vectorization (`stencil_mode="bw_cut"`):** Otsu thresholding + morphological bridging produces single-layer compound `<path>` vectors with zero stray island specks and properly XML-escaped `<title>` metadata (`html.escape`).
+
 ---
 
 ## Module 20: Trellis 2 & Pixal3D Native PBR Geometry Pipelines
@@ -2268,6 +2276,15 @@ Once a 3D asset is generated, marketing deliverables often demand photorealistic
 2. **Depth & Normal Extraction:** The 3D viewport renders depth and surface normal passes from the selected camera matrix.
 3. **Flux Klein Angle Lock:** `FluxKlein3DToImage` conditions the diffusion model on the rendered 3D camera projection. The resulting image renders realistic skin, fabrics, and studio lighting while strictly locking the perspective to the underlying 3D geometry.
 
+
+
+### 20.4 Blender 5.2 MCP + Watertight .STL & .GLB Post-Processing ("From Idea" or "From Image")
+WORKHORSE bridges ComfyUI Trellis 2 directly to **Blender 5.2 LTS** (`blender_bridge.py` via MCP socket `localhost:9876` and headless CLI) to produce both game-engine `.GLB` PBR assets and 100% watertight 3D-printable `.STL` sculptures (`{"tool": "comfy_generate_3d_pbr", ...}`):
+1. **Unified "From Idea" OR "From Image" Intake (`generate_3d_glb_stl_from_idea_or_image`):** When invoked with an idea (`prompt`) and no source image, WORKHORSE first renders an isolated three-quarter front studio 3D concept plate on ComfyUI (solid neutral background, full uncropped object), then feeds that plate into `Trellis 2 - Image to 3D HQ + PBR.json` and selects Node `"322"` (`Save3DAdvanced` full-resolution HQ PBR `.glb`, bypassing decimated preview Node `"323"`).
+2. **Marching-Cubes Voxel Remesh for 100% Watertight Manifold `.STL`:** While the `.GLB` export preserves original UV seams and 2K/4K PBR textures (Albedo, Normal, Roughness, Metallic), the `.STL` export branch applies a dedicated Blender `REMESH` modifier (`mode='VOXEL'`, `voxel_size=0.012`, `adaptivity=0.0`, `use_smooth_shade=True`) plus `triangulate_faces` and 100mm slicer scaling (`scale_factor=50.0`). This mathematically guarantees `boundary_edges == 0` and `nonmanifold_edges == 0` (`watertight: true`) for Bambu Studio, PrusaSlicer, Cura, and Lychee Slicer.
+3. **SVG-to-3D Relief Medallion Extrusion (`extrude_svg_to_3d_stl_and_glb`):** Imports any 2D `.SVG` stencil into Blender (`bpy.ops.import_curve.svg`), extrudes closed curves over a beveled 100mm cylindrical coin base, converts to manifold mesh, and exports both `.STL` and brushed-gold PBR `.GLB`.
+4. **3-View EEVEE Studio Turntable Proof:** Renders 3 studio proof plates per asset (`_pbr_shaded.png`, `_clay_print.png`, and `_wireframe.png`).
+
 ---
 
 ## Module 21: MiniMax FastH3 Temporal Video & Interpolation Engine
@@ -2297,6 +2314,22 @@ MiniMax H3 prompts require rigorous cinematic structuring to prevent camera drif
 [LIGHTING EVOLUTION]: Soft golden hour volumetric sunlight streaming from camera-left, creating warm rim highlights across her shoulders and hair, gradual shadow deepening on camera-right.
 [AUDIO & ENVIRONMENT]: Gentle outdoor breeze rustling autumn leaves, distant soft jazz melody, pristine studio audio recording.
 ```
+
+
+
+### 21.4 Single-Image 5-Mode Viral Video Director (Flux 2 Klein 9B + MiniMax FastH3)
+To transform a single static photo into a multi-shot viral video reel (`single_image_viral_director.py`, invoked via `{"tool": "comfy_viral_video_director", "image": "...", "mode": "...", "super_scale": 3}`), WORKHORSE chains **Flux 2 Klein 9B** (`image_editing/4. One Image, Many Edits.json`) with **MiniMax FastH3**:
+1. **`handheld_camera`:** Generates 3 distinct camera angles from one photo (Macro Close-Up, Low-Angle Hero, Over-the-Shoulder) and animates each with organic handheld camera sway and 3D parallax.
+2. **`micro_cinema`:** Generates shallow-DOF anamorphic cinema plates (85mm bokeh, moody chiaroscuro key light, warm golden rim light) and animates slow cinema dolly push-ins.
+3. **`fast_cut`:** Generates high-impact rhythmic angle cuts (Extreme Eye Macro, Dutch-Angle Tilt, Wide Dynamic Action) for fast-cut social hook pacing.
+4. **`one_take_shot`:** Generates a macro close-up first frame and executes `3. Minimax FastH3 - First and Last Frame.json` to pull back in one unbroken continuous take from the close-up into the full original portrait.
+5. **`time_lapse`:** Relights the single photo across 4 time-of-day phases (Dawn -> Noon -> Golden Hour -> Blue Hour Neon Night) while locking subject identity and pose.
+
+### 21.5 DaVinci Resolve Studio 21.1+ Neural Engine Super Scale & ResolveMCP Automation
+All ComfyUI video outputs (e.g., 480x864 FastH3 clips) are mastered through **DaVinci Resolve Studio 21.1.1** (`davinci_resolve_bridge.py` + `ResolveMCP.exe` JSON-RPC stdio server):
+- **Neural Engine `Super Scale`:** Invokes `timeline_item.SetProperty("Super Scale", 3)` (`2`=2x, `3`=3x, `4`=4x) with `superScaleSharpness="0.75"` and `superScaleNoiseReduction="0.50"` alongside project-level `superScale="1"`, `imageResizeMode="sharper"`, and Optical Flow `imageMotionEstimationMode="enhancedBetter"` (`imageRetimeProcess="opticalFlow"`).
+- **33x33x33 `.cube` 3D LUT Color Science:** Generates and applies mathematical 3D LUTs (`WORKHORSE_Cinema_Grade.cube` — S-curve contrast, teal-orange split-tone, and highlight roll-off).
+- **Hardware NVENC Mastering:** Automatically selects `H264_NVIDIA` / `H265_NVIDIA` on the RTX 3060 GPUs for 1080x1920 9:16 or 4K UHD delivery in ~2.2 seconds per reel.
 
 ---
 
