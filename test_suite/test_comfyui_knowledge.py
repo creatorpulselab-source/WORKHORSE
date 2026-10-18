@@ -203,7 +203,7 @@ def test_synapse_actual_chat_payload_contains_guide_and_preserves_identity(tmp_p
 
     monkeypatch.setattr(operator_module, "OPERATOR_CHAT_SESSIONS_DIR", tmp_path)
     monkeypatch.setattr(operator_module, "get_latest_client_batch_dir", lambda session: None)
-    monkeypatch.setattr(operator_module.vram_manager, "prepare_for_model", lambda model: None)
+    monkeypatch.setattr(operator_module.vram_manager, "prepare_for_model", lambda model, **kw: None)
     monkeypatch.setattr(comfy_bridge, "get_prompt_context_summary", lambda: "LIVE COMFY INVENTORY")
     monkeypatch.setattr(trend_researcher, "get_daily_summary_prompt_context", lambda: "")
     engine = operator_module.AIOperatorEngine()

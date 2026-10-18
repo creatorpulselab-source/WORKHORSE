@@ -22,6 +22,19 @@ import requests
 from duckduckgo_search import DDGS
 from shared.comfyui_knowledge import get_comfyui_context
 from shared.atomic_writer import atomic_write_json, safe_read_json
+from shared.ai_providers import TEXT_NUM_CTX
+from pipeline.stages.synapse_media_router import (
+    VIRAL_MODE_LABELS,
+    build_grounded_i2v_prompt,
+    detect_viral_mode,
+    estimate_tokens,
+    is_media_action_message,
+    knowledge_char_budget,
+    mentions_generic_viral,
+    message_requests_motion,
+    parse_super_scale,
+    pick_i2v_resolution,
+)
 import threading
 
 
@@ -1378,6 +1391,134 @@ class AIOperatorEngine:
             print(f"[SYNAPSE] Non-fatal: failed to attach media entry for {file_path}: {e}")
         return result
 
+    # ------------------------------------------------------------------------------------
+    # Grounding + deterministic routing for media commands (2026-10-18 bug check)
+    # ------------------------------------------------------------------------------------
+    _IMAGE_SUFFIXES = (".jpg", ".jpeg", ".png", ".webp", ".bmp")
+    _caption_cache: Dict[str, str] = {}
+
+    def describe_image_for_video(self, img_path) -> str:
+        """Short factual caption of a photo (subject, framing, setting, lighting).
+
+        Animate commands deliberately keep the image out of the 14B operator's context, so without
+        this the model invents the motion prompt from words alone. The caption is used to (a) detect
+        a prompt that describes a different scene than the photo and (b) tell the Commander what
+        Iris actually saw. Cached per file+mtime. Returns "" if the vision model is unavailable."""
+        try:
+            p = Path(img_path)
+            key = f"{p.resolve()}:{int(p.stat().st_mtime)}"
+            if key in self._caption_cache:
+                return self._caption_cache[key]
+            from shared.ai_providers import AIProviderService, is_ai_error_response
+            text = AIProviderService().call_ollama_vision(
+                "In 2-3 plain factual sentences describe this photo: the subject(s), pose, wardrobe, the setting/background, "
+                "the camera framing (close-up, medium or wide) and the lighting. Describe only what is visible. No opinions.",
+                [p],
+                system_prompt="You are a precise photo captioner for a video editor.",
+                num_predict=170, timeout=120, image_max_dim=768, temperature=0.2, repeat_penalty=1.15,
+            )
+            caption = "" if is_ai_error_response(text) else (text or "").strip()
+            if len(self._caption_cache) > 64:
+                self._caption_cache.clear()
+            if caption:
+                self._caption_cache[key] = caption
+            return caption
+        except Exception as e:
+            print(f"[SYNAPSE Grounding] Could not caption {img_path}: {e}")
+            return ""
+
+    def _pick_source_image(self, attached_files, batch_dir) -> Optional[Path]:
+        """The image a media command refers to: this turn's attachment, else this session's newest upload."""
+        for af in attached_files or []:
+            ap = Path(af)
+            if ap.suffix.lower() in self._IMAGE_SUFFIXES and ap.exists():
+                return ap
+        if batch_dir and Path(batch_dir).exists():
+            imgs = [f for f in Path(batch_dir).iterdir() if f.is_file() and f.suffix.lower() in self._IMAGE_SUFFIXES]
+            if imgs:
+                return max(imgs, key=lambda f: f.stat().st_mtime)
+        return None
+
+    @staticmethod
+    def _oriented_image_size(img_path) -> Tuple[int, int]:
+        """(width, height) as ComfyUI's LoadImage will see it (it applies EXIF rotation)."""
+        try:
+            from PIL import Image
+            with Image.open(img_path) as im:
+                w, h = im.size
+                try:
+                    orientation = im.getexif().get(274, 1)
+                except Exception:
+                    orientation = 1
+            if orientation in (5, 6, 7, 8):
+                w, h = h, w
+            return int(w), int(h)
+        except Exception:
+            return 704, 1280
+
+    def _finish_deterministic_turn(self, session_id, message: str, reply_text: str, executed_actions, chosen_model: str,
+                                   quick_options=None, attached_files=None, extra=None) -> Dict[str, Any]:
+        """Persist history + build the standard chat() response for turns answered without the LLM."""
+        history = self.get_history(session_id)
+        history.append({"role": "user", "content": message})
+        history.append({
+            "role": "assistant", "content": reply_text, "model": chosen_model,
+            "actions": executed_actions, "web_sources": [], "quick_options": quick_options or [],
+        })
+        self._save_history(session_id)
+        res = {
+            "status": "ok", "reply": reply_text, "model": chosen_model, "web_sources": [],
+            "web_search_status": None, "web_search_auto_detected": False, "web_search_reason": None,
+            "executed_actions": executed_actions,
+            "attached_files_count": len(attached_files) if attached_files else 0,
+            "vision_auto_detected": False, "vision_reason": "Deterministic media route (no LLM guesswork)",
+            "images_processed": 0, "article_urls_detected": [], "link_ingestion_results": [],
+            "quick_options": quick_options or [],
+        }
+        if extra:
+            res.update(extra)
+        return res
+
+    def _route_viral_request(self, message: str, session_id, attached_files, batch_dir, adult_allowed: bool) -> Optional[Dict[str, Any]]:
+        """Handle 'use the <viral mode> workflow on this image' deterministically.
+
+        Before this, the wording "micro cinema" never reached comfy_viral_video_director: the LLM
+        picked the generic image-to-video tool and invented a scene. Returns a finished chat response,
+        or None to let the normal LLM path handle the turn (no mode named / no image available)."""
+        mode = detect_viral_mode(message)
+        generic = mode is None and mentions_generic_viral(message)
+        if not mode and not generic:
+            return None
+        src = self._pick_source_image(attached_files, batch_dir)
+        if src is None:
+            return None
+
+        if generic:
+            options = [f"Use the {label} viral workflow on this image" for label in VIRAL_MODE_LABELS.values()]
+            reply = (
+                "Commander - which viral video moment should I run on this photo? The five director modes are: "
+                + ", ".join(VIRAL_MODE_LABELS.values()) + ". Pick one below (or just name it) and I'll render it."
+            )
+            return self._finish_deterministic_turn(session_id, message, reply, [], "deterministic-router",
+                                                   quick_options=options, attached_files=attached_files)
+
+        tool_call = {"tool": "comfy_viral_video_director", "image": src.name, "mode": mode,
+                     "super_scale": parse_super_scale(message, 3)}
+        executed = [self.run_tool_and_log(tool_call, adult_allowed=adult_allowed, batch_dir=batch_dir, attached_files=attached_files)]
+        res = executed[0]
+        label = VIRAL_MODE_LABELS.get(mode, mode)
+        if res.get("status") == "error":
+            reply = f"Commander - the {label} viral workflow failed: {res.get('error')}"
+        elif res.get("status") == "warning":
+            reply = f"Commander - your {label} viral reel is ready below, with a note: {res.get('message')}"
+        elif res.get("media"):
+            reply = (f"Commander - your {label} viral reel is rendered and DaVinci Resolve Super Scale "
+                     f"{tool_call['super_scale']}x mastered. View or download it below.")
+        else:
+            reply = res.get("message") or f"{label} viral workflow finished."
+        return self._finish_deterministic_turn(session_id, message, reply, executed, "deterministic-router",
+                                               attached_files=attached_files)
+
     @staticmethod
     def expand_prompt_with_comfy_knowledge(
         raw_prompt: str,
@@ -2263,8 +2404,10 @@ class AIOperatorEngine:
             if not adult_allowed:
                 safe_anti_nude = "nude, nudity, naked, topless, bare breasts, exposed nipples, genitals, explicit, nsfw, porn, sexual, uncensored, erotica"
                 negative_prompt = f"{negative_prompt}, {safe_anti_nude}" if negative_prompt else safe_anti_nude
-            width = tool_call.get("width", 720)
-            height = tool_call.get("height", 1280)
+            # width/height default to None => auto-fit to the photo's own aspect ratio (see below). They used
+            # to be hard-wired to 720x1280, which center-cropped a 4:5 portrait into 9:16 before frame 0.
+            width = int(tool_call["width"]) if tool_call.get("width") else None
+            height = int(tool_call["height"]) if tool_call.get("height") else None
             num_frames = tool_call.get("num_frames", 300)
             fps = tool_call.get("fps", 30)
             engine = (tool_call.get("engine") or "ltx2.3").strip().lower()
@@ -2275,9 +2418,23 @@ class AIOperatorEngine:
                     img_path = self._resolve_marketing_source_image(filename)
                 if not img_path or not img_path.exists():
                     return {"status": "error", "tool": tool_name, "error": f"Source image not found: {filename or '(no image provided)'}"}
-                # Master Prompt Expansion: If the motion prompt is brief or generic, expand using ComfyUI knowledge
-                if not prompt or len(prompt.split()) < 25 or "cinematic camera push-in" in prompt.lower() or "cinematic subtle camera motion" in prompt.lower():
-                    prompt = self.expand_prompt_with_comfy_knowledge(prompt, engine=engine, adult_allowed=adult_allowed)
+
+                # GROUND the motion prompt in the actual photo. LTX image-to-video treats the text as authoritative
+                # after frame 0, so a prompt describing another scene turns the clip into that scene (this morning's
+                # "man walking down a rainy neon street"). The vision caption lets us detect and discard that, and
+                # an LLM that never saw the photo is no longer trusted to invent one.
+                caption = self.describe_image_for_video(img_path)
+                prompt, ground_notes = build_grounded_i2v_prompt(tool_call.get("_user_message", "") or "", prompt, caption)
+                if width is None or height is None:
+                    src_w, src_h = self._oriented_image_size(img_path)
+                    width, height = pick_i2v_resolution(src_w, src_h)
+                result["grounding"] = {
+                    "image_caption": caption,
+                    "notes": ground_notes,
+                    "resolution": f"{width}x{height}",
+                }
+                if ground_notes:
+                    print(f"[SYNAPSE Grounding] {' | '.join(ground_notes)}")
 
                 from pipeline.stages.comfyui_bridge import comfy_bridge
                 active_task_tracker.update_task(
@@ -2465,9 +2622,20 @@ class AIOperatorEngine:
                     mode=mode,
                     super_scale=super_scale,
                 )
-                result["message"] = f"SYNAPSE [100 Fm]: Viral Video Director ('{dir_res.get('mode_name')}') rendered + DaVinci Resolve Super Scale {super_scale}x mastered: {dir_res.get('output_mp4')}."
                 result["details"] = dir_res
-                self._attach_media(result, dir_res.get("output_mp4"), title=f"Viral Reel ({dir_res.get('mode_name')})")
+                if not dir_res.get("success"):
+                    result["status"] = "error"
+                    result["error"] = dir_res.get("error") or "Viral Video Director did not produce a video."
+                else:
+                    if dir_res.get("mastering") == "davinci_resolve_super_scale":
+                        how = f"DaVinci Resolve Neural Engine Super Scale {super_scale}x mastered"
+                    else:
+                        how = "mastered with ffmpeg (DaVinci Resolve was not available - no Neural Engine Super Scale)"
+                        result["status"] = "warning"
+                    result["message"] = f"SYNAPSE [100 Fm]: Viral Video Director ('{dir_res.get('mode_name')}') rendered + {how}: {dir_res.get('output_mp4')}."
+                    if dir_res.get("warnings"):
+                        result["message"] += " " + " ".join(dir_res["warnings"])
+                    self._attach_media(result, dir_res.get("output_mp4"), title=f"Viral Reel ({dir_res.get('mode_name')})")
             except Exception as e:
                 result["status"] = "error"
                 result["error"] = str(e)
@@ -3004,6 +3172,14 @@ class AIOperatorEngine:
         if batch_dir is None:
             batch_dir = get_latest_client_batch_dir(session_id)
 
+        # Deterministic route for the 5 viral director modes (Handheld Camera, Micro Cinema, Fast Cut,
+        # One-Take Shot, Time-Lapse). "Use the micro cinema workflow on this image" must run
+        # comfy_viral_video_director with mode=micro_cinema - it used to reach the generic image-to-video tool
+        # with an invented prompt. Skipped (falls through to the LLM) if no photo is available.
+        viral_response = self._route_viral_request(message, session_id, attached_files, batch_dir, adult_allowed)
+        if viral_response is not None:
+            return viral_response
+
         # Comprehensive Auto-Detection for Vision Mode
         is_vision, reason, detected_images, resolved_vl_model = self.detect_vision_requirement(
             message=message,
@@ -3017,9 +3193,18 @@ class AIOperatorEngine:
             print(f"[SYNAPSE Auto-Vision] Auto-switched to Vision ({chosen_model})! Signals: {reason}")
         else:
             images_base64 = []
+            # The dashboard auto-switches its model dropdown to the 8B vision model whenever a photo is attached
+            # and posts that as `model`. For a media COMMAND the server already decided the LLM doesn't need the
+            # image (the tool captions it via Iris), so running the weaker 8B vision model with NO image was the
+            # worst of both worlds - it guessed the prompt blind. Use the 14B operator, which calls tools reliably.
+            lowered_model = (chosen_model or "").lower()
+            if ("-vl" in lowered_model or "vision" in lowered_model) and (attached_files or batch_dir) and is_media_action_message(message):
+                print(f"[SYNAPSE Model] Media command: overriding vision model '{chosen_model}' -> '{DEFAULT_TEXT_MODEL}'.")
+                chosen_model = DEFAULT_TEXT_MODEL
 
-        # Dynamic Pre-Flight Block Swap on GPU 0 before sending request to Ollama
-        vram_manager.prepare_for_model(chosen_model)
+        # Dynamic Pre-Flight Block Swap on GPU 0 before sending request to Ollama.
+        # Warm at the SAME window the chat request uses, otherwise Ollama reloads the model a second time.
+        vram_manager.prepare_for_model(chosen_model, num_ctx=TEXT_NUM_CTX)
 
         # Auto-Detection for Trend/Current-Ideas Intent: when the Commander asks for
         # "trendy"/"current"/"viral"/"popular right now" shoot ideas, force a real web
@@ -3038,6 +3223,17 @@ class AIOperatorEngine:
                 web_search = True
                 auto_search_reason = "Detected trend/current-ideas intent"
                 print(f"[SYNAPSE Auto-Search] Auto-enabled web search! Signal: '{message[:80]}'")
+
+        # A media COMMAND on an uploaded photo ("make this a video", "use the micro cinema workflow") gains
+        # nothing from web results and they were polluting the prompt (this morning's command pulled in
+        # "best cinema cameras 2026" articles). Skip the search - the sticky UI toggle or the "viral" trend
+        # keyword shouldn't turn an animate command into a research query.
+        web_search_skipped_reason = None
+        if web_search and (attached_files or batch_dir) and is_media_action_message(message):
+            web_search = False
+            auto_search_reason = None
+            web_search_skipped_reason = "Skipped web search: this is a media command on your uploaded photo."
+            print(f"[SYNAPSE Web Search] {web_search_skipped_reason}")
 
         web_context_str = ""
         web_sources = []
@@ -3115,36 +3311,22 @@ class AIOperatorEngine:
             pass
 
         live_task_context = self.get_live_task_status_context()
-        system_content = SYSTEM_PROMPT + "\n\n" + live_task_context
-        system_content += "\n\n" + get_comfyui_context("operator", message)
-        if trend_context_str:
-            system_content += trend_context_str
-        if comfy_context_str:
-            system_content += comfy_context_str
+        system_head = SYSTEM_PROMPT + "\n\n" + live_task_context
 
         # Self-healing awareness: let Synapse proactively mention recent auto-detected
         # issues/fixes instead of only reporting them when asked via system_diagnostics.
+        incident_context_str = ""
         recent_incidents = self.get_recent_incidents(limit=5)
         if recent_incidents:
             incident_context_str = "\n\n--- RECENT SELF-HEALING INCIDENT LOG (newest first) ---\n"
             for inc in recent_incidents:
                 incident_context_str += f"[{inc['timestamp']}] {inc['component']}: {inc['issue']} -> {inc['action_taken']} ({inc['status']})\n"
             incident_context_str += "--- END INCIDENT LOG ---\nIf any entry is 'needs_attention', proactively flag it to the Commander.\n"
-            system_content += incident_context_str
-        if ingested_link_context:
-            system_content += ingested_link_context
-        if web_context_str:
-            system_content += web_context_str
-
-        messages_payload = [{"role": "system", "content": system_content}]
 
         session_history = self.get_history(session_id)
-        for h in session_history[-6:]:
-            clean_msg = {"role": h.get("role", "user"), "content": h.get("content", "")}
-            if "images" in h:
-                clean_msg["images"] = h["images"]
-            messages_payload.append(clean_msg)
+        history_slice = list(session_history[-6:])
 
+        # Build the user turn first so its size is known before the knowledge slice is budgeted.
         user_msg = {"role": "user", "content": message}
         if images_base64:
             user_msg["images"] = images_base64
@@ -3163,19 +3345,80 @@ class AIOperatorEngine:
                 attached_notes.append(
                     "[USER ATTACHED MEDIA AVAILABLE ON DISK]:\n"
                     + "\n".join(file_details)
-                    + "\nCRITICAL: When the user asks to animate, make an image move, or turn an image into video, you MUST invoke the registered tool using exact JSON:\n"
-                    + "Extract the user's EXACT requested subject action, movement, camera direction, and acoustic style (e.g. smooth ambient music, sensual melodic beat, no shouting/screaming) into the 'prompt' field.\n"
-                    + "Never output generic placeholder text like 'cinematic camera push-in' when the user specified exact physical motions or actions.\n"
+                    + "\nRULES for media commands on this photo:\n"
+                    + "1. If the Commander names a viral mode (Handheld Camera, Micro Cinema, Fast Cut, One-Take Shot, Time-Lapse), "
+                    + "call {\"tool\": \"comfy_viral_video_director\", \"image\": \"" + Path(attached_files[0]).name + "\", \"mode\": "
+                    + "\"handheld_camera|micro_cinema|fast_cut|one_take_shot|time_lapse\"} - do NOT use comfy_image_to_video for those.\n"
+                    + "2. To animate the photo / make it move / turn it into a video, call comfy_image_to_video with a MOTION-ONLY 'prompt': "
+                    + "the exact camera move and subject action the Commander asked for, starting from the photo's current framing "
+                    + "(e.g. smooth ambient music is fine, no shouting/screaming).\n"
+                    + "3. You can NOT see the photo in this turn. NEVER invent a person, place, weather, wardrobe or lighting "
+                    + "(no streets, rain, neon, cities, etc.). The studio checks your prompt against a vision caption of the photo and "
+                    + "discards any prompt that describes a different scene.\n"
+                    + "Never output generic placeholder text like 'cinematic camera push-in' when the Commander specified exact motions.\n"
                     + '```json\n{"tool": "comfy_image_to_video", "image": "'
                     + Path(attached_files[0]).name
-                    + '", "prompt": "<detailed description of user requested subject motion, camera work, and smooth ambient music>", "audio_mode": "music"}\n```\n'
+                    + '", "prompt": "<motion-only description of the requested camera move and subject action>", "audio_mode": "music"}\n```\n'
                     + "Do NOT output raw ComfyUI node dictionaries or workflow graphs. Always invoke the registered tool as JSON."
                 )
 
         if attached_notes:
             user_msg["content"] += "\n\n" + "\n\n".join(attached_notes)
 
+        # ---- PROMPT BUDGET -------------------------------------------------------------------------
+        # Ollama truncates a prompt that doesn't fit num_ctx down to num_ctx/2+2 tokens, keeping only the first
+        # 4 tokens + the tail. Synapse used to send ~14K tokens into an 8K window (=> ~4K seen), so the tool
+        # documentation in the middle of SYSTEM_PROMPT was silently discarded. Size the (otherwise unbounded)
+        # ComfyUI knowledge slice to whatever room is left, and shed low-value blocks if even that is too tight.
+        def _hist_chars(items):
+            return sum(len(str(m.get("content", ""))) for m in items)
+
+        extras_parts = {"trend": trend_context_str, "comfy": comfy_context_str, "incident": incident_context_str,
+                        "links": ingested_link_context, "web": web_context_str}
+        shed: List[str] = []
+
+        def _fixed_chars():
+            return len(system_head) + sum(len(v or "") for v in extras_parts.values()) + len(user_msg["content"]) + _hist_chars(history_slice) + 400
+
+        k_budget = knowledge_char_budget(TEXT_NUM_CTX, _fixed_chars())
+        if k_budget == 0 and len(history_slice) > 2:
+            history_slice = history_slice[-2:]
+            shed.append("older chat history")
+            k_budget = knowledge_char_budget(TEXT_NUM_CTX, _fixed_chars())
+        for key in ("trend", "comfy", "incident"):
+            if k_budget == 0 and extras_parts.get(key):
+                extras_parts[key] = ""
+                shed.append(key + " context")
+                k_budget = knowledge_char_budget(TEXT_NUM_CTX, _fixed_chars())
+
+        knowledge_text = get_comfyui_context("operator", message, max_chars=k_budget or 2500)
+        system_content = system_head + "\n\n" + knowledge_text
+        for key in ("trend", "comfy", "incident", "links", "web"):
+            if extras_parts.get(key):
+                system_content += extras_parts[key]
+
+        messages_payload = [{"role": "system", "content": system_content}]
+        for h in history_slice:
+            clean_msg = {"role": h.get("role", "user"), "content": h.get("content", "")}
+            if "images" in h:
+                clean_msg["images"] = h["images"]
+            messages_payload.append(clean_msg)
         messages_payload.append(user_msg)
+
+        prompt_tokens_estimate = estimate_tokens(
+            system_content + "".join(str(m.get("content", "")) for m in messages_payload[1:])
+        )
+        prompt_budget_info = {
+            "prompt_tokens_estimate": prompt_tokens_estimate,
+            "prompt_window_tokens": TEXT_NUM_CTX,
+            "knowledge_chars": len(knowledge_text),
+            "shed": shed,
+        }
+        print(f"[SYNAPSE Prompt Budget] ~{prompt_tokens_estimate} tokens of {TEXT_NUM_CTX} window "
+              f"(knowledge {len(knowledge_text)} chars, shed={shed or 'nothing'})")
+        if prompt_tokens_estimate > TEXT_NUM_CTX - 1200:
+            self.log_error("prompt_budget", f"Synapse prompt ~{prompt_tokens_estimate} tokens is too close to the "
+                           f"{TEXT_NUM_CTX}-token window; Ollama will truncate it.", context=prompt_budget_info)
 
         payload = {
             "model": chosen_model,
@@ -3185,7 +3428,7 @@ class AIOperatorEngine:
             "options": {
                 "temperature": 0.7,
                 "num_predict": 1500,
-                "num_ctx": 8192
+                "num_ctx": TEXT_NUM_CTX
             }
         }
 
@@ -3263,18 +3506,8 @@ class AIOperatorEngine:
                 msg_lower = (message or "").lower()
                 reply_lower = (reply_text or "").lower()
 
-                motion_keywords = [
-                    "motion", "animate", "move", "animation", "make this image move",
-                    "make it move", "give this image motion", "turn this image into video",
-                    "turn this into video", "turn this into a video", "make this into a video",
-                    "make this image into a video", "make a video", "make into video",
-                    "make into a video", "into a video", "into video", "image to video",
-                    "photo to video", "image-to-video", "photo-to-video", "i2v",
-                    "bring this photo to life", "bring this image to life", "video of this",
-                    "video test", "cinematic animation", "comfy_image_to_video",
-                    "zoom towards", "camera zoom", "slow zoom", "camera movement",
-                    "lick", "tongue"
-                ]
+                # Word-boundary matching (see synapse_media_router.message_requests_motion): the old
+                # substring list made "remove the background" ("move") and "click ..." ("lick") queue videos.
                 hallucinated_motion = any(h in reply_lower for h in [
                     "motion is now active", "queued your still photo", "queued your photo",
                     "active in comfyui's render queue", "active in comfyui", "rendering with ltx",
@@ -3282,7 +3515,7 @@ class AIOperatorEngine:
                     "animated your still image", "animated your photo", "video generated & delivered",
                     "video generated and delivered", "video is now in motion", "video has been rendered"
                 ])
-                user_requested_motion = any(k in msg_lower for k in motion_keywords)
+                user_requested_motion = message_requests_motion(message)
 
                 if user_requested_motion or hallucinated_motion:
                     target_img = None
@@ -3300,13 +3533,8 @@ class AIOperatorEngine:
                         m_img = re.search(r'[\w\-.]+\.(?:jpg|jpeg|png|webp|bmp)', message + " " + reply_text, re.I)
                         if m_img:
                             target_img = m_img.group(0)
-                    if not target_img and CLIENT_INBOX_DIR.exists():
-                        recent_imgs = [
-                            f for f in CLIENT_INBOX_DIR.glob("**/*.*")
-                            if f.is_file() and f.suffix.lower() in (".jpg", ".jpeg", ".png", ".webp", ".bmp")
-                        ]
-                        if recent_imgs:
-                            target_img = max(recent_imgs, key=lambda f: f.stat().st_mtime).name
+                    # NOTE: deliberately NO fallback to "the newest image anywhere in client_inbox". That could
+                    # animate a different client's/session's photo; if this session has no upload, say so instead.
 
                     if target_img:
                         extracted_prompt = ""
@@ -3340,8 +3568,13 @@ class AIOperatorEngine:
                 elif any(k in msg_lower for k in ["check schedule", "daily schedule", "schedule status", "newsletter schedule"]):
                     extracted_tools.append({"tool": "check_daily_schedule"})
 
+            I2V_TOOL_NAMES = ("comfy_image_to_video", "comfy_generate_video", "image_to_video", "comfy_i2v")
             for tool_data in extracted_tools:
+                # The handler needs the Commander's literal words to ground/sanity-check the motion prompt.
+                # Added AFTER the dedupe signature is taken so identical repeats are still collapsed.
                 sig = json.dumps(tool_data, sort_keys=True)
+                if tool_data.get("tool") in I2V_TOOL_NAMES:
+                    tool_data["_user_message"] = message or ""
                 if sig not in executed_tool_signatures:
                     try:
                         exec_res = self.run_tool_and_log(tool_data, adult_allowed=adult_allowed, batch_dir=batch_dir, attached_files=attached_files)
@@ -3359,20 +3592,26 @@ class AIOperatorEngine:
                 try:
                     tool_feedback_prompt = (
                         "The internal studio tools have finished execution with the following results:\n"
-                        + json.dumps(executed_actions, indent=2, default=str)
+                        + json.dumps(executed_actions, indent=2, default=str)[:6000]
                         + "\n\nProvide your concise, natural-language response to the Commander summarizing the outcome. "
+                        + "Be factual: report only what the tool results show (file names, errors, warnings). "
                         + "Do NOT output raw JSON tool calls in this final answer."
                     )
-                    second_pass_messages = list(messages_payload)
-                    second_pass_messages.append({"role": "assistant", "content": "Running requested tool..."})
-                    second_pass_messages.append({"role": "user", "content": tool_feedback_prompt})
+                    # Compact prompt: the full system prompt is ~13K tokens and is irrelevant to summarizing a
+                    # tool result - re-sending it only invited silent truncation and a slow reload.
+                    second_pass_messages = [
+                        {"role": "system", "content": "You are SYNAPSE [100 Fm], the Master AI Operator of the WORKHORSE studio, answering the Commander directly. Be concise, accurate and never claim success the tool results don't show."},
+                        {"role": "user", "content": (message or "")[:1500]},
+                        {"role": "assistant", "content": "Running requested tool..."},
+                        {"role": "user", "content": tool_feedback_prompt},
+                    ]
 
                     second_payload = {
                         "model": chosen_model,
                         "messages": second_pass_messages,
                         "stream": False,
                         "keep_alive": "5m",
-                        "options": {"temperature": 0.5, "num_predict": 800, "num_ctx": 8192}
+                        "options": {"temperature": 0.5, "num_predict": 800, "num_ctx": TEXT_NUM_CTX}
                     }
                     second_res = requests.post(f"{OLLAMA_HOST}/api/chat", json=second_payload, timeout=60)
                     if second_res.status_code == 200:
@@ -3449,6 +3688,8 @@ class AIOperatorEngine:
                 "web_search_status": web_search_status,
                 "web_search_auto_detected": auto_search_reason is not None,
                 "web_search_reason": auto_search_reason,
+                "web_search_skipped_reason": web_search_skipped_reason,
+                "prompt_budget": prompt_budget_info,
                 "executed_actions": executed_actions,
                 "attached_files_count": len(attached_files) if attached_files else 0,
                 "vision_auto_detected": is_vision,

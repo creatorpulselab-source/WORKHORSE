@@ -85,7 +85,7 @@ def test_extract_tool_calls_malformed_surfaces_parse_error():
 
 def test_chat_logs_tool_call_parse_error(operator_engine, monkeypatch):
     """Verify chat() logs a tool_call_parse_error event when encountering malformed JSON."""
-    monkeypatch.setattr("pipeline.stages.ai_operator.vram_manager.prepare_for_model", lambda m: True)
+    monkeypatch.setattr("pipeline.stages.ai_operator.vram_manager.prepare_for_model", lambda m, **kw: True)
     mock_post = MagicMock()
     mock_post.return_value.status_code = 200
     mock_post.return_value.json.return_value = {
@@ -261,7 +261,7 @@ def test_tool_catalog_size_and_reachability():
 # 8. Second-Pass Tool Feedback Loop
 def test_chat_second_pass_tool_feedback(operator_engine, monkeypatch):
     """Verify that when a tool executes and initial reply is empty, chat feeds results back to LLM for second pass."""
-    monkeypatch.setattr("pipeline.stages.ai_operator.vram_manager.prepare_for_model", lambda m: True)
+    monkeypatch.setattr("pipeline.stages.ai_operator.vram_manager.prepare_for_model", lambda m, **kw: True)
     chat_calls = []
 
     def mock_post(url, json=None, timeout=None):

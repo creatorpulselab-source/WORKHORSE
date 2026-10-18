@@ -1846,7 +1846,10 @@ class ComfyUIBridge:
         seed_val = seed if seed is not None else int(time.time() * 1000) % (2**31 - 1)
 
         cinematic_tag = "cinematic motion, smooth natural movement, film-quality motion dynamics, photorealistic, high production value"
-        music_tag = "smooth ambient background music, sensual chill melodic electronic beat, rhythmic synth pads"
+        # Neutral on purpose: this builder also serves SFW brand/social/family videos (Herald, client photos).
+        # It used to append "sensual chill melodic electronic beat" to EVERY video that didn't name music.
+        # A prompt that wants a sensual soundtrack says so itself and then no default tag is added at all.
+        music_tag = "smooth ambient background music, soft melodic electronic beat, rhythmic synth pads"
 
         prompt_clean = prompt.strip()
         is_silent = audio_mode == "silent" or any(w in prompt_clean.lower() for w in ["silent", "mute", "no audio", "no sound"])

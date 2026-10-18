@@ -8,6 +8,15 @@ from typing import List, Optional, Dict, Any
 
 from shared.vram_manager import vram_manager
 
+# Context windows requested from Ollama. IMPORTANT (verified against the local Ollama
+# build on 2026-10-18): when a prompt does NOT fit in num_ctx, Ollama does not just
+# refuse or trim a little - it truncates the prompt down to num_ctx/2 + 2 tokens
+# (keeping only the first 4 tokens plus the tail). A 14K-token Synapse prompt sent with
+# num_ctx=8192 therefore reached the model as only ~4,098 tokens, silently dropping most
+# of the system prompt/tool documentation. Callers must size prompts to FIT these windows.
+TEXT_NUM_CTX = 16384   # 14B text model; measured ~7.4 GB on GPU 0 at this size (fits 12 GB)
+VISION_NUM_CTX = 12288  # 8B vision model; image tokens + knowledge + instructions need headroom
+
 # Every known prefix call_ollama_text()/call_ollama_vision() themselves return on
 # failure (connection errors, non-200 HTTP responses, timeouts) - since those methods
 # always return a plain string (never raise, never a structured {"success": bool}
@@ -147,19 +156,29 @@ class AIProviderService:
                 except Exception:
                     pass
 
-    def call_ollama_vision(self, prompt: str, image_paths: List[Path], system_prompt: str = "", model: Optional[str] = None, num_predict: int = 350, timeout: int = 60, num_ctx: int = 4096) -> str:
+    def call_ollama_vision(self, prompt: str, image_paths: List[Path], system_prompt: str = "", model: Optional[str] = None, num_predict: int = 350, timeout: int = 60, num_ctx: int = VISION_NUM_CTX, image_max_dim: int = 768, temperature: float = 0.1, repeat_penalty: Optional[float] = None) -> str:
         url = f"{self.get_ollama_url()}/api/generate"
         active_model = model or self.get_vision_model()
 
-        # Dynamic Pre-Flight Block Swap on GPU 0 (Evicts 14B text model to guarantee room for 8B-VL)
-        vram_manager.prepare_for_model(active_model)
+        # Dynamic Pre-Flight Block Swap on GPU 0 (Evicts 14B text model to guarantee room for 8B-VL).
+        # Pass the SAME num_ctx used for the real request below, otherwise the warm-up loads the
+        # model at one window size and the request forces a second reload at another.
+        vram_manager.prepare_for_model(active_model, num_ctx=num_ctx)
 
         b64_images = []
         for p in image_paths:
             if Path(p).exists():
-                b64_images.append(self.image_to_base64(Path(p)))
+                b64_images.append(self.image_to_base64(Path(p), max_dim=image_max_dim))
 
         effective_system = f"/no_think\n{system_prompt}" if system_prompt else "/no_think"
+
+        options = {
+            "temperature": temperature,
+            "num_predict": num_predict,
+            "num_ctx": num_ctx
+        }
+        if repeat_penalty is not None:
+            options["repeat_penalty"] = repeat_penalty
 
         payload = {
             "model": active_model,
@@ -169,11 +188,7 @@ class AIProviderService:
             "stream": False,
             "keep_alive": "2m",
             "think": False,
-            "options": {
-                "temperature": 0.1,
-                "num_predict": num_predict,
-                "num_ctx": num_ctx
-            }
+            "options": options
         }
         tracker = None
         task_id = f"ollama_vision_{int(os.getpid())}"

@@ -8,11 +8,120 @@ from typing import Dict, Any, List, Optional
 import sys
 
 sys.path.insert(0, str(Path("F:/WORKHORSE")))
-from shared.ai_providers import AIProviderService
+from shared.ai_providers import AIProviderService, is_ai_error_response, VISION_NUM_CTX
 from shared.comfyui_knowledge import get_comfyui_context
 
 VAULT_CACHE_FILE = Path("F:/WORKHORSE/workspace/inspiration_vault_cache.json")
 MAX_VAULT_CACHE_ENTRIES = 50
+
+# --- Vision budget -----------------------------------------------------------------
+# Root causes of the "Style & Pose Lab writes no prompts from images" bug (2026-10-18):
+#   1. call_ollama_vision() was invoked with its defaults: num_ctx=4096 and num_predict=350.
+#      The Iris system prompt (~3.7K tokens) + instructions (~0.9K) + one 768px image (~1.2K)
+#      is ~5.9K tokens -> HTTP 400 "exceeds the available context size" on EVERY call, and even
+#      a call that fit could only emit 350 tokens (the 4-section answer needs ~1,200+).
+#   2. The failure string was then cached and the regex parse "fell back" to a hard-coded
+#      glamour-model prompt, which the UI showed as if it had been written from the photo.
+# Fixes: a window/outputs sized for the real prompt, a trimmed knowledge slice, strict
+# validation, no caching of failures, and NO canned prompt masquerading as image output.
+VISION_KNOWLEDGE_CHARS = 6500     # keeps Module 6 (prompt writing) whole; ~1.2K tokens
+COMFY_PROMPT_NUM_PREDICT = 1600
+BLUEPRINT_NUM_PREDICT = 1400
+SINGLE_IMAGE_MAX_DIM = 896        # one image: keep fine detail (pose, wardrobe, lens cues)
+MULTI_IMAGE_MAX_DIM = 640         # several images: ~0.7K tokens each instead of ~1.2K
+MIN_ANALYSIS_CHARS = 40
+# Long list-style output at temperature 0.1 with no penalty is what produced the
+# "oversaturated, oversharpened, oversmoothed" x400 loop that ate the whole token budget.
+VISION_TEMPERATURE = 0.45
+VISION_REPEAT_PENALTY = 1.2
+
+# The old hard-coded fallbacks. Cache entries that contain them (or a stored failure
+# string) were produced by the bug above and must never be served again.
+_LEGACY_CANNED_IMAGE_PROMPT_PREFIX = "Cinematic 85mm portrait of a captivating glamour model"
+_BAD_CACHE_MARKERS = (
+    "blocked a real network connection",
+    "exceeds the available context size",
+    "Vision QC timed out",
+)
+
+# Generic anti-artifact negative prompt. Unlike the positive/video prompts this is not
+# image-specific, so a default is legitimate - but the result says when it was used.
+DEFAULT_NEGATIVE_PROMPT = (
+    "ugly, deformed hands, extra fingers, missing fingers, fused fingers, bad anatomy, mutated body parts, "
+    "plastic skin, doll-like, airbrushed, cartoon, 3d render, illustration, bad eyes, crossed eyes, blurry, "
+    "low quality, artifacts, watermark, text, signature, oversaturated, blown out highlights"
+)
+
+_SECTION_HEADER_RE = re.compile(
+    r"^[ \t]*(?:#{1,6}[ \t]*|\*{2}[ \t]*)?(?:SECTION|Section)[ \t]*(\d)\b[^\n]*", re.MULTILINE
+)
+_LEGACY_SECTION_KEYS = {0: "description", 1: "image", 2: "negative", 3: "video", 4: "params"}
+
+
+def _classify_section(header_line: str, number: int) -> str:
+    """Name-aware: 'COMFYUI VIDEO MOTION PROMPT' is the video section whatever number the model gave it."""
+    h = header_line.lower()
+    if "what you see" in h:
+        return "description"
+    if "negative" in h:
+        return "negative"
+    if "video" in h or "motion" in h:
+        return "video"
+    if "positive" in h or "image prompt" in h:
+        return "image"
+    if "param" in h or "setting" in h:
+        return "params"
+    return _LEGACY_SECTION_KEYS.get(number, f"section_{number}")
+
+
+def _split_sections(text: str) -> Dict[str, str]:
+    """Tolerant section splitter returning {'description'|'image'|'negative'|'video'|'params': body}.
+
+    Accepts '### SECTION 1: ...', '**Section 1 -**', '## Section 1', etc. The first occurrence of
+    each section wins. Code fences/stray bold markers are stripped."""
+    matches = list(_SECTION_HEADER_RE.finditer(text or ""))
+    sections: Dict[str, str] = {}
+    for i, m in enumerate(matches):
+        key = _classify_section(m.group(0), int(m.group(1)))
+        end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
+        body = text[m.end():end].strip()
+        body = re.sub(r"^```[\w]*[ \t]*\n", "", body, flags=re.MULTILINE)
+        body = re.sub(r"\n?[ \t]*```[ \t]*$", "", body, flags=re.MULTILINE).strip()
+        body = body.strip("*").strip()
+        # Models end sections with a '---' horizontal rule; it must not end up inside a copy-paste prompt.
+        body = re.sub(r"(?:[ \t]*\n)?[ \t]*(?:-{3,}|\*{3,}|_{3,})[ \t]*$", "", body).strip()
+        body = re.sub(r"[ \t]+(?:-{3,})[ \t]*$", "", body).strip()
+        if body and key not in sections:
+            sections[key] = body
+    return sections
+
+
+def _collapse_repetition(text: str, max_terms: int = 60) -> str:
+    """Undo degenerate generation loops (e.g. 'oversaturated, oversharpened, oversmoothed' x400).
+
+    Comma lists are de-duplicated (case-insensitive, order preserved, capped at max_terms); prose drops
+    any sentence that repeats an earlier one verbatim. Clean text passes through unchanged."""
+    text = (text or "").strip()
+    if not text:
+        return text
+    if text.count(",") >= 8 and "\n" not in text.strip():
+        seen, terms = set(), []
+        for raw in text.split(","):
+            term = raw.strip()
+            key = term.lower()
+            if term and key not in seen:
+                seen.add(key)
+                terms.append(term)
+        return ", ".join(terms[:max_terms])
+    seen_sent, out = set(), []
+    for sent in re.split(r"(?<=[.!?])\s+", text):
+        key = sent.strip().lower()
+        if key and key in seen_sent:
+            continue
+        seen_sent.add(key)
+        out.append(sent)
+    return " ".join(out)
+
 
 class InspirationScanner:
     def __init__(self, inspiration_dir: str = "F:/WORKHORSE/workspace/inspiration", config_path: str = "F:/WORKHORSE/config.json"):
@@ -34,11 +143,31 @@ class InspirationScanner:
         parts = sorted(f"{f.name}:{int(f.stat().st_mtime)}" for f in target_files)
         return hashlib.sha256("|".join(parts).encode("utf-8")).hexdigest()
 
+    @staticmethod
+    def _is_bad_cache_entry(entry: Any) -> bool:
+        """True for entries written by the old buggy code: a stored failure string, a test-suite
+        network-block message, or the canned glamour prompt that was shown instead of real output."""
+        if not isinstance(entry, dict):
+            return True
+        for field in ("full_markdown", "blueprint_markdown"):
+            value = entry.get(field)
+            if isinstance(value, str):
+                if is_ai_error_response(value) or any(marker in value for marker in _BAD_CACHE_MARKERS):
+                    return True
+        if str(entry.get("image_prompt", "")).startswith(_LEGACY_CANNED_IMAGE_PROMPT_PREFIX):
+            return True
+        return False
+
     def _load_vault_cache(self) -> Dict[str, Any]:
         try:
             if VAULT_CACHE_FILE.exists():
                 with open(VAULT_CACHE_FILE, "r", encoding="utf-8") as f:
-                    return json.load(f)
+                    cache = json.load(f)
+                clean = {k: v for k, v in cache.items() if not self._is_bad_cache_entry(v)}
+                if len(clean) != len(cache):
+                    print(f"[Inspiration Scanner] Purged {len(cache) - len(clean)} poisoned cache entr(ies) from earlier failed/canned analyses.")
+                    self._save_vault_cache(clean)
+                return clean
         except Exception:
             pass
         return {}
@@ -53,6 +182,30 @@ class InspirationScanner:
         except Exception as e:
             print(f"[Inspiration Scanner] Failed to save vault cache: {e}")
 
+    def _select_targets(self, files: List[Path], image_filename: Optional[str], default_count: int):
+        """Returns (target_files, warnings). A selected-but-missing image is reported instead of silently swapped."""
+        warnings: List[str] = []
+        if image_filename:
+            target = self.inspiration_dir / Path(image_filename).name
+            if target.exists():
+                return [target], warnings
+            warnings.append(f"Selected image '{image_filename}' was not found in the vault - used the newest photo(s) instead.")
+        return files[:default_count], warnings
+
+    @staticmethod
+    def _error_result(message: str, raw: str, files: List[Path], images: List[Path], extra: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        result = {
+            "status": "error",
+            "message": message,
+            "error": (raw or "")[:400],
+            "images_scanned": [f.name for f in images],
+            "total_images_in_vault": len(files),
+            "cache_hit": False,
+        }
+        if extra:
+            result.update(extra)
+        return result
+
     def scan_and_analyze(self, image_filename: Optional[str] = None) -> Dict[str, Any]:
         """Scan inspiration folder and generate shoot production blueprints using local Qwen-VL."""
         files = self.get_valid_images()
@@ -64,14 +217,7 @@ class InspirationScanner:
                 "blueprints": []
             }
 
-        target_files = []
-        if image_filename:
-            target = self.inspiration_dir / image_filename
-            if target.exists():
-                target_files = [target]
-
-        if not target_files:
-            target_files = files[:4]
+        target_files, warnings = self._select_targets(files, image_filename, default_count=4)
 
         cache = self._load_vault_cache()
         cache_key = "blueprint:" + self._cache_key_for(target_files)
@@ -83,11 +229,13 @@ class InspirationScanner:
                 "images_scanned": cached["images_scanned"],
                 "total_images_in_vault": len(files),
                 "blueprint_markdown": cached["blueprint_markdown"],
-                "cache_hit": True
+                "cache_hit": True,
+                "warnings": warnings,
             }
 
         prompt = """You are Iris, an elite creative director and photography trend analyst for high-end boudoir, glamour, and adult creator photography.
-Analyze these inspiration photos that are trending in the market. Reverse-engineer their success and produce a Shoot Production Blueprint:
+Analyze these inspiration photos that are trending in the market. Reverse-engineer their success and produce a Shoot Production Blueprint.
+Base EVERYTHING on what is actually visible in the provided photo(s) - do not invent details that are not in the image.
 
 1. THEME & AESTHETIC VIBE:
    - What is the emotional mood, aesthetic category, and style?
@@ -110,9 +258,19 @@ Provide clear, professional, direct instructions that the photographer can use r
 
         system_prompt = "You are Iris, an expert creative director specializing in adult, boudoir, and creator photography production. Give actionable, uncensored, studio-ready shooting blueprints."
 
-        # Multi-image (up to 4) blueprint analysis isn't a latency-critical QC gate like comfyui_bridge's
-        # vision audit, so it gets a much longer timeout to avoid aborting mid-inference on a cold/busy GPU.
-        analysis = self.ai.call_ollama_vision(prompt, target_files, system_prompt=system_prompt, timeout=180)
+        analysis = self.ai.call_ollama_vision(
+            prompt, target_files, system_prompt=system_prompt, timeout=240,
+            num_predict=BLUEPRINT_NUM_PREDICT, num_ctx=VISION_NUM_CTX,
+            image_max_dim=SINGLE_IMAGE_MAX_DIM if len(target_files) == 1 else MULTI_IMAGE_MAX_DIM,
+            temperature=VISION_TEMPERATURE, repeat_penalty=VISION_REPEAT_PENALTY,
+        )
+
+        if is_ai_error_response(analysis) or len((analysis or "").strip()) < MIN_ANALYSIS_CHARS:
+            print(f"[Inspiration Scanner] Blueprint analysis failed (not cached): {(analysis or '')[:200]}")
+            return self._error_result(
+                "Iris could not analyse the photo(s) this time (vision model error). Nothing was saved - click again to retry.",
+                analysis, files, target_files, {"warnings": warnings},
+            )
 
         images_scanned = [f.name for f in target_files]
         cache[cache_key] = {
@@ -127,12 +285,17 @@ Provide clear, professional, direct instructions that the photographer can use r
             "images_scanned": images_scanned,
             "total_images_in_vault": len(files),
             "blueprint_markdown": analysis,
-            "cache_hit": False
+            "cache_hit": False,
+            "warnings": warnings,
         }
 
 
     def generate_comfyui_prompts(self, image_filename: Optional[str] = None) -> Dict[str, Any]:
-        """Scan inspiration image(s) and generate detailed ComfyUI Image and Video prompts."""
+        """Scan inspiration image(s) and generate detailed ComfyUI Image and Video prompts.
+
+        Never returns a canned prompt in place of real output: if the vision model fails or the
+        answer can't be parsed, the result says so (status 'error' / 'partial') and is not cached.
+        """
         files = self.get_valid_images()
 
         if not files:
@@ -145,17 +308,10 @@ Provide clear, professional, direct instructions that the photographer can use r
                 "full_markdown": ""
             }
 
-        target_files = []
-        if image_filename:
-            target = self.inspiration_dir / image_filename
-            if target.exists():
-                target_files = [target]
-
-        if not target_files:
-            target_files = files[:3]
+        target_files, warnings = self._select_targets(files, image_filename, default_count=3)
 
         cache = self._load_vault_cache()
-        knowledge_context = get_comfyui_context("inspiration")
+        knowledge_context = get_comfyui_context("inspiration", max_chars=VISION_KNOWLEDGE_CHARS)
         knowledge_version = hashlib.sha256(knowledge_context.encode("utf-8")).hexdigest()
         cache_key = "comfyui:" + knowledge_version + ":" + self._cache_key_for(target_files)
         cached = cache.get(cache_key)
@@ -169,46 +325,39 @@ Provide clear, professional, direct instructions that the photographer can use r
                 "image_prompt": cached["image_prompt"],
                 "negative_prompt": cached["negative_prompt"],
                 "video_prompt": cached["video_prompt"],
-                "cache_hit": True
+                "image_description": cached.get("image_description", ""),
+                "cache_hit": True,
+                "warnings": warnings,
             }
 
-        prompt = """You are Iris, an expert AI prompt engineer and senior visual technologist specializing in ComfyUI, FLUX.1, SDXL, and generative AI Video models (Wan2.1, CogVideoX, AnimateDiff, SVD, LTX-Video) for high-end boudoir, glamour, and creator aesthetics.
+        prompt = """You are Iris, an expert AI prompt engineer and senior visual technologist specializing in ComfyUI, FLUX.1, SDXL, and generative AI video models (LTX-Video 2.3 and MiniMax FastH3 image-to-video) for high-end boudoir, glamour, and creator aesthetics.
 
-Analyze the provided inspiration image(s) with clinical precision. Reverse-engineer the lighting, composition, optics, pose, wardrobe, and atmosphere to craft exact, ready-to-paste ComfyUI prompts:
+Analyze the provided inspiration image(s) with clinical precision. Describe ONLY what is actually visible - never invent a subject, wardrobe, setting or lighting that is not in the picture. Then reverse-engineer the lighting, composition, optics, pose, wardrobe, and atmosphere into exact, ready-to-paste ComfyUI prompts.
+Use EXACTLY these section headings (the dashboard parses them):
 
-### SECTION 1: COMFYUI POSITIVE IMAGE PROMPT (FLUX.1 / SDXL / SD1.5)
-Generate a comprehensive, highly photorealistic prompt block formatted for a ComfyUI CLIP Text Encode node.
-Structure it with:
-- Subject Description: Ethnicity, model features, captivating gaze, facial expression, hair texture & color.
-- Micro Pores & Skin Details: True unretouched RAW skin texture, visible pores, subtle skin sheen, delicate highlights, subsurface scattering (avoiding any plastic or doll appearance).
-- Wardrobe & Textures: Exact fabrics (silk, sheer lace, mesh, leather, velvet), color palette, drape, transparency, strapped accents.
-- Pose & Dynamic Framing: Exact posture, body geometry, arch, camera angle (low angle, three-quarters, high angle), framing (portrait 4:5, medium close-up, full length).
-- Environment & Set Dressing: Penthouse bedroom, moody studio backdrop, neon signs, sheer curtains, ambient velvet duvet.
-- Lighting & Lens Characteristics: Key light, directional rim lighting with gel accents (warm golden, neon cyan, moody magenta), 85mm f/1.4 lens, shallow depth of field, natural bokeh, soft volumetric dust particles, cinematic chiaroscuro.
-- Photorealism Tokens: 8k uhd, dslr photo, RAW image, sharp focus, natural color grading, masterpiece, hyperdetailed.
+### SECTION 0: WHAT YOU SEE
+Two or three plain, factual sentences describing the photo (subject, pose, wardrobe, setting, framing, lighting).
 
-### SECTION 2: COMFYUI NEGATIVE IMAGE PROMPT
-Provide a clean, robust negative prompt to eliminate anatomical distortions, extra limbs, bad hands, plastic skin, blur, watermark, cartoon styling, and low resolution.
+### SECTION 1: COMFYUI POSITIVE IMAGE PROMPT (FLUX.1 / SDXL)
+One comprehensive, highly photorealistic prompt block formatted for a ComfyUI CLIP Text Encode node. Cover:
+- Subject Description: features, gaze, facial expression, hair texture & color.
+- Micro Pores & Skin Details: true unretouched RAW skin texture, visible pores, subtle sheen (no plastic or doll look).
+- Wardrobe & Textures: exact fabrics, color palette, drape.
+- Pose & Dynamic Framing: exact posture, body geometry, camera angle, framing.
+- Environment & Set Dressing visible in the photo.
+- Lighting & Lens Characteristics: key light, rim/gel accents, lens, depth of field.
+- Photorealism tokens: 8k uhd, dslr photo, RAW image, sharp focus.
 
-### SECTION 3: COMFYUI VIDEO MOTION PROMPT (Wan2.1 / CogVideoX / AnimateDiff / SVD)
-Write a detailed camera movement and performer motion prompt for image-to-video / text-to-video diffusion models.
-Include:
-- Camera Movement: Exact camera moves (e.g., "Slow cinematic push-in (dolly in) with subtle handheld drift", "Smooth orbital pan rotating 15 degrees around subject").
-- Performer Micro-Motion: Natural rhythmic breathing, slow sensual turn of the head toward the camera, subtle lip parting, delicate gaze shift into the lens, fingers gently running through hair.
-- Fabric & Environmental Dynamics: Gentle ambient breeze rustling hair strands and sheer fabric, subtle light reflection shimmering across skin.
-- Frame Rate & Physics: Fluid 24fps cinematic motion, natural physical weight and inertia, high temporal coherence.
+### SECTION 2: COMFYUI VIDEO MOTION PROMPT (LTX 2.3 / MiniMax FastH3 image-to-video)
+Write a MOTION-ONLY prompt for animating THIS exact photo as the first frame. Rules: describe camera movement and subject micro-motion that begins from the photo's current framing; do NOT introduce any new person, location, wardrobe or lighting; no scene change or cut; keep the same subject and setting throughout. Include camera move, performer micro-motion, and fabric/hair dynamics.
+
+### SECTION 3: COMFYUI NEGATIVE IMAGE PROMPT
+ONE line of at most 40 comma-separated terms covering anatomical distortions, extra limbs, bad hands, plastic skin, blur, watermark, cartoon styling and low resolution. Never repeat a term.
 
 ### SECTION 4: RECOMMENDED COMFYUI NODE PARAMETERS
-Provide recommended workflow parameters:
-- Checkpoints & LoRAs: (e.g. FLUX.1 [dev] / SDXL / Wan2.1 14B)
-- Aspect Ratio & Resolution: (e.g. 1024x1536 for 4:5 portrait, 768x1344 for 9:16 vertical video)
-- Sampling Steps & CFG: (e.g. 28-35 steps, CFG 3.5 - 6.5)
-- Sampler & Scheduler: (e.g. euler_ancestral with karras / dpmpp_2m_sde)
+Recommended workflow parameters per model family: checkpoint/LoRA, aspect ratio & resolution matching the photo, sampling steps & CFG, sampler & scheduler.
 
-Separate recommendations by model family: FLUX guidance is not SDXL CFG, and negative
-conditioning is not universal. Use descriptive prose for FLUX and identify any SDXL
-tag/weighting alternatives. Do not imply suggested nodes/models are installed without
-live inventory/schema evidence; the curriculum's numeric examples are advisory.
+Separate recommendations by model family: FLUX guidance is not SDXL CFG, and negative conditioning is not universal. Use descriptive prose for FLUX and identify any SDXL tag/weighting alternatives. Do not imply suggested nodes/models are installed without live inventory/schema evidence; the curriculum's numeric examples are advisory.
 
 Output clean markdown with clear copyable sections."""
 
@@ -218,52 +367,67 @@ Output clean markdown with clear copyable sections."""
             + knowledge_context
         )
 
-        # Same rationale as scan_and_analyze: multi-image prompt generation needs more headroom than the 60s default.
-        analysis = self.ai.call_ollama_vision(prompt, target_files, system_prompt=system_prompt, timeout=180)
-
-        # Parse out positive, negative, and video prompts for instant 1-click copying
-        image_prompt = ""
-        neg_prompt = ""
-        video_prompt = ""
-
-        # Extract Section 1
-        pos_match = re.search(r'###\s*SECTION 1[:\s\w\(\)\/\-\.]*\n([\s\S]*?)(?=###\s*SECTION 2|\Z)', analysis, re.IGNORECASE)
-        if pos_match:
-            # Clean up markdown code ticks or intro text if present
-            raw_pos = pos_match.group(1).strip()
-            # If wrapped in ```, strip code block
-            raw_pos = re.sub(r'^```[\w]*\n|```$', '', raw_pos, flags=re.MULTILINE).strip()
-            image_prompt = raw_pos
-
-        # Extract Section 2
-        neg_match = re.search(r'###\s*SECTION 2[:\s\w\(\)\/\-\.]*\n([\s\S]*?)(?=###\s*SECTION 3|\Z)', analysis, re.IGNORECASE)
-        if neg_match:
-            raw_neg = neg_match.group(1).strip()
-            raw_neg = re.sub(r'^```[\w]*\n|```$', '', raw_neg, flags=re.MULTILINE).strip()
-            neg_prompt = raw_neg
-
-        # Extract Section 3
-        vid_match = re.search(r'###\s*SECTION 3[:\s\w\(\)\/\-\.]*\n([\s\S]*?)(?=###\s*SECTION 4|\Z)', analysis, re.IGNORECASE)
-        if vid_match:
-            raw_vid = vid_match.group(1).strip()
-            raw_vid = re.sub(r'^```[\w]*\n|```$', '', raw_vid, flags=re.MULTILINE).strip()
-            video_prompt = raw_vid
-
-        # Fallback values if regex didn't isolate them cleanly
-        if not image_prompt:
-            image_prompt = "Cinematic 85mm portrait of a captivating glamour model, natural skin texture, visible pores, delicate highlights, sheer lace and silk lingerie, moody bedroom setting, dramatic rim lighting with golden and magenta neon gels, shallow depth of field, 8k uhd, photorealistic, RAW color, masterpiece."
-        if not neg_prompt:
-            neg_prompt = "ugly, deformed hands, extra fingers, missing fingers, fused fingers, bad anatomy, mutated body parts, plastic skin, doll-like, airbrushed, cartoon, 3d render, illustration, bad eyes, crossed eyes, blurry, low quality, artifacts, watermark, text, signature, oversaturated, blown out highlights"
-        if not video_prompt:
-            video_prompt = "Slow cinematic push-in (dolly in) with subtle handheld drift, performer gently turning gaze toward camera with soft breathing, natural hair movement in gentle breeze, cinematic 24fps motion, high temporal coherence."
+        analysis = self.ai.call_ollama_vision(
+            prompt, target_files, system_prompt=system_prompt, timeout=240,
+            num_predict=COMFY_PROMPT_NUM_PREDICT, num_ctx=VISION_NUM_CTX,
+            image_max_dim=SINGLE_IMAGE_MAX_DIM if len(target_files) == 1 else MULTI_IMAGE_MAX_DIM,
+            temperature=VISION_TEMPERATURE, repeat_penalty=VISION_REPEAT_PENALTY,
+        )
 
         images_scanned = [f.name for f in target_files]
+
+        if is_ai_error_response(analysis) or len((analysis or "").strip()) < MIN_ANALYSIS_CHARS:
+            print(f"[Inspiration Scanner] ComfyUI prompt analysis failed (not cached): {(analysis or '')[:200]}")
+            return self._error_result(
+                "Iris could not write prompts from this photo (vision model error). Nothing was saved - click again to retry.",
+                analysis, files, target_files,
+                {"image_prompt": "", "negative_prompt": "", "video_prompt": "", "full_markdown": "", "warnings": warnings},
+            )
+
+        sections = _split_sections(analysis)
+        image_description = _collapse_repetition(sections.get("description", ""))
+        image_prompt = _collapse_repetition(sections.get("image", ""))
+        video_prompt = _collapse_repetition(sections.get("video", ""))
+        neg_prompt = _collapse_repetition(sections.get("negative", ""))
+
+        # A negative prompt is not image-specific, so a curated default is legitimate - but say so.
+        if not neg_prompt:
+            neg_prompt = DEFAULT_NEGATIVE_PROMPT
+            warnings.append("Iris did not return a negative prompt - the generic anti-artifact default is shown.")
+
+        # One focused retry: if the image prompt exists but the motion prompt didn't make it out
+        # (token budget spent elsewhere / model drifted), ask for just that section against the same photo.
+        if image_prompt and not video_prompt:
+            video_prompt = self._retry_video_prompt(target_files, image_description)
+            if video_prompt:
+                warnings.append("The video motion prompt was regenerated in a second focused pass.")
+
+        if not image_prompt or not video_prompt:
+            missing = [name for name, val in (("image prompt", image_prompt), ("video motion prompt", video_prompt)) if not val]
+            warnings.append(
+                "Iris's answer was missing: " + ", ".join(missing) + ". The full raw analysis is shown below - click again to retry."
+            )
+            print(f"[Inspiration Scanner] Partial ComfyUI analysis (not cached) - missing {missing}")
+            return {
+                "status": "partial",
+                "images_scanned": images_scanned,
+                "total_images_in_vault": len(files),
+                "full_markdown": analysis,
+                "image_prompt": image_prompt,
+                "negative_prompt": neg_prompt,
+                "video_prompt": video_prompt,
+                "image_description": image_description,
+                "cache_hit": False,
+                "warnings": warnings,
+            }
+
         cache[cache_key] = {
             "images_scanned": images_scanned,
             "full_markdown": analysis,
             "image_prompt": image_prompt,
             "negative_prompt": neg_prompt,
             "video_prompt": video_prompt,
+            "image_description": image_description,
             "cached_at": time.time()
         }
         self._save_vault_cache(cache)
@@ -276,8 +440,30 @@ Output clean markdown with clear copyable sections."""
             "image_prompt": image_prompt,
             "negative_prompt": neg_prompt,
             "video_prompt": video_prompt,
-            "cache_hit": False
+            "image_description": image_description,
+            "cache_hit": False,
+            "warnings": warnings,
         }
+
+    def _retry_video_prompt(self, target_files: List[Path], description: str) -> str:
+        """Second, tiny vision call that asks ONLY for the motion prompt for these photos."""
+        hint = f"\nWhat the photo shows: {description}" if description else ""
+        prompt = (
+            "Write ONE motion-only prompt (60-110 words, plain prose, no headings, no lists) for animating THIS exact "
+            "photo as the first frame of an image-to-video model (LTX 2.3 / MiniMax FastH3). Describe a camera move and "
+            "subject micro-motion that start from the photo's current framing. Do NOT introduce any new person, location, "
+            "wardrobe or lighting, and do not cut to another scene." + hint
+        )
+        text = self.ai.call_ollama_vision(
+            prompt, target_files[:1], system_prompt="You are Iris, an expert image-to-video prompt engineer.",
+            timeout=120, num_predict=320, num_ctx=VISION_NUM_CTX, image_max_dim=SINGLE_IMAGE_MAX_DIM,
+            temperature=VISION_TEMPERATURE, repeat_penalty=VISION_REPEAT_PENALTY,
+        )
+        if is_ai_error_response(text):
+            return ""
+        text = _collapse_repetition(re.sub(r"^#{1,6}[^\n]*\n", "", (text or "").strip()).strip("*` \n"))
+        return text if len(text.split()) >= 12 else ""
+
 
 inspiration_scanner = InspirationScanner()
 

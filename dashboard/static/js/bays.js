@@ -796,10 +796,27 @@ this.currentBay = initHash || 'command-center';
         return;
       }
 
+      // Backend failures used to be silently replaced by a canned prompt and shown as success.
+      if (data.status === 'error' || !res.ok) {
+        const msg = this.escapeHtml(data.message || data.detail || 'Prompt generation failed.');
+        const raw = data.error ? `<div style="margin-top:8px; font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); word-break: break-word;">${this.escapeHtml(String(data.error))}</div>` : '';
+        if (content) content.innerHTML = `<div style="padding: 24px; color: #f72585; font-size: 13px; line-height: 1.5;"><strong>⚠️ ${msg}</strong>${raw}</div>`;
+        if (status) status.innerText = '⚠️ No prompts were generated - see the message on the right.';
+        return;
+      }
+
       this.latestComfyData = data;
+      const warnHtml = (Array.isArray(data.warnings) && data.warnings.length)
+        ? `<div style="margin-bottom: 10px; padding: 8px 12px; border-radius: 6px; border: 1px solid rgba(255,209,102,0.4); background: rgba(255,209,102,0.08); color: var(--amber-warm); font-size: 11px; line-height: 1.5;">${data.warnings.map(w => '⚠️ ' + this.escapeHtml(w)).join('<br>')}</div>`
+        : '';
+      const seenHtml = data.image_description
+        ? `<div style="margin-bottom: 10px; padding: 8px 12px; border-radius: 6px; border: 1px solid rgba(0,242,254,0.25); background: rgba(0,242,254,0.05); color: #cbd5e1; font-size: 11px; line-height: 1.5;"><strong style="color:#00f2fe;">👁️ What Iris saw:</strong> ${this.escapeHtml(data.image_description)}</div>`
+        : '';
+      const emptyNote = '<em style="color: var(--text-dim);">(not generated - click the button to retry)</em>';
 
       if (content) {
         content.innerHTML = `
+          ${warnHtml}${seenHtml}
           <!-- CARD 1: POSITIVE IMAGE PROMPT -->
           <div class="comfy-card">
             <div class="comfy-card-header">
@@ -810,7 +827,7 @@ this.currentBay = initHash || 'command-center';
                 📋 Copy
               </button>
             </div>
-            <pre class="comfy-prompt-code" id="box-comfy-pos">${this.escapeHtml(data.image_prompt)}</pre>
+            <pre class="comfy-prompt-code" id="box-comfy-pos">${data.image_prompt ? this.escapeHtml(data.image_prompt) : emptyNote}</pre>
           </div>
 
           <!-- CARD 2: NEGATIVE PROMPT -->
@@ -830,13 +847,13 @@ this.currentBay = initHash || 'command-center';
           <div class="comfy-card video">
             <div class="comfy-card-header">
               <span class="comfy-card-title rose">
-                <span>🎬</span> ComfyUI Video Motion Prompt (Wan2.1 / CogVideoX / AnimateDiff / SVD)
+                <span>🎬</span> ComfyUI Video Motion Prompt (LTX 2.3 / MiniMax FastH3 image-to-video)
               </span>
               <button class="btn-cyber" data-copy-type="video" style="padding: 4px 10px; font-size: 10px; border-color: #f72585; color: #f72585;">
                 📋 Copy
               </button>
             </div>
-            <pre class="comfy-prompt-code" style="color: #fce7f3; border-color: rgba(247,37,133,0.2);">${this.escapeHtml(data.video_prompt)}</pre>
+            <pre class="comfy-prompt-code" style="color: #fce7f3; border-color: rgba(247,37,133,0.2);">${data.video_prompt ? this.escapeHtml(data.video_prompt) : emptyNote}</pre>
           </div>
 
           <!-- CARD 4: FULL BREAKDOWN & RECOMMENDED SETTINGS -->
@@ -878,7 +895,11 @@ this.currentBay = initHash || 'command-center';
         });
       }
 
-      if (status) status.innerText = `✓ ComfyUI prompts ready from ${data.images_scanned.join(', ')}!`;
+      const scanned = Array.isArray(data.images_scanned) ? data.images_scanned.join(', ') : 'the selected image';
+      if (status) {
+        if (data.status === 'partial') status.innerText = `⚠️ Partial result from ${scanned} - some sections are missing (see notes above).`;
+        else status.innerText = `✓ ComfyUI prompts ready from ${scanned}${data.cache_hit ? ' (cached - same photo as before)' : ''}!`;
+      }
     } catch (err) {
       if (status) status.innerText = `Prompt generation failed: ${err.message}`;
     } finally {
@@ -915,10 +936,22 @@ this.currentBay = initHash || 'command-center';
         return;
       }
 
-      if (content) {
-        content.innerHTML = this.renderMarkdown(data.blueprint_markdown);
+      if (data.status === 'error' || !res.ok) {
+        const msg = this.escapeHtml(data.message || data.detail || 'Blueprint generation failed.');
+        const raw = data.error ? `<div style="margin-top:8px; font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); word-break: break-word;">${this.escapeHtml(String(data.error))}</div>` : '';
+        if (content) content.innerHTML = `<div style="padding: 24px; color: #f72585; font-size: 13px; line-height: 1.5;"><strong>⚠️ ${msg}</strong>${raw}</div>`;
+        if (status) status.innerText = '⚠️ No blueprint was generated - see the message on the right.';
+        return;
       }
-      if (status) status.innerText = `✓ Shoot Blueprint generated from ${data.images_scanned.length} reference photos.`;
+
+      const warnNote = (Array.isArray(data.warnings) && data.warnings.length)
+        ? `<div style="margin-bottom: 10px; padding: 8px 12px; border-radius: 6px; border: 1px solid rgba(255,209,102,0.4); background: rgba(255,209,102,0.08); color: var(--amber-warm); font-size: 11px;">${data.warnings.map(w => '⚠️ ' + this.escapeHtml(w)).join('<br>')}</div>`
+        : '';
+      if (content) {
+        content.innerHTML = warnNote + this.renderMarkdown(data.blueprint_markdown);
+      }
+      const nScanned = Array.isArray(data.images_scanned) ? data.images_scanned.length : 1;
+      if (status) status.innerText = `✓ Shoot Blueprint generated from ${nScanned} reference photo${nScanned === 1 ? '' : 's'}${data.cache_hit ? ' (cached)' : ''}.`;
     } catch (err) {
       if (status) status.innerText = `Analysis failed: ${err.message}`;
     } finally {

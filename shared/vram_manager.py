@@ -74,14 +74,16 @@ class VramManager:
         """
         Blocking pre-load of target_model into Ollama/GPU VRAM via an empty-prompt
         /api/generate call, BEFORE the real timed request is made. Always passes an
-        explicit bounded num_ctx (4096 for vision, 8192 for text) so models with huge
-        default Modelfile context lengths (e.g. 262144 on qwen3-vl) never spill onto
-        system CPU RAM and peg the CPU at 100%.
+        explicit bounded num_ctx (12288 for vision, 16384 for text - keep in sync with
+        ai_providers.VISION_NUM_CTX / TEXT_NUM_CTX) so models with huge default Modelfile
+        context lengths (e.g. 262144 on qwen3-vl) never spill onto system CPU RAM and peg the
+        CPU at 100%. The window must also be big enough for the real prompt: Ollama truncates
+        any prompt that doesn't fit down to num_ctx/2+2 tokens.
         """
         start = time.time()
         if num_ctx is None:
             is_vl = "vl" in target_model.lower() or "vision" in target_model.lower()
-            num_ctx = 4096 if is_vl else 8192
+            num_ctx = 12288 if is_vl else 16384
         try:
             resp = requests.post(
                 f"{self.ollama_url}/api/generate",

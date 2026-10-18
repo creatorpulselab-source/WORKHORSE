@@ -164,10 +164,16 @@ def _excerpts(number: int, module: str, query: str) -> list[str]:
     ]
 
 
-def get_comfyui_context(task: ComfyTask, query: str = "") -> str:
-    """Return bounded, fresh excerpts; report unavailable guidance explicitly."""
+def get_comfyui_context(task: ComfyTask, query: str = "", max_chars: int | None = None) -> str:
+    """Return bounded, fresh excerpts; report unavailable guidance explicitly.
+
+    max_chars lets a caller with a small model window (e.g. the vision model, or Synapse
+    whose system prompt is already ~6.7K tokens) request a smaller slice. It can only
+    shrink the budget, never exceed MAX_CONTEXT_CHARS. Excerpts are still kept whole.
+    """
     if task not in TASK_MODULES:
         raise ValueError(f"Unknown ComfyUI knowledge task: {task}")
+    budget = MAX_CONTEXT_CHARS if max_chars is None else max(1500, min(int(max_chars), MAX_CONTEXT_CHARS))
 
     try:
         text = GUIDE_PATH.read_text(encoding="utf-8-sig")
@@ -225,7 +231,7 @@ def get_comfyui_context(task: ComfyTask, query: str = "") -> str:
     omitted = False
     for section in excerpts:
         excerpt = "\n\n" + section
-        if len(context) + len(excerpt) > MAX_CONTEXT_CHARS - 250:
+        if len(context) + len(excerpt) > budget - 250:
             omitted = True
         else:
             context += excerpt

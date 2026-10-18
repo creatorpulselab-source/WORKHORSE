@@ -107,7 +107,7 @@ def test_comfy_image_to_video_attaches_media_card(tmp_path, operator_engine):
 def test_chat_saves_executed_actions_in_history(operator_engine, monkeypatch, tmp_path):
     """Verify chat() persists executed_actions with media entries in session history for frontend reload."""
     session_id = "test_session_video_history"
-    monkeypatch.setattr("pipeline.stages.ai_operator.vram_manager.prepare_for_model", lambda m: True)
+    monkeypatch.setattr("pipeline.stages.ai_operator.vram_manager.prepare_for_model", lambda m, **kw: True)
 
     resp_mock = MagicMock()
     resp_mock.status_code = 200

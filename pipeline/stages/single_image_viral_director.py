@@ -22,6 +22,7 @@ Supported Viral Video Modes (matching & exceeding PowerDirector):
 
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 import shutil
@@ -37,6 +38,18 @@ from pipeline.stages.comfyui_bridge import comfy_bridge
 from pipeline.stages.davinci_resolve_bridge import DaVinciResolveBridge
 
 
+# Where viral reels are written (also the "viral_video_director" gallery category in shared/output_categories.py).
+SHORTS_OUT_ROOT = Path(r"F:\WORKHORSE\workspace\shorts_out")
+
+# Appended to EVERY Klein edit prompt. Flux 2 Klein will happily invent whatever the prompt names: the old Micro Cinema
+# prompt said "the jewelry or sunlit glass/prop detail" and a photo with neither produced gold rings and glassware
+# (2026-10-18 live test). Prompts below therefore describe detail TYPES that exist in any photo, and this guard
+# forbids adding anything that is not already in the reference.
+KLEIN_REALITY_GUARD = (
+    "Use ONLY what is visible in the reference photo: do not add any new object, jewelry, glassware, prop, person, "
+    "text or location, and keep the subject's identity, outfit and setting exactly the same."
+)
+
 VIRAL_MODES: Dict[str, Dict[str, Any]] = {
     "handheld_camera": {
         "name": "Handheld Camera",
@@ -44,9 +57,9 @@ VIRAL_MODES: Dict[str, Dict[str, Any]] = {
         "shot_durations_sec": [1.8, 1.8, 1.8, 2.2, 3.0],
         "transition": "focus_whip",
         "klein_angle_prompts": [
-            "Extreme macro close-up side-profile photograph of the subject's signature earring or accessory and hair strands from this exact photo, shallow depth of field, warm handheld lens bokeh, keep exact same subject details.",
-            "Macro close-up photograph of the subject's necklace, collar, or handheld prop from this exact photo with soft natural lighting and shallow depth of field, keep exact same details.",
-            "Atmospheric close-up detail shot of the background environment and lighting from this exact photo with creamy foreground bokeh.",
+            "Extreme macro close-up, shot handheld, of the most striking REAL detail already visible in this photo (for example a hand, an accessory, hair strands, ink or a fabric edge), shallow depth of field, warm handheld lens bokeh.",
+            "Macro close-up of a different REAL detail visible in this photo (clothing texture, the neckline or collar edge, or an object the subject is holding), soft natural lighting, shallow depth of field.",
+            "Atmospheric close-up of the actual background and lighting visible in this photo with creamy foreground bokeh.",
             "Three-quarter side-profile portrait of this exact person turning slightly toward the camera with a warm natural expression, keeping exact facial identity, hair, and outfit.",
         ],
     },
@@ -56,9 +69,9 @@ VIRAL_MODES: Dict[str, Dict[str, Any]] = {
         "shot_durations_sec": [2.2, 2.2, 2.2, 3.4],
         "transition": "dreamy_dissolve",
         "klein_angle_prompts": [
-            "Dreamy poetic macro close-up of the jewelry or sunlit glass/prop detail from this exact photo casting soft golden reflections, shallow depth of field, keep exact same details.",
-            "Dreamy macro close-up of the fabric texture, shoulder detail, or flowers/environment from this exact photo in warm golden rim light, shallow depth of field.",
-            "Intimate close-up of the subject's hands, neckline, or profile silhouette from this exact photo bathed in warm poetic light, shallow depth of field.",
+            "Dreamy, poetic macro close-up of the most striking REAL detail already visible in this photo (a hand, an accessory, hair, ink or a fabric edge), soft warm highlights, shallow depth of field.",
+            "Dreamy macro close-up of a different REAL detail in this photo - its fabric texture, a shoulder, or the edge of the setting - in the photo's own light, shallow depth of field.",
+            "Intimate close-up of this exact person's face or profile exactly as it appears in this photo, poetic soft light, shallow depth of field.",
         ],
     },
     "fast_cut": {
@@ -67,9 +80,9 @@ VIRAL_MODES: Dict[str, Dict[str, Any]] = {
         "shot_durations_sec": [1.0, 0.9, 0.9, 1.0, 1.2, 2.4],
         "transition": "hard_flash_cut",
         "klein_angle_prompts": [
-            "Bold low-angle close-up shot of the outfit styling and lower garment/strap detail from this exact photo, high-impact editorial fashion photography.",
-            "Extreme macro close-up of the signature earring or eyewear from this exact photo catching bright studio specular highlights.",
-            "Tight close-up of the top fabric texture and shoulder/neckline styling from this exact photo, razor-sharp fashion editorial.",
+            "Bold low-angle close-up of the outfit styling and a garment or strap detail exactly as visible in this photo, high-impact editorial fashion photography.",
+            "Extreme macro close-up of an accessory, eyewear or jewelry that is ALREADY visible on the subject in this photo (if there is none, her eyes), catching bright studio specular highlights.",
+            "Tight close-up of the top fabric texture and shoulder/neckline styling exactly as visible in this photo, razor-sharp fashion editorial.",
             "Dynamic side-profile close-up of this exact person's face and hair in motion, keeping exact identity, hair, and styling.",
         ],
     },
@@ -79,7 +92,7 @@ VIRAL_MODES: Dict[str, Dict[str, Any]] = {
         "shot_durations_sec": [5.0],
         "transition": "none",
         "klein_angle_prompts": [
-            "Extreme close-up foreground detail shot from this exact scene and subject, shallow depth of field, ready to pull back into the full portrait.",
+            "Extreme close-up foreground detail of a REAL element of this exact scene and subject, shallow depth of field, ready to pull back into the full portrait.",
         ],
     },
     "time_lapse": {
@@ -88,8 +101,8 @@ VIRAL_MODES: Dict[str, Dict[str, Any]] = {
         "shot_durations_sec": [3.5, 3.5],
         "transition": "dreamy_dissolve",
         "klein_angle_prompts": [
-            "Relight this exact scene and subject in warm golden-hour sunset lighting with glowing amber sky and long dramatic shadows, keeping the subject and composition identical.",
-            "Relight this exact scene and subject at twilight night with glowing neon city/studio lights and deep atmospheric blue shadows, keeping the subject and composition identical.",
+            "Relight this exact scene and subject with warm golden-hour sunlight and long soft shadows, keeping the subject, setting and composition identical.",
+            "Relight this exact scene and subject at dusk with deep blue shadows and soft warm practical lights, keeping the subject, setting and composition identical.",
         ],
     },
 }
@@ -130,7 +143,11 @@ class SingleImageViralDirector:
 
         generated_paths: List[Path] = []
         for idx, ptxt in enumerate(edit_prompts):
-            out_path = output_dir / f"klein_angle_{idx+1:02d}.png"
+            # Guard every prompt, and key the cached plate to the EXACT prompt text: with an index-only name,
+            # editing a mode's prompt would silently keep serving plates generated from the old wording.
+            ptxt = f"{ptxt} {KLEIN_REALITY_GUARD}"
+            prompt_key = hashlib.sha1(ptxt.encode("utf-8")).hexdigest()[:8]
+            out_path = output_dir / f"klein_angle_{idx+1:02d}_{prompt_key}.png"
             if out_path.exists() and out_path.stat().st_size > 100_000:
                 generated_paths.append(out_path)
                 continue
@@ -156,6 +173,9 @@ class SingleImageViralDirector:
 
             q = self.comfy.queue_prompt(wf)
             pid = q.get("prompt_id")
+            if not pid:
+                print(f"[ViralDirector] Klein plate {idx+1} was rejected by ComfyUI: {q.get('node_errors') or q}")
+                continue
             imgs = self.comfy.wait_for_execution(pid, timeout_seconds=120)
             if imgs:
                 dl = self.comfy.download_image(
@@ -186,9 +206,16 @@ class SingleImageViralDirector:
             raise ValueError(f"Unknown mode '{mode}'. Choose from: {list(VIRAL_MODES.keys())}")
 
         spec = VIRAL_MODES[mode]
-        work_dir = work_dir or (Path(r"F:\WORKHORSE\workspace\shorts_out") / f"mode_{mode}")
+        # The work folder used to be shared per MODE and Klein plates were cached by file name only
+        # (klein_angle_01.png). Running micro_cinema on a SECOND photo therefore silently re-used the FIRST
+        # photo's plates and produced a video of the previous subject - and a fixed output name meant a stale
+        # reel from an earlier run could even mask a failed render. Everything is now keyed to the photo's bytes.
+        source_image_path = Path(source_image_path)
+        src_hash = hashlib.sha1(source_image_path.read_bytes()).hexdigest()[:10]
+        run_id = time.strftime("%Y%m%d_%H%M%S")
+        work_dir = work_dir or (SHORTS_OUT_ROOT / f"mode_{mode}" / f"{source_image_path.stem}_{src_hash}")
         work_dir.mkdir(parents=True, exist_ok=True)
-        output_mp4_path = output_mp4_path or (work_dir / f"{mode}_master_reel.mp4")
+        output_mp4_path = output_mp4_path or (work_dir / f"{mode}_master_reel_{run_id}.mp4")
 
         # 1. Generate multi-angle / relit keyframes from the single photo via Flux 2 Klein 9B
         angle_plates = self.generate_klein_multi_angle_edits(
@@ -234,7 +261,22 @@ class SingleImageViralDirector:
                 if res.get("success") and res.get("file_path"):
                     clip_paths.append(Path(res["file_path"]))
 
+        if not clip_paths:
+            return {
+                "success": False,
+                "mode": mode,
+                "mode_name": spec["name"],
+                "error": "No animated clips were produced - every ComfyUI Klein/FastH3 render failed or timed out, so there is nothing to master.",
+                "angle_plates": [str(p) for p in angle_plates],
+                "raw_clips": [],
+                "output_mp4": str(output_mp4_path),
+            }
+
         # 3. Upscale & Color-Grade in DaVinci Resolve Studio 21.1+ via Super Scale + 3D LUT
+        # Clips come out of FastH3 in the PHOTO's aspect (e.g. 4:5). Resolve letterboxes any clip whose aspect differs from the
+        # 9:16 timeline (black bars in the 2026-10-18 live test), so center-crop them to the reel aspect first - at NATIVE
+        # resolution, no pre-scaling, so Super Scale still upscales real source pixels.
+        clip_paths = self._conform_clips_to_aspect(clip_paths, width, height, work_dir / "conformed")
         lut_path = self.resolve.generate_cinematic_cube_lut()
         resolve_res = self.resolve.assemble_and_grade_timeline_in_resolve(
             project_name=f"WH_Viral_{mode}_{int(time.time())}",
@@ -247,14 +289,152 @@ class SingleImageViralDirector:
             super_scale=super_scale,
         )
 
-        return {
-            "success": True,
+        warnings: List[str] = []
+        mastering = "davinci_resolve_super_scale"
+        # The Resolve bridge reports used_resolve=False (it does not raise) when Resolve isn't running or the
+        # render never appeared. This method used to ignore that and claim success for a file that didn't exist.
+        if not resolve_res.get("used_resolve") or not self._is_real_video(output_mp4_path):
+            warnings.append(
+                "DaVinci Resolve wasn't available (" + str(resolve_res.get("reason", "render did not appear")) +
+                ") - mastered with ffmpeg instead (Lanczos upscale + 3D LUT, NVENC). Open DaVinci Resolve Studio "
+                "for the Neural Engine Super Scale."
+            )
+            fb = self._ffmpeg_master(clip_paths, output_mp4_path, width, height, 24, lut_path)
+            resolve_res = {**resolve_res, "fallback": fb}
+            mastering = "ffmpeg_fallback"
+
+        ok = self._is_real_video(output_mp4_path)
+        result: Dict[str, Any] = {
+            "success": ok,
             "mode": mode,
             "mode_name": spec["name"],
             "tagline": spec["tagline"],
+            "mastering": mastering,
+            "warnings": warnings,
             "angle_plates": [str(p) for p in angle_plates],
             "raw_clips": [str(p) for p in clip_paths],
             "resolve_super_scale": resolve_res,
             "output_mp4": str(output_mp4_path),
         }
+        if not ok:
+            result["error"] = "Mastering failed: neither DaVinci Resolve nor the ffmpeg fallback produced a playable video."
+        return result
+
+    @staticmethod
+    def _conform_clips_to_aspect(clip_paths: List[Path], width: int, height: int, out_dir: Path) -> List[Path]:
+        """Center-crop each clip to width:height at its NATIVE resolution (even dimensions, high quality).
+
+        Returns the cropped clip paths; any clip that can't be probed/cropped is passed through unchanged so a
+        problem here can never lose a render."""
+        target = width / height
+        out_dir.mkdir(parents=True, exist_ok=True)
+        conformed: List[Path] = []
+        for clip in clip_paths:
+            clip = Path(clip)
+            try:
+                probe = subprocess.run(
+                    ["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height", "-of", "csv=p=0", str(clip)],
+                    capture_output=True, text=True, timeout=30,
+                ).stdout.strip()
+                w, h = (int(x) for x in probe.split(",")[:2])
+                if abs((w / h) - target) < 0.01:
+                    conformed.append(clip)
+                    continue
+                if (w / h) > target:      # too wide -> trim the sides
+                    cw, ch = int(h * target) // 2 * 2, h // 2 * 2
+                else:                     # too tall -> trim top/bottom
+                    cw, ch = w // 2 * 2, int(w / target) // 2 * 2
+                dest = out_dir / f"{clip.stem}_{cw}x{ch}.mp4"
+                proc = subprocess.run(
+                    ["ffmpeg", "-y", "-v", "error", "-i", str(clip), "-vf", f"crop={cw}:{ch}", "-c:v", "libx264", "-crf", "12",
+                     "-preset", "fast", "-pix_fmt", "yuv420p", "-c:a", "copy", str(dest)],
+                    capture_output=True, text=True, timeout=300,
+                )
+                if proc.returncode == 0 and dest.exists() and dest.stat().st_size > 10_000:
+                    conformed.append(dest)
+                else:
+                    conformed.append(clip)
+            except Exception as e:  # noqa: BLE001
+                print(f"[ViralDirector] Could not conform {clip.name} to {width}x{height} ({e}); using it as-is.")
+                conformed.append(clip)
+        return conformed
+
+    @staticmethod
+    def _is_real_video(path: Path) -> bool:
+        try:
+            return Path(path).exists() and Path(path).stat().st_size > 50_000
+        except OSError:
+            return False
+
+    @staticmethod
+    def _has_audio_stream(path: Path) -> bool:
+        try:
+            out = subprocess.run(
+                ["ffprobe", "-v", "error", "-select_streams", "a", "-show_entries", "stream=codec_type", "-of", "csv=p=0", str(path)],
+                capture_output=True, text=True, timeout=30,
+            )
+            return "audio" in (out.stdout or "")
+        except Exception:
+            return False
+
+    def _ffmpeg_master(
+        self,
+        clip_paths: List[Path],
+        output_mp4_path: Path,
+        width: int,
+        height: int,
+        fps: int,
+        lut_path: Optional[Path],
+    ) -> Dict[str, Any]:
+        """Resolve-free mastering: normalise every clip to WxH (cover-crop, Lanczos), concat, apply the .cube LUT, NVENC encode."""
+        clips = [Path(p) for p in clip_paths if Path(p).exists()]
+        if not clips:
+            return {"success": False, "reason": "no clips on disk"}
+        n = len(clips)
+        keep_audio = all(self._has_audio_stream(c) for c in clips)
+        chains: List[str] = []
+        for i in range(n):
+            chains.append(
+                f"[{i}:v]scale={width}:{height}:force_original_aspect_ratio=increase:flags=lanczos,"
+                f"crop={width}:{height},fps={fps},setsar=1,format=yuv420p[v{i}]"
+            )
+            if keep_audio:
+                chains.append(f"[{i}:a]aresample=48000,aformat=channel_layouts=stereo[a{i}]")
+        concat_in = "".join(f"[v{i}]" + (f"[a{i}]" if keep_audio else "") for i in range(n))
+        chains.append(f"{concat_in}concat=n={n}:v=1:a={1 if keep_audio else 0}[vcat]" + ("[acat]" if keep_audio else ""))
+        final_v = "[vcat]"
+        if lut_path and Path(lut_path).exists():
+            lut_arg = str(Path(lut_path).resolve()).replace("\\", "/").replace(":", "\\:")
+            chains.append(f"[vcat]lut3d=file='{lut_arg}'[vout]")
+            final_v = "[vout]"
+
+        def build(video_codec: List[str]) -> List[str]:
+            cmd = ["ffmpeg", "-y", "-v", "error"]
+            for c in clips:
+                cmd += ["-i", str(c)]
+            cmd += ["-filter_complex", ";".join(chains), "-map", final_v]
+            if keep_audio:
+                cmd += ["-map", "[acat]"]
+            cmd += video_codec + ["-pix_fmt", "yuv420p"]
+            if keep_audio:
+                cmd += ["-c:a", "aac", "-b:a", "192k"]
+            return cmd + [str(output_mp4_path)]
+
+        attempts = [
+            ("h264_nvenc", ["-c:v", "h264_nvenc", "-preset", "p5", "-cq", "19", "-b:v", "0"]),
+            ("libx264", ["-c:v", "libx264", "-preset", "medium", "-crf", "18"]),
+        ]
+        last_err = ""
+        for name, codec_args in attempts:
+            try:
+                proc = subprocess.run(build(codec_args), capture_output=True, text=True, timeout=900)
+            except Exception as e:  # noqa: BLE001
+                last_err = str(e)
+                continue
+            if proc.returncode == 0 and self._is_real_video(output_mp4_path):
+                return {"success": True, "encoder": name, "audio": keep_audio, "clips": n,
+                        "size_bytes": Path(output_mp4_path).stat().st_size}
+            last_err = (proc.stderr or "")[-400:]
+        return {"success": False, "reason": last_err or "ffmpeg failed"}
+
 

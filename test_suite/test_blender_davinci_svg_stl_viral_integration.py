@@ -186,10 +186,15 @@ def test_single_image_viral_director_has_all_5_modes_and_orchestrates_super_scal
     fake_clip = tmp_path / "clip_01.mp4"
     fake_clip.write_bytes(b"fake-mp4")
 
+    def fake_resolve(project_name, clip_paths, output_mp4_path, **kwargs):
+        # Faithful to the real bridge: it reports used_resolve and the reel actually exists afterwards.
+        Path(output_mp4_path).write_bytes(b"r" * 90_000)
+        return {"used_resolve": True, "super_scale": "3x", "codec": "H264_NVIDIA"}
+
     with patch.object(director, "generate_klein_multi_angle_edits", return_value=[fake_plate]), \
          patch.object(director.comfy, "remote_purge_vram", return_value={"success": True}), \
          patch.object(director.comfy, "generate_video_fasth3", return_value={"success": True, "file_path": str(fake_clip)}), \
-         patch.object(director.resolve, "assemble_and_grade_timeline_in_resolve", return_value={"status": "COMPLETED", "super_scale": "3x", "codec": "H264_NVIDIA"}) as mock_resolve:
+         patch.object(director.resolve, "assemble_and_grade_timeline_in_resolve", side_effect=fake_resolve) as mock_resolve:
         res = director.render_viral_mode_video(
             source_image_path=src_img,
             mode="one_take_shot",
@@ -197,6 +202,7 @@ def test_single_image_viral_director_has_all_5_modes_and_orchestrates_super_scal
             super_scale=3,
         )
         assert res["success"] is True
+        assert res["mastering"] == "davinci_resolve_super_scale"
         assert res["mode"] == "one_take_shot"
         assert mock_resolve.call_args.kwargs["super_scale"] == 3
 
