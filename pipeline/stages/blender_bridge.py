@@ -389,10 +389,25 @@ else:
 print("BLENDER_PIPELINE_SUCCESS")
 """
         res = self.execute_mcp_code(bpy_script, timeout=240.0)
+        stl_p = Path(output_stl_path)
+        p3mf_path = None
+        if stl_p.exists():
+            try:
+                from pipeline.stages.bambu_3mf_mockup_engine import bambu_mockup_engine
+                m_res = bambu_mockup_engine.export_bambu_3mf_project(
+                    stl_or_glb_path=stl_p,
+                    model_name=asset_prefix,
+                )
+                if m_res.get("success"):
+                    p3mf_path = m_res.get("project_3mf_path")
+            except Exception:
+                pass
+
         return {
             "success": Path(output_glb_path).exists() and Path(output_stl_path).exists(),
             "glb_path": str(output_glb_path),
             "stl_path": str(output_stl_path),
+            "project_3mf_path": p3mf_path,
             "preview_dir": str(preview_dir) if preview_dir else None,
             "blender_result": res,
         }

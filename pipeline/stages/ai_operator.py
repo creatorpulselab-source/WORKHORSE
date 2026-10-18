@@ -1159,6 +1159,9 @@ class AIOperatorEngine:
         "comfy_viral_video_director": ("forge", "Forge [28 Ni]: Running 5-Mode Single-Image Viral Video Director + DaVinci Super Scale"),
         "comfy_generate_client_character": ("forge", "Forge [28 Ni]: Rendering client character identity LoRA on RTX 5070 Ti"),
         "comfy_subject_swap": ("forge", "Forge [28 Ni]: Executing full-subject identity swap on RTX 5070 Ti"),
+        "cricut_optimize_svg": ("forge", "Forge [28 Ni]: Optimizing SVG for Cricut/Silhouette clean-cutting (confetti-free)"),
+        "bambu_export_3mf": ("forge", "Forge [28 Ni]: Exporting Bambu Studio 3MF project & commercial mockups"),
+        "generate_ppv_teaser": ("forge", "Forge [28 Ni]: Generating PPV teaser with dynamic censorship & 2257 release"),
         
         # Echo [26 Fe]
         "echo_transcribe": ("echo", "Echo [26 Fe]: Running Faster-Whisper vocal extraction on GPU 1 (cuda:1)"),
@@ -1520,6 +1523,14 @@ class AIOperatorEngine:
             "viral_video_director": "comfy_viral_video_director",
             "single_image_viral_video": "comfy_viral_video_director",
             "viral_video": "comfy_viral_video_director",
+            "cricut_svg": "cricut_optimize_svg",
+            "clean_svg": "cricut_optimize_svg",
+            "optimize_svg": "cricut_optimize_svg",
+            "bambu_3mf": "bambu_export_3mf",
+            "export_3mf": "bambu_export_3mf",
+            "generate_mockup": "bambu_export_3mf",
+            "ppv_teaser": "generate_ppv_teaser",
+            "censor_promo": "generate_ppv_teaser",
         }
         tool_name = TOOL_ALIASES.get(tool_name, tool_name)
         result = {"status": "ok", "tool": tool_name}
@@ -2457,6 +2468,93 @@ class AIOperatorEngine:
                 result["message"] = f"SYNAPSE [100 Fm]: Viral Video Director ('{dir_res.get('mode_name')}') rendered + DaVinci Resolve Super Scale {super_scale}x mastered: {dir_res.get('output_mp4')}."
                 result["details"] = dir_res
                 self._attach_media(result, dir_res.get("output_mp4"), title=f"Viral Reel ({dir_res.get('mode_name')})")
+            except Exception as e:
+                result["status"] = "error"
+                result["error"] = str(e)
+
+        elif tool_name == "cricut_optimize_svg":
+            svg_path = tool_call.get("svg_path") or tool_call.get("file") or tool_call.get("path")
+            min_area = float(tool_call.get("min_cut_area_px", 100.0))
+            try:
+                if not svg_path:
+                    svg_dir = BASE_DIR / "workspace" / "media_kits" / "06_SVG_TShirt_Vinyl_Cut_Files"
+                    svgs = list(svg_dir.glob("*.svg")) if svg_dir.exists() else []
+                    if svgs:
+                        svg_path = str(max(svgs, key=lambda p: p.stat().st_mtime))
+                if not svg_path or not Path(svg_path).exists():
+                    return {"status": "error", "error": f"SVG file not found: {svg_path}"}
+                from pipeline.stages.svg_cricut_optimizer import cricut_svg_optimizer
+                c_res = cricut_svg_optimizer.optimize_svg_file(svg_path, min_cut_area_px=min_area)
+                if c_res.get("success"):
+                    result["message"] = f"SYNAPSE [100 Fm]: Cricut Clean-Cut SVG generated ({c_res.get('confetti_paths_removed')} confetti paths pruned, {c_res.get('node_reduction_pct')}% nodes simplified). Saved to: {c_res.get('optimized_svg_path')}."
+                    result["details"] = c_res
+                    self._attach_media(result, c_res.get("optimized_svg_path"), title="Cricut Clean-Cut SVG")
+                else:
+                    result["status"] = "warning"
+                    result["message"] = f"SYNAPSE [100 Fm]: Cricut SVG optimization failed: {c_res.get('error')}"
+                    result["details"] = c_res
+            except Exception as e:
+                result["status"] = "error"
+                result["error"] = str(e)
+
+        elif tool_name == "bambu_export_3mf":
+            mesh_path = tool_call.get("mesh_path") or tool_call.get("stl_path") or tool_call.get("file")
+            model_name = tool_call.get("model_name", "model")
+            try:
+                if not mesh_path:
+                    stl_dir = BASE_DIR / "workspace" / "media_kits" / "03_3D_Maker_PBR_Prop_Design"
+                    stls = list(stl_dir.glob("*.stl")) if stl_dir.exists() else []
+                    if stls:
+                        mesh_path = str(max(stls, key=lambda p: p.stat().st_mtime))
+                if not mesh_path or not Path(mesh_path).exists():
+                    return {"status": "error", "error": f"3D mesh file not found: {mesh_path}"}
+                from pipeline.stages.bambu_3mf_mockup_engine import bambu_mockup_engine
+                p3mf = bambu_mockup_engine.export_bambu_3mf_project(mesh_path, model_name=model_name)
+                mockup_res = {}
+                clay_render = Path(mesh_path).with_name(f"{Path(mesh_path).stem}_clay_print.png")
+                if not clay_render.exists():
+                    clay_render = Path(mesh_path).parent / "cyber_wolf_helmet_clay_print.png"
+                if clay_render.exists():
+                    bed_m = Path(mesh_path).parent / f"{model_name}_bambu_pei_bed_mockup.jpg"
+                    bambu_mockup_engine.render_3d_printer_bed_mockup(clay_render, bed_m)
+                    if bed_m.exists():
+                        mockup_res["printer_bed"] = str(bed_m)
+                        self._attach_media(result, bed_m, title="Bambu PEI Bed Mockup")
+                result["message"] = f"SYNAPSE [100 Fm]: Bambu Studio .3MF Project exported ({p3mf.get('layer_height')}, {p3mf.get('infill')}, {p3mf.get('supports')}). Saved to: {p3mf.get('project_3mf_path')}."
+                result["details"] = p3mf
+                result["mockups"] = mockup_res
+                self._attach_media(result, p3mf.get("project_3mf_path"), title="Bambu Studio 3MF Project")
+            except Exception as e:
+                result["status"] = "error"
+                result["error"] = str(e)
+
+        elif tool_name == "generate_ppv_teaser":
+            filename = tool_call.get("image") or tool_call.get("file") or tool_call.get("video")
+            censor_mode = tool_call.get("censor_mode", "frosted_glass")
+            badge_text = tool_call.get("badge_text", "[ PPV EXCLUSIVE: UNLOCK IN DM ]")
+            model_name = tool_call.get("model_name", "MDL_PERFORMER")
+            include_2257 = bool(tool_call.get("include_2257", True))
+            try:
+                if batch_dir or attached_files:
+                    img_path = self._resolve_marketing_source_image(filename, batch_dir=batch_dir, attached_files=attached_files)
+                else:
+                    img_path = self._resolve_marketing_source_image(filename)
+                if not img_path or not img_path.exists():
+                    return {"status": "error", "error": f"Source image/video not found: {filename or '(no media provided)'}"}
+                from pipeline.stages.ppv_teaser_engine import ppv_teaser_engine
+                c_res = ppv_teaser_engine.apply_dynamic_censorship(img_path, mode=censor_mode, badge_text=badge_text)
+                t_res = ppv_teaser_engine.create_micro_teaser_loop(img_path, cta_text="UNLOCK FULL UNCENSORED SET")
+                v2257 = None
+                if include_2257:
+                    v2257 = ppv_teaser_engine.generate_2257_compliance_package(model_stage_name=model_name)
+                result["message"] = f"SYNAPSE [100 Fm]: PPV Teaser Kit generated ({censor_mode} promo image + vertical 9:16 micro-loop reel). 2257 Vault: {v2257.get('status') if v2257 else 'N/A'}."
+                result["details"] = {"censored_promo": c_res, "micro_teaser_video": t_res, "compliance_2257": v2257}
+                if c_res.get("success"):
+                    self._attach_media(result, c_res.get("censored_promo_image"), title="PPV Censored Promo")
+                if t_res.get("success"):
+                    self._attach_media(result, t_res.get("teaser_video_path"), title="PPV Micro-Teaser Reel")
+                if v2257 and v2257.get("success"):
+                    self._attach_media(result, v2257.get("compliance_doc_path"), title="18 USC 2257 Compliance Release")
             except Exception as e:
                 result["status"] = "error"
                 result["error"] = str(e)

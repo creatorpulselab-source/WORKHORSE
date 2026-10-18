@@ -24,6 +24,7 @@ PREVIEW_FORMATS = {
     ".ogg": ("audio", "audio/ogg"),
     ".glb": ("model_3d", "model/gltf-binary"),
     ".stl": ("model_3d", "model/stl"),
+    ".3mf": ("model_3d", "model/3mf"),
     ".pdf": ("document", "application/pdf"),
     ".html": ("document", "text/html"),
     ".htm": ("document", "text/html"),

@@ -127,7 +127,7 @@ OUTPUT_CATEGORIES: Dict[str, Dict[str, Any]] = {
     "etsy_3d_stl_glb_assets": {
         "dir": BASE_DIR / "workspace" / "media_kits" / "03_3D_Maker_PBR_Prop_Design",
         "media_type": "model_3d", "label": "🧊 Etsy 3D STL & GLB Asset", "recursive": False,
-        "extensions": (".glb", ".stl", ".png", ".jpg"), "group": "etsy"
+        "extensions": (".glb", ".stl", ".3mf", ".png", ".jpg"), "group": "etsy"
     },
 }
 
@@ -141,7 +141,7 @@ GROUP_LABELS = {
 DEFAULT_MEDIA_EXTENSIONS = {
     "image": (".png", ".jpg", ".jpeg", ".webp", ".svg"),
     "video": (".mp4", ".mov", ".webm"),
-    "model_3d": (".glb", ".gltf", ".stl"),
+    "model_3d": (".glb", ".gltf", ".stl", ".3mf"),
     "archive": (".zip",)
 }
 

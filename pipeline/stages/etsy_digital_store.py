@@ -979,12 +979,14 @@ Instant digital download delivered immediately upon purchase!
     ) -> Dict[str, Any]:
         """
         Generates an expert-level Etsy .SVG asset (6-Layer Full-Color Stencil or B&W Vinyl Cut)
-        either from a text idea (`idea_prompt`) OR from an existing image (`source_image_path`),
-        with optional clean OpenType banner typography (`top_text`, `bottom_text`) and optional
-        Blender 5.2 3D relief medallion extrusion (`.STL` + `.GLB`).
+        with automated Cricut/Silhouette Clean-Cut optimization (confetti elimination)
+        and 3 photorealistic Etsy commercial mockups (T-shirt, ceramic mug, laser wood plaque).
         """
         from pipeline.stages.comfyui_bridge import comfy_bridge
-        return comfy_bridge.generate_etsy_svg_from_idea_or_image(
+        from pipeline.stages.svg_cricut_optimizer import cricut_svg_optimizer
+        from pipeline.stages.bambu_3mf_mockup_engine import bambu_mockup_engine
+
+        res = comfy_bridge.generate_etsy_svg_from_idea_or_image(
             idea_prompt=idea_prompt or None,
             source_image_path=source_image_path or None,
             output_name=output_name,
@@ -994,6 +996,24 @@ Instant digital download delivered immediately upon purchase!
             bottom_text=bottom_text,
             extrude_3d_medallion=extrude_3d_medallion,
         )
+
+        if res.get("success") and res.get("svg_path"):
+            # 1. Clean-Cut Optimization for Cricut / Silhouette
+            cricut_res = cricut_svg_optimizer.optimize_svg_file(res["svg_path"])
+            res["cricut_optimization"] = cricut_res
+            if cricut_res.get("success"):
+                res["cricut_clean_svg_path"] = cricut_res.get("optimized_svg_path")
+
+            # 2. Photorealistic Commercial Mockups (T-Shirt, Mug, Laser Wood)
+            preview_img = res.get("vector_preview_png") or res.get("master_png")
+            if preview_img and Path(preview_img).exists():
+                mockups = bambu_mockup_engine.generate_all_mockups(
+                    svg_preview_png_path=preview_img,
+                    output_prefix=f"{output_name}_etsy",
+                )
+                res["commercial_mockups"] = mockups
+
+        return res
 
     def create_3d_glb_stl_asset(
         self,
@@ -1005,12 +1025,14 @@ Instant digital download delivered immediately upon purchase!
         target_height_mm: float = 100.0,
     ) -> Dict[str, Any]:
         """
-        Generates an expert-level Etsy/Fiverr 3D PBR game asset (`.GLB`) and 100% watertight
-        voxel-remeshed 3D-printable model (`.STL`) via ComfyUI Trellis 2 HQ + Blender 5.2 MCP,
-        either from a text idea (`idea_prompt`) OR from an existing image (`source_image_path`).
+        Generates an expert-level Etsy/Fiverr 3D PBR game asset (`.GLB`), 100% watertight
+        voxel-remeshed 3D-printable model (`.STL`), configured Bambu Studio / OrcaSlicer
+        `.3mf` multi-color project, and PEI 3D printer bed commercial mockup.
         """
         from pipeline.stages.comfyui_bridge import comfy_bridge
-        return comfy_bridge.generate_3d_glb_stl_from_idea_or_image(
+        from pipeline.stages.bambu_3mf_mockup_engine import bambu_mockup_engine
+
+        res = comfy_bridge.generate_3d_glb_stl_from_idea_or_image(
             idea_prompt=idea_prompt or None,
             source_image_path=source_image_path or None,
             output_name=output_name,
@@ -1018,6 +1040,33 @@ Instant digital download delivered immediately upon purchase!
             add_pedestal_base=add_pedestal_base,
             target_height_mm=target_height_mm,
         )
+
+        if res.get("success"):
+            stl_file = res.get("stl_path")
+            if stl_file and Path(stl_file).exists():
+                # 1. Export Bambu Studio / OrcaSlicer .3mf Project with AMS presets
+                p_3mf = bambu_mockup_engine.export_bambu_3mf_project(
+                    stl_or_glb_path=stl_file,
+                    model_name=output_name,
+                    layer_height_mm=0.16,
+                    infill_pct=15,
+                    support_type="tree(auto)",
+                )
+                res["bambu_3mf_project"] = p_3mf
+                if p_3mf.get("success"):
+                    res["bambu_3mf_path"] = p_3mf.get("project_3mf_path")
+
+            # 2. Render 3D Printer Bed Mockup
+            clay_render = None
+            if res.get("studio_renders"):
+                clay_render = res["studio_renders"].get("matte_clay_print")
+            if clay_render and Path(clay_render).exists():
+                bed_mockup = Path(clay_render).parent / f"{output_name}_04_bambu_pei_bed_mockup.jpg"
+                bambu_mockup_engine.render_3d_printer_bed_mockup(Path(clay_render), bed_mockup)
+                if bed_mockup.exists():
+                    res["printer_bed_mockup"] = str(bed_mockup)
+
+        return res
 
 
 if __name__ == "__main__":
