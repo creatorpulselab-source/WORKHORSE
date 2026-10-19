@@ -4,3 +4,7 @@ manifold3d
 fonttools
 mapbox-earcut
 networkx
+uharfbuzz
+ezdxf
+vtracer
+rembg

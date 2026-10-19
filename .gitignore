@@ -33,3 +33,6 @@ pipeline/stages/workflow_templates/client_character_margo_template.json
 pipeline/stages/workflow_templates/client_character_melissa_template.json
 
 dashboard/static/models_backup_pre_anim/
+
+# Etsy research screenshots (large phone captures, kept local; the .md analysis is committed)
+research/etsy_top_seller_screens_*/

@@ -89,19 +89,31 @@ def compose_images(rep: RunReport, dirs, catalog) -> dict:
         if old.is_file():
             old.unlink()
     n = len(catalog)
-    with rep.stage("compose listing images (cover + info cards)"):
-        kit.cover(W / "_raw_cover_grid.png", img / "01_cover.jpg", str(n), "Christmas Cookie Cutters",
-                  "STL + 3MF  |  2 sizes each  |  press plates",
-                  ["3D PRINT READY", "INSTANT DOWNLOAD", "STL & 3MF", "PRESS PLATES", "PERSONAL USE + SELL PRINTS"], THEME)
-        kit.captioned(W / "_raw_hero_trio.png", img / "02_hero.jpg", "Print your own holiday cookie cutters",
+    with rep.stage("backdrops (ComfyUI) + composite + compose listing images"):
+        from etsy_factory import comfy_backgrounds as cb
+
+        def comp(raw: str, bg: str, seed: int, **kw) -> Path:
+            return kit.composite(W / raw, cb.load(bg, seed=seed), W / ("_comp" + raw), **kw)
+
+        cover_src = comp("_raw_cover_grid.png", "christmas_flatlay", 20261018, scale=0.90)
+        hero_src = comp("_raw_hero_trio.png", "christmas_table", 20261018, scale=1.0, dy=210)
+        ginger_src = comp("_raw_closeup_gingerbread.png", "christmas_flatlay", 7, scale=0.84, dy=-90)
+        snow_src = comp("_raw_closeup_snowflake.png", "christmas_flatlay", 21, scale=0.84, dy=-90)
+        press_src = comp("_raw_cutter_and_press.png", "christmas_flatlay", 33, scale=0.95, dy=-60)
+        sizes_src = comp("_raw_two_sizes.png", "christmas_flatlay", 45, scale=0.95, dy=-60)
+        kit.cover(cover_src, img / "01_cover.jpg", str(n), "Christmas Cookie Cutters",
+                  "STL + 3MF  -  2 sizes  -  press plates",
+                  ["Instant Download", "STL & 3MF", "3D Print Ready", "Press Plates", "Sell Your Prints"], THEME,
+                  burst=["2 SIZES", "EACH"])
+        kit.captioned(hero_src, img / "02_hero.jpg", "Print your own holiday cookie cutters",
                       "Gingerbread  •  Stars  •  Snowflakes  •  Candy Canes  •  and more", THEME)
-        kit.captioned(W / "_raw_closeup_gingerbread.png", img / "03_closeup_gingerbread.jpg", "Clean cutting edge, comfy grip flange",
+        kit.captioned(ginger_src, img / "03_closeup_gingerbread.jpg", "Clean cutting edge, comfy grip flange",
                       "0.8 mm cutting edge  •  5 mm flange  •  14 mm tall", THEME)
-        kit.captioned(W / "_raw_closeup_snowflake.png", img / "04_closeup_snowflake.jpg", "Even the detailed shapes are print-friendly",
+        kit.captioned(snow_src, img / "04_closeup_snowflake.jpg", "Even the detailed shapes are print-friendly",
                       "Designed for a standard 0.4 mm nozzle", THEME)
-        kit.captioned(W / "_raw_cutter_and_press.png", img / "05_cutter_and_press.jpg", "A press plate for every design",
+        kit.captioned(press_src, img / "05_cutter_and_press.jpg", "A press plate for every design",
                       "Push the shape out cleanly - includes one per design", THEME)
-        kit.captioned(W / "_raw_two_sizes.png", img / "06_two_sizes.jpg", "Two sizes: 60 mm and 80 mm",
+        kit.captioned(sizes_src, img / "06_two_sizes.jpg", "Two sizes: 60 mm and 80 mm",
                       "Both sizes of all 10 designs are in the download", THEME)
         items = [(e["name"], _rings(sc.normalized(sc.DESIGNS[e["key"]](), 80))) for e in catalog]
         kit.silhouette_sheet(img / "07_designs.jpg", items, f"All {n} designs included", THEME, cols=5,

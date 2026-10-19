@@ -37,15 +37,16 @@ def set_in(node, names, value):
                 pass
     return False
 
-def material(name, kind, color=(0.8, 0.1, 0.1)):
+def material(name, kind, color=(0.8, 0.1, 0.1), rough=None):
     m = bpy.data.materials.new(name)
     m.use_nodes = True
     nt = m.node_tree
     b = nt.nodes.get("Principled BSDF")
     rgba = (color[0], color[1], color[2], 1.0)
     if kind == "pla":
-        set_in(b, ["Base Color"], rgba); set_in(b, ["Roughness"], 0.38); set_in(b, ["Metallic"], 0.0)
-        set_in(b, ["Coat Weight", "Clearcoat"], 0.25); set_in(b, ["Coat Roughness", "Clearcoat Roughness"], 0.3)
+        set_in(b, ["Base Color"], rgba); set_in(b, ["Roughness"], rough if rough is not None else 0.5); set_in(b, ["Metallic"], 0.0)
+        set_in(b, ["Specular IOR Level", "Specular"], 0.35)
+        set_in(b, ["Coat Weight", "Clearcoat"], 0.06); set_in(b, ["Coat Roughness", "Clearcoat Roughness"], 0.4)
         # faint layer-line bump so it reads as a real FDM print
         tex = nt.nodes.new("ShaderNodeTexWave"); tex.wave_type = "BANDS"; tex.bands_direction = "Z"
         tex.inputs["Scale"].default_value = 90.0; tex.inputs["Distortion"].default_value = 0.2
@@ -102,23 +103,36 @@ for sc_cfg in scenes:
     scene = bpy.context.scene
     engine = pick_engine(scene)
     scene.render.resolution_x, scene.render.resolution_y = sc_cfg.get("res", [2000, 2000])
-    scene.render.film_transparent = False
+    scene.render.film_transparent = bool(sc_cfg.get("transparent", False))
+    scene.render.image_settings.color_mode = "RGBA" if sc_cfg.get("transparent") else "RGB"
     try:
-        scene.view_settings.view_transform = sc_cfg.get("view", "AgX")
+        scene.view_settings.view_transform = sc_cfg.get("view", "Standard")
+        scene.view_settings.look = sc_cfg.get("look", "None")
     except Exception:
-        scene.view_settings.view_transform = "Standard"
-    for look in ("AgX - Medium High Contrast", "Medium High Contrast", "None"):
-        try:
-            scene.view_settings.look = look
-            break
-        except Exception:
-            continue
+        pass
     scene.view_settings.exposure = sc_cfg.get("exposure", 0.0)
     if engine.startswith("BLENDER_EEVEE"):
         try: scene.eevee.taa_render_samples = sc_cfg.get("samples", 96)
         except Exception: pass
     elif engine == "CYCLES":
         scene.cycles.samples = 48
+    if sc_cfg.get("engine") == "cycles":
+        scene.render.engine = "CYCLES"; engine = "CYCLES"
+        scene.cycles.samples = sc_cfg.get("samples", 64)
+        try: scene.cycles.use_denoising = True
+        except Exception: pass
+        try:
+            prefs = bpy.context.preferences.addons["cycles"].preferences
+            for dev_type in ("OPTIX", "CUDA"):
+                try:
+                    prefs.compute_device_type = dev_type; prefs.get_devices()
+                    if any(d.type == dev_type for d in prefs.devices):
+                        for d in prefs.devices: d.use = (d.type == dev_type)
+                        scene.cycles.device = "GPU"; print("CYCLES_GPU", dev_type); break
+                except Exception as ex:
+                    print("CYCLES_DEV_FAIL", dev_type, ex)
+        except Exception as ex:
+            print("CYCLES_PREFS_FAIL", ex)
 
     world = bpy.data.worlds.new("W"); scene.world = world; world.use_nodes = True
     bg = world.node_tree.nodes.get("Background")
@@ -130,28 +144,53 @@ for sc_cfg in scenes:
     gk = sc_cfg.get("ground", "cream")
     bpy.ops.mesh.primitive_plane_add(size=1, location=(0, 0, 0))
     ground = bpy.context.active_object; ground.scale = (200, 200, 1)
-    ground.data.materials.append(material("Ground", gk))
+    if sc_cfg.get("transparent"):
+        try:
+            ground.is_shadow_catcher = True
+        except Exception as ex:
+            print("SHADOW_CATCHER_UNSUPPORTED", ex)
+    if sc_cfg.get("ground_spot"):
+        gs = sc_cfg["ground_spot"]
+        gm = bpy.data.materials.new("GroundSpot"); gm.use_nodes = True; gnt = gm.node_tree
+        gb = gnt.nodes.get("Principled BSDF")
+        gco = gnt.nodes.new("ShaderNodeTexCoord"); gmp = gnt.nodes.new("ShaderNodeMapping")
+        rad = gs.get("radius", 0.12)
+        gmp.inputs["Scale"].default_value = (1.0 / rad, 1.0 / rad, 1.0 / rad)
+        gnt.links.new(gco.outputs["Object"], gmp.inputs["Vector"])
+        grad = gnt.nodes.new("ShaderNodeTexGradient"); grad.gradient_type = "QUADRATIC_SPHERE"
+        gnt.links.new(gmp.outputs["Vector"], grad.inputs["Vector"])
+        ramp = gnt.nodes.new("ShaderNodeValToRGB")
+        o, i_ = gs["outer"], gs["inner"]
+        ramp.color_ramp.elements[0].color = (o[0], o[1], o[2], 1); ramp.color_ramp.elements[1].color = (i_[0], i_[1], i_[2], 1)
+        gnt.links.new(grad.outputs["Fac"], ramp.inputs["Fac"]); gnt.links.new(ramp.outputs["Color"], gb.inputs["Base Color"])
+        set_in(gb, ["Roughness"], gs.get("roughness", 0.45))
+        ground.data.materials.append(gm)
+    else:
+        ground.data.materials.append(material("Ground", gk))
 
+    imported = []
     for o in sc_cfg["objects"]:
         ob = import_stl(o["stl"])
+        imported.append(ob)
         ob.scale = (S * o.get("scale", 1.0),) * 3
         ob.rotation_euler = (math.radians(o.get("rot_x", 0)), math.radians(o.get("rot_y", 0)), math.radians(o.get("rot_z", 0)))
         ob.location = (o["loc"][0] * S, o["loc"][1] * S, o["loc"][2] * S)
         bpy.context.view_layer.objects.active = ob
         for p in ob.data.polygons: p.use_smooth = False
-        ob.data.materials.append(material("M_" + os.path.basename(o["stl"]), o.get("material", "pla"), o.get("color", [0.75, 0.1, 0.12])))
+        ob.data.materials.append(material("M_" + os.path.basename(o["stl"]), o.get("material", "pla"), o.get("color", [0.75, 0.1, 0.12]), o.get("rough")))
 
-    # key sun + soft fill sun (distance independent so exposure is predictable)
-    for name, energy, rot in (("Key", sc_cfg.get("key", 2.4), (math.radians(48), 0, math.radians(35))),
-                              ("Fill", sc_cfg.get("fill", 0.8), (math.radians(60), 0, math.radians(-120)))):
-        ld = bpy.data.lights.new(name, "SUN"); ld.energy = energy; ld.angle = math.radians(6 if name == "Key" else 25)
+    # key sun + soft fill sun + rim sun (distance independent so exposure is predictable)
+    for name, energy, rot, ang in (("Key", sc_cfg.get("key", 3.0), (math.radians(48), 0, math.radians(35)), 6),
+                                   ("Fill", sc_cfg.get("fill", 1.0), (math.radians(60), 0, math.radians(-120)), 25),
+                                   ("Rim", sc_cfg.get("rim", 2.2), (math.radians(70), 0, math.radians(160)), 8)):
+        ld = bpy.data.lights.new(name, "SUN"); ld.energy = energy; ld.angle = math.radians(ang)
         lo = bpy.data.objects.new(name, ld); scene.collection.objects.link(lo); lo.rotation_euler = rot
 
     cam_cfg = sc_cfg["camera"]
     tgt = mathutils.Vector([c * S for c in cam_cfg["target"]])
     az, el, dist = math.radians(cam_cfg.get("azimuth", 0)), math.radians(cam_cfg.get("elevation", 40)), cam_cfg["distance"] * S
     pos = tgt + mathutils.Vector((dist * math.cos(el) * math.sin(az), -dist * math.cos(el) * math.cos(az), dist * math.sin(el)))
-    cd = bpy.data.cameras.new("Cam"); cd.lens = cam_cfg.get("lens", 70)
+    cd = bpy.data.cameras.new("Cam"); cd.lens = cam_cfg.get("lens", 70); cd.shift_y = cam_cfg.get("shift_y", 0.0); cd.shift_x = cam_cfg.get("shift_x", 0.0)
     co = bpy.data.objects.new("Cam", cd); scene.collection.objects.link(co); scene.camera = co; co.location = pos
     co.rotation_euler = (tgt - pos).to_track_quat("-Z", "Y").to_euler()
     if cam_cfg.get("dof", 0):
@@ -159,7 +198,24 @@ for sc_cfg in scenes:
 
     scene.render.filepath = sc_cfg["out"]
     scene.render.image_settings.file_format = "PNG"
-    bpy.ops.render.render(write_still=True)
+    if sc_cfg.get("transparent"):
+        ground.hide_render = True
+        bpy.ops.render.render(write_still=True)
+        # shadow-only pass: white matte ground, objects invisible to the camera but still casting shadows
+        ground.hide_render = False
+        ground.data.materials.clear()
+        wm = bpy.data.materials.new("ShadowWhite"); wm.use_nodes = True
+        wb = wm.node_tree.nodes.get("Principled BSDF")
+        set_in(wb, ["Base Color"], (1, 1, 1, 1)); set_in(wb, ["Roughness"], 1.0); set_in(wb, ["Specular IOR Level", "Specular"], 0.0)
+        ground.data.materials.append(wm)
+        for ob in imported:
+            ob.visible_camera = False
+        scene.render.film_transparent = False
+        scene.render.image_settings.color_mode = "RGB"
+        scene.render.filepath = sc_cfg["out"].replace(".png", "_shadow.png")
+        bpy.ops.render.render(write_still=True)
+    else:
+        bpy.ops.render.render(write_still=True)
     print("RENDERED", sc_cfg["out"], engine)
 print("BLENDER_RENDER_DONE")
 '''
