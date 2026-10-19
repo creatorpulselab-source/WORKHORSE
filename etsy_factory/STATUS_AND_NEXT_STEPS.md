@@ -58,3 +58,12 @@ New niches live in typo/niche_defs_more.py (merged by niche_defs.py). faith pack
 Batch driver idea: loop pack <key> then uild_listing <key> (about 2.5 min per niche).
 Tool note: a broken telemetry hook (googlecloudtools.datacloud_telemetry/hooks.json, doubled quoted path) blocked all tools until fixed by the user.
 Remaining queue: 2 tumbler wraps + key-fob patterns, 3 3D packs, 4 matting-model cut-out fix + Christmas top-up.
+
+## Update 2026-10-19 (evening) - tumbler wrap pattern pack built
+New package `etsy_factory/patterns/`: `engine.py` (13 procedural seamless pattern types x 8 palettes), `mock_tumbler.py` (headless Blender 20 oz tumbler renders),
+`pack.py` (52 patterns = 13 types x 4 palettes; each as wrap 2790x2460, 12x12in paper 3600px, raw 1200px tile -> `workspace/etsy_patterns/`),
+`build_listing.py` (10 photos, 1 zip 16.3 MB, PDF guide + license, listing.md/json; 0 validation problems).
+Run: `-m etsy_factory.patterns.pack` then `-m etsy_factory.patterns.build_listing` (Blender render ~1 min, no ComfyUI needed). Listing: `workspace/etsy_listings/seamless_tumbler_wrap_patterns_png/`.
+Patterns are original geometry (no AI art). Rolled-tile visual check confirmed all 13 types seamless; `engine.seam_error()` is NOT reliable on high-contrast patterns (false alarms on checker/stripes/gingham) - judge by rolling the tile 50% on both axes.
+Only the 20 oz skinny wrap is delivered; 30/40 oz templates and key-fob PNGs not done (verify real template sizes before claiming them).
+Remaining queue: key-fob/other-size wraps, 3D packs (Blender), matting-model cut-out fix + Christmas top-up, media kit v2, whole-shop bundle.
