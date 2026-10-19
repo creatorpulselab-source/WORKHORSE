@@ -126,5 +126,4 @@ Sweet mama
 Cool mama
 Wild and free mama
 Mama is my *superhero*
-Bluey mom
 """.strip().splitlines()

@@ -60,6 +60,48 @@ MEDIA: Dict[str, Dict] = {
         ribbons=[((232, 84, 72), (140, 36, 32)), ((36, 110, 150), (18, 66, 96))], vbg=(24, 44, 78), bg=(255, 249, 238),
         mockups=[("tee_black", "Teacher life", "PNG_White"), ("tee_oat", "Teach love inspire", "PNG_Color"), ("tote", "Best teacher ever", "PNG_Black")],
         chip_cols=[(232, 84, 72), (36, 110, 150), (250, 180, 50), (120, 80, 150), GREEN]),
+    "nurse": dict(
+        kicker="NURSE LIFE", title_lines=["QUOTES SVG + PNG", "CUT FILE BUNDLE"], sub="NURSES WEEK  *  CRICUT  *  SUBLIMATION",
+        grid_title=["NURSE LIFE", "QUOTES SVG PNG BUNDLE"], grid_sub="Cricut * Silhouette * Sublimation",
+        sheet1=("Nurse Life", "{n} nurse designs - a peek inside"), sheet2=("Color PNGs For Sublimation", "ready to print, press and sell"),
+        ribbons=[((28, 150, 160), (14, 88, 100)), ((236, 100, 130), (150, 44, 72))], vbg=(16, 52, 72), bg=(250, 248, 244),
+        mockups=[("tee_black", "Nurse life", "PNG_White"), ("tee_oat", "Nurses rock", "PNG_Color"), ("tote", "Best nurse ever", "PNG_Black")],
+        chip_cols=[(28, 150, 160), (236, 100, 130), (250, 180, 50), (120, 80, 150), GREEN]),
+    "coffee": dict(
+        kicker="COFFEE LOVER", title_lines=["QUOTES SVG + PNG", "CUT FILE BUNDLE"], sub="MUG  *  TUMBLER  *  CRICUT  *  SUBLIMATION",
+        grid_title=["COFFEE LOVER", "QUOTES SVG PNG BUNDLE"], grid_sub="Latte * Iced Coffee * Caffeine",
+        sheet1=("But First Coffee", "{n} coffee designs - a peek inside"), sheet2=("Color PNGs For Sublimation", "ready to print, press and sell"),
+        ribbons=[((176, 108, 64), (100, 58, 28)), ((60, 120, 110), (30, 76, 70))], vbg=(58, 36, 28), bg=(255, 247, 236),
+        mockups=[("tee_black", "But first coffee", "PNG_White"), ("tee_oat", "Coffee is my love language", "PNG_Color"), ("tote", "Iced coffee please", "PNG_Black")],
+        chip_cols=[(176, 108, 64), (60, 120, 110), (240, 170, 60), (120, 80, 150), GREEN]),
+    "valentine": dict(
+        kicker="VALENTINES DAY", title_lines=["QUOTES SVG + PNG", "CUT FILE BUNDLE"], sub="LOVE  *  GALENTINE  *  CRICUT  *  SUBLIMATION",
+        grid_title=["VALENTINES DAY", "QUOTES SVG PNG BUNDLE"], grid_sub="Love * Galentine * Kids",
+        sheet1=("Be Mine", "{n} valentine designs - a peek inside"), sheet2=("Color PNGs For Sublimation", "ready to print, press and sell"),
+        ribbons=[((226, 48, 92), (130, 18, 52)), ((120, 60, 140), (70, 28, 88))], vbg=(110, 20, 50), bg=(255, 244, 246),
+        mockups=[("tee_black", "Be mine", "PNG_White"), ("tee_oat", "Love bug", "PNG_Color"), ("tote", "Hugs and kisses", "PNG_Black")],
+        chip_cols=[(226, 48, 92), (120, 60, 140), (250, 170, 60), (36, 140, 160), GREEN]),
+    "motivational": dict(
+        kicker="MOTIVATIONAL", title_lines=["QUOTES SVG + PNG", "CUT FILE BUNDLE"], sub="POSITIVE VIBES  *  CRICUT  *  SUBLIMATION",
+        grid_title=["MOTIVATIONAL", "QUOTES SVG PNG BUNDLE"], grid_sub="Positive * Inspirational * Self Love",
+        sheet1=("You Got This", "{n} positive designs - a peek inside"), sheet2=("Color PNGs For Sublimation", "ready to print, press and sell"),
+        ribbons=[((250, 130, 60), (150, 70, 20)), ((40, 110, 150), (20, 66, 98))], vbg=(30, 50, 82), bg=(255, 249, 238),
+        mockups=[("tee_black", "You got this", "PNG_White"), ("tee_oat", "Stay positive", "PNG_Color"), ("tote", "Be kind", "PNG_Black")],
+        chip_cols=[(250, 130, 60), (40, 110, 150), (240, 180, 50), (120, 80, 150), GREEN]),
+    "pets": dict(
+        kicker="DOG MOM  CAT MOM", title_lines=["QUOTES SVG + PNG", "CUT FILE BUNDLE"], sub="PET LOVER  *  CRICUT  *  SUBLIMATION",
+        grid_title=["DOG MOM CAT MOM", "QUOTES SVG PNG BUNDLE"], grid_sub="Dog * Cat * Rescue",
+        sheet1=("Dog Mom Life", "{n} pet lover designs - a peek inside"), sheet2=("Color PNGs For Sublimation", "ready to print, press and sell"),
+        ribbons=[((204, 108, 64), (120, 56, 24)), ((52, 120, 140), (26, 72, 88))], vbg=(64, 44, 34), bg=(255, 247, 238),
+        mockups=[("tee_black", "Dog mom life", "PNG_White"), ("tee_oat", "Cat mom", "PNG_Color"), ("tote", "Dog dad", "PNG_Black")],
+        chip_cols=[(204, 108, 64), (52, 120, 140), (240, 170, 60), (120, 80, 150), GREEN]),
+    "grad": dict(
+        kicker="GRADUATION 2027", title_lines=["QUOTES SVG + PNG", "CUT FILE BUNDLE"], sub="CLASS OF 2027  *  CRICUT  *  SUBLIMATION",
+        grid_title=["GRADUATION 2027", "QUOTES SVG PNG BUNDLE"], grid_sub="Senior * Grad * Proud Family",
+        sheet1=("Class Of 2027", "{n} graduation designs - a peek inside"), sheet2=("Color PNGs For Sublimation", "ready to print, press and sell"),
+        ribbons=[((30, 52, 120), (14, 26, 70)), ((200, 150, 30), (120, 86, 10))], vbg=(18, 30, 70), bg=(252, 249, 240),
+        mockups=[("tee_black", "Class of 2027", "PNG_White"), ("tee_oat", "Grad life", "PNG_Color"), ("tote", "Senior 2027", "PNG_Black")],
+        chip_cols=[(30, 52, 120), (200, 150, 30), (210, 70, 80), (36, 140, 130), GREEN]),
 }
 
 

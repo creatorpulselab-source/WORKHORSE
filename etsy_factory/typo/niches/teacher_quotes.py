@@ -171,10 +171,6 @@ Teach *peace*
 Teacher is my favorite name
 Stay positive teach on
 Stay humble teach on
-Keep calm and teach on
-Keep calm and teach kindergarten
-Keep calm and teach first grade
-Keep calm it's test day
 Test day
 Test day vibes
 Testing season

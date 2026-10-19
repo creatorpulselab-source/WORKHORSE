@@ -103,3 +103,7 @@ NICHES: Dict[str, Niche] = {
         uses="Teacher T-shirts, sweatshirts, tote bags, mugs, tumblers, classroom signs, teacher appreciation gifts, school staff shirts",
         seo=["teacher", "back to school", "teacher appreciation", "classroom"]),
 }
+
+
+from .niche_defs_more import MORE  # noqa: E402  (second batch of niches)
+NICHES.update(MORE)

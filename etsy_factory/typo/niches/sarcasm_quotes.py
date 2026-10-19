@@ -1,4 +1,4 @@
-﻿"""Funny / sarcastic quotes - sarcasm, introvert, adulting, coffee, attitude (original phrasings; no trademarks, no names)."""
+"""Funny / sarcastic quotes - sarcasm, introvert, adulting, coffee, attitude (original phrasings; no trademarks, no names)."""
 QUOTES = """
 I'm not arguing I'm just explaining why I'm *right*
 Sarcasm is my love language
@@ -44,7 +44,6 @@ My give a damn is busted
 Everyone is entitled to my opinion
 Yes I'm *judging* you
 I have the attention span of a squirrel
-Keep calm and ignore the idiots
 I'm sorry did I roll my eyes out loud
 Whatever you say *genius*
 My patience is thinner than your excuses

@@ -1,4 +1,4 @@
-# Etsy factory - status and next steps (saved 2026-10-18 night)
+﻿# Etsy factory - status and next steps (saved 2026-10-18 night)
 
 Outputs live in `F:\WORKHORSE\workspace\` (git-ignored). Code lives in `F:\WORKHORSE\etsy_factory\` (committed).
 Python: `F:\WORKHORSE\.venv\Scripts\python.exe` (run from `F:\WORKHORSE`). ComfyUI server: `http://192.168.1.74:8188`
@@ -47,3 +47,14 @@ backgrounds/mockups are described in the text - the mockup photos are AI-made sc
 4. Cut-out fix (matting model) then top up Christmas to 60 designs; rebuild its listing.
 5. Media kit v2 (dense collage covers, realistic scene integration); mega "whole shop" bundle once enough packs exist.
 6. Avoid: IP characters (Pokemon etc.), fake counts, embroidery.
+
+## Update 2026-10-19 (typography batch complete)
+Built + validated (images 9, 4 zips each, all zips <20 MB, titles <=140, 0 validation problems, 0 trademark hits):
+valentines_day_quotes (135), nurse_life_quotes (247), coffee_lover_quotes (231), motivational_positive_quotes (206 after removing 'Keep calm'),
+dog_mom_cat_mom_pet_quotes (214), graduation_2027_class_of_quotes (224), plus REBUILT teacher (262), mom (124), sarcasm (147) without trademark lines.
+Trademark phrases purged from all corpora: Bluey, Paw Patrol, Pringle, 'Keep calm ...', Espresso Patronum, Pink Floyd lyric. Scan command:
+Select-String etsy_factory\typo\niches\*_quotes.py -Pattern 'keep \*?calm|bluey|patrol|pringle|patronum' (must return 0).
+New niches live in typo/niche_defs_more.py (merged by niche_defs.py). faith pack still unrebuilt (title 143 chars gets word-trimmed to 140; fine).
+Batch driver idea: loop pack <key> then uild_listing <key> (about 2.5 min per niche).
+Tool note: a broken telemetry hook (googlecloudtools.datacloud_telemetry/hooks.json, doubled quoted path) blocked all tools until fixed by the user.
+Remaining queue: 2 tumbler wraps + key-fob patterns, 3 3D packs, 4 matting-model cut-out fix + Christmas top-up.
