@@ -67,3 +67,41 @@ Run: `-m etsy_factory.patterns.pack` then `-m etsy_factory.patterns.build_listin
 Patterns are original geometry (no AI art). Rolled-tile visual check confirmed all 13 types seamless; `engine.seam_error()` is NOT reliable on high-contrast patterns (false alarms on checker/stripes/gingham) - judge by rolling the tile 50% on both axes.
 Only the 20 oz skinny wrap is delivered; 30/40 oz templates and key-fob PNGs not done (verify real template sizes before claiming them).
 Remaining queue: key-fob/other-size wraps, 3D packs (Blender), matting-model cut-out fix + Christmas top-up, media kit v2, whole-shop bundle.
+
+## Update 2026-10-19 (night) - matting fix applied, Valentine cutters built
+- `clipart/matte_comfy.py` (ComfyUI core BiRefNet bg-removal) + `clipart/rematte.py` + `cutkey.cut_key(matte=...)` now fix the blush/cream/ground-shadow cut-out failures.
+  Re-cut with `-m etsy_factory.clipart.rematte <cow|xmas|boho> name,name` (old cut kept in `png_old/`). Verified visually on all 10 problem designs.
+- Re-cut: xmas 008/017/038/043/049, boho 001/052, cow 003/016/046. Christmas listing rebuilt at the full 60 (2 zips). Boho rebuilt at 59 (052_peace_blush dropped:
+  the AI drew a malformed peace sign - a design flaw, not a cut flaw). Cow rebuilt at 58 (needs <=5 zips of 20 MB; builder trimmed 059/060 automatically).
+- NOTE: `build_listing` titles/covers use the real delivered count - re-read each listing.md before uploading.
+- Valentine cookie cutters STL/3MF pack built (`pack_valentine_cutters.py`, `shapes_valentine.py`, `workspace/etsy_listings/valentine_cookie_cutters_stl/`): 10 designs x 2 sizes + press plates.
+  Its cover still uses the frosted centre panel (research says dense collage works better) - candidate for kit v2.
+Remaining queue: key-fob/other-size wraps, more 3D packs (Gridfinity organizers, flexi animals, Halloween cutters, ornaments), Cow top-up to 60 via downscale, media kit v2, whole-shop bundle.
+
+## Update 2026-10-19 (late evening) - mockups re-centred, Valentine cover v2, remock tool
+- PROBLEM: shirt/tote mockups had the art off-centre on every listing. Cause: fixed print boxes assumed the garment centre was x=0.50, but the cached
+  ComfyUI blank photos are not (oat tee chest centre x=0.46, tote body centre x=0.455, black tee 0.495; the tote art also overlapped the open top).
+- FIX: boxes measured from the BiRefNet matte of each cached photo and stored once in `typo/media.py` `MOCKUP_BOXES`; both builders use it.
+  `etsy_factory/remock.py` regenerates ONLY the mockup photos in place: `-m etsy_factory.remock all` (done for 10 typography + 3 clipart listings = 39 images)
+  or `typo:<key>` / `clip:<key>`. If a mockup photo or seed ever changes, re-measure (see the comment above MOCKUP_BOXES).
+- Valentine cutters: new `kit.cover_open()` (no opaque panel, soft vignette, all products visible); cover render is 5x5 bigger cutters on a dimmed backdrop;
+  hero camera pulled back so the teddy is no longer clipped. Redo only these two with `-m etsy_factory.pack_valentine_cutters --covers`.
+  Other STL listings (Christmas cutters etc.) still use the old panel `kit.cover()` - switch them to `cover_open` when next rebuilt.
+
+## PLAYBOOK - making a new design/pack is now mostly config
+| Product | What you add | Command(s) | Time |
+|---|---|---|---|
+| Typography quote pack | `typo/niches/<name>_quotes.py` + entry in `niche_defs(_more).py` + MEDIA entry in `typo/build_listing.py` | `-m etsy_factory.typo.pack <key>` then `-m etsy_factory.typo.build_listing <key>` | ~2.5 min, CPU |
+| AI clipart pack | `Pack` in `clipart/packs.py` + `LOOK` in `clipart/build_listing.py` | `clipart.run_pack <key> 2`, QC sheets, `clipart.rematte <key> names` for bad cuts, `clipart.build_listing <key> [--drop ...]` | ~15 min, ComfyUI |
+| Seamless pattern pack | new pattern types/palettes in `patterns/engine.py` | `patterns.pack` then `patterns.build_listing` | ~5 min, Blender |
+| 3D cutter / STL pack | shapes file (`shapes_<theme>.py`) + a `pack_<theme>_cutters.py` copied from the Valentine one | `-m etsy_factory.pack_<theme>_cutters` (+ `--covers` to redo only cover/hero) | ~5 min, Blender+ComfyUI |
+Reusable now: BiRefNet cut-out fixer, shared mockup boxes, `remock`, open cover layout, ComfyUI backdrop presets (`comfy_backgrounds.py`), Blender headless renders,
+Etsy validator (title <=140, tags <=20 chars, <=5 files x 20 MB, auto bin-packed zips). Still manual: choosing niches/prompts, eyeballing images, uploading to Etsy.
+
+## NEXT STEPS (updated)
+1. Everything above is committed locally in git. Re-read each `listing.md` + flip through `images/` for the 3 rebuilt clipart packs and Valentine before uploading
+   (choose Etsy "AI generated" for clipart; mention AI backdrops for STL photos).
+2. Store identity: pick a new store name, check Etsy + trademark (USPTO TESS/search) + domain + handles, then create matching socials (see chat notes).
+3. New runs (queue): Halloween cutters + Christmas cutters cover refresh (use `cover_open`); Gridfinity-style organizers; flexi animals; key-fob + 30/40 oz tumbler wraps
+   (verify real template sizes first); cow pack top-up to 60 (downscale instead of dropping); media kit v2 for typography covers; whole-shop bundle.
+4. Avoid: IP characters, fake counts, embroidery.

@@ -52,6 +52,9 @@ BACKGROUNDS: Dict[str, str] = {
                      "green houseplants and white wall in the background, warm sunlight"),
     "craft_flatlay": (_COMMON + "top-down flat lay craft room, pastel pink and teal washi tape, scissors, colorful paper and "
                       "string lights only at the edges, large clear empty white marble surface in the center"),
+    "valentine_flatlay": (_COMMON + "top-down flat lay, romantic Valentine baking scene, white marble surface, scattered pink and red rose "
+                          "petals, flour, strawberries, pink ribbon, small gold heart confetti only around the edges, soft pink and "
+                          "red and gold, large clear empty marble surface in the center"),
 }
 
 # ---- 3/4 "table view" scenes: camera ~20-28 degrees above an EMPTY surface that fills the lower 60% of the frame, so 3D
@@ -74,6 +77,8 @@ BACKGROUNDS.update({
     "craft_table": _TABLE + "white-washed wooden craft table in a bright studio, blurred shelves with fabric and paper rolls "
                    "behind, airy pastel neutrals",
     "stone_counter": _TABLE + "pale marble and light wood workshop bench, clean bright studio, blurred neutral wall, soft light",
+    "valentine_table": _TABLE + "white marble kitchen counter, romantic Valentine kitchen blurred behind with soft pink and red bokeh "
+                       "lights and a few blurred roses, pink and red and white tones, warm soft light",
 })
 
 

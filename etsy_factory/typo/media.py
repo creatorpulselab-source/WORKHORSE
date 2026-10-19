@@ -360,6 +360,19 @@ MOCKUP_PROMPTS = {
 }
 
 
+# Print areas (x0, y0, x1, y1 as fractions of the photo) for the cached blank-product photos (seed 11). Centres were measured from the
+# BiRefNet matte of each photo (garment/bag body mid-line), NOT assumed to be 0.50: oat tee chest centre x=0.46, tote body centre x=0.455,
+# black tee x=0.495. The tote box sits on the front panel below the open top (the bag front spans y=0.45-0.94). Re-measure if a photo/seed changes.
+MOCKUP_BOXES = {
+    "tee_black": (0.305, 0.31, 0.685, 0.57),
+    "tee_oat": (0.27, 0.32, 0.65, 0.58),
+    "tee_sage": (0.31, 0.30, 0.69, 0.56),
+    "tee_white": (0.31, 0.30, 0.69, 0.56),
+    "tote": (0.275, 0.50, 0.635, 0.80),
+    "sign": (0.20, 0.30, 0.80, 0.70),
+}
+
+
 def save_jpg(img: Image.Image, out: Path) -> Path:
     out.parent.mkdir(parents=True, exist_ok=True)
     img.convert("RGB").save(out, quality=94, subsampling=0)

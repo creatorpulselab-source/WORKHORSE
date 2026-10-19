@@ -28,7 +28,8 @@ def _border_color(rgb: np.ndarray) -> np.ndarray:
     return np.median(ring, axis=0)
 
 
-def cut_key(src: Path, dst: Path, long_side: int = 2400, pad_frac: float = 0.03, t_lo: float = 40.0, t_hi: float = 100.0) -> Optional[dict]:
+def cut_key(src: Path, dst: Path, long_side: int = 2400, pad_frac: float = 0.03, t_lo: float = 40.0, t_hi: float = 100.0,
+            matte: Optional[Image.Image] = None, hole_frac: float = 0.0) -> Optional[dict]:
     """Returns stats, or None when nothing usable is left."""
     from rembg import remove
     from scipy import ndimage as ndi
@@ -36,19 +37,22 @@ def cut_key(src: Path, dst: Path, long_side: int = 2400, pad_frac: float = 0.03,
     im = Image.open(src).convert("RGB")
     rgb = np.asarray(im).astype(np.float32)
     key = _border_color(rgb)
-    m = remove(im, session=_session(), post_process_mask=True).getchannel("A")
+    m = matte if matte is not None else remove(im, session=_session(), post_process_mask=True).getchannel("A")
+    if m.size != im.size:
+        m = m.resize(im.size, Image.LANCZOS)
     a = np.asarray(m).astype(np.float32) / 255.0
 
     # edge band: refine alpha with the key-colour distance so the rim carries no key colour
     d = np.sqrt(((rgb - key) ** 2).sum(-1))
     solid = a > 0.5
-    band = ndi.binary_dilation(solid, iterations=4) & ~ndi.binary_erosion(solid, iterations=4)
+    rim = 2 if matte is not None else 4          # a supplied (BiRefNet) matte is trusted: only trim a thin rim
+    band = ndi.binary_dilation(solid, iterations=rim) & ~ndi.binary_erosion(solid, iterations=rim)
     ramp = np.clip((d - t_lo) / (t_hi - t_lo), 0, 1)
     a = np.where(band, np.minimum(a, ramp), a)
     # key-coloured area that rembg kept inside a hole-free region next to the outside (shadows, gaps): drop big bg-like blobs
     keylike = d < t_lo
     lab, n = ndi.label(keylike)
-    if n:
+    if n and matte is None:                      # skipped for a supplied matte: art can legitimately be key-coloured
         sizes = ndi.sum(np.ones_like(d), lab, index=np.arange(1, n + 1))
         kill = np.zeros(n + 1, bool)
         kill[1:] = sizes >= 400
@@ -68,7 +72,7 @@ def cut_key(src: Path, dst: Path, long_side: int = 2400, pad_frac: float = 0.03,
     if ni:
         isz = ndi.sum(np.ones_like(d), il, index=np.arange(1, ni + 1))
         small = np.zeros(ni + 1, bool)
-        small[1:] = isz < d.size * 0.003
+        small[1:] = isz < max(d.size * 0.003, hole_frac * float((a > 0.5).sum()))
         a = np.where(small[il] & inner, 1.0, a)
 
     a3 = np.clip(a, 0, 1)[..., None]

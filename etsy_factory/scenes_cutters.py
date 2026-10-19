@@ -21,20 +21,19 @@ def _stl(stl_dir: Path, idx: int, kind: str, size: int) -> str:
     return str(next(iter(sorted(stl_dir.glob(pat)))))
 
 
-def cover_grid(stl_dir: Path, out: Path) -> Dict:
-    """Dense 6 x 6 full-frame checkerboard collage of real cutters: 80 mm on one colour of the board, 60 mm on the other."""
+def cover_grid(stl_dir: Path, out: Path, n: int = 6, pitch: float = 90, distance: float = 790) -> Dict:
+    """Dense n x n full-frame checkerboard collage of real cutters: 80 mm on one colour of the board, 60 mm on the other."""
     objs = []
     k = 0
-    n = 6
     for row in range(n):
         for col in range(n):
             idx = (k * 7 + row) % 10 + 1
             size = 80 if (row + col) % 2 == 0 else 60
-            objs.append({"stl": _stl(stl_dir, idx, "Cutter", size), "loc": [(col - (n - 1) / 2) * 90, ((n - 1) / 2 - row) * 90, 0],
+            objs.append({"stl": _stl(stl_dir, idx, "Cutter", size), "loc": [(col - (n - 1) / 2) * pitch, ((n - 1) / 2 - row) * pitch, 0],
                          "color": PALETTE[(k * 3 + row * 2) % 4], "rot_z": (k * 37) % 50 - 25})
             k += 1
     return {"out": str(out), "res": [2000, 2000], "ground_spot": BLUE_SPOT, "objects": objs,
-            "camera": {"target": [0, 0, 0], "distance": 790, "elevation": 84, "azimuth": 0, "lens": 50}}
+            "camera": {"target": [0, 0, 0], "distance": distance, "elevation": 84, "azimuth": 0, "lens": 50}}
 
 
 def hero_trio(stl_dir: Path, out: Path, picks=(4, 2, 5)) -> Dict:

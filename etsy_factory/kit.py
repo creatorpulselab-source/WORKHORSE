@@ -18,6 +18,9 @@ SIZE = 2000
 RGB = Tuple[int, int, int]
 
 THEMES: Dict[str, Dict[str, RGB]] = {
+    "valentine": {"bg": (214, 30, 88), "bg2": (92, 14, 70), "accent": (255, 214, 64), "accent2": (255, 120, 170),
+                  "text": (255, 250, 248), "muted": (255, 224, 236), "panel": (255, 255, 255), "dark": (36, 8, 28),
+                  "sheet_colors": [(255, 110, 160), (200, 20, 70), (255, 150, 20), (150, 40, 120), (240, 70, 110)]},
     "christmas": {"bg": (150, 12, 32), "bg2": (8, 70, 44), "accent": (255, 204, 38), "accent2": (226, 36, 52),
                   "text": (255, 250, 238), "muted": (255, 226, 190), "panel": (255, 255, 255), "dark": (14, 10, 24)},
     "tech": {"bg": (44, 30, 150), "bg2": (8, 8, 52), "accent": (255, 196, 34), "accent2": (0, 196, 214),
@@ -395,6 +398,41 @@ def cover(raw: Path, out: Path, big: str, line1: str, line2: str, badges: Sequen
     return out
 
 
+def cover_open(raw: Path, out: Path, big: str, line1: str, line2: str, badges: Sequence[str], theme: str = "christmas",
+               burst: Sequence[str] = (), vignette: float = 0.62) -> Path:
+    """Like cover(), but NO opaque panel: the product collage runs edge to edge and only a soft radial darkening sits behind
+    the headline, so every product stays visible (the marketplace top-seller look)."""
+    import numpy as np
+    th = THEMES[theme]
+    base = grade(square_crop(Image.open(raw))).convert("RGBA")
+    yy, xx = np.mgrid[0:SIZE, 0:SIZE].astype(np.float32)
+    dist = np.sqrt(((xx - SIZE / 2) / 1.05) ** 2 + ((yy - 640) / 0.78) ** 2) / 1000.0
+    a = np.clip(1.0 - dist, 0, 1) ** 1.3 * vignette
+    shade = Image.new("RGBA", base.size, th["dark"] + (255,))
+    shade.putalpha(Image.fromarray((a * 255).astype("uint8")))
+    base.alpha_composite(shade)
+    d = ImageDraw.Draw(base)
+    y = 80
+    y = grad_text(base, SIZE / 2, y, big, font("anton", 430), (255, 244, 120), (255, 150, 10), stroke=18, stroke_fill=(70, 12, 6)) - 6
+    f1 = fit_font(d, line1.upper(), "anton", 1760, 210)
+    y = grad_text(base, SIZE / 2, y + 8, line1.upper(), f1, (255, 255, 255), (255, 214, 232), stroke=13, stroke_fill=th["dark"]) + 14
+    f2 = fit_font(d, line2.upper(), "anton", 1380, 92)
+    ribbon(base, SIZE // 2, int(y + 76), min(1560, int(d.textlength(line2.upper(), font=f2) + 150)), 112, th["accent2"], line2.upper(), f2)
+    if burst:
+        starburst(base, 1790, 190, 170, th["accent2"], list(burst))
+    chips = list(badges[:6])
+    if chips:
+        n = len(chips)
+        gap = 22
+        cw = min(int((SIZE - 160 - gap * (n - 1)) / n), 300)
+        x0 = (SIZE - (cw * n + gap * (n - 1))) // 2
+        for i, c in enumerate(chips):
+            chip(base, x0 + i * (cw + gap), 1740, cw, 205, c, th)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    base.convert("RGB").save(out, quality=94, subsampling=0)
+    return out
+
+
 def captioned(raw: Path, out: Path, caption: str, sub: str = "", theme: str = "christmas") -> Path:
     """Product photo with a bold outlined caption over a colour gradient band."""
     th = THEMES[theme]
@@ -498,7 +536,7 @@ def silhouette_sheet(out: Path, items: Sequence[Tuple[str, Sequence[Sequence[Tup
     area_h = SIZE - y - (190 if footer else 110)
     tile_h = (area_h - gap * (rows - 1)) / rows
     S = 4
-    palette = [th["accent2"], th["bg2"], (255, 150, 20), (30, 150, 90), (120, 60, 190)]
+    palette = th.get("sheet_colors") or [th["accent2"], th["bg2"], (255, 150, 20), (30, 150, 90), (120, 60, 190)]
     for i, (label, rings) in enumerate(items):
         c, r = i % cols, i // cols
         x0, y0 = 70 + c * (tile_w + gap), y + r * (tile_h + gap)

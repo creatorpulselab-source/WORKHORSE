@@ -25,7 +25,7 @@ from etsy_factory.typo import media as M
 ROOT = Path(r"F:\WORKHORSE\workspace\etsy_clipart")
 OUT = Path(r"F:\WORKHORSE\workspace\etsy_listings")
 
-BOXES = {"tee_black": (0.31, 0.30, 0.69, 0.56), "tee_oat": (0.31, 0.30, 0.69, 0.56), "tote": (0.28, 0.42, 0.72, 0.72)}
+BOXES = M.MOCKUP_BOXES
 
 # per-pack look (ribbons = [(face, dark)] x2 for the vibrant cover; vbg = collage background; chips for sheets)
 LOOK: Dict[str, Dict] = {

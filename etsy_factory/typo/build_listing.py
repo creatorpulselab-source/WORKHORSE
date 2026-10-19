@@ -18,15 +18,8 @@ from etsy_factory.typo import cover2
 from etsy_factory.typo import media as M
 from etsy_factory.typo.pack import get_niche
 
-# Chest / body print areas as fractions of the photo (x0, y0, x1, y1)
-BOXES = {
-    "tee_black": (0.31, 0.30, 0.69, 0.56),
-    "tee_oat": (0.31, 0.30, 0.69, 0.56),
-    "tee_sage": (0.31, 0.30, 0.69, 0.56),
-    "tee_white": (0.31, 0.30, 0.69, 0.56),
-    "tote": (0.28, 0.42, 0.72, 0.72),
-    "sign": (0.20, 0.30, 0.80, 0.70),
-}
+# Chest / body print areas as fractions of the photo (x0, y0, x1, y1) - calibrated in media.MOCKUP_BOXES
+BOXES = M.MOCKUP_BOXES
 
 TEAL, ORANGE, PURPLE, GREEN = (0, 150, 170), (255, 112, 67), (88, 36, 120), (46, 160, 90)
 
