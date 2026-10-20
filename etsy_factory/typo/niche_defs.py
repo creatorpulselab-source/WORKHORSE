@@ -107,3 +107,5 @@ NICHES: Dict[str, Niche] = {
 
 from .niche_defs_more import MORE  # noqa: E402  (second batch of niches)
 NICHES.update(MORE)
+from .niche_defs_themed import MORE3  # noqa: E402  (third batch: military, vacation)
+NICHES.update(MORE3)

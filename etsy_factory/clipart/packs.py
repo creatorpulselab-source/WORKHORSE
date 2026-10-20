@@ -177,18 +177,43 @@ from etsy_factory.clipart.sass_data import SASS as _SASS  # noqa: E402
 
 SASS_STYLES = [
     ("ink", "highly detailed hand-drawn illustration, realistic ink and watercolor portrait, fine individual fur and feather detail, rich natural "
-            "colors, expressive funny face, polished professional t-shirt graphic, sharp clean edges, the whole subject fully inside the frame"),
+            "colors, expressive funny face, polished professional t-shirt graphic, sharp clean edges, the whole subject fully inside the frame, isolated floating subject with nothing beneath it"),
 ]
 SASS_SUBJECTS = [(k, s) for k, s, _t, _b in _SASS]
 
+from etsy_factory.clipart.faces_data import FACE_STYLES, FACE_SUBJECTS  # noqa: E402
+from etsy_factory.clipart.military_pack import plan as _mil_plan  # noqa: E402
+
+# military designs are composed by military_pack.py (png/<NNN>_<branch>_<role>_<layout>_mil.png); this entry only describes them for the listing builder
+MIL_STYLES = [("mil", "")]
+MIL_SUBJECTS = [(f"{b}_{r}_{l}", "") for _i, b, r, l in _mil_plan()]
+
 PACKS: Dict[str, Pack] = {
+    "military": Pack(
+        key="military", slug="military_mom_wife_sublimation_png", name="Military Mom and Wife Sublimation Designs", short="military mom and wife",
+        styles=MIL_STYLES, subjects=MIL_SUBJECTS, seed0=0,
+        title="Military Mom PNG, {n} Proud Military Wife Sublimation Designs, Army Navy Air Force Marine Coast Guard Camo Shirt Clipart, Transparent PNG",
+        tags=["military mom png", "military wife png", "army mom png", "navy mom png", "air force mom png", "marine mom png", "coast guard png",
+              "military png", "sublimation png", "military spouse png", "proud army wife", "camo png", "commercial use png"],
+        intro="Proud military mom and military wife designs for every branch - camo lettering with script, boots, dog tags, flags and stars. Original artwork with no insignia or logos.",
+        uses="Sublimation and DTF shirts, tumblers, mugs, tote bags, homecoming and deployment gifts, stickers, print-then-cut and keepsakes for military families.",
+        price=5.99, list_price=14.99, theme="military"),
+    "faces": Pack(
+        key="faces", slug="cute_baby_animal_faces_clipart_png", name="Cute Baby Animal Faces Clipart", short="baby animal face",
+        styles=FACE_STYLES, subjects=FACE_SUBJECTS, seed0=75000,
+        title="Cute Baby Animal Clipart PNG, {n} Kawaii Animal Face Sublimation Designs, Nursery Safari Zoo Animals Transparent PNG, Commercial Use",
+        tags=["baby animal png", "animal clipart", "cute animal png", "nursery clipart", "kawaii animal png", "safari animal png", "sublimation png",
+              "animal face png", "baby shower png", "zoo animals clipart", "kids clipart", "sublimation designs", "commercial use png"],
+        intro="Adorable baby animal faces in two soft styles - plush toy and watercolor storybook - ready for nursery decor, baby showers and kids' products.",
+        uses="Nursery wall art, baby shower invitations, kids shirts and onesies, mugs, stickers, cards, scrapbooking, party printables and planners.",
+        price=4.99, list_price=12.99, theme="baby animal"),
     "sass": Pack(
         key="sass", slug="sarcastic_leopard_animals_shirt_designs_png", name="Sarcastic Animals Shirt Designs", short="sarcastic animal",
         styles=SASS_STYLES, subjects=SASS_SUBJECTS, seed0=74000,
         title="Funny Animal PNG Bundle, {n} Sarcastic Leopard Print Animal Shirt Designs, Sassy Sublimation Clipart, Humor Quote Transparent PNG",
         tags=["funny animal png", "sarcastic png", "leopard print png", "sassy png", "animal clipart", "sublimation png", "humor shirt png",
               "funny shirt design", "tumbler wrap png", "sarcasm png bundle", "cute animal png", "sublimation designs", "commercial use png"],
-        intro="Detailed hand-drawn animals in leopard print accessories with sarcastic captions - ready to press on shirts, tumblers and mugs.",
+        intro="Detailed illustrated animals in leopard print accessories with sarcastic captions - ready to press on shirts, tumblers and mugs.",
         uses="Sublimation and DTF shirts, tumblers, mugs, tote bags, stickers, print-then-cut, gifts for animal lovers and sarcasm fans.",
         theme="sarcastic animal"),
     "cow": Pack(

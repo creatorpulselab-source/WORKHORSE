@@ -41,6 +41,21 @@ LOOK: Dict[str, Dict] = {
                  ribbons=[((204, 108, 72), (128, 60, 36)), ((84, 124, 110), (40, 78, 66))], vbg=(88, 52, 42), bg=(255, 246, 236),
                  accent=(204, 108, 72), ink=(60, 40, 34), theme="sunny",
                  mock=[("tee_oat", "butterfly"), ("tee_black", "sun"), ("tote", "daisy")]),
+    # sarcastic leopard animals: dark charcoal/navy captions, so only light garments in the mockups
+    "sass": dict(kicker="SARCASTIC ANIMALS", sub="LEOPARD  *  SASSY  *  SHIRT DESIGNS", grid_sub="Leopard * Sassy * Funny Animals",
+                 ribbons=[((196, 132, 52), (122, 76, 22)), ((40, 56, 96), (22, 32, 64))], vbg=(48, 40, 36), bg=(255, 248, 236),
+                 accent=(196, 132, 52), ink=(40, 34, 32), theme="sunny",
+                 mock=[("tee_oat", "frog_tea"), ("tote", "raccoon_purse"), ("tee_white", "sloth_sleep")]),
+    # military mom / wife: dark lettering with a white halo, so only light garments in the mockups
+    "military": dict(kicker="MILITARY MOM & WIFE", sub="ARMY  *  NAVY  *  AIR FORCE  *  MARINES  *  COAST GUARD", grid_sub="Proud Military Mom & Wife",
+                     ribbons=[((84, 104, 60), (44, 58, 32)), ((38, 62, 120), (20, 34, 74))], vbg=(34, 40, 46), bg=(250, 247, 240),
+                     accent=(52, 74, 40), ink=(30, 36, 44), theme="sunny", long_side=2200,   # composed at ~3000 px, so a larger delivery than the 1900 default is honest (2600 px forced Etsy's 5 x 20 MB limit to drop 5 designs)
+                     mock=[("tee_oat", "army_mom_A"), ("tote", "navy_wife_A"), ("tee_white", "marine_mom_C")]),
+    # cute baby animal faces (plush + storybook)
+    "faces": dict(kicker="BABY ANIMALS", sub="KAWAII  *  NURSERY  *  SUBLIMATION", grid_sub="Plush * Watercolor * Nursery",
+                  ribbons=[((236, 126, 160), (170, 70, 104)), ((92, 176, 168), (48, 120, 112))], vbg=(88, 52, 74), bg=(255, 244, 248),
+                  accent=(226, 112, 150), ink=(70, 44, 58), theme="sunny",
+                  mock=[("tee_white", "panda"), ("tote", "fox"), ("tee_oat", "bunny")]),
 }
 
 
@@ -290,7 +305,7 @@ def build(key: str, mockups: bool = True, drop: Tuple[str, ...] = ()) -> Dict:
     for p in (root, imgs, up):
         p.mkdir(parents=True, exist_ok=True)
     deliver = ROOT / pack.slug / "png_deliver"
-    meta, size_line = fit_delivery(png_dir, meta, deliver, LONG_SIDE, root, up, pack, look)
+    meta, size_line = fit_delivery(png_dir, meta, deliver, look.get("long_side", LONG_SIDE), root, up, pack, look)
     n = len(meta)
     (root / "catalog.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
     make_thumbs(meta, png_dir, thumbs)

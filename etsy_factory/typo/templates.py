@@ -17,6 +17,7 @@ from shapely.geometry.base import BaseGeometry
 from shapely.ops import unary_union
 
 from . import ornaments as O
+from . import ornaments_theme as OT
 from .fonts import FontSpec
 from .text import fit_width, move_to, on_arc, polys
 
@@ -235,6 +236,8 @@ def add_ornaments(L: Layered, ctx: Ctx, bounds: Tuple[float, float, float, float
             L.add("orn", affinity.translate(O.mug(unit * 2.0), x1 - unit * 0.6, y1 + unit * 1.0))
         elif k == "wave":
             L.add("orn", affinity.translate(O.wave(w * 0.5, unit * 0.14, 3, unit * 0.12), cx, y0 - unit * 0.6))
+        elif k in OT.KINDS:                       # themed icons (castle, wand, balloon, anchor, dog tag, boot, wings, wheel)
+            L.add("orn", OT.place(k, bounds, unit, rng))
 
 
 # ----------------------------------------------------------------------------- template: stack
@@ -454,6 +457,133 @@ def t_banner(q: str, ctx: Ctx) -> Layered:
     return L
 
 
+# ----------------------------------------------------------------------------- themed emblem templates (brush ring / heart + icons)
+import numpy as np  # noqa: E402
+
+_ICON_POOL = {"castle": 3, "wand": 2, "balloon": 2, "anchor": 2, "dogtag": 3, "boot": 2, "wheel": 2}
+
+
+def _theme_icons(ctx: Ctx) -> List[str]:
+    return [k for k in ctx.orn if k in OT.KINDS]
+
+
+def _brush_arc(R: float, a0: float, a1: float, t: float, power: float = 0.6, n: int = 120) -> BaseGeometry:
+    """Hand-drawn style tapered stroke along a circular arc (degrees, counter-clockwise from +x)."""
+    ang = np.radians(np.linspace(a0, a1, n))
+    path = np.stack([R * np.cos(ang), R * np.sin(ang)], axis=1)
+    return O.tapered(path, t, power)
+
+
+def _scatter_sparkles(rng: random.Random, R: float, count: int, rmin: float, rmax: float) -> BaseGeometry:
+    parts = []
+    for _ in range(count):
+        a = rng.uniform(0, 2 * math.pi)
+        r = rng.uniform(rmin, rmax) * R
+        size = R * rng.choice([0.035, 0.05, 0.065, 0.085, 0.11])
+        x, y = r * math.cos(a), r * math.sin(a)
+        kind = rng.random()
+        if kind < 0.55:
+            g = O.sparkle(size)
+        elif kind < 0.8:
+            g = O.star(size * 0.8, 5, 0.46)
+        else:
+            g = O.circle(size * 0.28, (0, 0), 24)
+        parts.append(affinity.translate(g, x, y))
+    return unary_union(parts)
+
+
+def _fit_text(inner: Layered, box_w: float, box_h: float, cx: float, cy: float) -> Layered:
+    """Scale the text layers of `inner` to fit box_w x box_h and centre them on (cx, cy)."""
+    b = inner.union().bounds
+    w, h = b[2] - b[0], b[3] - b[1]
+    s = min(box_w / w, box_h / h)
+    ox, oy = (b[0] + b[2]) / 2, (b[1] + b[3]) / 2
+    return inner.transform(lambda g: affinity.translate(affinity.scale(affinity.translate(g, -ox, -oy), s, s, origin=(0, 0)), cx, cy))
+
+
+def _fit_inside(inner: Layered, region: BaseGeometry, box_w: float, box_h: float, cx: float, cy: float) -> Layered:
+    """Fit text into a box, shrinking until its hull sits inside `region` (so lettering never touches the frame)."""
+    text = inner
+    for k in (1.0, 0.94, 0.88, 0.82, 0.76, 0.7, 0.64, 0.58, 0.52):
+        text = _fit_text(inner, box_w * k, box_h * k, cx, cy)
+        if region.contains(text.union().convex_hull):
+            break
+    return text
+
+
+def t_emblem(q: str, ctx: Ctx) -> Layered:
+    """Open double brush ring, big lettering above, a themed icon below and clustered sparkles - a composed emblem."""
+    icons = _theme_icons(ctx)
+    if not icons:
+        raise ValueError("emblem needs themed icons")
+    rng = ctx.rng
+    R = 520.0
+    inner = t_stack(q, ctx)
+    inner.layers.pop("orn", None)
+    pool = [k for k in icons for _ in range(_ICON_POOL.get(k, 1))]
+    icon = rng.choice(pool)
+    icon_h = R * (0.56 if icon in ("castle", "balloon") else 0.5)
+    icon_y = -R * 0.60
+    region = O.circle(R * 0.86, (0, 0), 160)
+    text = _fit_inside(inner, region, R * 1.55, R * 0.92, 0.0, R * 0.14)
+    L = Layered(template="emblem")
+    L.layers = dict(text.layers)
+    gap_at = rng.choice([40, 62, 118, 140])                                    # where the ring opens (sparkle cluster sits there)
+    L.add("frame", _brush_arc(R, gap_at + 30, gap_at + 30 + 290, R * 0.055, 0.55))
+    L.add("frame", _brush_arc(R * 0.935, gap_at + 72, gap_at + 72 + 215, R * 0.017, 0.8))
+    L.add("frame", _brush_arc(R * 0.885, gap_at + 10, gap_at + 10 + 110, R * 0.012, 0.9))
+    L.add("orn", affinity.translate(OT._BUILD[icon](icon_h), 0, icon_y))
+    for cx_, cy_, sz in ((-0.93, 0.12, 0.13), (0.95, -0.2, 0.1), (-0.6, -0.86, 0.075), (0.62, 0.78, 0.085)):
+        L.add("orn", affinity.translate(O.sparkle_cluster(R * sz, rng), cx_ * R, cy_ * R))
+    big = affinity.translate(O.sparkle_cluster(R * 0.15, rng), R * 1.02 * math.cos(math.radians(gap_at)), R * 1.02 * math.sin(math.radians(gap_at)))
+    L.add("orn", big)
+    for _ in range(7):
+        a = rng.uniform(0, 2 * math.pi)
+        r = rng.uniform(0.8, 1.15) * R
+        L.add("orn", affinity.translate(O.sparkle(R * rng.choice([0.03, 0.04, 0.05])), r * math.cos(a), r * math.sin(a)))
+    L.clear_orn(R * 0.03)
+    return L
+
+
+def _heart_pts(R: float, t0: float, t1: float, n: int = 160) -> np.ndarray:
+    t = np.linspace(t0, t1, n)
+    s = R / 16.0
+    return np.stack([16 * np.sin(t) ** 3 * s, (13 * np.cos(t) - 5 * np.cos(2 * t) - 2 * np.cos(3 * t) - np.cos(4 * t)) * s], axis=1)
+
+
+def t_heart(q: str, ctx: Ctx) -> Layered:
+    """Brush heart outline with big lettering inside and a string of themed icons running up the open right side."""
+    icons = _theme_icons(ctx)
+    if not icons:
+        raise ValueError("heart needs themed icons")
+    rng = ctx.rng
+    R = 520.0
+    inner = t_stack(q, ctx)
+    inner.layers.pop("orn", None)
+    L = Layered(template="heart")
+    heart = Polygon(_heart_pts(R, 0, 2 * math.pi, 400))
+    text = _fit_inside(inner, heart.buffer(-R * 0.07), R * 1.3, R * 0.86, 0.0, -R * 0.13)
+    L.layers = dict(text.layers)
+    L.add("frame", O.tapered(_heart_pts(R, math.pi, 2 * math.pi), R * 0.065, 0.45))
+    L.add("frame", O.tapered(_heart_pts(R * 0.925, math.pi * 1.1, 2 * math.pi * 0.985), R * 0.017, 0.8))
+    L.add("frame", O.tapered(_heart_pts(R, math.pi * 0.95, math.pi * 0.78), R * 0.04, 0.6))
+    ts = np.linspace(0.42, 2.45, 5)
+    order = icons[:]
+    rng.shuffle(order)
+    for i, tt in enumerate(ts):
+        x, y = _heart_pts(R, tt, tt, 1)[0]
+        g = OT._BUILD[order[i % len(order)]](R * 0.38)
+        L.add("orn", affinity.translate(g, x * 1.0, y * 1.0))
+    for tt in np.linspace(0.6, 2.3, 4):
+        x, y = _heart_pts(R, (tt + 0.2), (tt + 0.2), 1)[0]
+        L.add("orn", affinity.translate(O.sparkle(R * 0.08), x * 1.12, y * 1.1))
+    for tt in np.linspace(0.3, 2.8, 8):
+        x, y = _heart_pts(R, tt, tt, 1)[0]
+        L.add("orn", affinity.translate(O.sparkle(R * rng.uniform(0.025, 0.045)), x * 1.17, y * 1.12))
+    L.clear_orn(R * 0.025)
+    return L
+
+
 TEMPLATES: Dict[str, Callable[[str, Ctx], Layered]] = {
-    "stack": t_stack, "retro": t_retro, "badge": t_badge, "arch": t_arch, "frame": t_frame, "banner": t_banner,
+    "stack": t_stack, "retro": t_retro, "badge": t_badge, "arch": t_arch, "frame": t_frame, "banner": t_banner, "emblem": t_emblem, "heart": t_heart,
 }

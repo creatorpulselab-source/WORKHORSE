@@ -24,7 +24,9 @@ from etsy_factory.typo import engine as E
 from etsy_factory.typo import export as X
 
 BLOCK = re.compile(r"bluey|disney|mickey|keep calm|big deal|she said|take the wheel|nike|coca|starbucks|barbie|taylor|pokemon|marvel|"
-                   r"harry potter|stanley|yeti", re.I)
+                   r"harry potter|stanley|yeti|minnie|tinker|pixar|epcot|dole whip|fast ?pass|lightning lane|magic kingdom|happiest place|small world|"
+                   r"wish upon|park hopper|mouse ears|cinderella|army strong|be all you can be|semper|oorah|hooah|hoorah|devil dog|aim high|"
+                   r"global force|usmc|usaf|uscg|united states|u\.s\. ?(army|navy|marine|air)|anchors aweigh", re.I)
 
 LICENSE_PDF_LINES = [
     "# Commercial small-business license (included)",
