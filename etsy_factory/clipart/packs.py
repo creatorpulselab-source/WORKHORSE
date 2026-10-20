@@ -51,6 +51,8 @@ class Pack:
     intro: str = ""
     uses: str = ""
     theme: str = ""
+    png_slug: str = ""        # read designs from this pack's png/ folder instead of its own (lets two listings share one art set)
+    style_only: str = ""      # keep only designs of this style key (e.g. split a two-style set into two listings)
 
 
 # ------------------------------------------------------------------------------------------------ highland cow
@@ -198,6 +200,24 @@ PACKS: Dict[str, Pack] = {
         intro="Proud military mom and military wife designs for every branch - camo lettering with script, boots, dog tags, flags and stars. Original artwork with no insignia or logos.",
         uses="Sublimation and DTF shirts, tumblers, mugs, tote bags, homecoming and deployment gifts, stickers, print-then-cut and keepsakes for military families.",
         price=5.99, list_price=14.99, theme="military"),
+    "faces_plush": Pack(
+        key="faces_plush", slug="kawaii_plush_baby_animal_faces_clipart_png", name="Kawaii Plush Baby Animal Faces Clipart", short="plush baby animal face",
+        styles=FACE_STYLES, subjects=FACE_SUBJECTS, seed0=75000, png_slug="cute_baby_animal_faces_clipart_png", style_only="plush",
+        title="Kawaii Plush Animal Clipart PNG, {n} Cute Baby Animal Face Sublimation Designs, 3D Fuzzy Nursery Zoo Animals Transparent PNG, Commercial Use",
+        tags=["plush animal png", "kawaii animal png", "baby animal png", "animal clipart", "cute animal png", "nursery clipart", "baby shower png",
+              "sublimation png", "animal face png", "zoo animals clipart", "kids clipart", "sublimation designs", "commercial use png"],
+        intro="Adorable fuzzy plush-toy baby animal faces with big glossy eyes - ready for nursery decor, baby showers and kids' products.",
+        uses="Nursery wall art, baby shower invitations, kids shirts and onesies, mugs, stickers, cards, scrapbooking, party printables and planners.",
+        price=3.99, list_price=9.99, theme="baby animal"),
+    "faces_story": Pack(
+        key="faces_story", slug="watercolor_baby_animal_faces_clipart_png", name="Watercolor Baby Animal Faces Clipart", short="watercolor baby animal face",
+        styles=FACE_STYLES, subjects=FACE_SUBJECTS, seed0=75000, png_slug="cute_baby_animal_faces_clipart_png", style_only="storybook",
+        title="Watercolor Baby Animal Clipart PNG, {n} Cute Storybook Animal Face Sublimation Designs, Nursery Woodland Zoo Animals Transparent PNG",
+        tags=["watercolor animals", "baby animal png", "animal clipart", "cute animal png", "nursery clipart", "baby shower png", "storybook png",
+              "sublimation png", "animal face png", "woodland animal png", "kids clipart", "sublimation designs", "commercial use png"],
+        intro="Soft hand-painted watercolor baby animal faces in a gentle storybook style - ready for nursery decor, baby showers and kids' products.",
+        uses="Nursery wall art, baby shower invitations, kids shirts and onesies, mugs, stickers, cards, scrapbooking, party printables and planners.",
+        price=3.99, list_price=9.99, theme="baby animal"),
     "faces": Pack(
         key="faces", slug="cute_baby_animal_faces_clipart_png", name="Cute Baby Animal Faces Clipart", short="baby animal face",
         styles=FACE_STYLES, subjects=FACE_SUBJECTS, seed0=75000,

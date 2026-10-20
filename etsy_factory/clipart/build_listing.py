@@ -51,6 +51,15 @@ LOOK: Dict[str, Dict] = {
                      ribbons=[((84, 104, 60), (44, 58, 32)), ((38, 62, 120), (20, 34, 74))], vbg=(34, 40, 46), bg=(250, 247, 240),
                      accent=(52, 74, 40), ink=(30, 36, 44), theme="sunny", long_side=2200,   # composed at ~3000 px, so a larger delivery than the 1900 default is honest (2600 px forced Etsy's 5 x 20 MB limit to drop 5 designs)
                      mock=[("tee_oat", "army_mom_A"), ("tote", "navy_wife_A"), ("tee_white", "marine_mom_C")]),
+    # the same baby-animal art set split into two single-style listings (plush / watercolor storybook)
+    "faces_plush": dict(kicker="PLUSH ANIMALS", sub="KAWAII  *  FUZZY  *  NURSERY", grid_sub="Plush * Kawaii * Nursery",
+                        ribbons=[((236, 126, 160), (170, 70, 104)), ((92, 176, 168), (48, 120, 112))], vbg=(88, 52, 74), bg=(255, 244, 248),
+                        accent=(226, 112, 150), ink=(70, 44, 58), theme="sunny",
+                        mock=[("tee_white", "panda"), ("tote", "fox"), ("tee_oat", "bunny")]),
+    "faces_story": dict(kicker="WATERCOLOR ANIMALS", sub="STORYBOOK  *  SOFT  *  NURSERY", grid_sub="Watercolor * Storybook * Nursery",
+                        ribbons=[((120, 168, 140), (66, 112, 90)), ((228, 148, 112), (168, 92, 62))], vbg=(52, 74, 70), bg=(250, 247, 238),
+                        accent=(96, 150, 120), ink=(52, 66, 60), theme="sunny",
+                        mock=[("tee_white", "tiger"), ("tote", "giraffe"), ("tee_oat", "elephant")]),
     # cute baby animal faces (plush + storybook)
     "faces": dict(kicker="BABY ANIMALS", sub="KAWAII  *  NURSERY  *  SUBLIMATION", grid_sub="Plush * Watercolor * Nursery",
                   ribbons=[((236, 126, 160), (170, 70, 104)), ((92, 176, 168), (48, 120, 112))], vbg=(88, 52, 74), bg=(255, 244, 248),
@@ -67,6 +76,8 @@ def make_meta(pack: P.Pack, png_dir: Path, drop: Tuple[str, ...]) -> List[Dict]:
     meta = []
     jobs = P.jobs(pack, styles_per_subject=2)
     for name, prompt, seed, sk, stk in jobs:
+        if pack.style_only and stk != pack.style_only:
+            continue
         if (png_dir / f"{name}.png").exists() and not any(d and d in name for d in drop):
             meta.append({"index": len(meta) + 1, "name": name, "text": label(sk), "subject": sk, "style": stk,
                          "file": f"{name}.png"})
@@ -298,7 +309,7 @@ def fit_delivery(png_dir: Path, meta: List[Dict], deliver: Path, long_side: int,
 
 def build(key: str, mockups: bool = True, drop: Tuple[str, ...] = ()) -> Dict:
     pack, look = P.PACKS[key], LOOK[key]
-    png_dir = ROOT / pack.slug / "png"
+    png_dir = ROOT / (pack.png_slug or pack.slug) / "png"
     root = OUT / pack.slug
     thumbs, imgs, up = root / "_work" / "thumbs", root / "images", root / "etsy_upload"
     meta = make_meta(pack, png_dir, drop)
