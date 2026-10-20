@@ -172,7 +172,25 @@ BOHO_SUBJECTS = [
 ]
 
 
+# ------------------------------------------------------------------------------------------------ sarcastic animals (captions added by sass_pack.py)
+from etsy_factory.clipart.sass_data import SASS as _SASS  # noqa: E402
+
+SASS_STYLES = [
+    ("ink", "highly detailed hand-drawn illustration, realistic ink and watercolor portrait, fine individual fur and feather detail, rich natural "
+            "colors, expressive funny face, polished professional t-shirt graphic, sharp clean edges, the whole subject fully inside the frame"),
+]
+SASS_SUBJECTS = [(k, s) for k, s, _t, _b in _SASS]
+
 PACKS: Dict[str, Pack] = {
+    "sass": Pack(
+        key="sass", slug="sarcastic_leopard_animals_shirt_designs_png", name="Sarcastic Animals Shirt Designs", short="sarcastic animal",
+        styles=SASS_STYLES, subjects=SASS_SUBJECTS, seed0=74000,
+        title="Funny Animal PNG Bundle, {n} Sarcastic Leopard Print Animal Shirt Designs, Sassy Sublimation Clipart, Humor Quote Transparent PNG",
+        tags=["funny animal png", "sarcastic png", "leopard print png", "sassy png", "animal clipart", "sublimation png", "humor shirt png",
+              "funny shirt design", "tumbler wrap png", "sarcasm png bundle", "cute animal png", "sublimation designs", "commercial use png"],
+        intro="Detailed hand-drawn animals in leopard print accessories with sarcastic captions - ready to press on shirts, tumblers and mugs.",
+        uses="Sublimation and DTF shirts, tumblers, mugs, tote bags, stickers, print-then-cut, gifts for animal lovers and sarcasm fans.",
+        theme="sarcastic animal"),
     "cow": Pack(
         key="cow", slug="highland_cow_sublimation_clipart_png", name="Highland Cow Clipart", short="highland cow",
         styles=COW_STYLES, subjects=COW_SUBJECTS, seed0=71000,

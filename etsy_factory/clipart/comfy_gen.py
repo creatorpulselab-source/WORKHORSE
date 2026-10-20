@@ -99,10 +99,11 @@ def _wf_flux(prompt: str, seed: int, w: int, h: int, steps: int = 20) -> dict:
 
 
 ENGINES = {"zimage": _wf_zimage, "qwen21": _wf_qwen21, "flux": _wf_flux}
+DEFAULT_ENGINE = "zimage"          # a pack module may set this (e.g. sass_pack uses "flux") before calling generate_many
 
 
-def workflow(prompt: str, seed: int, w: int = 1328, h: int = 1328, engine: str = "zimage") -> dict:
-    return ENGINES[engine](prompt, seed, w, h)
+def workflow(prompt: str, seed: int, w: int = 1328, h: int = 1328, engine: str = "") -> dict:
+    return ENGINES[engine or DEFAULT_ENGINE](prompt, seed, w, h)
 
 
 def _run(prompt: str, seed: int, out: Path, w: int, h: int, timeout: int = 600) -> Optional[Path]:
