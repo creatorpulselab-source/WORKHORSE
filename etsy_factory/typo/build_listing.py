@@ -95,6 +95,20 @@ MEDIA: Dict[str, Dict] = {
         ribbons=[((30, 52, 120), (14, 26, 70)), ((200, 150, 30), (120, 86, 10))], vbg=(18, 30, 70), bg=(252, 249, 240),
         mockups=[("tee_black", "Class of 2027", "PNG_White"), ("tee_oat", "Grad life", "PNG_Color"), ("tote", "Senior 2027", "PNG_Black")],
         chip_cols=[(30, 52, 120), (200, 150, 30), (210, 70, 80), (36, 140, 130), GREEN]),
+    "military": dict(
+        kicker="MILITARY MOM + WIFE", title_lines=["QUOTES SVG + PNG", "CUT FILE BUNDLE"], sub="HOMEFRONT  *  CRICUT  *  SUBLIMATION",
+        grid_title=["MILITARY MOM + WIFE", "QUOTES SVG PNG BUNDLE"], grid_sub="Deployment * Homecoming * Proud Family",
+        sheet1=("Proud Military Family", "{n} homefront designs - a peek inside"), sheet2=("Color PNGs For Sublimation", "ready to print, press and sell"),
+        ribbons=[((34, 52, 90), (16, 26, 54)), ((176, 36, 48), (110, 18, 28))], vbg=(30, 38, 24), bg=(250, 247, 238),
+        mockups=[("tee_black", "Proud military mom", "PNG_White"), ("tee_oat", "Military wife strong", "PNG_Color"), ("tote", "Military mom life", "PNG_Black")],
+        chip_cols=[(34, 52, 90), (176, 36, 48), (120, 130, 90), (88, 74, 52), GREEN]),
+    "vacation": dict(
+        kicker="MAGICAL FAMILY VACATION", title_lines=["QUOTES SVG + PNG", "CUT FILE BUNDLE"], sub="MATCHING SHIRTS  *  CRICUT  *  SUBLIMATION",
+        grid_title=["MAGICAL VACATION", "QUOTES SVG PNG BUNDLE"], grid_sub="Family Trip * Girls Trip * Memory Makers",
+        sheet1=("Magical Family Trips", "{n} vacation designs - a peek inside"), sheet2=("Color PNGs For Sublimation", "ready to print, press and sell"),
+        ribbons=[((236, 100, 160), (150, 50, 100)), ((90, 40, 120), (50, 20, 70))], vbg=(44, 24, 84), bg=(255, 246, 250),
+        mockups=[("tee_black", "Magical vacation", "PNG_White"), ("tee_oat", "Making memories together", "PNG_Color"), ("tote", "Family vacation mode", "PNG_Black")],
+        chip_cols=[(236, 100, 160), (90, 40, 120), (246, 190, 70), (30, 70, 120), GREEN]),
 }
 
 

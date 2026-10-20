@@ -54,7 +54,10 @@ def run_spec(spec: Dict) -> Dict:
 
         n = 1
         cover_src = comp("_raw_cover.png", bgs["flat"], SEED, scale=cv.get("scale", 0.92))
-        kit.cover(cover_src, IMG / f"{n:02d}_cover.jpg", cv["big"], cv["l1"], cv["l2"], cv["badges"], theme, burst=cv.get("burst", ()))
+        if cv.get("open", False):
+            kit.cover_open(cover_src, IMG / f"{n:02d}_cover.jpg", cv["big"], cv["l1"], cv["l2"], cv["badges"], theme, burst=cv.get("burst", ()))
+        else:
+            kit.cover(cover_src, IMG / f"{n:02d}_cover.jpg", cv["big"], cv["l1"], cv["l2"], cv["badges"], theme, burst=cv.get("burst", ()))
         n += 1
         hero_src = comp("_raw_hero.png", bgs["table"], SEED, scale=hr.get("scale", 1.0), dy=hr.get("dy", 200))
         kit.captioned(hero_src, IMG / f"{n:02d}_hero.jpg", hr["caption"], hr["sub"], theme)
