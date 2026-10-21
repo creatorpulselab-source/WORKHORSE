@@ -743,6 +743,202 @@ def build_keychains_exact():
     print("Generated all 10 cards for Keychains:", [p.name for p in made])
 
 
+def build_christmas_cookie_cutters_exact():
+    root = Path(r"F:\WORKHORSE\workspace\etsy_listings\christmas_cookie_cutters_stl")
+    renders = root / "work_renders"
+    thumbs = root / "_work" / "thumbs"
+    imgs = root / "images"
+    imgs.mkdir(parents=True, exist_ok=True)
+    for old in imgs.glob("*.jpg"):
+        old.unlink()
+
+    items = [
+        {"name": "01_Christmas_Tree_Cutter", "title": "Christmas Tree", "dims": "60mm & 80mm + Press Plate", "file": "single_01.png"},
+        {"name": "02_Star_Cutter", "title": "Golden Star", "dims": "60mm & 80mm + Press Plate", "file": "single_02.png"},
+        {"name": "03_Snowflake_Cutter", "title": "Intricate Snowflake", "dims": "60mm & 80mm + Press Plate", "file": "single_03.png"},
+        {"name": "04_Gingerbread_Man_Cutter", "title": "Gingerbread Man", "dims": "60mm & 80mm + Press Plate", "file": "single_04.png"},
+        {"name": "05_Candy_Cane_Cutter", "title": "Holiday Candy Cane", "dims": "60mm & 80mm + Press Plate", "file": "single_05.png"},
+        {"name": "06_Bauble_Ornament_Cutter", "title": "Bauble Ornament", "dims": "60mm & 80mm + Press Plate", "file": "single_06.png"},
+        {"name": "07_Mitten_Cutter", "title": "Cozy Mitten", "dims": "60mm & 80mm + Press Plate", "file": "single_07.png"},
+        {"name": "08_Stocking_Cutter", "title": "Holiday Stocking", "dims": "60mm & 80mm + Press Plate", "file": "single_08.png"},
+        {"name": "09_Jingle_Bell_Cutter", "title": "Jingle Bell", "dims": "60mm & 80mm + Press Plate", "file": "single_09.png"},
+        {"name": "10_Snowman_Cutter", "title": "Winter Snowman", "dims": "60mm & 80mm + Press Plate", "file": "single_10.png"},
+    ]
+    n = len(items)
+
+    print("Step 1: Preparing thumbs for Christmas Cookie Cutters...")
+    make_thumbs_from_renders(items, renders, thumbs)
+
+    ribbon_cols = [
+        ((196, 40, 48), (120, 18, 28)),   # Crimson Holiday Red
+        ((30, 120, 92), (14, 72, 54))     # Forest Pine Green
+    ]
+    vbg = (26, 62, 56)                    # Deep pine forest background
+    bg = (255, 248, 236)                  # Warm sunny cream
+    ink = (36, 28, 26)                    # Deep warm ink
+    accent = (196, 40, 48)                # Holiday Red
+    r1 = (30, 120, 92)                    # Pine Green
+
+    multi_pill_colors = [
+        (196, 40, 48),   # Crimson Holiday Red
+        (30, 120, 92),   # Pine Green
+        (255, 183, 3),   # Warm Honey Gold
+        (123, 82, 180),  # Royal Purple
+        (255, 90, 45),   # Terracotta
+        (0, 168, 180),   # Electric Teal
+    ]
+
+    badges = [
+        ("STL", "100% Watertight\nZero Errors", (30, 120, 92)),
+        ("PRINT", "Clean Cutting Edge\nComfort Flange", (196, 40, 48)),
+        ("PRESS", "Includes Matching\nPress Plates", (255, 183, 3)),
+        ("SIZES", "2 Sizes Included\n60mm & 80mm", (123, 82, 180)),
+        ("COMM", "Commercial License\nIncluded", (46, 160, 90))
+    ]
+
+    print("Step 2: Building 01_cover.jpg via cover2.vibrant...")
+    cover2.vibrant(
+        meta=items,
+        thumbs_dir=thumbs,
+        out=imgs / "01_cover.jpg",
+        big="10",
+        kicker="HOLIDAY BAKING & CLAY",
+        title_lines=["CHRISTMAS COOKIE CUTTERS", "3D PRINT STL & 3MF BUNDLE"],
+        sub="TREE * STAR * SNOWFLAKE * GINGERBREAD * CANDY CANE * SNOWMAN",
+        ribbon_cols=ribbon_cols,
+        ink=ink,
+        bg=vbg,
+        badges=badges,
+        burst=("2 SIZES", "EACH"),
+        seed=25
+    )
+
+    print("Step 3: Building 02_cover_grid.jpg via grid_cover_3d...")
+    grid_cover_3d(
+        meta=items,
+        thumbs_dir=thumbs,
+        out=imgs / "02_cover_grid.jpg",
+        n=n,
+        kicker="10 CHRISTMAS COOKIE CUTTERS",
+        sub="10 Designs * 2 Sizes (60mm & 80mm) + Matching Press Plates",
+        accent=accent,
+        ink=ink,
+        bg=bg,
+        strip_text="BAMBU LAB * PRUSA * CREALITY * ANY SLICER",
+        cols=5,
+        rows=2
+    )
+
+    print("Step 4: Building 03_preview_1.jpg & 04_preview_2.jpg via preview_sheet_3d...")
+    preview_sheet_3d(
+        meta=items,
+        thumbs_dir=thumbs,
+        out=imgs / "03_preview_1.jpg",
+        title="Holiday Shapes & Characters",
+        subtitle="tree, star, snowflake, gingerbread man & candy cane",
+        accent=accent,
+        ink=ink,
+        bg=bg,
+        start=0,
+        count=5
+    )
+
+    preview_sheet_3d(
+        meta=items,
+        thumbs_dir=thumbs,
+        out=imgs / "04_preview_2.jpg",
+        title="Winter Ornaments & Icons",
+        subtitle="bauble ornament, cozy mitten, stocking, bell & snowman",
+        accent=r1,
+        ink=ink,
+        bg=bg,
+        start=5,
+        count=5
+    )
+
+    print("Step 5: Building ComfyUI Photorealistic Mockup Cards (05, 06, 07)...")
+    p_hero = renders / "graded_comfy_hero_baking_cluster.png"
+    if not p_hero.exists(): p_hero = renders / "comfy_hero_baking_cluster.png"
+    if not p_hero.exists(): p_hero = renders / "cluster_hero.png"
+    if p_hero.exists():
+        im = Image.open(p_hero).convert("RGB")
+        im = ImageOps.fit(im, (SIZE, SIZE))
+        im.save(imgs / "05_mockup_cluster.jpg", quality=94, subsampling=0)
+
+    p_press = renders / "graded_comfy_cutter_and_press_action.png"
+    if not p_press.exists(): p_press = renders / "comfy_cutter_and_press_action.png"
+    if p_press.exists():
+        im = Image.open(p_press).convert("RGB")
+        im = ImageOps.fit(im, (SIZE, SIZE))
+        im.save(imgs / "06_mockup_press_action.jpg", quality=94, subsampling=0)
+
+    p_sizes = renders / "graded_comfy_two_sizes_snowflake.png"
+    if not p_sizes.exists(): p_sizes = renders / "comfy_two_sizes_snowflake.png"
+    if p_sizes.exists():
+        im = Image.open(p_sizes).convert("RGB")
+        im = ImageOps.fit(im, (SIZE, SIZE))
+        im.save(imgs / "07_mockup_two_sizes.jpg", quality=94, subsampling=0)
+
+    print("Step 6: Building Large-Font M.info_card Pages (08, 09, 10)...")
+    M.info_card(
+        out=imgs / "08_specs_settings.jpg",
+        title="Recommended Print Settings",
+        kicker="optimized fdm 3d printing",
+        rows=[
+            ("NOZZLE", "0.4 mm standard brass or hardened steel nozzle"),
+            ("LAYER HEIGHT", "0.20 mm standard / 0.16 mm fine for razor cutting taper"),
+            ("WALL LOOPS", "3 to 4 perimeters (1.2 - 1.6mm) for rigid cutting pressure"),
+            ("INFILL", "15% to 20% Gyroid infill - wide base flange carries all load"),
+            ("ZERO SUPPORTS", "100% self-supporting geometry - flat planar flange at Z=0"),
+            ("FOOD CONTACT", "Print with food-grade PLA/PETG; ideal for dough, clay & fondant")
+        ],
+        accent=accent,
+        ink=ink,
+        bg=bg,
+        footer="Tested on Bambu Lab X1C/P1S/A1, Prusa MK3/MK4, Creality Ender, and Anycubic.",
+        pill_colors=multi_pill_colors
+    )
+
+    M.info_card(
+        out=imgs / "09_whats_included.jpg",
+        title="What's in your download",
+        kicker="instant digital download",
+        rows=[
+            ("30 STL FILES", "10 designs x 2 sizes (60mm & 80mm) + 10 matching press plates"),
+            ("10 3MF PLATES", "Pre-arranged Bambu Studio & OrcaSlicer multi-part print plates"),
+            ("COMFORT FLANGE", "Ergonomic 5mm rounded top lip protects hands while pressing"),
+            ("0.8MM BLADE", "Engineered tapered cutting edge slices cleanly through dough"),
+            ("PDF GUIDE", "Complete visual print guide, dimension table, and commercial license document")
+        ],
+        accent=r1,
+        ink=ink,
+        bg=bg,
+        footer="Christmas_Cookie_Cutters_STL.zip + Christmas_Cookie_Cutters_3MF.zip + Guide.pdf",
+        pill_colors=multi_pill_colors
+    )
+
+    M.info_card(
+        out=imgs / "10_license.jpg",
+        title="Commercial use included",
+        kicker="small business friendly",
+        rows=[
+            ("YES", "Sell physical 3D printed cutters & stamps in your Etsy shop and craft fairs"),
+            ("UNLIMITED", "Sell as many physical cutters as you print - no recurring royalties"),
+            ("NO", "Reselling, sharing, or redistributing the digital STL files or bundles"),
+            ("ORIGINAL", "100% original WORKHORSE functional designs - watertight guaranteed"),
+            ("HELP", "Message the shop anytime if you need assistance with slicing or printing")
+        ],
+        accent=accent,
+        ink=ink,
+        bg=bg,
+        footer="Sell physical prints freely. All digital files remain copyright WORKHORSE.",
+        pill_colors=multi_pill_colors
+    )
+
+    made = sorted(imgs.glob("[0-9][0-9]_*.jpg"))
+    print("Generated all 10 cards for Christmas Cookie Cutters:", [p.name for p in made])
+
+
 if __name__ == "__main__":
     target = sys.argv[1] if len(sys.argv) > 1 else "desk_organizers"
     if target in ("desk_organizers", "all"):
@@ -751,3 +947,5 @@ if __name__ == "__main__":
         build_can_holders_exact()
     if target in ("keychains", "all"):
         build_keychains_exact()
+    if target in ("cookie_cutters", "all"):
+        build_christmas_cookie_cutters_exact()
