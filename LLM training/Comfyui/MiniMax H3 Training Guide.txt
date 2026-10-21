@@ -1,53 +1,93 @@
-﻿# MiniMax H3 Video Character Swap & Character Sheet Creation Guide
-
+# MiniMax H3 Video Character Swap & Character Sheet Creation Guide
 
 ## Part 1: Prerequisites & Model Directory Setup
 Ensure your ComfyUI environment is updated, and place the required models into their respective subfolders inside your `ComfyUI/models/` directory:
 
-
-* **Diffusion Models:** `minimax_h3_ref2va_pruned_fp8_scaled.safetensors` -> `ComfyUI/models/diffusion_models/`
+* **Diffusion Models:** `minimax_h3_ref2va_pruned_int8_convrot.safetensors` -> `ComfyUI/models/diffusion_models/`
 * **Text Encoders:** `qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors` -> `ComfyUI/models/text_encoders/`
 * **VAEs:** `minimax_h3_video_vae_fp16.safetensors` and `minimax_h3_audio_vae_fp32.safetensors` -> `ComfyUI/models/vae/`
-* **LoRAs:** `h3_character_swap_v1.5.safetensors` and `minimax_h3_ref2v_turbo_8step_v1.1_768p_comfyui_bf16.safetensors` -> `ComfyUI/models/loras/`
-* **Checkpoints:** `sam3.1_multiplex_fp16.safetensors` -> `ComfyUI/models/checkpoints/`
-
+* **LoRAs:** `h3_character_swap_v1.5.safetensors` and `minimax_h3_ref2v_turbo_8step_v1.0_768p_comfyui_bf16.safetensors` -> `ComfyUI/models/loras/`
+* **Checkpoints:** `sam3.1_multiplex_fp16 (1).safetensors` -> `ComfyUI/models/checkpoints/`
 
 ---
-
 
 ## Part 2: Creating a Proper Character Sheet for MiniMax H3
 Before running a character swap, your reference sheet must be properly formatted so the model can accurately interpret multiple angles and details:
 
-
-1. **Multi-Angle Layout:** Include front, side (profile), and three-quarter views of the character on a single clean canvas.
+1. **Multi-Angle Layout:** Include front, left side profile, right three-quarter, and full back views of the character on a single clean canvas.
 2. **Consistent Design:** Ensure clothing, hair color, eye color, and accessories are identical across all poses displayed on the sheet.
-3. **Clean Background:** Use a neutral, solid-color background (preferably white or off-white) to prevent unwanted background bleed during the mask and reference extraction steps.
-4. **Style Fidelity:** Match the art style (whether 3D rendered, illustrated, anime, or cinematic) directly to what you want outputted, avoiding muddy or conflicting stylistic cues.
-
+3. **Clean Background:** Use a neutral, solid-color background (preferably `#EDEFF2` seamless studio gray) to prevent unwanted background bleed during the mask and reference extraction steps.
+4. **Detail Insets:** For subjects with tattoos or micro-features, add high-resolution close-ups of the face, throat, and sleeve details in a lower row.
+5. **Style Fidelity:** Match the art style directly to what you want outputted, avoiding conflicting stylistic cues.
 
 ---
 
-
 ## Part 3: Workflow Step-by-Step Execution
 
-
-1. **Load Workflow:** Drag and drop the MiniMax H3 Video Character Swap JSON workflow into your ComfyUI workspace.
+1. **Load Workflow:** Load `MiniMax-H3-Character-Swap-Production.json` into your ComfyUI workspace.
 2. **Upload Reference Assets:** 
-   - Load your multi-angle character sheet into the **Reference Image 1** node.
-   - Load your target performance file into the **Reference Video 1** node.
-3. **Configure Isolation Mask:** If your source video features multiple individuals, use the target description box inside the *Create Mask* group (e.g., `"woman on the left"`) to isolate the correct subject.
-4. **Apply Master Prompt Template:** Paste and customize the following structural prompt into your prompt node:
+   - Load your multi-angle character sheet into the **Picture** node (Node 12).
+   - Load your target performance file into the **VHS_LoadVideo** node (Node 13).
+3. **Configure Isolation Mask (Node 950):** 
+   - **CRITICAL ANTI-NUDITY RULE:** Set mask text to `"face, neck, arms"`. Do NOT set to `"woman"`.
+   - Setting to `"face, neck, arms"` ensures the original video's clothing is never erased or blacked out.
+4. **Apply Master Production Prompt Template (Node 5):**
    ```text
-   Use <Video_1> as the master scene and performance. Replace the woman in <Video_1> with the character sheet from <Picture_1>, preserving the character's original art style exactly. Do not convert the character into a different style or make her photorealistic if she is illustrated or cartoon-styled.
+   Use <Video_1> as the master scene and performance. Replace the face, hair, neck, and exposed arms of the woman in <Video_1> with the character from <Picture_1>, while strictly preserving her original outfit and clothing from <Video_1>.
 
+   Maintain the exact outfit, clothing, garments, fabric textures, folds, and colors worn in <Video_1> completely unchanged. She remains fully clothed in the original garments from <Video_1>.
 
-   Match all character details from <Picture_1>, including face, hair color, hairstyle, eye color, outfit, colors, accessories, jewelry, and every distinctive design element.
-
-
-   Preserve her identity and appearance consistently throughout. Transfer the original woman's movements, poses, position, expressions, rotation, and timing frame by frame. Preserve the original camera, framing, background, lighting, shadows, objects, and edits from <Video_1>. Maintain natural movement, correct occlusion, and consistent character details. Do not omit accessories, redesign the character, or include the reference sheet or its background. Replace only the woman; leave everything else unchanged.
+   Transfer the character's facial identity, hairstyle, facial features, throat/neck tattoos, and sleeve tattoos onto exposed arm skin from <Picture_1>. Maintain natural movement, correct lighting, and sharp tattoo details on exposed skin. Replace only the face, neck, and exposed arms; leave the clothing and background completely unchanged.
    ```
 5. **Set Generation Parameters:**
-   - **Megapixels Node:** Set output resolution tier (Default `1` yields ~768p).
-   - **Resolution Selector:** Match your target source aspect ratio (e.g., `9:16`).
-   - **Duration Node:** Define your output length in seconds.
-6. **Queue Prompt:** Run the workflow and monitor for any timing adjustments if scene cuts cause motion drift.
+   - **Megapixels Node:** Set output resolution tier (Default `1` yields ~768p / 768×1376 portrait 9:16).
+   - **Resolution Selector:** Match target source aspect ratio (`9:16 (Portrait Widescreen)`).
+   - **Duration Node:** Define output length in seconds (typically `4.0` to `5.0`).
+6. **Queue Prompt:** Run the workflow (~3.8 to 7 minutes on RTX 5070 Ti with Turbo LoRA).
+
+---
+
+## Part 4: Mandatory DaVinci Resolve 4K SuperScale & Color Grade Pipeline
+Raw ComfyUI generations render at 768p with soft facial micro-details and flat Rec.709 digital contrast. To achieve commercial broadcast standards, all video outputs must pass through DaVinci Resolve Studio 21.1.1:
+
+1. **3× Neural SuperScale:**
+   - Project Timeline resolution set to 4K UHD (2160×3840 for 9:16 portrait).
+   - Enable `superScale: 3`, `superScaleSharpness: "1"`, `imageResizeMode: "sharper"`.
+   - Reconstructs facial skin texture, iris definition, hair strands, and crisp tattoo line work from the 768p render.
+2. **Color Grading & Beauty Presets:**
+   - **Avoid Heavy Print Film LUTs (e.g. Kodak 2383):** These double saturation (from ~32 to 63) and crush shadows into muddy black.
+   - **Preset 1 (Clean Studio Beauty 3D LUT):** Apply `MCP/Workhorse_Clean_Studio_Beauty.cube` (lifts shadows 1.5%, open 0.94 gamma for radiant luminous skin, natural 32.7 saturation).
+   - **Preset 2 (Pure Natural CDL):** Offset +0.01 (open shadows), Power 0.99, Saturation 1.00 (100% authentic color).
+3. **Hardware NVENC Render:**
+   - Export via NVIDIA NVENC H.264/H.265 at Best Quality. Typical 5-second 4K render finishes in ~2.2 seconds.
+   - Executable via: `python F:\WORKHORSE\pipeline\h3_davinci_postprocess.py <input_video.mp4>`.
+
+---
+
+## Part 5: Anti-Nudity & Garment Preservation Rules
+When performing character swaps on clothed subjects:
+1. **Never Mask `"woman"` Directly:**
+   - Masking `"woman"` blacks out the entire silhouette (including clothes). MiniMax H3 will hallucinate new body parts from scratch.
+2. **Mask `"face, neck, arms"` (Node 950):**
+   - SAM3 only erases the head, neck, and exposed arm skin. The source video's original outfit, fabric folds, seams, and lighting remain 100% untouched.
+3. **Explicit Clothing Lock in Prompt:**
+   - Always include: *"Strictly preserve her original outfit and clothing from <Video_1> completely unchanged. She remains fully clothed in the original garments from <Video_1>."*
+
+---
+
+## Part 6: Tattoo Transfer Protocol
+1. **Never Prompt Covered Tattoos:**
+   - If the subject wears a shirt, do NOT prompt sternum, chest, or full back tattoos. Prompting covered tattoos forces the model to remove clothing to make the tattoos visible.
+2. **Target Only Exposed Skin:**
+   - Anchor prompt tokens: *"Transfer the character's facial identity, hairstyle, throat/neck tattoos, and sleeve tattoos onto exposed arm skin from <Picture_1>."*
+3. **Multi-Angle Character Sheet Grounding:**
+   - Ensure the reference sheet includes both full-body turnaround views and high-resolution macro crops of the tattoos on a seamless studio gray cyclorama (`#EDEFF2`).
+
+---
+
+## Part 7: Audio Stream Verification Requirement
+MiniMax H3 and ComfyUI's `VHS_LoadVideo` node require an active audio track. If a reference video has no audio, ffmpeg will throw an extraction error.
+- **Pre-flight Rule:** Check audio with `ffprobe`. If silent/missing, mux a silent AAC track before loading into ComfyUI:
+  ```bash
+  ffmpeg -y -i input.mp4 -f lavfi -i anullsrc=channel_layout=stereo:sample_rate=44100 -c:v copy -c:a aac -shortest output_with_audio.mp4
+  ```

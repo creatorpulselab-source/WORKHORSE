@@ -416,3 +416,49 @@ Every 3D listing must present exactly 10 cards at 2400x2400 resolution:
   - `len(islands) == 1`
   - Leveled planar base at Z=0 for support-free first-layer bed adhesion.
 - All download zips must strictly adhere to Etsy's 20.0 MB limit per file (partitioned into numbered parts when required).
+
+---
+
+## 15. MiniMax H3 Video Character Swap & DaVinci Resolve 4K Production Protocol
+
+### 15.1 Multi-Angle Character Sheet Golden Architecture
+1. **Source Photo Standards:**
+   - 6 to 10 photos captured under uniform studio lighting on a seamless gray cyclorama (`#EDEFF2`).
+   - Subject wears identical clothing across all shots to prevent silhouette or skin tone drift.
+2. **Master Dual-Tier Sheet (`character_card_master.png`, 3840×2160):**
+   - **Top Tier (1400px height):** 4 standardized standing views aligned head-to-toe (Front, Left Profile, Right 3/4, Full Back).
+   - **Bottom Tier (560px height):** 4 high-resolution macro crops for facial features, neck/throat tattoos, and side profiles.
+   - Generated via automated utility: `python F:\WORKHORSE\pipeline\assemble_character_sheet.py <input_folder> <output_folder>`.
+
+### 15.2 Anti-Nudity & Garment Preservation Rules
+1. **SAM3 Mask Target (Node 950):**
+   - **MANDATORY:** Set mask prompt strictly to `"face, neck, arms"`.
+   - **NEVER** set to `"woman"` on clothed subjects; whole-silhouette masking blacks out the garments, forcing diffusion to synthesize bare skin.
+2. **Prompt Garment Locking:**
+   - Always include the anchor clause:
+     > *"Strictly preserve her original outfit and clothing from <Video_1> completely unchanged. She remains fully clothed in the original garments from <Video_1>."*
+
+### 15.3 Tattoo Transfer Protocol
+1. **Never Prompt Covered Tattoos:**
+   - If the subject wears a shirt or dress in the performance video, do NOT prompt covered tattoos (e.g. sternum, chest, or full back pieces).
+2. **Transfer to Exposed Skin Only:**
+   - Anchor prompt tokens: *"Transfer the character's facial identity, hairstyle, throat/neck tattoos, and sleeve tattoos onto exposed arm skin from <Picture_1>."*
+
+### 15.4 Audio Stream Pre-Flight Check
+MiniMax H3 and ComfyUI's `VHS_LoadVideo` require an active audio track. Silent video containers throw an ffmpeg extraction failure.
+- Auto-mux silent AAC sync audio prior to queuing:
+  ```bash
+  ffmpeg -y -i input.mp4 -f lavfi -i anullsrc=channel_layout=stereo:sample_rate=44100 -c:v copy -c:a aac -shortest output_with_audio.mp4
+  ```
+
+### 15.5 Mandatory DaVinci Resolve Studio 4K SuperScale & Color Grading Pass
+Raw ComfyUI generations render at 768×1376 with soft facial micro-details and flat Rec.709 digital contrast. Every video asset must pass through DaVinci Resolve Studio 21.1.1 before client delivery:
+1. **3× Neural SuperScale:**
+   - Upscale raw 768p to 4K UHD (2160×3840 for 9:16 portrait) using `superScale: 3` with `imageResizeMode: "sharper"`.
+2. **Commercial Beauty Color Grading:**
+   - **Prohibited:** Heavy analog print film LUTs (e.g. Kodak 2383), which double saturation and crush shadow detail into dark mud.
+   - **Approved Preset 1 (`Workhorse_Clean_Studio_Beauty.cube`):** Custom 3D LUT lifting shadows by 1.5%, applying a luminous 0.94 gamma curve, and holding natural saturation at 32.7.
+   - **Approved Preset 2 (Pure Natural CDL):** Offset +0.01 (open shadows), Power 0.99, Saturation 1.00.
+3. **Hardware NVENC Acceleration:**
+   - Export via NVIDIA NVENC H.264/H.265 at Best Quality (~2.2s render time for 5-second video).
+   - Executable via: `python F:\WORKHORSE\pipeline\h3_davinci_postprocess.py <input_video.mp4>`.
