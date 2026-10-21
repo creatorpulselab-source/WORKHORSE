@@ -101,10 +101,10 @@ def compose_images(rep: RunReport, dirs, catalog) -> dict:
         snow_src = comp("_raw_closeup_snowflake.png", "christmas_flatlay", 21, scale=0.84, dy=-90)
         press_src = comp("_raw_cutter_and_press.png", "christmas_flatlay", 33, scale=0.95, dy=-60)
         sizes_src = comp("_raw_two_sizes.png", "christmas_flatlay", 45, scale=0.95, dy=-60)
-        kit.cover(cover_src, img / "01_cover.jpg", str(n), "Christmas Cookie Cutters",
-                  "STL + 3MF  -  2 sizes  -  press plates",
-                  ["Instant Download", "STL & 3MF", "3D Print Ready", "Press Plates", "Sell Your Prints"], THEME,
-                  burst=["2 SIZES", "EACH"])
+        kit.cover_open(cover_src, img / "01_cover.jpg", str(n), "Christmas Cookie Cutters",
+                       "STL + 3MF  -  2 sizes  -  press plates",
+                       ["Instant Download", "STL & 3MF", "3D Print Ready", "Press Plates", "Sell Your Prints"], THEME,
+                       burst=["2 SIZES", "EACH"])
         kit.captioned(hero_src, img / "02_hero.jpg", "Print your own holiday cookie cutters",
                       "Gingerbread  •  Stars  •  Snowflakes  •  Candy Canes  •  and more", THEME)
         kit.captioned(ginger_src, img / "03_closeup_gingerbread.jpg", "Clean cutting edge, comfy grip flange",

@@ -54,7 +54,7 @@ def run_spec(spec: Dict) -> Dict:
 
         n = 1
         cover_src = comp("_raw_cover.png", bgs["flat"], SEED, scale=cv.get("scale", 0.92))
-        if cv.get("open", False):
+        if cv.get("open", True):
             kit.cover_open(cover_src, IMG / f"{n:02d}_cover.jpg", cv["big"], cv["l1"], cv["l2"], cv["badges"], theme, burst=cv.get("burst", ()))
         else:
             kit.cover(cover_src, IMG / f"{n:02d}_cover.jpg", cv["big"], cv["l1"], cv["l2"], cv["badges"], theme, burst=cv.get("burst", ()))

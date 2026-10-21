@@ -1,4 +1,4 @@
-﻿"""Media kit + listing copy for the Cute Animal Faces layered cut-file pack made by faces/pack.py.
+"""Media kit + listing copy for the Cute Animal Faces layered cut-file pack made by faces/pack.py.
 
 Run:  F:\\WORKHORSE\\.venv\\Scripts\\python.exe -m etsy_factory.faces.build_listing [--no-mockups]
 
@@ -48,6 +48,46 @@ def _layered_png(files: Path, meta: List[Dict], key: str) -> Optional[Path]:
     return hits[0] if hits else None
 
 
+def render_nursery_mockup(files: Path, meta: List[Dict], out_path: Path, animal_key: str = "bunny"):
+    bg_p = Path(r"F:\WORKHORSE\workspace\etsy_mockups\nursery_wooden_plaque_202.png")
+    if not bg_p.exists():
+        return
+    bg = Image.open(bg_p).convert("RGBA").resize((M.SIZE, M.SIZE), Image.Resampling.LANCZOS)
+    src = _layered_png(files, meta, animal_key)
+    if not src or not src.exists():
+        return
+    des = Image.open(src).convert("RGBA")
+    bb = des.getbbox()
+    if bb:
+        des = des.crop(bb)
+
+    des.thumbnail((800, 800), Image.Resampling.LANCZOS)
+
+    from PIL import ImageFilter, ImageFont
+    shadow = Image.new("RGBA", des.size, (0, 0, 0, 0))
+    alpha = des.split()[-1]
+    shadow.paste((20, 15, 10, 100), (0, 0), mask=alpha)
+    shadow = shadow.filter(ImageFilter.GaussianBlur(10))
+
+    tx = (M.SIZE - des.width) // 2
+    ty = (M.SIZE - des.height) // 2 + 10
+
+    bg.paste(shadow, (tx + 14, ty + 16), shadow)
+    bg.paste(des, (tx, ty), des)
+
+    d = ImageDraw.Draw(bg)
+    d.rounded_rectangle([100, 80, 960, 200], radius=18, fill=(255, 255, 255, 240), outline=(220, 225, 220), width=2)
+    try:
+        f_bd = ImageFont.truetype(r"C:\Windows\Fonts\arialbd.ttf", 36)
+        f_sm = ImageFont.truetype(r"C:\Windows\Fonts\arial.ttf", 26)
+    except Exception:
+        f_bd = f_sm = ImageFont.load_default()
+    d.text((140, 115), "NURSERY WOOD SIGN INSPIRATION", fill=(42, 60, 48), font=f_bd)
+    d.text((140, 160), "Layered Wood, Acrylic, or Adhesive Vinyl", fill=(100, 100, 100), font=f_sm)
+
+    M.save_jpg(bg, out_path)
+
+
 def render_mockups(meta: List[Dict], files: Path, imgs: Path, start: int) -> int:
     n = start
     for kind, key in MOCKS:
@@ -65,6 +105,8 @@ def render_mockups(meta: List[Dict], files: Path, imgs: Path, start: int) -> int
         box = tuple(int(v * M.SIZE) for v in f)
         M.save_jpg(M.place_on_fabric(ph, des, box), imgs / f"{n:02d}_mockup_{kind}.jpg")
         n += 1
+    render_nursery_mockup(files, meta, imgs / f"{n:02d}_mockup_nursery_sign.jpg", "bunny")
+    n += 1
     return n
 
 

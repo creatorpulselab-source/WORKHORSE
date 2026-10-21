@@ -36,3 +36,8 @@ dashboard/static/models_backup_pre_anim/
 
 # Etsy research screenshots (large phone captures, kept local; the .md analysis is committed)
 research/etsy_top_seller_screens_*/
+
+# Local research/idea assets
+etsy_ideas/
+LLM training/*.zip
+LLM training/*.webp

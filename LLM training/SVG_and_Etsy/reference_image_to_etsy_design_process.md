@@ -111,3 +111,26 @@ Test layouts on 8-12 designs in `workspace/scratch/` before composing the full s
 - True **SVG from a reference image** (trace + simplify + layer by colour + Cricut grouping) as a one-command tool. Today it would mean running the AI image through `build_full_color_and_clean_svg_kit.py` / `svg_cricut_optimizer.py` by hand.
 - Key-fob and 30/40 oz tumbler wraps (verify real template sizes first).
 - Cover refresh (`kit.cover_open`) for older STL listings.
+
+---
+
+## 10. Mandatory Media Suite: ComfyUI, Blender 5.2, DaVinci Resolve Studio
+
+*Mandated 2026-10-20 by Commander Directive: Use ComfyUI, Blender, and DaVinci Resolve Studio for any and all media that needs to be created. Everything needs to be expert level quality in design and in products.*
+
+See detailed specifications in `F:\WORKHORSE\LLM training\WORKHORSE_MEDIA_CREATION_AND_ETSY_MOCKUP_STANDARDS.md`.
+
+### Summary of Media Rules:
+1. **ComfyUI (`http://192.168.1.74:8188`)**:
+   - Mandatory for all photographic product backdrops, flat-lays, apparel, stationery, and e-commerce staging.
+   - **Zero Flat PIL Drawings**: Never use PIL geometric rectangles or artificial shapes for mockups.
+   - **Physical Realism**: Stickers belong on closed laptops, insulated tumblers, paper journals/planners, and cutting mats—never pasted floating on an iPad screen. Apply realistic directional contact shadows, cylindrical curvature, and optional harmonizing img2img passes.
+2. **Blender 5.2 LTS (`C:\Program Files\Blender Foundation\Blender 5.2\blender.exe`)**:
+   - Engine for 3D products (cookie cutters, organizers, planters, keychains).
+   - Physically based shaders (FDM layer-line bump for PLA, subsurface scattering for dough, realistic wood grain) rendered headless via `etsy_factory/blender_render.py` in Cycles or EEVEE Next.
+   - Manifold watertight STL verification.
+3. **DaVinci Resolve Studio 21.1+ (`ResolvePython.exe` / `ResolveMCP.exe`)**:
+   - Engine for listing video previews (5-15s) and short-form marketing reels.
+   - Neural Engine Super Scale (3x) + Optical Flow + 33x33x33 Cinema 3D LUT grading + NVENC GPU hardware export.
+4. **Mandatory Visual QC**:
+   - Always view every generated listing card via `read_file` to verify layout, zero clipping, balanced margins, and realistic material integration before presenting to the Commander.

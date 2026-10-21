@@ -2414,3 +2414,48 @@ MiniMax H3's multimodal attention interprets references strictly through semanti
   - Production Final: ~1.0 Megapixel (e.g., 1344x768 16:9 widescreen or 768x1344 9:16 vertical reel).
   - Rapid Draft / Kinetic Preview: ~0.4 Megapixel (e.g., 832x480) for 3x faster turnaround during concept iteration.
 - **Frame Budget:** 81 to 124 frames at 24fps (3.5 to 5.2 seconds of fluid cinematic motion).
+
+
+---
+
+## Module 24: Omnimodal ComfyUI Generative Engine — Image, 3D Mesh Synthesis, and Video Workflows (The Universal Rule)
+
+### 24.1 The Universal Rule & Engine Capability
+**Core Directive:** ComfyUI is the universal generative engine across the WORKHORSE architecture. It can create, transform, and condition across all three primary digital asset domains:
+1. **2D Still Images & High-End Product Photography:** Photorealistic lifestyle mockups, marketing graphics, contact sheets, and character designs (via Flux.1, Flux Klein, SDXL, Qwen-Image).
+2. **3D Assets & Models (.STL, .GLB, .3MF, .OBJ):** Bi-directional 3D generation: Image-to-3D mesh synthesis (Trellis.2, Pixal3D, Hunyuan3D) AND 3D-to-Image product photography (Load3D, RenderMesh, ReferenceLatent + Flux Klein).
+3. **Cinematic Video & Motion Graphics:** Text-to-Video, Image-to-Video, and Video-to-Video transformations (MiniMax FastH3, LTX 2.3, Wan 2.1).
+
+```mermaid
+graph TD
+    subgraph Omnimodal ComfyUI Core
+        I2I["Image Engine (Flux / SDXL)"]
+        Mesh3D["3D Engine (Trellis.2 / Pixal3D / Load3D)"]
+        Video["Video Engine (MiniMax H3 / LTX 2.3)"]
+    end
+
+    STL["Raw STL / CAD Mesh"] --> Load3D["Load3D / RenderMesh"]
+    Load3D --> RefLatent["ReferenceLatent (Pose & Geometry Lock)"]
+    RefLatent --> FluxKlein["Flux Klein 9b (Physical Lifestyle Synthesis)"]
+    FluxKlein --> Lifestyle["Photorealistic Product Lifestyle Photo"]
+    
+    Lifestyle --> BlenderPillow["Blender / Pillow Composite"]
+    BlenderPillow --> Listing["Production-Ready Etsy / E-Commerce Deck"]
+```
+
+### 24.2 3D-to-Image Product Photography Pipeline (`Flux Klein 9b - Keep the Angle`)
+When converting physical 3D printable files (e.g., animal pencil cups, cookie cutters, gadget enclosures) into commercial product photos:
+1. **Geometry Ingestion (`Load3D` / `Load3DAdvanced`):** Ingests `.stl`, `.obj`, or `.glb`. Renders the base mesh into depth, normal, or shaded clay passes.
+2. **Angle & Silhouette Invariant (`ReferenceLatent`):** Encodes the 3D render into latent space and connects to both positive and negative latent reference slots. This ensures the output photograph strictly preserves the manufactured product's exact proportions, facial relief, and silhouette.
+3. **Photorealistic Material & Atmosphere Synthesis:**
+   - **UNet:** `flux-2-klein-9b-fp8.safetensors`
+   - **Text Encoder:** `qwen_3_8b.safetensors`
+   - **VAE:** `flux2-vae.safetensors`
+   - **Prompt Pattern:** Specify tactile material qualities (*"authentic matte PLA 3D printed filament, subtle 0.2mm layer lines, smooth satin finish"*), functional product-in-use context (*"filled with colored pencils, markers, and craft scissors"*), and warm, high-contrast lifestyle environments (*"sitting on a warm solid oak desk, sunny room, soft golden hour window light, shallow depth-of-field blurred craft room background"*).
+4. **Post-Processing & Hybrid Integration:**
+   - Bring generated lifestyle photos into Blender or Pillow for raytraced contact shadow refinement, background isolation, or direct integration into high-converting Etsy listing templates.
+
+### 24.3 Image-to-3D Synthesis (`Trellis.2` & `Pixal3D`)
+1. **Input:** Clean 2D illustration or product concept art.
+2. **Synthesis:** `Pixal3D` / `Trellis_2` multi-view conditioning synthesizes sparse 3D voxels and reconstructs a watertight, manifold-free trimesh.
+3. **PBR Baking:** Automatically unwraps UVs and bakes Albedo, Roughness, and Normal maps into standard `.glb` and `.stl` formats ready for slicers (Bambu Studio, PrusaSlicer, Cura).
