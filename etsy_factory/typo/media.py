@@ -235,7 +235,7 @@ def sheet(meta, thumbs_dir: Path, out: Path, title: str, subtitle: str, accent: 
 
 # ----------------------------------------------------------------------------- info cards
 def info_card(out: Path, title: str, kicker: str, rows: Sequence[Tuple[str, str]], accent: RGB, ink: RGB, bg: RGB,
-              preview: Optional[Image.Image] = None, footer: str = "") -> Path:
+              preview: Optional[Image.Image] = None, footer: str = "", pill_colors: Optional[Sequence[RGB]] = None) -> Path:
     base = Image.new("RGBA", (SIZE, SIZE), bg + (255,))
     d = ImageDraw.Draw(base)
     d.rectangle((0, 0, SIZE, 430), fill=ink)
@@ -246,7 +246,7 @@ def info_card(out: Path, title: str, kicker: str, rows: Sequence[Tuple[str, str]
     h = int((SIZE - y - (260 if footer else 120)) / max(len(rows), 1))
     h = min(h, 290)
     for i, (head, body) in enumerate(rows):
-        col = accent if i % 2 == 0 else ink
+        col = pill_colors[i % len(pill_colors)] if pill_colors else (accent if i % 2 == 0 else ink)
         pill = rounded((520, h - 40), 36, col + (255,))
         base.alpha_composite(pill, (110, y))
         fh = fit(d, head, anton, 440, 78, 34)

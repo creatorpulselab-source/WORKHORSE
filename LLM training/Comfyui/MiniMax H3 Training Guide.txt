@@ -1,0 +1,53 @@
+﻿# MiniMax H3 Video Character Swap & Character Sheet Creation Guide
+
+
+## Part 1: Prerequisites & Model Directory Setup
+Ensure your ComfyUI environment is updated, and place the required models into their respective subfolders inside your `ComfyUI/models/` directory:
+
+
+* **Diffusion Models:** `minimax_h3_ref2va_pruned_fp8_scaled.safetensors` -> `ComfyUI/models/diffusion_models/`
+* **Text Encoders:** `qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors` -> `ComfyUI/models/text_encoders/`
+* **VAEs:** `minimax_h3_video_vae_fp16.safetensors` and `minimax_h3_audio_vae_fp32.safetensors` -> `ComfyUI/models/vae/`
+* **LoRAs:** `h3_character_swap_v1.5.safetensors` and `minimax_h3_ref2v_turbo_8step_v1.1_768p_comfyui_bf16.safetensors` -> `ComfyUI/models/loras/`
+* **Checkpoints:** `sam3.1_multiplex_fp16.safetensors` -> `ComfyUI/models/checkpoints/`
+
+
+---
+
+
+## Part 2: Creating a Proper Character Sheet for MiniMax H3
+Before running a character swap, your reference sheet must be properly formatted so the model can accurately interpret multiple angles and details:
+
+
+1. **Multi-Angle Layout:** Include front, side (profile), and three-quarter views of the character on a single clean canvas.
+2. **Consistent Design:** Ensure clothing, hair color, eye color, and accessories are identical across all poses displayed on the sheet.
+3. **Clean Background:** Use a neutral, solid-color background (preferably white or off-white) to prevent unwanted background bleed during the mask and reference extraction steps.
+4. **Style Fidelity:** Match the art style (whether 3D rendered, illustrated, anime, or cinematic) directly to what you want outputted, avoiding muddy or conflicting stylistic cues.
+
+
+---
+
+
+## Part 3: Workflow Step-by-Step Execution
+
+
+1. **Load Workflow:** Drag and drop the MiniMax H3 Video Character Swap JSON workflow into your ComfyUI workspace.
+2. **Upload Reference Assets:** 
+   - Load your multi-angle character sheet into the **Reference Image 1** node.
+   - Load your target performance file into the **Reference Video 1** node.
+3. **Configure Isolation Mask:** If your source video features multiple individuals, use the target description box inside the *Create Mask* group (e.g., `"woman on the left"`) to isolate the correct subject.
+4. **Apply Master Prompt Template:** Paste and customize the following structural prompt into your prompt node:
+   ```text
+   Use <Video_1> as the master scene and performance. Replace the woman in <Video_1> with the character sheet from <Picture_1>, preserving the character's original art style exactly. Do not convert the character into a different style or make her photorealistic if she is illustrated or cartoon-styled.
+
+
+   Match all character details from <Picture_1>, including face, hair color, hairstyle, eye color, outfit, colors, accessories, jewelry, and every distinctive design element.
+
+
+   Preserve her identity and appearance consistently throughout. Transfer the original woman's movements, poses, position, expressions, rotation, and timing frame by frame. Preserve the original camera, framing, background, lighting, shadows, objects, and edits from <Video_1>. Maintain natural movement, correct occlusion, and consistent character details. Do not omit accessories, redesign the character, or include the reference sheet or its background. Replace only the woman; leave everything else unchanged.
+   ```
+5. **Set Generation Parameters:**
+   - **Megapixels Node:** Set output resolution tier (Default `1` yields ~768p).
+   - **Resolution Selector:** Match your target source aspect ratio (e.g., `9:16`).
+   - **Duration Node:** Define your output length in seconds.
+6. **Queue Prompt:** Run the workflow and monitor for any timing adjustments if scene cuts cause motion drift.

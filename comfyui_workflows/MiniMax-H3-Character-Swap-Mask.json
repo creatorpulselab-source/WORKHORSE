@@ -1,0 +1,496 @@
+{
+  "1": {
+    "inputs": {
+      "unet_name": "minimax_h3_ref2va_pruned_int8_convrot.safetensors",
+      "weight_dtype": "default"
+    },
+    "class_type": "UNETLoader",
+    "_meta": {
+      "title": "Load Diffusion Model"
+    }
+  },
+  "2": {
+    "inputs": {
+      "clip_name": "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+      "type": "minimax",
+      "device": "default"
+    },
+    "class_type": "CLIPLoader",
+    "_meta": {
+      "title": "Load CLIP"
+    }
+  },
+  "3": {
+    "inputs": {
+      "lora_01": "h3_character_swap_v1.5.safetensors",
+      "strength_01": 1,
+      "lora_02": "minimax_h3_ref2v_turbo_8step_v1.0_768p_comfyui_bf16.safetensors",
+      "strength_02": 0.85,
+      "lora_03": "None",
+      "strength_03": 1,
+      "lora_04": "None",
+      "strength_04": 1,
+      "model": [
+        "1",
+        0
+      ],
+      "clip": [
+        "2",
+        0
+      ]
+    },
+    "class_type": "Lora Loader Stack (rgthree)",
+    "_meta": {
+      "title": "Lora Loader Stack (rgthree)"
+    }
+  },
+  "4": {
+    "inputs": {
+      "shift_video": 10,
+      "shift_audio": 3,
+      "model": [
+        "3",
+        0
+      ]
+    },
+    "class_type": "MiniMaxH3SigmaShift",
+    "_meta": {
+      "title": "ModelSamplingMiniMaxH3"
+    }
+  },
+  "5": {
+    "inputs": {
+      "value": "Use <Video_1> as the master scene and performance. Replace the woman in <Vdieo_1> with the character sheet from <Picture_1>, preserving the character’s original art style exactly. Do not convert the character into a different style or make her photorealistic if she is illustrated or cartoon-styled.\n\nMatch all character details from <Picture_1>, including face, hair color, hairstyle, eye color, outfit, colors, accessories, jewelry, and every distinctive design element. Preserve her identity and appearance consistently throughout.\n\nTransfer the original woman’s movements, poses, position, expressions, rotation, and timing frame by frame. Preserve the original camera, framing, background, lighting, shadows, objects, and edits from <Video_1>. Maintain natural movement, correct occlusion, and consistent character details. Do not omit accessories, redesign the character, or include the reference sheet or its background. Replace only the woman; leave everything else unchanged."
+    },
+    "class_type": "PrimitiveStringMultiline",
+    "_meta": {
+      "title": "Input Text (Prompt)"
+    }
+  },
+  "6": {
+    "inputs": {
+      "attention": "comfy kitchen attention",
+      "model": [
+        "4",
+        0
+      ]
+    },
+    "class_type": "ModelAttentionBackend",
+    "_meta": {
+      "title": "Model Attention Backend"
+    }
+  },
+  "7": {
+    "inputs": {
+      "vae_name": "minimax_h3_video_vae_fp16.safetensors"
+    },
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "Load VAE"
+    }
+  },
+  "9": {
+    "inputs": {
+      "vae_name": "minimax_h3_audio_vae_fp32.safetensors"
+    },
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "Load VAE"
+    }
+  },
+  "10": {
+    "inputs": {
+      "expression": "max(5, round(a * 24)) + (5 - (max(5, round(a * 24)) % 17)) % 17",
+      "values.a": [
+        "11",
+        0
+      ],
+      "values.b": [
+        "18",
+        0
+      ]
+    },
+    "class_type": "ComfyMathExpression",
+    "_meta": {
+      "title": "Math Expression"
+    }
+  },
+  "11": {
+    "inputs": {
+      "value": 4
+    },
+    "class_type": "PrimitiveFloat",
+    "_meta": {
+      "title": "Duration (seconds)"
+    }
+  },
+  "12": {
+    "inputs": {
+      "image": "ComfyUI_00740_.png"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "Picture"
+    }
+  },
+  "13": {
+    "inputs": {
+      "video": "minimax-h3-video-character-swap-with-reference-to-video-in-comfyui-reference-video-next-diffusion.mp4",
+      "force_rate": [
+        "18",
+        0
+      ],
+      "custom_width": 0,
+      "custom_height": 0,
+      "frame_load_cap": [
+        "10",
+        1
+      ],
+      "skip_first_frames": 0,
+      "select_every_nth": 1,
+      "format": "AnimateDiff"
+    },
+    "class_type": "VHS_LoadVideo",
+    "_meta": {
+      "title": "Load Video (Upload) 🎥🅥🅗🅢"
+    }
+  },
+  "14": {
+    "inputs": {
+      "value": 1
+    },
+    "class_type": "PrimitiveFloat",
+    "_meta": {
+      "title": "Megapixels"
+    }
+  },
+  "15": {
+    "inputs": {
+      "aspect_ratio": "9:16 (Portrait Widescreen)",
+      "megapixels": [
+        "14",
+        0
+      ],
+      "multiple": 32
+    },
+    "class_type": "ResolutionSelector",
+    "_meta": {
+      "title": "Resolution Selector (Size)"
+    }
+  },
+  "17": {
+    "inputs": {
+      "width": [
+        "15",
+        0
+      ],
+      "height": [
+        "15",
+        1
+      ],
+      "upscale_method": "nearest-exact",
+      "keep_proportion": "pad",
+      "pad_color": "0, 0, 0",
+      "crop_position": "center",
+      "divisible_by": 2,
+      "device": "cpu",
+      "image": [
+        "13",
+        0
+      ]
+    },
+    "class_type": "ImageResizeKJv2",
+    "_meta": {
+      "title": "Resize Image v2"
+    }
+  },
+  "18": {
+    "inputs": {
+      "value": 24
+    },
+    "class_type": "PrimitiveFloat",
+    "_meta": {
+      "title": "(input:Float) FPS"
+    }
+  },
+  "19": {
+    "inputs": {
+      "noise_seed": 363275252574302
+    },
+    "class_type": "RandomNoise",
+    "_meta": {
+      "title": "RandomNoise"
+    }
+  },
+  "20": {
+    "inputs": {
+      "sampler_name": "euler"
+    },
+    "class_type": "KSamplerSelect",
+    "_meta": {
+      "title": "KSamplerSelect"
+    }
+  },
+  "21": {
+    "inputs": {
+      "model": [
+        "6",
+        0
+      ],
+      "conditioning": [
+        "26",
+        0
+      ]
+    },
+    "class_type": "BasicGuider",
+    "_meta": {
+      "title": "Basic Guider"
+    }
+  },
+  "22": {
+    "inputs": {
+      "samples": [
+        "25",
+        0
+      ],
+      "vae": [
+        "7",
+        0
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE Decode"
+    }
+  },
+  "23": {
+    "inputs": {
+      "samples": [
+        "25",
+        0
+      ],
+      "vae": [
+        "9",
+        0
+      ]
+    },
+    "class_type": "VAEDecodeAudio",
+    "_meta": {
+      "title": "VAE Decode Audio"
+    }
+  },
+  "24": {
+    "inputs": {
+      "scheduler": "simple",
+      "steps": 10,
+      "denoise": 1,
+      "model": [
+        "6",
+        0
+      ]
+    },
+    "class_type": "BasicScheduler",
+    "_meta": {
+      "title": "BasicScheduler"
+    }
+  },
+  "25": {
+    "inputs": {
+      "noise": [
+        "19",
+        0
+      ],
+      "guider": [
+        "21",
+        0
+      ],
+      "sampler": [
+        "20",
+        0
+      ],
+      "sigmas": [
+        "24",
+        0
+      ],
+      "latent_image": [
+        "26",
+        1
+      ]
+    },
+    "class_type": "SamplerCustomAdvanced",
+    "_meta": {
+      "title": "SamplerCustomAdvanced"
+    }
+  },
+  "26": {
+    "inputs": {
+      "prompt": [
+        "5",
+        0
+      ],
+      "width": [
+        "15",
+        0
+      ],
+      "height": [
+        "15",
+        1
+      ],
+      "length": [
+        "10",
+        1
+      ],
+      "ref_image_size": "match",
+      "clip": [
+        "3",
+        1
+      ],
+      "vae": [
+        "7",
+        0
+      ],
+      "audio_vae": [
+        "9",
+        0
+      ],
+      "ref_images.ref_image_0": [
+        "12",
+        0
+      ],
+      "ref_videos.ref_video_0": [
+        "949",
+        0
+      ],
+      "ref_video_audios.ref_video_audio_0": [
+        "13",
+        2
+      ]
+    },
+    "class_type": "MiniMaxH3ReferenceToVideo",
+    "_meta": {
+      "title": "MiniMax H3 Reference to Video"
+    }
+  },
+  "27": {
+    "inputs": {
+      "frame_rate": [
+        "18",
+        0
+      ],
+      "loop_count": 0,
+      "filename_prefix": "Video",
+      "format": "video/h264-mp4",
+      "pix_fmt": "yuv420p",
+      "crf": 19,
+      "save_metadata": false,
+      "trim_to_audio": false,
+      "pingpong": false,
+      "save_output": true,
+      "images": [
+        "22",
+        0
+      ],
+      "audio": [
+        "13",
+        2
+      ]
+    },
+    "class_type": "VHS_VideoCombine",
+    "_meta": {
+      "title": "Video Combine 🎥🅥🅗🅢"
+    }
+  },
+  "947": {
+    "inputs": {
+      "ckpt_name": "sam3.1_multiplex_fp16 (1).safetensors"
+    },
+    "class_type": "CheckpointLoaderSimple",
+    "_meta": {
+      "title": "Load Checkpoint"
+    }
+  },
+  "948": {
+    "inputs": {
+      "detection_threshold": 0.5,
+      "max_objects": 4,
+      "detect_interval": 1,
+      "images": [
+        "17",
+        0
+      ],
+      "model": [
+        "947",
+        0
+      ],
+      "conditioning": [
+        "950",
+        0
+      ]
+    },
+    "class_type": "SAM3_VideoTrack",
+    "_meta": {
+      "title": "Run SAM3 Video Track"
+    }
+  },
+  "949": {
+    "inputs": {
+      "x": 0,
+      "y": 0,
+      "resize_source": true,
+      "destination": [
+        "17",
+        0
+      ],
+      "source": [
+        "952",
+        0
+      ],
+      "mask": [
+        "951",
+        0
+      ]
+    },
+    "class_type": "ImageCompositeMasked",
+    "_meta": {
+      "title": "Image Composite Masked"
+    }
+  },
+  "950": {
+    "inputs": {
+      "text": "woman",
+      "clip": [
+        "947",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Prompt) - Mask Prompt"
+    }
+  },
+  "951": {
+    "inputs": {
+      "object_indices": "",
+      "track_data": [
+        "948",
+        0
+      ]
+    },
+    "class_type": "SAM3_TrackToMask",
+    "_meta": {
+      "title": "SAM3 Track to Mask"
+    }
+  },
+  "952": {
+    "inputs": {
+      "width": 512,
+      "height": 512,
+      "batch_size": 1,
+      "color": 0
+    },
+    "class_type": "EmptyImage",
+    "_meta": {
+      "title": "Empty Image"
+    }
+  }
+}

@@ -41,3 +41,7 @@ research/etsy_top_seller_screens_*/
 etsy_ideas/
 LLM training/*.zip
 LLM training/*.webp
+
+LLM training/**/*.zip
+LLM training/**/*.webp
+*.stl

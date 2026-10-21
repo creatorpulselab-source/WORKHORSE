@@ -612,7 +612,6 @@ class ComfyUIBridge:
                 height=1024,
                 steps=24,
                 cfg=6.5,
-                seed=seed,
                 auto_qc=False,
             )
             if not gen_concept.get("success") or not gen_concept.get("file_path"):
