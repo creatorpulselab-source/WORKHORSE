@@ -425,10 +425,11 @@ Respond in STRICT, VALID JSON format with no markdown wrappers or extra commenta
                 )
 
         section_schema = self.SECTION_SCHEMAS.get(pub_id, "")
+        history_context = self._get_recent_history_constraints(pub_id)
 
         prompt = f"""{persona}
 
-Today is {today_str}. Write fresh daily editorial content for today's issue. This publication promotes: {funnel_blurb}.{research_context}
+Today is {today_str}. Write fresh daily editorial content for today's issue. This publication promotes: {funnel_blurb}.{research_context}{history_context}
 
 Respond in STRICT, VALID JSON (no markdown wrappers, no commentary). Use \\n for line breaks inside string values - never use literal newlines inside a JSON string. Follow this exact schema:
 {{

@@ -110,6 +110,22 @@ BRAND_VIBES = {
             "creator gently adjusting dials on color console, screen light reflecting softly, natural breathing, cinematic 24fps",
             "photographer raising camera to eye level, adjusting focus ring, warm key light shifting smoothly, cinematic 24fps"
         ]
+    },
+    "creator_blueprint": {
+        "brand_target": "creator_blueprint",
+        "prompts": [
+            "Modern creative entrepreneur workstation, high-tech desk setup with Apple Studio Display showing creator monetization dashboard and Stripe analytics, Wacom tablet, Loupedeck console, Sony mirrorless camera, sleek dark walnut desk, soft morning window light, 50mm f/1.4 lens, photorealistic 8k commercial",
+            "Aesthetic digital creator office in an urban loft, stylish creator sitting at Scandinavian oak desk reviewing digital asset sales on an iPad Pro with Apple Pencil, dual color-calibrated displays, warm studio ambient glow, 50mm prime",
+            "Clean commercial flat-lay of modern digital creator toolkit: iPad Pro with digital revenue blueprint, Leica camera, Loupedeck dials, notebook with marketing framework sketches, cold brew coffee on white marble desk, 50mm macro",
+            "Creator studio workstation setup: Ultrawide monitor displaying digital product template library and 3D asset wireframes, mechanical keyboard, studio monitor speakers, warm ambient desk lighting, 35mm lens",
+            "Creative entrepreneur reviewing digital storefront conversion funnel on dual displays, illuminated desk with tactile controller dials, minimal aesthetic loft studio, 35mm f/1.8"
+        ],
+        "negative_prompt": "nude, nudity, naked, topless, bare breasts, exposed nipples, exposed genitals, lingerie, underwear, bra, panties, sheer transparent clothing exposing nipples, erotic, explicit adult content, porn, NSFW, objects in front of face, microphone blocking face, tripod obscuring subject, camera cutting off head, poles in front of body, clutter obscuring person, foreground obstruction, equipment blocking face, boom mic in frame, extra limbs, deformed hands, mutated fingers, fused digits, bad anatomy, blurry, low quality, watermark, text, cartoon, illustration",
+        "video_motion_prompts": [
+            "slow cinematic push-in on modern creative workstation with glowing analytics displays, subtle ambient studio light, 24fps",
+            "hands smoothly adjusting tactile Loupedeck console dials with subtle reflection on display, cinematic 24fps",
+            "gentle camera track across creative desk flat-lay of digital tools and sketches, soft morning sunlight, 24fps"
+        ]
     }
 }
 

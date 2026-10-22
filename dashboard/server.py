@@ -426,6 +426,10 @@ async def activity_tracker_middleware(request, call_next):
 
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "dashboard" / "static")), name="static")
 
+brand_assets_dir = BASE_DIR / "workspace" / "brand_assets"
+brand_assets_dir.mkdir(parents=True, exist_ok=True)
+app.mount("/brand_assets", StaticFiles(directory=str(brand_assets_dir)), name="brand_assets")
+
 @app.get("/favicon.ico")
 async def favicon():
     fav_file = BASE_DIR / "dashboard" / "static" / "favicon.ico"
@@ -1873,8 +1877,17 @@ async def get_newsletter_publications():
 
 @app.get("/api/newsletter/preview", response_class=HTMLResponse)
 async def get_newsletter_preview(pub: str = "creator_pulse", refresh: bool = False):
-    html_content = await asyncio.to_thread(newsletter_mgr.get_html_preview, pub, refresh)
+    html_content = await asyncio.to_thread(newsletter_mgr.get_html_preview, pub, refresh, False, refresh)
     return HTMLResponse(content=html_content)
+
+@app.post("/api/newsletter/regenerate-visual")
+async def regenerate_newsletter_visual(payload: Dict[str, Any] = None):
+    pub = (payload or {}).get("pub", "creator_pulse")
+    loop = asyncio.get_event_loop()
+    fresh_path = await loop.run_in_executor(None, lambda: newsletter_mgr.ensure_fresh_daily_newsletter_visual(pub, force=True))
+    if fresh_path and fresh_path.exists():
+        return {"status": "ok", "filename": fresh_path.name, "path": str(fresh_path)}
+    return {"status": "error", "message": "Visual generation failed or ComfyUI offline"}
 
 @app.post("/api/newsletter/regenerate")
 async def regenerate_newsletter(payload: Dict[str, Any] = None):

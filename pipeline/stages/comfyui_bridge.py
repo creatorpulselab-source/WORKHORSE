@@ -1573,7 +1573,7 @@ class ComfyUIBridge:
             },
             "9": {
                 "inputs": {
-                    "filename_prefix": filename_prefix or ("CPL_Creator" if brand_target and "pulse" in brand_target.lower() else ("CML_Studio" if brand_target and "media" in brand_target.lower() else "WORKHORSE_Render")),
+                    "filename_prefix": filename_prefix or ("CPL_Creator" if brand_target and "pulse" in brand_target.lower() else ("CBP_Blueprint" if brand_target and "blueprint" in brand_target.lower() else ("CML_Studio" if brand_target and "media" in brand_target.lower() else "WORKHORSE_Render"))),
                     "images": ["8", 0]
                 },
                 "class_type": "SaveImage"

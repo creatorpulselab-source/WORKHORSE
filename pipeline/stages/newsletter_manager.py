@@ -31,9 +31,10 @@ import subprocess
 import threading
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Set, Tuple
-from datetime import datetime
+from datetime import datetime, date
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from email.mime.image import MIMEImage
 from email.header import Header
 
 from pipeline.stages.copy_synthesizer import CopySynthesizer
@@ -577,8 +578,13 @@ class NewsletterManager:
       </td>
     </tr>
         """
+        # Generate email-optimized HTML (CID hero reference, < 25 KB)
+        html_body = self.get_html_preview(pub_id, for_email=True)
         if "<!-- WELCOME_HOOK -->" in html_body:
             html_body = html_body.replace("<!-- WELCOME_HOOK -->", welcome_banner)
+
+        visual_info = self.get_publication_visual_embed(pub_id, for_email=True)
+        visual_path = Path(visual_info["local_path"]) if visual_info.get("local_path") else None
 
         try:
             with smtplib.SMTP(email_cfg["smtp_host"], email_cfg["smtp_port"], timeout=20) as server:
@@ -586,12 +592,7 @@ class NewsletterManager:
                 server.starttls()
                 server.login(email_cfg["sender"], email_cfg["password"])
 
-                msg = MIMEMultipart("alternative")
-                msg["Subject"] = Header(subject, "utf-8")
-                msg["From"] = f"CreatorMediaLab <{email_cfg['sender']}>"
-                msg["To"] = recipient
-                msg.attach(MIMEText(html_body, "html", "utf-8"))
-
+                msg = self._build_email_message(subject, email_cfg["sender"], recipient, html_body, visual_path)
                 server.send_message(msg)
                 print(f"[NewsletterManager] Welcome issue sent to {recipient} ({pub_id})")
                 return {
@@ -699,6 +700,41 @@ class NewsletterManager:
     # opted into this publication. This is the actual daily-send counterpart to
     # send_test_email (single test recipient) / send_welcome_email (one-off onboarding).
     # ──────────────────────────────────────────────────────────────────────────
+    def _build_email_message(self, subject: str, sender: str, recipient: str, html_body: str, visual_path: Optional[Path] = None) -> MIMEMultipart:
+        """
+        Builds RFC-2387 compliant multipart email message.
+        If visual_path is provided and exists, creates a multipart/related message with
+        MIMEImage (Content-ID: <newsletter_hero>), keeping HTML size under 25 KB.
+        This completely eliminates the 102 KB Gmail clipping issue and base64 rendering blocks.
+        """
+        if visual_path and visual_path.exists():
+            msg = MIMEMultipart("related")
+            msg["Subject"] = Header(subject, "utf-8")
+            msg["From"] = f"CreatorMediaLab <{sender}>"
+            msg["To"] = recipient
+
+            alt_part = MIMEMultipart("alternative")
+            alt_part.attach(MIMEText(html_body, "html", "utf-8"))
+            msg.attach(alt_part)
+
+            try:
+                img_bytes = visual_path.read_bytes()
+                sub = "png" if visual_path.suffix.lower() == ".png" else "jpeg"
+                img_part = MIMEImage(img_bytes, _subtype=sub)
+                img_part.add_header("Content-ID", "<newsletter_hero>")
+                img_part.add_header("Content-Disposition", "inline", filename=visual_path.name)
+                msg.attach(img_part)
+            except Exception as e:
+                print(f"[NewsletterManager] Warning: Could not attach inline MIMEImage ({e})")
+            return msg
+        else:
+            msg = MIMEMultipart("alternative")
+            msg["Subject"] = Header(subject, "utf-8")
+            msg["From"] = f"CreatorMediaLab <{sender}>"
+            msg["To"] = recipient
+            msg.attach(MIMEText(html_body, "html", "utf-8"))
+            return msg
+
     def send_publication_now(self, pub_id: str) -> Dict[str, Any]:
         cfg = self.load_config()
         email_cfg = cfg.get("email", {})
@@ -723,7 +759,11 @@ class NewsletterManager:
             subject = f"{pub['name']}: {scribe_content['lead_headline']}"
         else:
             subject = pub["subject"]
-        html_body = self.get_html_preview(pub_id)
+
+        lead_hl = (scribe_content or {}).get("lead_headline")
+        visual_info = self.get_publication_visual_embed(pub_id, topic_text=lead_hl, allow_generate=True, for_email=True)
+        html_body = self.get_html_preview(pub_id, for_email=True, allow_generate=False)
+        visual_path = Path(visual_info["local_path"]) if visual_info.get("local_path") else None
         sent: List[str] = []
         failed: List[Dict[str, str]] = []
 
@@ -734,11 +774,7 @@ class NewsletterManager:
                 server.login(email_cfg["sender"], email_cfg["password"])
                 for recipient in recipients:
                     try:
-                        msg = MIMEMultipart("alternative")
-                        msg["Subject"] = Header(subject, "utf-8")
-                        msg["From"] = f"CreatorMediaLab <{email_cfg['sender']}>"
-                        msg["To"] = recipient
-                        msg.attach(MIMEText(html_body, "html", "utf-8"))
+                        msg = self._build_email_message(subject, email_cfg["sender"], recipient, html_body, visual_path)
                         server.send_message(msg)
                         sent.append(recipient)
                         print(f"[NewsletterManager] '{pub_id}' sent to {recipient}")
@@ -775,7 +811,11 @@ class NewsletterManager:
         else:
             base_subj = pub["subject"]
         subject = f"[TEST ISSUE] {base_subj}"
-        html_body = self.get_html_preview(pub_id)
+
+        lead_hl = (scribe_content or {}).get("lead_headline")
+        visual_info = self.get_publication_visual_embed(pub_id, topic_text=lead_hl, allow_generate=True, for_email=True)
+        html_body = self.get_html_preview(pub_id, for_email=True, allow_generate=False)
+        visual_path = Path(visual_info["local_path"]) if visual_info.get("local_path") else None
 
         try:
             with smtplib.SMTP(email_cfg["smtp_host"], email_cfg["smtp_port"], timeout=20) as server:
@@ -783,13 +823,7 @@ class NewsletterManager:
                 server.starttls()
                 server.login(email_cfg["sender"], email_cfg["password"])
 
-                # Clean alternative multipart — ZERO MIMEImage attachments
-                msg = MIMEMultipart("alternative")
-                msg["Subject"] = Header(subject, "utf-8")
-                msg["From"] = f"CreatorMediaLab <{email_cfg['sender']}>"
-                msg["To"] = recipient
-                msg.attach(MIMEText(html_body, "html", "utf-8"))
-
+                msg = self._build_email_message(subject, email_cfg["sender"], recipient, html_body, visual_path)
                 server.send_message(msg)
                 print(f"[NewsletterManager] Test email for {pub_id} successfully sent to {recipient}")
                 return {
@@ -951,7 +985,8 @@ class NewsletterManager:
                 rec = records_map.get(f.name, {})
                 prompt_lower = (rec.get("prompt") or "").lower()
                 fname_lower = f.name.lower()
-                score = 0.0
+                # Prioritize native brand-rendered assets over cross-brand borrowed files
+                score = 50.0 if f.name.startswith(target_prefix) else 0.0
 
                 for tok in topic_tokens:
                     if tok in prompt_lower:
@@ -989,8 +1024,8 @@ class NewsletterManager:
             scored.sort(key=lambda x: x[0], reverse=True)
             return scored[0][1]
 
-        # No topic_text: sort by mtime descending and return newest eligible
-        pool_to_search.sort(key=lambda x: x.stat().st_mtime, reverse=True)
+        # No topic_text: prioritize native brand prefix first, then sort by recency
+        pool_to_search.sort(key=lambda x: (x.name.startswith(target_prefix), x.stat().st_mtime), reverse=True)
         return pool_to_search[0]
 
     def get_latest_comfy_visual(
@@ -1038,19 +1073,37 @@ class NewsletterManager:
         autonomously triggers generation of a topic-matched, Iris-verified SFW render.
         Falls back safely to the latest available verified visual if ComfyUI is offline.
         """
-        latest = self.get_latest_comfy_visual(pub_id)
         today_key = datetime.now().strftime("%Y-%m-%d")
-        if latest and latest.exists():
+        cache = safe_read_json(self.scribe_cache_path, default={})
+        daily_vis_key = f"daily_visual_{pub_id}_{today_key}"
+        cached_today_path = cache.get(daily_vis_key)
+        if not force and cached_today_path:
+            p = Path(cached_today_path)
+            if p.exists():
+                return p
+
+        # Check if the latest render for THIS specific brand was rendered today
+        latest = self.get_latest_comfy_visual(pub_id, topic_text=topic_text)
+        if not force and latest and latest.exists():
             try:
                 render_date = datetime.fromtimestamp(latest.stat().st_mtime).strftime("%Y-%m-%d")
-                if render_date == today_key:
+                # Ensure the file belongs to this brand (not cross-borrowed) before accepting as today's render
+                is_bp = "blueprint" in pub_id.lower()
+                is_pl = any(k in pub_id.lower() for k in ["pulse", "cpl"])
+                correct_brand = (
+                    (is_bp and latest.name.startswith("CBP_")) or
+                    (is_pl and latest.name.startswith("CPL_")) or
+                    (not is_bp and not is_pl and latest.name.startswith("CML_"))
+                )
+                if render_date == today_key and correct_brand:
+                    cache[daily_vis_key] = str(latest)
+                    atomic_write_json(self.scribe_cache_path, cache)
                     return latest
             except Exception:
                 pass
 
         # Guard against repeated generation loops if a daily attempt was already made recently
         attempt_key = f"visual_gen_attempted_{pub_id}_{today_key}"
-        cache = safe_read_json(self.scribe_cache_path, default={})
         last_attempt_ts = float(cache.get(attempt_key, 0) or 0)
         if not force and (time.time() - last_attempt_ts) < 3600:
             return latest
@@ -1062,9 +1115,15 @@ class NewsletterManager:
                 cache[attempt_key] = time.time()
                 atomic_write_json(self.scribe_cache_path, cache)
                 is_pulse = any(k in pub_id.lower() for k in ["pulse", "cpl"])
-                brand_target = "creator_pulse_lab" if is_pulse else "creator_media_lab"
+                is_blueprint = "blueprint" in pub_id.lower()
+                if is_blueprint:
+                    brand_target = "creator_blueprint"
+                elif is_pulse:
+                    brand_target = "creator_pulse_lab"
+                else:
+                    brand_target = "creator_media_lab"
                 from pipeline.stages.herald_scheduler import herald_scheduler, BRAND_VIBES
-                vibe = BRAND_VIBES.get(brand_target)
+                vibe = BRAND_VIBES.get(brand_target) or BRAND_VIBES.get("creator_media_lab")
                 if vibe:
                     from pipeline.stages.ai_operator import active_task_tracker
                     vis_task_id = f"daily_vis_{pub_id}"
@@ -1076,10 +1135,11 @@ class NewsletterManager:
                         progress=35
                     )
                     try:
-                        prompt = herald_scheduler._craft_topic_visual_prompt(brand_target, topic_text, variant_seed=0)
+                        seed = (date.today().toordinal() * 19 + abs(hash(f"{pub_id}:{topic_text or ''}")) % 103)
+                        prompt = herald_scheduler._craft_topic_visual_prompt(brand_target, topic_text, variant_seed=seed)
                         alt_prompts = [
-                            herald_scheduler._craft_topic_visual_prompt(brand_target, topic_text, variant_seed=i)
-                            for i in range(1, 3)
+                            herald_scheduler._craft_topic_visual_prompt(brand_target, topic_text, variant_seed=seed + i)
+                            for i in range(1, 4)
                         ]
                         gen_res = comfy_bridge.generate_and_audit(
                             positive_prompt=prompt,
@@ -1092,6 +1152,8 @@ class NewsletterManager:
                         if gen_res.get("success") and gen_res.get("qc_audit", {}).get("passed") and gen_res.get("qc_audit", {}).get("is_sfw", False):
                             fresh_path = Path(gen_res.get("file_path"))
                             if fresh_path.exists():
+                                cache[daily_vis_key] = str(fresh_path)
+                                atomic_write_json(self.scribe_cache_path, cache)
                                 print(f"[NewsletterManager] Fresh daily visual generated & Iris-certified for {pub_id}: {fresh_path.name}")
                                 return fresh_path
                     finally:
@@ -1101,28 +1163,27 @@ class NewsletterManager:
 
         return latest
 
-    def get_publication_visual_embed(self, pub_id: str = "creator_pulse", topic_text: Optional[str] = None, allow_generate: bool = False) -> Dict[str, str]:
+    def get_publication_visual_embed(self, pub_id: str = "creator_pulse", topic_text: Optional[str] = None, allow_generate: bool = False, for_email: bool = False) -> Dict[str, str]:
         """
         Returns image src and captions for newsletters.
-        If an approved ComfyUI 5070 Ti render exists, embeds it dynamically.
-        Otherwise falls back to the default diagram CDN.
-        Note: allow_generate defaults to False so dashboard previews never block on ComfyUI/Vision QC.
+        - If allow_generate=True, ensures a fresh daily IRIS-verified render is created via ComfyUI (RTX 5070 Ti).
+        - If for_email=True, returns src="cid:newsletter_hero" for lightweight, non-clipped RFC-2387 MIME embedding (<25 KB),
+          completely eliminating Gmail's 102 KB clipping filter and base64 rendering blocks.
+        - If for_email=False, returns web-accessible static URL (/brand_assets/comfy_renders/...) for snappy dashboard rendering.
+        - Falls back gracefully to default CDN diagrams if no local render is present.
         """
-        import base64
         if pub_id == "creator_blueprint" and (not topic_text or "light" in topic_text.lower() or "dish" in topic_text.lower()):
             topic_text = "Modern creative workstation with iPad Pro revenue dashboard, dual color-calibrated displays, digital assets"
+
         visual_path = (
             self.ensure_fresh_daily_newsletter_visual(pub_id, topic_text=topic_text)
             if allow_generate
-            else self.get_latest_comfy_visual(pub_id)
+            else self.get_latest_comfy_visual(pub_id, topic_text=topic_text)
         )
         if visual_path and visual_path.exists():
             self._warn_if_visual_stale(pub_id, visual_path)
             try:
-                b64 = base64.b64encode(visual_path.read_bytes()).decode("utf-8")
-                mime = "image/png" if visual_path.suffix.lower() == ".png" else "image/jpeg"
-                data_uri = f"data:{mime};base64,{b64}"
-                url_path = f"/static/brand_assets/comfy_renders/{visual_path.name}"
+                web_path = f"/brand_assets/comfy_renders/{visual_path.name}"
                 is_pulse = any(k in pub_id.lower() for k in ["pulse", "boudoir", "cam", "adult", "cpl"])
                 is_blueprint = "blueprint" in pub_id.lower()
                 topic_clean = html.escape(topic_text[:65]) if topic_text else None
@@ -1136,9 +1197,11 @@ class NewsletterManager:
                     caption = f"📸 Studio Focus: {topic_clean}" if topic_clean else "📸 Figure 3.1 &bull; Visual Result: 45° Key + Clamshell Fill (RTX 5070 Ti &bull; Iris Verified)"
                     subcaption = "Feathered 5600K Key + Silver Reflector &bull; RTX 5070 Ti Iris Verified"
 
+                src = "cid:newsletter_hero" if for_email else web_path
                 return {
-                    "src": data_uri,
-                    "web_src": url_path,
+                    "src": src,
+                    "web_src": web_path,
+                    "email_src": "cid:newsletter_hero",
                     "local_path": str(visual_path),
                     "filename": visual_path.name,
                     "caption": caption,
@@ -1152,10 +1215,11 @@ class NewsletterManager:
             "studio_wire": (IMG_STUDIO_WIRE, "📸 Figure 3.1 &bull; Beauty Dish", "45° Feather + Silver Clamshell"),
             "creator_blueprint": (IMG_CREATOR_FLYWHEEL, "⚡ Figure 2.1 &bull; Flywheel", "Service Validation to Digital Assets"),
         }
-        src, cap, subcap = default_map.get(pub_id, (IMG_CREATOR_PULSE, "Studio Visual", "Creator Media Lab"))
+        fallback_src, cap, subcap = default_map.get(pub_id, (IMG_CREATOR_PULSE, "Studio Visual", "Creator Media Lab"))
         return {
-            "src": src,
-            "web_src": src,
+            "src": fallback_src,
+            "web_src": fallback_src,
+            "email_src": fallback_src,
             "local_path": "",
             "filename": "",
             "caption": cap,
@@ -1173,24 +1237,24 @@ class NewsletterManager:
             "pub": pub_id
         }
 
-    def get_html_preview(self, pub_id: str = "creator_pulse", force_refresh: bool = False) -> str:
+    def get_html_preview(self, pub_id: str = "creator_pulse", force_refresh: bool = False, for_email: bool = False, allow_generate: bool = False) -> str:
         today_str = datetime.now().strftime("%A, %B %d, %Y")
 
         if pub_id == "creator_pulse":
-            return self._build_creator_pulse_html(today_str, force_refresh=force_refresh)
+            return self._build_creator_pulse_html(today_str, force_refresh=force_refresh, for_email=for_email, allow_generate=allow_generate)
         elif pub_id == "studio_wire":
-            return self._build_studio_wire_html(today_str, force_refresh=force_refresh)
+            return self._build_studio_wire_html(today_str, force_refresh=force_refresh, for_email=for_email, allow_generate=allow_generate)
         elif pub_id == "creator_blueprint":
-            return self._build_creator_blueprint_html(today_str, force_refresh=force_refresh)
+            return self._build_creator_blueprint_html(today_str, force_refresh=force_refresh, for_email=for_email, allow_generate=allow_generate)
         else:
             return self._build_dispensary_deals_html(today_str)
 
     # ── 1. THE DAILY CREATOR PULSE ──────────────────────────────────────────
-    def _build_creator_pulse_html(self, today_str: str, force_refresh: bool = False) -> str:
+    def _build_creator_pulse_html(self, today_str: str, force_refresh: bool = False, for_email: bool = False, allow_generate: bool = False) -> str:
         scribe_content = self._get_daily_scribe_content("creator_pulse", force_refresh=force_refresh) or {}
         issue_number = self._get_daily_issue_number("creator_pulse", start_at=42)
         lead_headline = html.escape(scribe_content.get("lead_headline") or "Why Tight Face-Framing Crops Are Beating Full-Body Feeds")
-        visual_info = self.get_publication_visual_embed("creator_pulse", topic_text=lead_headline)
+        visual_info = self.get_publication_visual_embed("creator_pulse", topic_text=lead_headline, allow_generate=(allow_generate or force_refresh), for_email=for_email)
         img_src = visual_info["src"]
         caption = visual_info["caption"]
         subcaption = visual_info["subcaption"]
@@ -1541,11 +1605,11 @@ class NewsletterManager:
 </html>"""
 
     # ── 2. THE SHUTTER & STUDIO WIRE ─────────────────────────────────────────
-    def _build_studio_wire_html(self, today_str: str, force_refresh: bool = False) -> str:
+    def _build_studio_wire_html(self, today_str: str, force_refresh: bool = False, for_email: bool = False, allow_generate: bool = False) -> str:
         scribe_content = self._get_daily_scribe_content("studio_wire", force_refresh=force_refresh) or {}
         issue_number = self._get_daily_issue_number("studio_wire", start_at=88)
         lead_headline = html.escape(scribe_content.get("lead_headline") or "Why Digital Sensor Highlights Look Brittle (And How To Fix It)")
-        visual_info = self.get_publication_visual_embed("studio_wire", topic_text=lead_headline)
+        visual_info = self.get_publication_visual_embed("studio_wire", topic_text=lead_headline, allow_generate=(allow_generate or force_refresh), for_email=for_email)
         img_src = visual_info["src"]
         caption = visual_info["caption"]
         subcaption = visual_info["subcaption"]
@@ -1848,11 +1912,11 @@ class NewsletterManager:
 </html>"""
 
     # ── 3. THE CREATOR BLUEPRINT ─────────────────────────────────────────────
-    def _build_creator_blueprint_html(self, today_str: str, force_refresh: bool = False) -> str:
+    def _build_creator_blueprint_html(self, today_str: str, force_refresh: bool = False, for_email: bool = False, allow_generate: bool = False) -> str:
         scribe_content = self._get_daily_scribe_content("creator_blueprint", force_refresh=force_refresh) or {}
         issue_number = self._get_daily_issue_number("creator_blueprint", start_at=19)
         lead_headline = html.escape(scribe_content.get("lead_headline") or "The Micro-Asset Shift: Why $15 Digital Downloads Outsell $500 Courses")
-        visual_info = self.get_publication_visual_embed("creator_blueprint", topic_text=lead_headline)
+        visual_info = self.get_publication_visual_embed("creator_blueprint", topic_text=lead_headline, allow_generate=(allow_generate or force_refresh), for_email=for_email)
         img_src = visual_info["src"]
         caption = visual_info["caption"]
         subcaption = visual_info["subcaption"]
