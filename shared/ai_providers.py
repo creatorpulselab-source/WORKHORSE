@@ -49,6 +49,62 @@ def is_ai_error_response(text: str) -> bool:
     return stripped.startswith('{"passed": false, "error": "Vision QC timed out')
 
 
+def parse_llm_json(raw_text: str) -> Optional[Dict[str, Any]]:
+    """
+    Robustly parses a JSON object from LLM output, stripping <think> blocks,
+    markdown fences, and repairing unescaped newlines/control characters inside strings.
+    """
+    if not isinstance(raw_text, str) or is_ai_error_response(raw_text):
+        return None
+    import re
+    cleaned = re.sub(r"<think>.*?</think>", "", raw_text, flags=re.DOTALL).strip()
+    cleaned = cleaned.replace("```json", "").replace("```", "").strip()
+    start = cleaned.find("{")
+    end = cleaned.rfind("}")
+    if start == -1 or end == -1 or end <= start:
+        return None
+    candidate = cleaned[start : end + 1]
+    try:
+        obj = json.loads(candidate)
+        return obj if isinstance(obj, dict) else None
+    except Exception:
+        pass
+    # Repair unescaped literal newlines/tabs inside JSON string literals
+    in_str = False
+    esc = False
+    repaired_chars: List[str] = []
+    for ch in candidate:
+        if esc:
+            repaired_chars.append(ch)
+            esc = False
+            continue
+        if ch == "\\":
+            repaired_chars.append(ch)
+            esc = True
+            continue
+        if ch == '"':
+            in_str = not in_str
+            repaired_chars.append(ch)
+            continue
+        if in_str and ch == "\n":
+            repaired_chars.append("\\n")
+            continue
+        if in_str and ch == "\r":
+            continue
+        if in_str and ch == "\t":
+            repaired_chars.append("\\t")
+            continue
+        repaired_chars.append(ch)
+    repaired = "".join(repaired_chars)
+    # Remove trailing commas before } or ]
+    repaired = re.sub(r",\s*([}\]])", r"\1", repaired)
+    try:
+        obj = json.loads(repaired)
+        return obj if isinstance(obj, dict) else None
+    except Exception:
+        return None
+
+
 class AIProviderService:
     def __init__(self, config_path: str = "F:/WORKHORSE/config.json"):
         self.config_path = Path(config_path)
@@ -91,16 +147,30 @@ class AIProviderService:
             with open(img_path, "rb") as f:
                 return base64.b64encode(f.read()).decode("utf-8")
 
-    def call_ollama_text(self, prompt: str, system_prompt: str = "", model: Optional[str] = None, num_ctx: int = 8192) -> str:
+    def call_ollama_text(
+        self,
+        prompt: str,
+        system_prompt: str = "",
+        model: Optional[str] = None,
+        num_ctx: int = 8192,
+        num_predict: int = 4096,
+        temperature: float = 0.75,
+        json_mode: bool = False,
+        timeout: int = 150,
+    ) -> str:
+        import re
         url = f"{self.get_ollama_url()}/api/generate"
         active_model = model or self.get_text_model()
 
-        # Dynamic Pre-Flight Block Swap on GPU 0
-        vram_manager.prepare_for_model(active_model)
+        # Dynamic Pre-Flight Block Swap on GPU 0 (pass matching num_ctx to avoid double model load)
+        try:
+            vram_manager.prepare_for_model(active_model, num_ctx=num_ctx)
+        except TypeError:
+            vram_manager.prepare_for_model(active_model)
 
         effective_system = f"/no_think\n{system_prompt}" if system_prompt else "/no_think"
 
-        payload = {
+        payload: Dict[str, Any] = {
             "model": active_model,
             "prompt": prompt,
             "system": effective_system,
@@ -108,11 +178,15 @@ class AIProviderService:
             "keep_alive": "5m",
             "think": False,
             "options": {
-                "temperature": 0.7,
+                "temperature": temperature,
                 "top_p": 0.9,
-                "num_ctx": num_ctx
+                "num_ctx": num_ctx,
+                "num_predict": num_predict,
             }
         }
+        if json_mode:
+            payload["format"] = "json"
+
         tracker = None
         task_id = f"ollama_text_{int(os.getpid())}"
         try:
@@ -127,14 +201,18 @@ class AIProviderService:
         except Exception:
             tracker = None
         try:
-            resp = requests.post(url, json=payload, timeout=90)
+            resp = requests.post(url, json=payload, timeout=timeout)
             if resp.status_code == 200:
                 text = resp.json().get("response", "").strip()
+                if "<think>" in text:
+                    text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
                 if not text:
                     print(f"[AI PROVIDER] {active_model} returned an empty response (likely consumed its budget on hidden 'thinking') - retrying once with thinking suppressed.")
-                    resp_retry = requests.post(url, json=payload, timeout=90)
+                    resp_retry = requests.post(url, json=payload, timeout=timeout)
                     if resp_retry.status_code == 200:
                         text = resp_retry.json().get("response", "").strip()
+                        if "<think>" in text:
+                            text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
                 return text
 
             # Check for memory / OOM error: Self-Healing Retry
@@ -142,9 +220,12 @@ class AIProviderService:
             if "memory" in err_text or "out of memory" in err_text or resp.status_code == 500:
                 print(f"[AI PROVIDER] Memory warning from Ollama ({resp.status_code}). Triggering emergency VRAM purge & retry...")
                 vram_manager.purge_vram(reason="emergency_oom_retry")
-                resp_retry = requests.post(url, json=payload, timeout=90)
+                resp_retry = requests.post(url, json=payload, timeout=timeout)
                 if resp_retry.status_code == 200:
-                    return resp_retry.json().get("response", "").strip()
+                    text = resp_retry.json().get("response", "").strip()
+                    if "<think>" in text:
+                        text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
+                    return text
 
             return f"Error from Local Ollama: HTTP {resp.status_code} - {resp.text}"
         except Exception as e:

@@ -715,6 +715,7 @@ class HeraldScheduler:
         if self.state.get("last_date") != today_str:
             self.state["last_date"] = today_str
             self.state["executed_slots"] = []
+            self.state["slot_accounts_succeeded_today"] = {}
             self.state["newsletters_sent_today"] = False
             self.state["radar_sweep_done_today"] = False
             self.state["studio_wire_sent_today"] = False
@@ -804,6 +805,51 @@ class HeraldScheduler:
 
         return optimized
 
+    def _generate_non_duplicate_thread(self, handle: str, slot_id: str) -> Optional[List[str]]:
+        """Synthesizes a fresh, non-duplicate thread on demand when a slot's candidate thread
+        collides with recent 7-day tweet history."""
+        try:
+            from pipeline.stages.trend_researcher import trend_researcher
+            from shared.ai_providers import AIProviderService, parse_llm_json
+            is_pulse = "pulse" in handle.lower()
+            pub_id = "creator_pulse" if is_pulse else "studio_wire"
+            if slot_id == "slot_1_morning":
+                refreshed = self.newsletter._get_daily_scribe_content(pub_id, auto_generate=True, force_refresh=True)
+                cand = (refreshed or {}).get("tweet_thread")
+                if cand and isinstance(cand, list) and not self.twitter._is_duplicate_tweet(cand[0]):
+                    return cand
+
+            articles = trend_researcher.get_research_articles_for_pub(pub_id)
+            if not articles:
+                vault = trend_researcher.run_daily_radar_sweep()
+                articles = trend_researcher.get_research_articles_for_pub(pub_id)
+            recent_snips = trend_researcher._get_recent_tweet_snippets(limit=15)
+            ai = AIProviderService(str(self.config_path))
+            niche_desc = (
+                "creator economy monetization, audience retention, and digital product funnels (#CreatorEconomy #Monetization)"
+                if is_pulse
+                else "commercial studio photography, RAW color grading, and lighting setups (#StudioPhotography #ColorGrading)"
+            )
+            prompt = f"""Write a brand-new, high-authority 3-tweet educational thread for @{handle} ({niche_desc}) for slot {slot_id} on {date.today().isoformat()}.
+Ground it in one of these current industry articles:
+{json.dumps(articles[:4], indent=2)}
+
+DO NOT repeat or resemble any of these recently posted hooks:
+{json.dumps(recent_snips[:12], indent=2)}
+
+Rules:
+- 100% Safe For Work (SFW), plain text only (no ** markdown), under 250 characters per tweet.
+- Tweet 1 starts with "1/3 ", Tweet 2 starts with "2/3 ", Tweet 3 starts with "3/3 ".
+- Return valid JSON: {{"tweets": ["1/3 ...", "2/3 ...", "3/3 ..."]}}
+"""
+            raw = ai.call_ollama_text(prompt, system_prompt="Return valid JSON only.", json_mode=True, num_predict=1024)
+            parsed = parse_llm_json(raw)
+            if parsed and isinstance(parsed.get("tweets"), list) and len(parsed["tweets"]) >= 2:
+                return [str(t).strip() for t in parsed["tweets"] if str(t).strip()]
+        except Exception as e:
+            print(f"[Herald Scheduler] On-demand non-duplicate synthesis notice for @{handle}: {e}")
+        return None
+
     def dispatch_slot(self, slot_id: str) -> Dict[str, Any]:
         """Execute a specific tweet slot across both Twitter accounts."""
         self._check_day_rollover()
@@ -836,22 +882,34 @@ class HeraldScheduler:
                 from pipeline.stages.trend_researcher import trend_researcher
                 vault = trend_researcher.load_vault()
                 if vault.get("today_date") != str(date.today()):
-                    print(f"[Herald Scheduler] Trend vault is stale (today_date={vault.get('today_date')!r}, expected {date.today()}) - using static content for {slot_id}.")
-                else:
-                    daily_synth = vault.get("daily_synthesis", {})
-                    dynamic_slots = daily_synth.get("daily_slots", {})
-                    if slot_id in dynamic_slots:
-                        dyn = dynamic_slots[slot_id]
-                        for handle, dyn_tweets in dyn.items():
-                            if dyn_tweets and len(dyn_tweets) > 0:
-                                tweets_dict[handle] = dyn_tweets
-                                print(f"[Herald Scheduler] Using dynamic trending tweets for @{handle} in {slot_id}")
+                    print(f"[Herald Scheduler] Trend vault is stale (today_date={vault.get('today_date')!r}, expected {date.today()}) - triggering live radar sweep now for {slot_id}...")
+                    vault = trend_researcher.run_daily_radar_sweep()
+                daily_synth = vault.get("daily_synthesis", {})
+                dynamic_slots = daily_synth.get("daily_slots", {})
+                if slot_id in dynamic_slots:
+                    dyn = dynamic_slots[slot_id]
+                    for handle, dyn_tweets in dyn.items():
+                        if dyn_tweets and len(dyn_tweets) > 0:
+                            tweets_dict[handle] = dyn_tweets
+                            print(f"[Herald Scheduler] Using dynamic trending tweets for @{handle} in {slot_id}")
             except Exception as e:
                 print(f"[Herald Scheduler] Error reading dynamic tweets from vault: {e}")
 
+        slot_done_map = self.state.setdefault("slot_accounts_succeeded_today", {})
+        already_done_handles = set(slot_done_map.get(slot_id, []) or [])
+
         all_succeeded = True
         for handle, tweets in tweets_dict.items():
+            if handle in already_done_handles:
+                results["accounts"][handle] = {"success": True, "already_posted_today": True, "handle": handle}
+                print(f"[Herald Scheduler] Skipping @{handle} for {slot_id} (already succeeded earlier today).")
+                continue
             if tweets:
+                if self.twitter._is_duplicate_tweet(tweets[0]):
+                    print(f"[Herald Scheduler] Candidate root tweet for @{handle} in {slot_id} matched recent 7-day history — generating fresh replacement thread...")
+                    fresh_tweets = self._generate_non_duplicate_thread(handle, slot_id)
+                    if fresh_tweets:
+                        tweets = fresh_tweets
                 # STRICT 100% SFW TEXT FIREWALL: All external social posts must be SFW on all platforms
                 sanitized_tweets = []
                 for t in tweets:
@@ -896,7 +954,10 @@ class HeraldScheduler:
 
                     post_res = self.twitter.post_thread(handle, tweets, media_paths=media_paths)
                     results["accounts"][handle] = post_res
-                    if not post_res.get("success"):
+                    if post_res.get("success"):
+                        already_done_handles.add(handle)
+                        slot_done_map[slot_id] = sorted(already_done_handles)
+                    else:
                         all_succeeded = False
                     print(f"[Herald Scheduler] Posted {slot_id} to @{handle} (media={bool(media_paths)}): {post_res.get('success')}")
                 except Exception as e:

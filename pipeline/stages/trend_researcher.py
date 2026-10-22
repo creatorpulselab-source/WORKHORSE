@@ -8,23 +8,114 @@ for @TheCreatorAsset & @creatorpulselab tweets and daily newsletters.
 import os
 import sys
 import json
+import gzip
 import re
+import html as _html
 import urllib.request
 import urllib.parse
 import xml.etree.ElementTree as ET
+from email.utils import parsedate_to_datetime
 from html.parser import HTMLParser
 from pathlib import Path
-from datetime import datetime, date
-from typing import Dict, Any, List, Optional
+from datetime import datetime, date, timedelta, timezone
+from typing import Dict, Any, List, Optional, Set
 
 sys.path.insert(0, "F:/WORKHORSE")
-from shared.ai_providers import AIProviderService
+from shared.ai_providers import AIProviderService, parse_llm_json
 
 VAULT_FILE = Path("F:/WORKHORSE/workspace/daily_trends_vault.json")
 OPPORTUNITIES_VAULT = Path("F:/WORKHORSE/workspace/market_opportunities_vault.json")
+TWEET_HISTORY_FILE = Path("F:/WORKHORSE/workspace/tweet_history.json")
+SCRIBE_CACHE_FILE = Path("F:/WORKHORSE/workspace/scribe_daily_content.json")
 CACHE_DIR = Path("F:/WORKHORSE/workspace/research_vault")
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
 VAULT_FILE.parent.mkdir(parents=True, exist_ok=True)
+
+# Direct industry RSS feeds with full article summaries and daily publication cadence
+DIRECT_RSS_FEEDS: Dict[str, List[Dict[str, str]]] = {
+    "photo": [
+        {"name": "PetaPixel", "url": "https://petapixel.com/feed/"},
+        {"name": "Fstoppers", "url": "https://fstoppers.com/feed"},
+        {"name": "DIYPhotography", "url": "https://www.diyphotography.net/feed/"},
+    ],
+}
+
+# Relevance filter for direct photo RSS feeds so general/archaeology/politics news is skipped
+PHOTO_RELEVANCE_KEYWORDS = (
+    "portrait", "lighting", "lightroom", "photoshop", "color", "grading", "retouch",
+    "studio", "softbox", "strobe", "flash", "lens", "prime", "50mm", "85mm", "35mm",
+    "24-70", "aperture", "sensor", "dynamic range", "raw", "workflow", "preset",
+    "camera", "canon", "sony", "nikon", "fujifilm", "leica", "sigma", "tamron",
+    "hasselblad", "medium format", "exposure", "iso", "shutter", "bokeh", "skin tone",
+    "capture one", "davinci", "lut", "video", "cinema", "autofocus", "mirrorless",
+)
+
+OFF_BRAND_NOISE_KEYWORDS = (
+    "dinosaur", "fossil", "katrina", "looting", "murder", "arrest", "prison",
+    "lawsuit", "Obituary", "obituary", "died", "passes away", "warzone", "military",
+    "ukraine", "gaza", "election", "trump", "biden", "parliament", "germany",
+)
+
+# Crisp 3-4 word rotating daily query pools so Google News RSS (when:7d) returns rich, relevant results
+PHOTO_QUERY_POOL = [
+    "portrait photography lighting",
+    "Lightroom color grading",
+    "studio photography flash",
+    "camera lens portrait review",
+    "photo editing workflow AI",
+    "mirrorless camera sensor photography",
+    "commercial photography retouching",
+    "fujifilm film simulation recipe",
+    "portrait photographer business pricing",
+    "cinematic lighting setup video",
+    "RAW photo editing tips",
+    "studio strobe softbox portrait",
+]
+
+CREATOR_QUERY_POOL = [
+    "creator economy monetization",
+    "YouTube TikTok creator revenue",
+    "Substack newsletter creator growth",
+    "Patreon membership creator economy",
+    "short form video algorithm reach",
+    "influencer marketing creator brand",
+    "social media engagement strategy",
+    "podcast newsletter monetization",
+    "independent creator business revenue",
+    "Instagram Reels creator retention",
+    "creator superfan community app",
+    "digital creator sponsorship pricing",
+]
+
+BUSINESS_QUERY_POOL = [
+    "Etsy digital products seller",
+    "digital download passive income",
+    "freelance designer AI workflow",
+    "Gumroad Shopify digital products",
+    "email newsletter monetization business",
+    "creative studio automation workflow",
+    "print on demand Etsy trends",
+    "online course vs digital templates",
+    "solopreneur digital product launch",
+    "link in bio storefront conversion",
+    "Lightroom presets digital business",
+    "micro SaaS creator tools",
+]
+
+# Overused legacy article tokens that were previously stuck in daily_trends_vault.json
+STALE_LEGACY_PATTERNS = (
+    "audrey woulard",
+    "lightroom classic 15.3",
+    "iphone portrait mode",
+    "wayshot launches",
+    "how to make money on facebook",
+    "always-on fandom",
+    "deloitte's 2026 digital media",
+    "2026 digital media trends",
+    "asia pacific creator economy",
+    "asia pacific's creator economy",
+    "power brokers' predictions",
+)
 
 
 class TextExtractor(HTMLParser):
@@ -65,48 +156,273 @@ class TrendResearchAgent:
         self.cache_dir = CACHE_DIR
         self.vault_file = VAULT_FILE
 
-    def search_live_trends(self, query: str, max_results: int = 5) -> List[Dict[str, str]]:
+    @staticmethod
+    def _normalize_title_key(title: str) -> str:
+        """Normalizes an article title into a compact lowercase deduplication key."""
+        cleaned = re.sub(r"[^a-z0-9\s]", " ", (title or "").lower())
+        tokens = [w for w in cleaned.split() if len(w) > 2]
+        return " ".join(tokens[:10])
+
+    @staticmethod
+    def _title_word_set(text: str) -> Set[str]:
+        stop = {
+            "the", "and", "for", "with", "that", "this", "from", "your", "how",
+            "why", "what", "are", "was", "were", "have", "has", "had", "into",
+            "new", "more", "over", "after", "before", "about", "2025", "2026",
+        }
+        words = re.findall(r"[a-z0-9]{3,}", (text or "").lower())
+        return {w for w in words if w not in stop}
+
+    def _get_excluded_topic_keys(self, vault: Optional[Dict[str, Any]] = None) -> Set[str]:
+        """
+        Builds a set of normalized article keys from the rolling 21-day seen_articles
+        log, previous vault articles, and recent newsletter headlines so the same
+        article or news story is never repeated day after day.
+        """
+        if vault is None:
+            vault = self.load_vault()
+        excluded: Set[str] = set()
+        today_dt = date.today()
+
+        # 1. Rolling seen_articles dict from vault (keep up to 21 days)
+        seen_map = vault.get("seen_articles", {})
+        if isinstance(seen_map, dict):
+            for k, seen_date_str in list(seen_map.items()):
+                try:
+                    d_str = str(seen_date_str)[:10]
+                    # Only exclude articles seen on PREVIOUS days so same-day re-runs still work cleanly
+                    if d_str != today_dt.isoformat():
+                        age_days = (today_dt - date.fromisoformat(d_str)).days
+                        if age_days <= 21:
+                            excluded.add(k)
+                except Exception:
+                    pass
+
+        # 2. If vault currently holds articles from a previous date, mark them seen
+        if vault.get("today_date") != today_dt.isoformat():
+            for list_key in ("photo_articles", "creator_articles", "business_articles"):
+                for art in vault.get(list_key, []) or []:
+                    if isinstance(art, dict) and art.get("title"):
+                        excluded.add(self._normalize_title_key(art["title"]))
+
+        # 3. Also check recent newsletter lead headlines from previous days
+        scribe_cache = safe_read_json(SCRIBE_CACHE_FILE, default={})
+        if isinstance(scribe_cache, dict):
+            for pub_id in ("creator_pulse", "studio_wire", "creator_blueprint"):
+                entry = scribe_cache.get(pub_id)
+                if isinstance(entry, dict) and entry.get("date") != today_dt.isoformat():
+                    hl = (entry.get("content") or {}).get("lead_headline", "")
+                    if hl:
+                        excluded.add(self._normalize_title_key(hl))
+
+        return excluded
+
+    def _is_article_stale_or_seen(
+        self,
+        title: str,
+        published_str: str,
+        excluded_keys: Set[str],
+        max_age_days: int = 14,
+    ) -> bool:
+        """Returns True if an article matches known stale legacy topics, off-brand noise,
+        is older than max_age_days, or overlaps heavily with an already-seen article."""
+        t_lower = (title or "").lower().strip()
+        if not t_lower:
+            return True
+        if any(pat in t_lower for pat in STALE_LEGACY_PATTERNS):
+            return True
+        if any(noise in t_lower for noise in OFF_BRAND_NOISE_KEYWORDS):
+            return True
+
+        norm_key = self._normalize_title_key(title)
+        if norm_key in excluded_keys:
+            return True
+
+        # Check word overlap against excluded keys (>= 65% overlap on 4+ significant words)
+        t_words = self._title_word_set(title)
+        if len(t_words) >= 4:
+            for ex_key in excluded_keys:
+                ex_words = self._title_word_set(ex_key)
+                if len(ex_words) >= 4:
+                    overlap = len(t_words & ex_words) / float(min(len(t_words), len(ex_words)))
+                    if overlap >= 0.65:
+                        return True
+
+        # Check publication date recency when available
+        if published_str:
+            try:
+                pub_dt = parsedate_to_datetime(published_str)
+                if pub_dt.tzinfo is None:
+                    pub_dt = pub_dt.replace(tzinfo=timezone.utc)
+                now_dt = datetime.now(timezone.utc)
+                age_days = (now_dt - pub_dt).total_seconds() / 86400.0
+                if age_days > max_age_days:
+                    return True
+            except Exception:
+                pass
+
+        return False
+
+    def fetch_direct_rss_articles(
+        self,
+        niche: str,
+        max_results: int = 4,
+        excluded_keys: Optional[Set[str]] = None,
+    ) -> List[Dict[str, str]]:
+        """
+        Pulls fresh, on-brand studio/gear/editing articles directly from industry RSS feeds
+        (PetaPixel, Fstoppers, DIYPhotography) which include full multi-sentence descriptions.
+        """
+        feeds = DIRECT_RSS_FEEDS.get(niche, [])
+        if not feeds:
+            return []
+        excluded = excluded_keys if excluded_keys is not None else set()
+        collected: List[Dict[str, str]] = []
+        cur_month = date.today().month
+
+        for feed_info in feeds:
+            feed_name = feed_info["name"]
+            feed_url = feed_info["url"]
+            req = urllib.request.Request(
+                feed_url,
+                headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+            )
+            try:
+                with urllib.request.urlopen(req, timeout=10) as resp:
+                    raw_bytes = resp.read()
+                    if raw_bytes[:2] == b"\x1f\x8b":
+                        raw_bytes = gzip.decompress(raw_bytes)
+                    root = ET.fromstring(raw_bytes)
+                    items = root.findall(".//item")
+                    per_feed_count = 0
+                    for it in items:
+                        if per_feed_count >= 2 or len(collected) >= max_results:
+                            break
+                        title = _html.unescape(it.find("title").text or "").strip() if it.find("title") is not None else ""
+                        link = (it.find("link").text or "").strip() if it.find("link") is not None else ""
+                        pub = (it.find("pubDate").text or "").strip() if it.find("pubDate") is not None else ""
+                        desc = (it.find("description").text or "").strip() if it.find("description") is not None else ""
+                        if not title:
+                            continue
+                        if cur_month not in (1, 2) and "valentine" in title.lower():
+                            continue
+                        if self._is_article_stale_or_seen(title, pub, excluded, max_age_days=10):
+                            continue
+
+                        clean_desc = _html.unescape(re.sub(r"<[^>]+>", " ", desc)).replace("\xa0", " ")
+                        clean_desc = re.sub(r"\s+", " ", clean_desc).strip()
+                        clean_desc = re.sub(r"The post .*? appeared first on .*?$", "", clean_desc, flags=re.IGNORECASE).strip()
+
+                        # Ensure photography RSS items are genuinely about gear, lighting, editing, or studio craft
+                        combined_lower = f"{title} {clean_desc}".lower()
+                        if niche == "photo" and not any(kw in combined_lower for kw in PHOTO_RELEVANCE_KEYWORDS):
+                            continue
+
+                        if len(clean_desc) > 320:
+                            clean_desc = clean_desc[:317].rsplit(" ", 1)[0] + "..."
+                        if not clean_desc or len(clean_desc) < 25:
+                            clean_desc = f"{title} — reported by {feed_name}."
+
+                        norm_k = self._normalize_title_key(title)
+                        excluded.add(norm_k)
+                        collected.append({
+                            "title": title,
+                            "snippet": clean_desc,
+                            "publisher": feed_name,
+                            "url": link,
+                            "published": pub,
+                            "raw_title": f"{title} - {feed_name}",
+                        })
+                        per_feed_count += 1
+            except Exception as e:
+                print(f"[TrendAgent] Direct RSS notice for {feed_name}: {e}")
+
+        return collected
+
+    def search_live_trends(
+        self,
+        query: str,
+        max_results: int = 5,
+        when_window: Optional[str] = "7d",
+        excluded_keys: Optional[Set[str]] = None,
+    ) -> List[Dict[str, str]]:
         """
         Fast, zero-rate-limit Google News RSS search for breaking creator economy,
-        photography, and monetization news.
+        photography, and monetization news. Applies recency filtering (when:7d -> when:30d)
+        and deduplicates against previously seen articles.
         """
-        encoded = urllib.parse.quote_plus(query)
-        url = f"https://news.google.com/rss/search?q={encoded}&hl=en-US&gl=US&ceid=US:en"
-        req = urllib.request.Request(
-            url,
-            headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
-        )
-        results = []
-        try:
-            with urllib.request.urlopen(req, timeout=10) as resp:
-                root = ET.fromstring(resp.read())
-                items = root.findall(".//item")
-                import html as _html
-                cur_month = date.today().month
-                for it in items:
-                    if len(results) >= max_results:
-                        break
-                    title = _html.unescape(it.find("title").text).strip() if it.find("title") is not None and it.find("title").text else ""
-                    link = it.find("link").text if it.find("link") is not None else ""
-                    pub = it.find("pubDate").text if it.find("pubDate") is not None else ""
-                    desc = it.find("description").text if it.find("description") is not None else ""
-                    # Filter off-season holiday noise (e.g., Valentine's Day in October)
-                    if cur_month not in (1, 2) and "valentine" in title.lower():
-                        continue
-                    # Strip any HTML tags from RSS description to extract readable snippet
-                    clean_desc = _html.unescape(re.sub(r"<[^>]+>", "", desc)).replace("\xa0", " ").strip() if desc else ""
-                    clean_title = title.split(" - ")[0].strip() if " - " in title else title
-                    if clean_desc.startswith(clean_title):
-                        clean_desc = clean_desc[len(clean_title):].strip(" -–—")
-                    results.append({
-                        "title": clean_title,
-                        "snippet": clean_desc or clean_title,
-                        "url": link,
-                        "published": pub,
-                        "raw_title": title
-                    })
-        except Exception as e:
-            print(f"[TrendAgent] Search error for '{query}': {e}")
+        excluded = excluded_keys if excluded_keys is not None else self._get_excluded_topic_keys()
+        windows_to_try = [when_window, "30d", None] if when_window else [None]
+        results: List[Dict[str, str]] = []
+        cur_month = date.today().month
+
+        for win in windows_to_try:
+            if len(results) >= max_results:
+                break
+            effective_q = f"{query} when:{win}" if win and "when:" not in query else query
+            encoded = urllib.parse.quote_plus(effective_q)
+            url = f"https://news.google.com/rss/search?q={encoded}&hl=en-US&gl=US&ceid=US:en"
+            req = urllib.request.Request(
+                url,
+                headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+            )
+            try:
+                with urllib.request.urlopen(req, timeout=10) as resp:
+                    root = ET.fromstring(resp.read())
+                    items = root.findall(".//item")
+                    max_age = 14 if win == "7d" else (35 if win == "30d" else 90)
+                    for it in items:
+                        if len(results) >= max_results:
+                            break
+                        title = _html.unescape(it.find("title").text).strip() if it.find("title") is not None and it.find("title").text else ""
+                        link = it.find("link").text if it.find("link") is not None else ""
+                        pub = it.find("pubDate").text if it.find("pubDate") is not None else ""
+                        desc = it.find("description").text if it.find("description") is not None else ""
+                        if not title:
+                            continue
+                        if cur_month not in (1, 2) and "valentine" in title.lower():
+                            continue
+
+                        publisher = ""
+                        if " - " in title:
+                            parts = title.rsplit(" - ", 1)
+                            clean_title = parts[0].strip()
+                            publisher = parts[1].strip()
+                        else:
+                            clean_title = title
+
+                        if self._is_article_stale_or_seen(clean_title, pub, excluded, max_age_days=max_age):
+                            continue
+
+                        clean_desc = _html.unescape(re.sub(r"<[^>]+>", " ", desc)).replace("\xa0", " ").strip() if desc else ""
+                        clean_desc = re.sub(r"\s+", " ", clean_desc).strip()
+                        if clean_desc.startswith(clean_title):
+                            clean_desc = clean_desc[len(clean_title):].strip(" -–—")
+                        if publisher and clean_desc == publisher:
+                            clean_desc = ""
+
+                        # Never leave snippet as just a bare publisher name
+                        if not clean_desc or len(clean_desc) < 30:
+                            if publisher:
+                                snippet = f"{clean_title} (Source: {publisher})"
+                            else:
+                                snippet = clean_title
+                        else:
+                            snippet = clean_desc
+
+                        norm_k = self._normalize_title_key(clean_title)
+                        excluded.add(norm_k)
+                        results.append({
+                            "title": clean_title,
+                            "snippet": snippet,
+                            "publisher": publisher or "Industry Report",
+                            "url": link,
+                            "published": pub,
+                            "raw_title": title
+                        })
+            except Exception as e:
+                print(f"[TrendAgent] Search error for '{effective_q}': {e}")
+
         return results
 
     def fetch_url_content(self, url: str) -> Dict[str, Any]:
@@ -181,20 +497,11 @@ Respond ONLY with valid JSON.
         system_prompt = "You are an elite creator monetization, photography, and digital product strategist. Output valid JSON only."
 
         try:
-            raw_response = self.ai.call_ollama_text(prompt, system_prompt=system_prompt)
-            # Clean JSON markdown fences
-            clean_json = raw_response.strip()
-            if clean_json.startswith("```json"):
-                clean_json = clean_json[7:]
-            if clean_json.startswith("```"):
-                clean_json = clean_json[3:]
-            if clean_json.endswith("```"):
-                clean_json = clean_json[:-3]
-            clean_json = clean_json.strip()
-
-            parsed = json.loads(clean_json)
+            raw_response = self.ai.call_ollama_text(prompt, system_prompt=system_prompt, json_mode=True)
+            parsed = parse_llm_json(raw_response)
+            if not parsed:
+                raise ValueError("Could not parse JSON from ingest_user_link response")
         except Exception as e:
-            # Fallback heuristic if local model returned non-JSON
             parsed = {
                 "summary": f"Analyzed article: {title}",
                 "takeaways": [
@@ -224,10 +531,8 @@ Respond ONLY with valid JSON.
             "synthesis": parsed
         }
 
-        # Update Vault
         vault = self.load_vault()
         vault.setdefault("user_curated_links", []).insert(0, ingest_record)
-        # Keep latest 30 links
         vault["user_curated_links"] = vault["user_curated_links"][:30]
         vault["last_updated"] = datetime.now().isoformat()
         self.save_vault(vault)
@@ -239,98 +544,223 @@ Respond ONLY with valid JSON.
             "ingest_record": ingest_record
         }
 
+    def _get_recent_tweet_snippets(self, limit: int = 16) -> List[str]:
+        """Reads recently posted tweet snippets from tweet_history.json."""
+        hist = safe_read_json(TWEET_HISTORY_FILE, default={})
+        recent = hist.get("recent", []) if isinstance(hist, dict) else []
+        snippets: List[str] = []
+        for item in reversed(recent):
+            if isinstance(item, dict) and item.get("snippet"):
+                s = str(item["snippet"]).replace("\n", " ").strip()
+                if s and s not in snippets:
+                    snippets.append(s)
+                if len(snippets) >= limit:
+                    break
+        return snippets
+
+    def _build_article_grounded_slot_thread(
+        self,
+        handle: str,
+        article: Dict[str, str],
+        slot_index: int,
+    ) -> List[str]:
+        """Builds a clean, non-duplicate 3-tweet thread grounded directly in a specific today article."""
+        today_label = date.today().strftime("%b %d")
+        title = (article.get("title") or "Studio & Creator Workflow Breakdown").strip()
+        snippet = (article.get("snippet") or title).strip()
+        pub = (article.get("publisher") or "Industry Radar").strip()
+        is_pulse = "pulse" in handle.lower()
+
+        if is_pulse:
+            angles = [
+                "Pair this shift with a low-friction $19 digital starter asset in your bio hub to convert organic reach into immediate sales.",
+                "Segment your audience by engagement velocity and offer a 3-tier value ladder ($19 starter -> $49 bundle -> $149 VIP).",
+                "Route top-performing short-form clips into a direct email list so you own 100% of your audience distribution.",
+                "Automate your 72-hour subscriber welcome sequence with a high-utility template drop to cut 90-day churn in half.",
+                "Focus 80% of your monetization architecture on your top 5% most engaged supporters with tiered digital bundles.",
+            ]
+            takeaway = angles[slot_index % len(angles)]
+            return [
+                f"1/3 ⚡ {today_label} Creator Intel ({pub}): {title} 🧵👇 #CreatorEconomy #Monetization",
+                f"2/3 Key Signal: {snippet[:210]}",
+                f"3/3 Actionable Takeaway: {takeaway} 📈 #CreatorGrowth #DigitalProducts",
+            ]
+        else:
+            angles = [
+                "Lock your key-to-fill lighting ratio at 1:1.5 and anchor your RGB black point (+16) before batch-grading skin tones.",
+                "Feather your key softbox 45 degrees across the bridge of the nose to eliminate specular forehead glare in RAW captures.",
+                "Use HSL Orange (-4% Saturation, +8% Luminance) alongside a subtle 3200K warm rim light for clean 3D subject separation.",
+                "Deliver a curated 30-image color-graded gallery within 24 hours instead of unedited RAW dumps to command premium studio rates.",
+                "Separate high-frequency skin texture (+8 Texture) from low-frequency color transitions (-4 Clarity) for authentic magazine retouching.",
+            ]
+            takeaway = angles[slot_index % len(angles)]
+            return [
+                f"1/3 📸 {today_label} Studio Dispatch ({pub}): {title} 🧵👇 #StudioPhotography #ColorGrading",
+                f"2/3 Production Breakdown: {snippet[:210]}",
+                f"3/3 Studio Application: {takeaway} 🎨 #LightroomPresets",
+            ]
+
+    def _build_dynamic_fallback_slots(
+        self,
+        photo_articles: List[Dict[str, str]],
+        creator_articles: List[Dict[str, str]],
+        business_articles: List[Dict[str, str]],
+    ) -> Dict[str, Any]:
+        """
+        Builds all 5 daily Twitter slots dynamically from today's freshly discovered
+        articles if Ollama is temporarily unreachable.
+        """
+        today_label = date.today().strftime("%b %d")
+        p_arts = photo_articles or [{"title": f"Editorial Color Calibration & Skin Tone Workflow ({today_label})", "snippet": "Locking white balance and curve anchors cuts batch editing time in half.", "publisher": "Studio Wire"}]
+        c_arts = creator_articles or [{"title": f"Audience Retention & Tiered Value Ladders ({today_label})", "snippet": "Structured micro-offers convert passive viewers into recurring supporters.", "publisher": "Creator Pulse"}]
+        b_arts = business_articles or [{"title": f"Automated Digital Product Funnels ({today_label})", "snippet": "Instant-download templates and presets scale with zero fulfillment overhead.", "publisher": "Creator Blueprint"}]
+
+        slot_names = [
+            "slot_1_morning",
+            "slot_2_midday",
+            "slot_3_afternoon",
+            "slot_4_evening",
+            "slot_5_latenight",
+        ]
+        daily_slots: Dict[str, Dict[str, List[str]]] = {}
+        combined_creator = c_arts + b_arts
+
+        for idx, slot_id in enumerate(slot_names):
+            pa = p_arts[idx % len(p_arts)]
+            ca = combined_creator[idx % len(combined_creator)]
+            daily_slots[slot_id] = {
+                "creatorpulselab": self._build_article_grounded_slot_thread("creatorpulselab", ca, idx),
+                "TheCreatorAsset": self._build_article_grounded_slot_thread("TheCreatorAsset", pa, idx),
+            }
+
+        return {
+            "used_fallback": True,
+            "top_themes_today": [
+                p_arts[0].get("title", "Editorial Studio Color & Lighting Precision"),
+                c_arts[0].get("title", "Creator Retention & Recurring Revenue Engines"),
+                b_arts[0].get("title", "Digital Asset Storefronts & Workflow Automation"),
+            ],
+            "daily_slots": daily_slots,
+            "newsletter_topics": {
+                "creator_pulse": {
+                    "title": c_arts[0].get("title", "Creator Monetization & Retention Playbook"),
+                    "teaser": c_arts[0].get("snippet", "How independent creators are turning organic reach into recurring digital revenue this week."),
+                },
+                "creator_asset": {
+                    "title": p_arts[0].get("title", "Studio Lighting & RAW Color Science"),
+                    "teaser": p_arts[0].get("snippet", "Practical studio lighting ratios and non-destructive RAW grading workflows for commercial photographers."),
+                },
+            },
+        }
+
     def run_daily_radar_sweep(self) -> Dict[str, Any]:
         """
         Runs an autonomous morning web search across photography and creator monetization,
         synthesizes fresh daily topics, and generates today's 5-slot tweets and newsletter briefs.
+        Uses direct industry RSS feeds + recency-filtered Google News RSS + 21-day deduplication.
         """
         print("[TrendAgent] Running autonomous daily trend radar sweep...")
-        today_str = date.today().isoformat()
+        today_dt = date.today()
+        today_str = today_dt.isoformat()
+        day_ord = today_dt.toordinal()
+
+        vault = self.load_vault()
+        excluded_keys = self._get_excluded_topic_keys(vault)
 
         # 1. Gather live news for Niche A (Photography & Studio)
-        photo_queries = [
-            "Lightroom photography presets editing trends 2026",
-            "Professional studio photography lighting posing tips"
-        ]
-        photo_articles = []
-        for q in photo_queries:
-            photo_articles.extend(self.search_live_trends(q, max_results=3))
+        photo_articles: List[Dict[str, str]] = self.fetch_direct_rss_articles(
+            "photo", max_results=3, excluded_keys=excluded_keys
+        )
+        for i in range(len(PHOTO_QUERY_POOL)):
+            if len(photo_articles) >= 6:
+                break
+            q = PHOTO_QUERY_POOL[(day_ord * 3 + i) % len(PHOTO_QUERY_POOL)]
+            photo_articles.extend(
+                self.search_live_trends(q, max_results=2, when_window="7d", excluded_keys=excluded_keys)
+            )
+        photo_articles = photo_articles[:6]
 
         # 2. Gather live news for Niche B (Digital Creators & Monetization - 100% SFW)
-        creator_queries = [
-            "digital creator monetization strategies revenue trends 2026",
-            "creator economy newsletter podcast subscriber growth tactics"
-        ]
-        creator_articles = []
-        for q in creator_queries:
-            creator_articles.extend(self.search_live_trends(q, max_results=3))
+        creator_articles: List[Dict[str, str]] = []
+        for i in range(len(CREATOR_QUERY_POOL)):
+            if len(creator_articles) >= 6:
+                break
+            q = CREATOR_QUERY_POOL[(day_ord * 3 + i) % len(CREATOR_QUERY_POOL)]
+            creator_articles.extend(
+                self.search_live_trends(q, max_results=2, when_window="7d", excluded_keys=excluded_keys)
+            )
+        creator_articles = creator_articles[:6]
 
         # 3. Gather live news for Niche C (Digital Business / Media Automation - powers
-        # The Creator Blueprint newsletter's sections, which previously had no real
-        # research grounding at all)
-        business_queries = [
-            "digital creator business automation tools 2026",
-            "passive income digital products side hustle trends"
-        ]
-        business_articles = []
-        for q in business_queries:
-            business_articles.extend(self.search_live_trends(q, max_results=3))
+        # The Creator Blueprint newsletter's sections)
+        business_articles: List[Dict[str, str]] = []
+        for i in range(len(BUSINESS_QUERY_POOL)):
+            if len(business_articles) >= 6:
+                break
+            q = BUSINESS_QUERY_POOL[(day_ord * 3 + i) % len(BUSINESS_QUERY_POOL)]
+            business_articles.extend(
+                self.search_live_trends(q, max_results=2, when_window="7d", excluded_keys=excluded_keys)
+            )
+        business_articles = business_articles[:6]
 
         # 4. Build synthesis prompt with article summaries & strict editorial rules
         photo_summary = [{"title": a["title"], "summary": a.get("snippet", "")} for a in photo_articles]
         creator_summary = [{"title": a["title"], "summary": a.get("snippet", "")} for a in creator_articles]
+        business_summary = [{"title": a["title"], "summary": a.get("snippet", "")} for a in business_articles]
 
         prompt = f"""You are SYNAPSE [100 Fm] & HERALD [33 As], Expert Social Media Director & Editor for Creator Media Lab.
-Today is {today_str}. Here are verified breaking articles discovered in our daily radar:
+Today is {today_str}. Here are verified breaking articles discovered in today's live radar sweep:
 
-PHOTOGRAPHY & STUDIO NEWS (with article summaries):
+PHOTOGRAPHY & STUDIO NEWS (for @TheCreatorAsset & Studio Wire):
 {json.dumps(photo_summary, indent=2)}
 
-CREATOR ECONOMY & MONETIZATION NEWS (with article summaries):
+CREATOR ECONOMY & MONETIZATION NEWS (for @creatorpulselab & Creator Pulse):
 {json.dumps(creator_summary, indent=2)}
 
+DIGITAL PRODUCT & AUTOMATION NEWS (for Creator Blueprint & @creatorpulselab):
+{json.dumps(business_summary, indent=2)}
+
 STRICT EDITORIAL RULES (CRITICAL):
-1. NO UNANSWERED QUESTIONS / CLIFFHANGERS: If you pose a question (e.g. "Which platform pays the most in 2026?"), you MUST provide the direct answer, comparison numbers, and takeaway in that tweet/thread.
-2. NO PHANTOM LISTS: NEVER write "Top 5" or "Top 7" or "3 secrets" unless you explicitly list every single item/name/step directly in the tweet strings.
-3. STANDALONE ACTIONABLE VALUE: Every post must give concrete value: exact slider settings, proven script quotes, payout breakdown percentages, or specific posing cues.
-4. EXPERT TONE: High-authority, concise, native to X/Twitter (under 280 chars per tweet, threads formatted 1/N, 2/N, etc.).
-5. STRATEGIC HASHTAGS: Every standalone tweet and the final closing tweet of every thread MUST include 2 to 3 targeted, high-exposure niche hashtags (#CreatorEconomy #CreatorGrowth #Monetization #ContentStrategy #DigitalProducts for @creatorpulselab; #StudioPhotography #LightroomPresets #ColorGrading for @TheCreatorAsset) to maximize search discoverability and algorithmic reach.
-6. STRICT 100% SFW ENFORCEMENT (NON-NEGOTIABLE): All content across BOTH @TheCreatorAsset AND @creatorpulselab MUST be 100% Safe For Work (SFW). Absolutely NO adult content, nudity, boudoir, lingerie, sex work, OnlyFans, Fansly, cam/webcam streaming, sextortion, or suggestive themes. All external content published across all platforms must be 100% professional and SFW.
+1. USE ONLY TODAY'S ARTICLES ABOVE: Every single slot MUST be grounded in a specific article from the lists above. Never reference old articles not listed above.
+2. DISTINCT SLOTS: Each of the 5 slots ("slot_1_morning", "slot_2_midday", "slot_3_afternoon", "slot_4_evening", "slot_5_latenight") MUST cover a DIFFERENT article from the lists above (e.g. Slot 1 = Article 1, Slot 2 = Article 2, Slot 3 = Article 3, Slot 4 = Article 4, Slot 5 = Article 5).
+3. NO UNANSWERED QUESTIONS / CLIFFHANGERS: If you pose a question, you MUST provide the direct answer, comparison numbers, and takeaway in that thread.
+4. NO PHANTOM LISTS: NEVER write "Top 5" or "Top 7" or "3 secrets" unless you explicitly list every single item/name/step directly in the tweet strings.
+5. STANDALONE ACTIONABLE VALUE: Every thread must have 3 tweets ("1/3 ...", "2/3 ...", "3/3 ...") giving concrete value: exact slider settings, payout percentages, or workflow steps.
+6. STRATEGIC HASHTAGS: Include 2 to 3 targeted niche hashtags (#CreatorEconomy #CreatorGrowth #Monetization #DigitalProducts for @creatorpulselab; #StudioPhotography #LightroomPresets #ColorGrading for @TheCreatorAsset).
+7. STRICT 100% SFW ENFORCEMENT (NON-NEGOTIABLE): All content across BOTH @TheCreatorAsset AND @creatorpulselab MUST be 100% Safe For Work (SFW).
 
 Generate today's dynamic content drop payload in valid JSON with:
-1. "top_themes_today": Exactly 3 high-impact industry themes for today.
+1. "top_themes_today": Exactly 3 high-impact industry themes for today grounded in the articles above.
 2. "daily_slots": A dictionary with keys "slot_1_morning", "slot_2_midday", "slot_3_afternoon", "slot_4_evening", "slot_5_latenight".
    For EACH slot, provide:
-   - "creatorpulselab": List of 2 to 4 tweet strings for @creatorpulselab (Creator Business, Monetization Systems, Audience Growth, Digital Products).
-   - "TheCreatorAsset": List of 2 to 4 tweet strings for @TheCreatorAsset (Studio Photographers, Color Grading, Presets).
+   - "creatorpulselab": List of 3 tweet strings ("1/3 ...", "2/3 ...", "3/3 ...") for @creatorpulselab.
+   - "TheCreatorAsset": List of 3 tweet strings ("1/3 ...", "2/3 ...", "3/3 ...") for @TheCreatorAsset.
 3. "newsletter_topics":
-   - "creator_pulse": A punchy topic title & 2-sentence teaser for today's creator newsletter.
-   - "creator_asset": A punchy topic title & 2-sentence teaser for today's photography digest.
+   - "creator_pulse": {{"title": "...", "teaser": "..."}} for today's creator newsletter.
+   - "creator_asset": {{"title": "...", "teaser": "..."}} for today's photography digest.
 
 Respond ONLY with valid JSON.
 """
-        system_prompt = "You are an expert social media and newsletter director for creator brands. Return valid JSON only. All content must be 100% SFW."
+        system_prompt = "You are an expert social media and newsletter director for creator brands. Return valid JSON only. All content must be 100% SFW and grounded strictly in today's provided articles."
 
         try:
             synth = None
             last_error = None
-            # Retry the LLM synthesis call before giving up - a single transient Ollama
-            # hiccup or malformed-JSON response used to immediately drop to the static
-            # fallback (which only covers slot_1_morning), silently leaving slots 2-5 on
-            # repeated static content for the rest of the day.
+            EXPECTED_SLOTS = {"slot_1_morning", "slot_2_midday", "slot_3_afternoon", "slot_4_evening", "slot_5_latenight"}
             for attempt in range(2):
                 try:
-                    raw = self.ai.call_ollama_text(prompt, system_prompt=system_prompt)
-                    clean = raw.strip()
-                    if clean.startswith("```json"):
-                        clean = clean[7:]
-                    if clean.startswith("```"):
-                        clean = clean[3:]
-                    if clean.endswith("```"):
-                        clean = clean[:-3]
-                    clean = clean.strip()
-                    parsed = json.loads(clean)
-                    EXPECTED_SLOTS = {"slot_1_morning", "slot_2_midday", "slot_3_afternoon", "slot_4_evening", "slot_5_latenight"}
+                    raw = self.ai.call_ollama_text(
+                        prompt,
+                        system_prompt=system_prompt,
+                        num_ctx=8192,
+                        num_predict=4096,
+                        temperature=0.75 + (attempt * 0.1),
+                        json_mode=True,
+                        timeout=150,
+                    )
+                    parsed = parse_llm_json(raw)
+                    if not parsed:
+                        raise ValueError("LLM response could not be parsed as JSON")
                     got_slots = set(parsed.get("daily_slots", {}).keys())
                     if not EXPECTED_SLOTS.issubset(got_slots):
                         raise ValueError(f"LLM returned incomplete daily_slots (got {sorted(got_slots)}, need all 5)")
@@ -344,74 +774,116 @@ Respond ONLY with valid JSON.
                 raise last_error
         except Exception as e:
             print(f"[TrendAgent] LLM synthesis fallback due to: {e}")
-            synth = {
-                "used_fallback": True,
-                "top_themes_today": [
-                    "AI-Assisted Workflow & Faster Turnarounds in Studio Photography",
-                    "Subscriber Retention Formulas & Digital Asset Storefronts",
-                    "Automated Multi-Channel Distribution & Creator Media Flywheels"
-                ],
-                "daily_slots": {
-                    "slot_1_morning": {
-                        "creatorpulselab": [
-                            f"1/4 ⚡ 3 digital product offer structures that converted 20%+ higher this week for independent creators 🧵👇 @creatorpulselab #CreatorEconomy #Monetization",
-                            "2/4 Structure 1: The 'Micro-Asset' Entry Point.\n\nDon't launch a $300 course first. Launch a $19 actionable template or preset bundle that solves one painful bottleneck in under 10 minutes.",
-                            "3/4 Structure 2: The 3-Tier Value Ladder.\n\nTier 1 ($19): Core template.\nTier 2 ($49): Template + video walkthrough + raw asset project files.\nTier 3 ($149): All templates + 1-on-1 async review.",
-                            "4/4 Structure 3: The Educational Email Engine.\n\nDeliver free tactical value 5 days a week, with a frictionless checkout link at the bottom. Check our bio for today's full monetization breakdown! 📈✨ #CreatorGrowth"
-                        ],
-                        "TheCreatorAsset": [
-                            f"1/4 📸 Why top editorial photographers spend 15 minutes color grading instead of 4 hours 🧵👇 @TheCreatorAsset #StudioPhotography #ColorGrading",
-                            "2/4 The secret of commercial studios: Consistency over perfection.\n\nLock in 1 baseline curve, 1 split-tone anchor, and apply it in batches of 100 across the session.",
-                            "3/4 Master the Tone Curve: Drop shadows slightly (-4), lift black point to +6 for a clean matte floor, and warm highlights to +3 for luminous skin values.",
-                            "4/4 Stop wasting evenings in Lightroom. Explore our calibrated Studio Portrait Presets (.XMP) and full editorial suite in our bio link. 🎨✨ #LightroomPresets"
-                        ]
-                    }
-                },
-                "newsletter_topics": {
-                    "creator_pulse": {
-                        "title": "The Digital Asset Storefront Blueprint: 3 Structures That Maximize Creator Revenue",
-                        "teaser": "How modern creators build repeatable, high-margin revenue with automated digital products and structured email value loops."
-                    },
-                    "creator_asset": {
-                        "title": "Mastering the Studio Tone Curve: Clean Editorial Skin Tones in Minutes",
-                        "teaser": "Eliminate digital color cast in studio portraits using calibrated .XMP curves and HSL split toning."
-                    }
-                }
-            }
+            synth = self._build_dynamic_fallback_slots(photo_articles, creator_articles, business_articles)
 
-        # SFW Sanitation Gate on all synthesized tweets
+        # SFW Sanitation + Stale/Duplicate + Cross-Account Distinctness Gate on all synthesized tweets
         blocked_sfw_tokens = [
-            "boudoir", "nude", "naked", "nsfw", "topless", "lingerie", "underwear",
-            "bra", "panties", "porn", "explicit", "erotic", "bikini", "swimwear",
-            "sheer", "provocative", "seductive", "charlette", "margo", "melissa",
+            "boudoir", "nude", "naked", "nsfw", "topless", "bare breasts", "exposed nipples",
+            "genitals", "porn", "explicit", "erotic", "xxx", "uncensored",
             "onlyfans", "fansly", "chaturbate", "myfreecams", "mfc", "camgirl", "cam girl",
-            "webcam", "sextortion", "sex work", "xxx", "banned angle", "uncensored"
+            "sextortion", "sex work", "banned angle"
         ]
-        slots = synth.get("daily_slots", {})
-        for slot_k, slot_val in slots.items():
-            if isinstance(slot_val, dict):
-                for hdl, tw_list in slot_val.items():
-                    if isinstance(tw_list, list):
-                        clean_list = []
-                        for tw in tw_list:
-                            tw_str = re.sub(r"\*\*|__", "", str(tw)).strip()
-                            if any(b in tw_str.lower() for b in blocked_sfw_tokens):
-                                print(f"[TrendAgent Safety Alert] Purged non-SFW tweet from synthesized {slot_k} for @{hdl}: {tw_str[:50]}...")
-                                continue
-                            clean_list.append(tw_str)
-                        if clean_list:
-                            slot_val[hdl] = clean_list
+        sfw_pattern = re.compile(r"\b(?:" + "|".join(re.escape(t) for t in blocked_sfw_tokens) + r")\b", re.IGNORECASE)
+        try:
+            from pipeline.stages.twitter_poster import TwitterPoster
+            tp_checker = TwitterPoster()
+        except Exception:
+            tp_checker = None
 
-        vault = self.load_vault()
+        slot_order = ["slot_1_morning", "slot_2_midday", "slot_3_afternoon", "slot_4_evening", "slot_5_latenight"]
+        combined_creator_pool = (creator_articles + business_articles) or [{"title": "Creator Economy Growth", "snippet": "Tiered digital offers drive recurring creator income."}]
+        photo_pool = photo_articles or [{"title": "Studio Lighting & Color Science", "snippet": "Calibrated RAW tone curves streamline portrait editing."}]
+
+        slots = synth.get("daily_slots", {})
+        for idx, slot_k in enumerate(slot_order):
+            slot_val = slots.setdefault(slot_k, {})
+            if not isinstance(slot_val, dict):
+                slot_val = {}
+                slots[slot_k] = slot_val
+            for hdl in ("creatorpulselab", "TheCreatorAsset"):
+                tw_list = slot_val.get(hdl, [])
+                clean_list = []
+                if isinstance(tw_list, list):
+                    for tw in tw_list:
+                        tw_str = re.sub(r"\*\*|__", "", str(tw)).strip()
+                        if sfw_pattern.search(tw_str):
+                            print(f"[TrendAgent Safety Alert] Purged non-SFW tweet from synthesized {slot_k} for @{hdl}: {tw_str[:50]}...")
+                            continue
+                        clean_list.append(tw_str)
+
+                # Check if the root tweet accidentally hallucinated a stale legacy topic,
+                # has fewer than 2 tweets, collides with 7-day history, or if TheCreatorAsset
+                # accidentally echoed creatorpulselab's exact topic in the same slot
+                joined_lower = " ".join(clean_list).lower()
+                same_as_other = False
+                if hdl == "TheCreatorAsset" and clean_list and slot_val.get("creatorpulselab"):
+                    cp_first = slot_val["creatorpulselab"][0] if slot_val["creatorpulselab"] else ""
+                    if cp_first:
+                        w1 = self._title_word_set(clean_list[0])
+                        w2 = self._title_word_set(cp_first)
+                        if w1 and w2 and len(w1 & w2) >= 3:
+                            same_as_other = True
+
+                is_stale_or_dup = (
+                    len(clean_list) < 2
+                    or same_as_other
+                    or any(pat in joined_lower for pat in STALE_LEGACY_PATTERNS)
+                    or (tp_checker is not None and tp_checker._is_duplicate_tweet(clean_list[0]))
+                )
+                if is_stale_or_dup:
+                    pool = combined_creator_pool if "pulse" in hdl.lower() else photo_pool
+                    art = pool[idx % len(pool)]
+                    clean_list = self._build_article_grounded_slot_thread(hdl, art, idx)
+                    print(f"[TrendAgent] Grounded {slot_k} for @{hdl} with dedicated niche article thread: {art.get('title', '')[:60]}")
+
+                slot_val[hdl] = clean_list
+
+        # Record today's selected articles into the rolling 21-day seen_articles ledger
+        seen_map = vault.get("seen_articles", {})
+        if not isinstance(seen_map, dict):
+            seen_map = {}
+        for k, d_str in list(seen_map.items()):
+            try:
+                if (today_dt - date.fromisoformat(str(d_str)[:10])).days > 21:
+                    del seen_map[k]
+            except Exception:
+                pass
+        for art in (photo_articles + creator_articles + business_articles):
+            if isinstance(art, dict) and art.get("title"):
+                seen_map[self._normalize_title_key(art["title"])] = today_str
+
         vault["today_date"] = today_str
         vault["last_radar_sweep"] = datetime.now().isoformat()
         vault["photo_articles"] = photo_articles
         vault["creator_articles"] = creator_articles
         vault["business_articles"] = business_articles
         vault["daily_synthesis"] = synth
+        vault["seen_articles"] = seen_map
         self.save_vault(vault)
 
-        print(f"[TrendAgent] Daily radar sweep complete! Saved to {self.vault_file}")
+        # Invalidate any pre-sweep cached fallback entries in scribe_daily_content.json for today
+        try:
+            scribe_cache = safe_read_json(SCRIBE_CACHE_FILE, default={})
+            if isinstance(scribe_cache, dict):
+                modified = False
+                for pub_id in ("creator_pulse", "studio_wire", "creator_blueprint"):
+                    entry = scribe_cache.get(pub_id)
+                    if isinstance(entry, dict) and entry.get("date") == today_str:
+                        content_obj = entry.get("content") or {}
+                        if (
+                            content_obj.get("is_fallback")
+                            or content_obj.get("source") == "Scribe Dynamic Daily Synthesis"
+                            or not entry.get("grounded_in_radar_sweep")
+                        ):
+                            del scribe_cache[pub_id]
+                            modified = True
+                if modified:
+                    atomic_write_json(SCRIBE_CACHE_FILE, scribe_cache)
+                    print("[TrendAgent] Invalidated pre-sweep Scribe cache entries so newsletters regenerate from fresh radar articles.")
+        except Exception as ce:
+            print(f"[TrendAgent] Notice while checking Scribe cache invalidation: {ce}")
+
+        print(f"[TrendAgent] Daily radar sweep complete! Saved {len(photo_articles)} photo, {len(creator_articles)} creator, {len(business_articles)} business articles to {self.vault_file}")
         return vault
 
     def get_research_articles_for_pub(self, pub_id: str) -> List[Dict[str, str]]:
@@ -448,8 +920,7 @@ Respond ONLY with valid JSON.
     def save_vault(self, data: Dict[str, Any]):
         """Persists daily trends vault JSON to disk."""
         try:
-            with open(self.vault_file, "w", encoding="utf-8") as f:
-                json.dump(data, f, indent=2, ensure_ascii=False)
+            atomic_write_json(self.vault_file, data)
         except Exception as e:
             print(f"[TrendAgent] Error saving vault: {e}")
 
@@ -459,19 +930,19 @@ Respond ONLY with valid JSON.
             "photo_retouching": {
                 "title": "📸 Photo Shoot & Retouching Trends",
                 "aesthetic_trends": [
-                    {"name": "Warm Chocolate Boudoir", "vibe": "Moody shadows, warm skin undertones, velvety blacks."},
+                    {"name": "Warm Chocolate Editorial", "vibe": "Moody shadows, warm skin undertones, velvety blacks."},
                     {"name": "Golden Hour Glow", "vibe": "Amber rim lighting, sun-kissed luminous skin."},
                     {"name": "Cyber Neon Noir", "vibe": "Deep cyan and magenta contrast, futuristic editorial."},
                     {"name": "35mm Analog Film Grain", "vibe": "Subtle organic grain, muted greens, nostalgic warmth."}
                 ]
             },
             "creator_monetization": {
-                "title": "💎 Live Cam & Creator Monetization Trends",
+                "title": "💎 Creator Economy & Monetization Trends",
                 "token_pricing_sweet_spots": [
-                    {"tier": "Micro-Tips (15-35 tks)", "purpose": "Low barrier activation."},
-                    {"tier": "Core Actions (50-150 tks)", "purpose": "High volume stream revenue."},
-                    {"tier": "Show Teasers (250-500 tks)", "purpose": "Milestone rewards."},
-                    {"tier": "VIP / Whale Tiers (1000-2500 tks)", "purpose": "High margin unlocks."}
+                    {"tier": "Micro-Offers ($9-$19)", "purpose": "Low barrier impulse activation."},
+                    {"tier": "Core Asset Bundles ($29-$59)", "purpose": "High volume storefront revenue."},
+                    {"tier": "Pro Toolkits ($79-$149)", "purpose": "Complete workflow acceleration."},
+                    {"tier": "VIP / Retainer Tiers ($250-$750)", "purpose": "High margin custom fulfillment."}
                 ]
             }
         }
@@ -499,7 +970,7 @@ Respond ONLY with valid JSON.
             cp = nl_topics.get("creator_pulse", {})
             ca = nl_topics.get("creator_asset", {})
             if cp:
-                lines.append(f"- Adult Creator Pulse: {cp.get('title', '')} ('{cp.get('teaser', '')}')")
+                lines.append(f"- Daily Creator Pulse: {cp.get('title', '')} ('{cp.get('teaser', '')}')")
             if ca:
                 lines.append(f"- Shutter & Studio Wire: {ca.get('title', '')} ('{ca.get('teaser', '')}')")
 
@@ -534,10 +1005,10 @@ Respond ONLY with valid JSON.
         print("[Cipher Market Scout] Scouting live web for automated revenue opportunities and marketing strategies...")
 
         queries = [
-            "trending high ticket digital products fiverr etsy 2026",
-            "automated AI agency services video photo retainer 2026",
-            "viral creator marketing growth loops organic monetization 2026",
-            "best selling digital assets templates presets passive income 2026"
+            "digital products fiverr etsy",
+            "AI agency video photo retainer",
+            "creator marketing monetization growth",
+            "digital templates presets passive income"
         ]
 
         live_articles = []
@@ -582,14 +1053,10 @@ Respond ONLY with valid JSON.
 
         opportunities = []
         try:
-            raw = self.ai.call_ollama_text(prompt, system_prompt=system_prompt)
-            clean = raw.strip()
-            if clean.startswith("```json"): clean = clean[7:]
-            if clean.startswith("```"): clean = clean[3:]
-            if clean.endswith("```"): clean = clean[:-3]
-            clean = clean.strip()
-            parsed = json.loads(clean)
-            opportunities = parsed.get("opportunities", [])
+            raw = self.ai.call_ollama_text(prompt, system_prompt=system_prompt, json_mode=True)
+            parsed = parse_llm_json(raw)
+            if parsed:
+                opportunities = parsed.get("opportunities", [])
         except Exception as e:
             print(f"[Cipher Market Scout] LLM synthesis note ({e}), using curated high-yield opportunity models.")
 

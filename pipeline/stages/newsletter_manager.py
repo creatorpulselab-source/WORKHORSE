@@ -159,28 +159,40 @@ class NewsletterManager:
     def _get_daily_scribe_content(self, pub_id: str, auto_generate: bool = True, force_refresh: bool = False) -> Optional[Dict[str, Any]]:
         """Returns today's Scribe-generated content for pub_id, generating and caching
         it on first call of the day. If force_refresh=True, bypasses existing cache.
+        Also upgrades pre-radar-sweep or fallback cache entries when auto_generate=True.
         Returns None (never raises) if generation fails, so every caller can gracefully
         fall back to its static copy."""
         today_key = datetime.now().strftime("%Y-%m-%d")
         cache = safe_read_json(self.scribe_cache_path, default={})
         cached_entry = cache.get(pub_id)
         if not force_refresh and cached_entry and cached_entry.get("date") == today_key and cached_entry.get("content"):
-            return cached_entry["content"]
+            cached_content = cached_entry["content"]
+            is_fb = bool(cached_content.get("is_fallback")) or cached_content.get("source") == "Scribe Dynamic Daily Synthesis"
+            grounded = bool(cached_entry.get("grounded_in_radar_sweep", True))
+            if not auto_generate or (not is_fb and grounded):
+                return cached_content
 
         if not auto_generate:
-            return None
+            return cached_entry["content"] if (cached_entry and cached_entry.get("date") == today_key and cached_entry.get("content")) else None
 
         pub = self.publications.get(pub_id, self.publications["creator_pulse"])
 
         # Ground today's content in real researched headlines where this
         # publication's niche has research coverage (creator_pulse/studio_wire/
-        # creator_blueprint) - dispensary_deals has no research mapping yet (it's a
-        # separate scraper-driven business), so this is just an empty list for it.
+        # creator_blueprint). If today's radar sweep has not run yet, trigger it now
+        # so pre-08:00 AM calls never poison today's cache with static placeholders.
         research_articles = []
+        grounded_in_sweep = False
         try:
             from pipeline.stages.trend_researcher import trend_researcher
             research_articles = trend_researcher.get_research_articles_for_pub(pub_id)
-            if not research_articles:
+            if not research_articles and pub_id in ("creator_pulse", "studio_wire", "creator_blueprint"):
+                print(f"[NewsletterManager] Radar vault not yet populated for {today_key} — triggering live radar sweep for {pub_id}...")
+                trend_researcher.run_daily_radar_sweep()
+                research_articles = trend_researcher.get_research_articles_for_pub(pub_id)
+            if research_articles:
+                grounded_in_sweep = True
+            else:
                 matrix = trend_researcher.get_static_trend_matrix()
                 if pub_id == "studio_wire":
                     research_articles = [
@@ -238,7 +250,20 @@ class NewsletterManager:
                 self._log_fallback_incident(pub_id, f"{last_error or 'unknown error'} (procedural fallback failed: {fe})")
                 return None
 
-        cache[pub_id] = {"date": today_key, "content": result}
+        cache = safe_read_json(self.scribe_cache_path, default={})
+        cache[pub_id] = {
+            "date": today_key,
+            "grounded_in_radar_sweep": grounded_in_sweep,
+            "content": result
+        }
+        hl = (result or {}).get("lead_headline", "").strip()
+        if hl:
+            hist = cache.get("recent_headlines_history", [])
+            if not isinstance(hist, list):
+                hist = []
+            if hl not in hist:
+                hist.append(hl)
+            cache["recent_headlines_history"] = hist[-24:]
         atomic_write_json(self.scribe_cache_path, cache)
         return result
 
@@ -1040,14 +1065,14 @@ class NewsletterManager:
                 is_blueprint = "blueprint" in pub_id.lower()
                 topic_clean = html.escape(topic_text[:65]) if topic_text else None
                 if is_pulse:
-                    caption = f"💋 Figure 4.1 &bull; Visual Result: 2-Light Rim Depth (RTX 5070 Ti &bull; Iris Verified)"
-                    subcaption = "Key Softbox + Warm Rim Kicker &bull; 3D Hair & Studio Separation"
+                    caption = f"💋 Visual Focus: {topic_clean}" if topic_clean else "💋 Figure 4.1 &bull; Visual Result: 2-Light Rim Depth (RTX 5070 Ti &bull; Iris Verified)"
+                    subcaption = "Key Softbox + Warm Rim Kicker &bull; RTX 5070 Ti Iris Verified"
                 elif is_blueprint:
-                    caption = f"⚡ Figure 2.1 &bull; Blueprint Architecture: Digital Workstation & Asset Flywheel (RTX 5070 Ti &bull; Iris Verified)"
+                    caption = f"⚡ Blueprint Focus: {topic_clean}" if topic_clean else "⚡ Figure 2.1 &bull; Blueprint Architecture: Digital Workstation & Asset Flywheel"
                     subcaption = "Packaging Specialized Knowledge &bull; Multi-Channel Storefront Scaling"
                 else:
-                    caption = f"📸 Figure 3.1 &bull; Visual Result: 45° Key + Clamshell Fill (RTX 5070 Ti &bull; Iris Verified)"
-                    subcaption = "Feathered 5600K Key + Silver Reflector &bull; Soft Wrap-Around Fall-Off"
+                    caption = f"📸 Studio Focus: {topic_clean}" if topic_clean else "📸 Figure 3.1 &bull; Visual Result: 45° Key + Clamshell Fill (RTX 5070 Ti &bull; Iris Verified)"
+                    subcaption = "Feathered 5600K Key + Silver Reflector &bull; RTX 5070 Ti Iris Verified"
 
                 return {
                     "src": data_uri,
@@ -2220,7 +2245,8 @@ Set your 45° key softbox to 5600K daylight. Place a warm 3200K accent light beh
 ## 5. 🔄 Subscriber Retention Habit
 A 1-sentence personalized DM to fans within 60 minutes of churn recovers up to 28% of lapsed subscribers before they uninstall the app."""
             body = dynamic_article or static_body
-            return f"""# 💋 The Daily Creator Pulse: 5-Part Morning Monetization Playbook
+            lead_hl = (scribe_content or {}).get("lead_headline") or "5-Part Morning Monetization Playbook"
+            return f"""# 💋 The Daily Creator Pulse: {lead_hl}
 *Published by CreatorMediaLab • {today_str}*
 
 ---
@@ -2259,7 +2285,8 @@ Position a 22" white beauty dish 45 degrees to camera left, feathered just acros
 ## 5. 💼 Studio Deliverables & Pricing Strategy
 Never dump 300 raw photos on clients. Deliver 25-40 fully color-graded master selects within 24 hours to justify $350-$750 per session and secure continuous referrals."""
             body = dynamic_article or static_body
-            return f"""# 📸 The Shutter & Studio Wire: Portra 400 Lightroom Masterclass
+            lead_hl = (scribe_content or {}).get("lead_headline") or "Editorial Color & Lighting Masterclass"
+            return f"""# 📸 The Shutter & Studio Wire: {lead_hl}
 *Published by CreatorMediaLab • {today_str}*
 
 ---
@@ -2294,7 +2321,8 @@ Keep mobile landing pages uncluttered: 1 High-Ticket Service + 1 Digital Product
 ## 5. 💰 Creator Monetization Math
 At a 2.5% conversion rate and $25 AOV, you only need 7 sales per week to hit $1,000/month. That requires just 6-7 clicks per day from Twitter/X."""
             body = dynamic_article or static_body
-            return f"""# ⚡ The Creator Blueprint: $0 to $5k Media Asset Flywheel
+            lead_hl = (scribe_content or {}).get("lead_headline") or "$0 to $5k Media Asset Flywheel"
+            return f"""# ⚡ The Creator Blueprint: {lead_hl}
 *Published by CreatorMediaLab • {today_str}*
 
 ---

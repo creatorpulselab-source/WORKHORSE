@@ -6,13 +6,24 @@ Handles direct API publishing of tweets and threaded sequences for:
 """
 
 import os
+import re
 import json
 from pathlib import Path
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Set
 import time
 import tweepy
 
 VIDEO_EXTENSIONS = {".mp4", ".mov", ".m4v", ".webm"}
+
+GENERIC_TWEET_WORDS = {
+    "this", "that", "with", "from", "your", "have", "more", "what", "when",
+    "where", "which", "their", "there", "about", "into", "over", "after",
+    "before", "under", "between", "through", "here", "today", "week", "year",
+    "2025", "2026", "creator", "creators", "studio", "photography", "photo",
+    "photos", "digital", "content", "check", "link", "thread", "full", "free",
+    "most", "just", "only", "every", "single", "time", "make", "made",
+}
+
 
 class TwitterPoster:
     def __init__(self, config_path: str = "F:/WORKHORSE/config.json", secrets_path: str = "F:/WORKHORSE/secrets.json", history_path: Optional[str] = None):
@@ -97,9 +108,17 @@ class TwitterPoster:
         except Exception as e:
             return {"configured": False, "handle": handle, "error": str(e)}
 
+    @staticmethod
+    def _extract_topic_tokens(text: str) -> Set[str]:
+        """Extracts significant topic words from a tweet (stripping handles, hashtags, URLs, and numbering)."""
+        cleaned = re.sub(r"https?://\S+", " ", text or "")
+        cleaned = re.sub(r"[@#]\w+", " ", cleaned)
+        cleaned = re.sub(r"\b\d+/\d+\b", " ", cleaned)
+        words = re.findall(r"[a-z]{4,}", cleaned.lower())
+        return {w for w in words if w not in GENERIC_TWEET_WORDS}
 
     def _is_duplicate_tweet(self, text: str) -> bool:
-        """Checks if identical text was posted in the last 7 days using SHA-256."""
+        """Checks if identical or near-identical topic text was posted in the last 7 days."""
         import hashlib
         from shared.atomic_writer import safe_read_json
         data = safe_read_json(self.history_file, default={"hashes": {}, "recent": []})
@@ -109,9 +128,30 @@ class TwitterPoster:
         seven_days = 7 * 86400
         
         hashes = {h: ts for h, ts in data.get("hashes", {}).items() if now - ts < seven_days}
-        return txt_hash in hashes
+        if txt_hash in hashes:
+            return True
 
-    def _record_tweet(self, text: str) -> None:
+        # Semantic / topic-token similarity check against recent tweets from the last 5 days
+        five_days = 5 * 86400
+        cand_tokens = self._extract_topic_tokens(text[:180])
+        if len(cand_tokens) >= 5:
+            for item in data.get("recent", []) or []:
+                if not isinstance(item, dict):
+                    continue
+                ts = float(item.get("timestamp", 0) or 0)
+                if now - ts > five_days:
+                    continue
+                prev_snip = str(item.get("snippet", ""))
+                prev_tokens = self._extract_topic_tokens(prev_snip)
+                if len(prev_tokens) >= 5:
+                    shared = cand_tokens & prev_tokens
+                    overlap = len(shared) / float(min(len(cand_tokens), len(prev_tokens)))
+                    if len(shared) >= 5 and overlap >= 0.65:
+                        return True
+
+        return False
+
+    def _record_tweet(self, text: str, handle: str = "") -> None:
         """Records a successfully posted tweet into 7-day history."""
         import hashlib
         from shared.atomic_writer import safe_read_json, atomic_write_json
@@ -125,8 +165,13 @@ class TwitterPoster:
         hashes[txt_hash] = now
         data["hashes"] = hashes
         recent = data.get("recent", [])
-        recent.append({"hash": txt_hash, "timestamp": now, "snippet": text[:80]})
-        data["recent"] = recent[-50:]
+        recent.append({
+            "hash": txt_hash,
+            "timestamp": now,
+            "handle": handle.lstrip("@").strip() if handle else "",
+            "snippet": text[:200],
+        })
+        data["recent"] = recent[-80:]
         atomic_write_json(self.history_file, data)
 
     def post_thread(self, handle: str, tweets: List[str], media_paths: Optional[List[str]] = None) -> Dict[str, Any]:
@@ -157,7 +202,7 @@ class TwitterPoster:
         if self._is_duplicate_tweet(tweets[0]):
             return {
                 "success": False,
-                "error": "Duplicate tweet detected: identical text posted within the last 7 days.",
+                "error": "Duplicate tweet detected: identical or near-identical text posted within the last 7 days.",
                 "handle": handle,
                 "is_duplicate": True
             }
@@ -238,7 +283,7 @@ class TwitterPoster:
                 prev_id = curr_id
 
             # Record root tweet hash upon verified success
-            self._record_tweet(tweets[0])
+            self._record_tweet(tweets[0], handle=clean_handle)
 
             clean_handle = handle.lstrip("@")
             thread_url = f"https://x.com/{clean_handle}/status/{first_id}"
@@ -282,4 +327,3 @@ class TwitterPoster:
                 all_ok = False
             time.sleep(0.5)
         return {"success": all_ok, "handle": handle, "deleted_count": sum(1 for r in results if r.get("success")), "results": results}
-
