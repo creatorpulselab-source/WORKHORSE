@@ -63,8 +63,14 @@ QUALITY_PRESETS = {
                "luxury editorial fashion photography, hyper-detailed, photorealistic, 8k uhd",
 }
 QUALITY_NEGATIVE_BOOST = (
-    "deformed, extra limbs, bad anatomy, bad hands, 6 fingers, missing fingers, fused limbs, "
-    "distorted face, asymmetrical eyes, blurry, low quality, artifacts, plastic skin, overly airbrushed, "
+    "missing limbs, amputated limbs, missing arms, missing legs, missing hands, missing fingers, "
+    "extra limbs, extra arms, extra legs, extra hands, extra fingers, 6 fingers, fused limbs, fused fingers, "
+    "spider fingers, elongated fingers, long fingers, deformed hands, mutated hands, poorly drawn hands, disfigured hands, "
+    "impossible finger wrap, fingers wrapping unnaturally around objects, claw hands, twisted fingers, "
+    "crossed eyes, strabismus, wonky eyes, lazy eye, wandering eyes, misaligned pupils, asymmetric eyes, uneven pupils, deformed iris, "
+    "distorted face, poorly drawn face, disfigured face, bad anatomy, "
+    "blurry, low quality, artifacts, plastic skin, overly airbrushed, "
+    ""
     "waxy skin, cartoon, 3d render, cgi, overexposed, underexposed, watermark, text, logo, grainy, jpeg artifacts"
 )
 
@@ -111,7 +117,10 @@ class ComfyUIBridge:
                         "min_quality_score": 7.5,
                         "max_retries": 2,
                         "reject_on_extra_limbs": True,
-                        "reject_on_facial_distortion": True
+                        "reject_on_facial_distortion": True,
+                        "reject_on_hand_defects": True,
+                        "reject_on_eye_defects": True,
+                        "reject_on_missing_limbs": True
                     })
                     return self.comfy_cfg
             except Exception as e:
@@ -125,7 +134,10 @@ class ComfyUIBridge:
             "min_quality_score": 7.5,
             "max_retries": 2,
             "reject_on_extra_limbs": True,
-            "reject_on_facial_distortion": True
+            "reject_on_facial_distortion": True,
+            "reject_on_hand_defects": True,
+            "reject_on_eye_defects": True,
+            "reject_on_missing_limbs": True
         }
         return self.comfy_cfg
 
@@ -1593,6 +1605,14 @@ class ComfyUIBridge:
         elif lora_name:
             lora_items.append({"name": lora_name, "strength": lora_strength})
 
+        # For photorealistic portraits on SDXL checkpoints, if no hand LoRA is explicitly specified,
+        # attach Detailed_Hands-000001 at subtle strength (0.45) to ensure anatomical hand integrity
+        is_sdxl = "xl" in ckpt_resolved.lower()
+        has_hand_lora = any("hand" in item.get("name", "").lower() for item in lora_items)
+        if is_sdxl and not has_hand_lora and style_preset in ("photorealism", "glamour"):
+            if self.resolve_lora_name("Detailed_Hands-000001.safetensors"):
+                lora_items.append({"name": "Detailed_Hands-000001.safetensors", "strength": 0.45})
+
         # Dynamically chain LoRA loaders
         current_model = ["4", 0]
         current_clip = ["4", 1]
@@ -2569,62 +2589,72 @@ class ComfyUIBridge:
         - Strict 100% SFW compliance (zero nudity, lingerie, boudoir, or suggestive content)
         """
         print(f"[Iris QC Gate] Inspecting rendered image: {image_path.name}...")
-        audit_prompt = f"""You are IRIS [77 Ir], Senior Computer Vision Quality Control Auditor for Creator Media Lab.
-Perform a forensic inspection of this generated AI photograph.
+        audit_prompt = f"""You are IRIS [77 Ir], ruthless and hyper-critical Senior Vision QC Auditor for Creator Media Lab.
+Your sole purpose is catching generative diffusion defects. Assume this image has flaws until proven flawless.
 Original Request: "{original_prompt or 'Photorealistic commercial studio portrait / creator creative'}"
 
-Scrutinize carefully for common generative diffusion flaws:
-1. ANATOMY & LIMBS: Look closely at arms, legs, hands, and fingers. Are there extra limbs, extra fingers (6 fingers), missing digits, or mutated joints?
-2. FACIAL INTEGRITY: Check eyes, pupils, teeth, and skin. Are pupils round and symmetrical? Any melted or unnatural face warping?
-3. ARTIFACTS: Check for floating objects, severe blur, plastic skin texture, or distorted seams.
-4. OVERALL AESTHETICS: Rate composition, studio lighting, and realism from 1.0 to 10.0.
-5. SFW VERIFICATION - SEXY & ALLURING IS WELCOME, GENUINE NUDITY IS STRICTLY FORBIDDEN:
-- PERMITTED & ENCOURAGED: Bikinis, swimsuits, sexy dresses, tight bodycon dresses, cute low-cut tops with tasteful cleavage, little tank tops, crop tops, sleeveless cocktail dresses, backless dresses, and alluring summer fashion. These are 100% commercial social-media approved and should PASS.
-- STRICTLY FORBIDDEN (REJECT): Genuine toplessness (bare breasts or bare nipples with no top on), exposed genitals/buttocks, fully transparent/sheer fabric clearly revealing nipples, or explicit adult sexual acts.
-6. FOREGROUND OCCLUSION & UNWANTED OBJECTS (CRITICAL): Look closely at what is in front of the subject. Are there unwanted objects, camera gear, microphone boom arms, tripod legs, floating artifacts, poles, or messy clutter awkwardly blocking or cutting across the subject's face, eyes, neck, or body? The subject must be cleanly visible with zero obstructing objects in front of them.
+Scrutinize with extreme skepticism:
+1. HANDS, FINGERS & OBJECT GRIP (Crucial Generative Defect):
+   - Look closely at how the subject is holding any tablet, phone, camera, or object.
+   - Do the fingers look unnaturally elongated or spider-like?
+   - Do fingers wrap unnaturally or awkwardly all the way around the back or edge of the tablet/object?
+   - Are any fingers fused, missing, extra (6 fingers), or are knuckles/joints melted?
+   - If ANY of these grip or hand flaws are present, you MUST set "hand_defects_detected": true.
+2. EYES, PUPILS & GAZE:
+   - Zoom in on both eyes.
+   - Check for strabismus, lazy eye, wandering gaze, asymmetric pupil sizes, or drooping/melted eyelids.
+   - If eyes are uneven or pupil alignment is off, you MUST set "eye_or_face_defects_detected": true.
+3. LIMBS & PROPORTIONS:
+   - Check for missing limbs (amputated look), extra limbs, or severe limb length disparity.
+   - If any limb is missing or disproportionate, you MUST set "missing_or_extra_limbs_detected": true.
+4. SFW / MODESTY:
+   - Bikinis, swimsuits, sexy dresses, and cute tops are 100% SFW (set "is_sfw": true, "nudity_or_nsfw_detected": false). Only genuine bare nipples/breasts or genitals count as NSFW.
+   - CRITICAL: Even if the attire is 100% SFW, ANY anatomical hand, eye, or limb defect MUST FAIL the image (set "passed": false and "recommendation": "RETRY_NEW_SEED")!
+5. FOREGROUND OCCLUSION:
+   - Are unwanted objects, boom mics, tripod legs, or clutter blocking the subject's face or body?
 
-Respond strictly in valid JSON format:
+Be brutally honest. Write your detailed observations first:
+Respond strictly in valid JSON:
 {{
-  "passed": true,
-  "is_sfw": true,
-  "aesthetic_score": 8.5,
-  "extra_limbs_detected": false,
-  "facial_distortion_detected": false,
-  "nudity_or_nsfw_detected": false,
-  "foreground_occlusion_detected": false,
-  "defects_summary": "Clean hands, natural five fingers, symmetric facial lighting, unobstructed subject.",
-  "anatomy_notes": "Proper arm and finger geometry.",
-  "modesty_notes": "Subject is tastefully attired in commercial fashion (bikini, dress, cute top, or casual wear) with zero explicit nudity. 100% SFW.",
-  "occlusion_notes": "Clean direct sightline to subject without obstructing foreground objects.",
-  "recommendation": "APPROVED"
+  "hands_and_fingers_analysis": "<brutally honest scrutiny of hand/finger anatomy and object grip, or 'hands not visible'>",
+  "hand_defects_detected": <true or false>,
+  "eyes_and_facial_analysis": "<brutally honest scrutiny of eyes, pupils, gaze alignment, and strabismus>",
+  "eye_or_face_defects_detected": <true or false>,
+  "limbs_and_body_analysis": "<scrutiny of arms, legs, and proportions>",
+  "missing_or_extra_limbs_detected": <true or false>,
+  "foreground_occlusion_detected": <true or false>,
+  "nudity_or_nsfw_detected": <true or false>,
+  "is_sfw": <true or false>,
+  "aesthetic_score": <rating 1.0 - 10.0>,
+  "defects_summary": "<summary of defects>",
+  "passed": <false if any defect detected, true only if flawless>,
+  "recommendation": "<APPROVED | RETRY_NEW_SEED | RETRY_NEW_PROMPT | REJECT_NSFW_CONTENT>"
 }}
-If ANY extra limbs, mutated hands, or severe facial defects are found, set "passed": false and recommendation to "RETRY_NEW_SEED".
-If the subject is genuinely topless (bare breasts/nipples exposed with no top), has exposed genitals, or has completely sheer transparent fabric showing nipples, set "passed": false, "is_sfw": false, "nudity_or_nsfw_detected": true, and recommendation to "REJECT_NSFW_CONTENT".
-If the subject is wearing a bikini, cute low-cut top, tight dress, little tank top, or sexy attire where breasts are covered by fabric, mark "is_sfw": true, "nudity_or_nsfw_detected": false, and approve!
-If ANY unwanted objects, microphones, gear, or clutter in front of the subject block or obscure their face or body, set "passed": false, "foreground_occlusion_detected": true, and recommendation to "RETRY_NEW_PROMPT".
 """
-        system_prompt = (
-            "You are Iris, an expert AI art auditor. Output strictly valid QC JSON.\n"
-            + get_comfyui_context("qc")
-            + "\nInspect pixels only; return the QC JSON schema requested, never an execution graph."
-        )
+        system_prompt = "You are IRIS, ruthless and hyper-critical Senior Vision QC Auditor. Output strictly valid JSON."
 
         try:
             raw = self.ai.call_ollama_vision(
                 prompt=audit_prompt,
                 image_paths=[image_path],
-                system_prompt=system_prompt
+                system_prompt=system_prompt,
+                num_predict=600
             )
 
-            # Strip markdown fences
-            clean = raw.strip()
-            if clean.startswith("```json"):
-                clean = clean[7:]
-            if clean.startswith("```"):
-                clean = clean[3:]
-            if clean.endswith("```"):
-                clean = clean[:-3]
-            clean = clean.strip()
+            # Robust JSON extraction via regex
+            import re
+            json_match = re.search(r"\{.*\}", raw, re.DOTALL)
+            if json_match:
+                clean = json_match.group(0).strip()
+            else:
+                clean = raw.strip()
+                if clean.startswith("```json"):
+                    clean = clean[7:]
+                if clean.startswith("```"):
+                    clean = clean[3:]
+                if clean.endswith("```"):
+                    clean = clean[:-3]
+                clean = clean.strip()
 
             parsed = json.loads(clean)
             if isinstance(parsed, dict) and parsed.get("error"):
@@ -2689,12 +2719,23 @@ If ANY unwanted objects, microphones, gear, or clutter in front of the subject b
             # QC infra unavailable: fail-open for internal draft, but is_sfw stays False
             parsed["is_sfw"] = False
 
-        if parsed.get("extra_limbs_detected") and self.qc_cfg.get("reject_on_extra_limbs", True):
+        # Reject on hand or finger defects (spider fingers, >5 or <5 fingers, unnatural finger wrap, fused digits)
+        if (parsed.get("hand_defects_detected") or parsed.get("deformed_hands_detected")) and self.qc_cfg.get("reject_on_hand_defects", True):
             parsed["passed"] = False
             parsed["recommendation"] = "RETRY_NEW_SEED"
-        if parsed.get("facial_distortion_detected") and self.qc_cfg.get("reject_on_facial_distortion", True):
+            print(f"[Iris QC Alert] ANATOMY REJECTION: Hand/finger defects detected in {image_path.name}")
+
+        # Reject on eye or facial defects (strabismus, wonky eyes, asymmetric pupils, facial warping)
+        if (parsed.get("eye_or_face_defects_detected") or parsed.get("facial_distortion_detected") or parsed.get("eye_defects_detected")) and self.qc_cfg.get("reject_on_facial_distortion", True):
             parsed["passed"] = False
             parsed["recommendation"] = "RETRY_NEW_SEED"
+            print(f"[Iris QC Alert] FACIAL REJECTION: Eye or facial distortion detected in {image_path.name}")
+
+        # Reject on missing or extra limbs (missing arms/legs, amputated appearance, extra limbs)
+        if (parsed.get("missing_or_extra_limbs_detected") or parsed.get("extra_limbs_detected") or parsed.get("missing_limbs_detected")) and self.qc_cfg.get("reject_on_extra_limbs", True):
+            parsed["passed"] = False
+            parsed["recommendation"] = "RETRY_NEW_SEED"
+            print(f"[Iris QC Alert] LIMB REJECTION: Missing or extra limbs detected in {image_path.name}")
         if parsed.get("foreground_occlusion_detected") and self.qc_cfg.get("reject_on_foreground_occlusion", True):
             parsed["passed"] = False
             parsed["recommendation"] = "RETRY_NEW_PROMPT"
@@ -2958,7 +2999,7 @@ If ANY unwanted objects, microphones, gear, or clutter in front of the subject b
                             print(f"[Iris QC Quarantine] Failed to move {staged_path.name}: {qe}")
 
                     # Reinforce negative prompt for next attempt to suppress defects & occlusions
-                    current_neg += ", (extra limbs, deformed hands, fused fingers, unnatural anatomy, objects blocking subject, microphone in front of face, tripod obscuring body:1.4)"
+                    current_neg += ", (missing limbs, amputated limbs, missing arms, extra limbs, deformed hands, spider fingers, elongated fingers, fingers wrapping around objects, crossed eyes, strabismus, wonky eyes, fused digits, unnatural anatomy, objects blocking subject, microphone in front of face, tripod obscuring body:1.5)"
                     self._log_audit_record(staged_path.name if staged_path else "unknown", audit, active_prompt, attempt, passed=False)
 
             except Exception as e:
@@ -3015,8 +3056,11 @@ If ANY unwanted objects, microphones, gear, or clutter in front of the subject b
             "attempt": attempt,
             "prompt": prompt,
             "aesthetic_score": audit.get("aesthetic_score"),
-            "extra_limbs": audit.get("extra_limbs_detected"),
-            "facial_distortion": audit.get("facial_distortion_detected"),
+            "hand_defects": audit.get("hand_defects_detected", False),
+            "eye_or_face_defects": audit.get("eye_or_face_defects_detected", False),
+            "missing_or_extra_limbs": audit.get("missing_or_extra_limbs_detected", False),
+            "extra_limbs": audit.get("extra_limbs_detected", False),
+            "facial_distortion": audit.get("facial_distortion_detected", False),
             "nudity_or_nsfw": audit.get("nudity_or_nsfw_detected", False),
             "recommendation": audit.get("recommendation"),
             "notes": audit.get("defects_summary")
