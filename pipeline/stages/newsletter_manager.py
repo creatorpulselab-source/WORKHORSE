@@ -16,6 +16,7 @@ RESPONSIVE EMAIL ARCHITECTURE:
 import os
 import sys
 import json
+import re
 import html
 
 if sys.platform == "win32":
@@ -29,7 +30,7 @@ import smtplib
 import subprocess
 import threading
 from pathlib import Path
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Set, Tuple
 from datetime import datetime
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -836,14 +837,48 @@ class NewsletterManager:
                 pass
         return verified
 
-    def get_latest_comfy_visual(self, pub_id: str = "creator_pulse") -> Optional[Path]:
+    def _load_iris_verified_records(self, require_sfw: bool = True) -> Dict[str, Dict[str, Any]]:
+        """Returns map of filename -> audit record for passed IRIS QC items."""
+        audit_log = self.workspace / "comfy_qc_audit.json"
+        records_map: Dict[str, Dict[str, Any]] = {}
+        blocked_prompt_words = [
+            "boudoir", "lingerie", "underwear", "bra", "panties", "nude", "nudity", "naked",
+            "topless", "bare breasts", "exposed nipples", "genitals", "sheer", "erotic",
+            "nsfw", "porn", "adult", "fetish", "cam"
+        ]
+        if audit_log.exists():
+            try:
+                with open(audit_log, "r", encoding="utf-8") as f:
+                    records = json.load(f)
+                for r in records:
+                    fn = r.get("filename")
+                    if not (r.get("passed") and fn):
+                        continue
+                    if require_sfw:
+                        if r.get("is_sfw") is False or r.get("nudity_or_nsfw"):
+                            continue
+                        if r.get("recommendation") == "REJECT_NSFW_CONTENT":
+                            continue
+                        prompt_str = (r.get("prompt") or "").lower()
+                        if any(k in prompt_str for k in blocked_prompt_words):
+                            continue
+                    records_map[fn] = r
+            except Exception:
+                pass
+        return records_map
+
+    def get_topic_matched_comfy_visual(
+        self,
+        pub_id: str = "creator_pulse",
+        topic_text: Optional[str] = None,
+        exclude_filenames: Optional[Set[str]] = None
+    ) -> Optional[Path]:
         """
-        Retrieves the latest IRIS-QC-verified visual render for the SPECIFIC brand.
-        - 'creator_pulse' / 'creatorpulselab': searches workspace/brand_assets/creator_pulse_lab
-        - 'studio_wire' / 'TheCreatorAsset': searches workspace/brand_assets/creator_media_lab
-        - 'creator_blueprint': strictly searches for digital workstation / media scaling assets (no studio lights)
-        Falls back to brand prefix filtering (CPL_ vs CML_ vs CBP_).
-        STRICT 100% SFW: Only returns a file with a passed=true and is_sfw=true record in comfy_qc_audit.json.
+        Retrieves a topic-matched IRIS-QC-verified visual render for the SPECIFIC brand.
+        - Excludes any files in `exclude_filenames` (e.g. recently posted media in last 7 days).
+        - If `topic_text` is provided, scores candidate images against the prompt used to render them.
+        - If all verified files have been excluded, recycles the best topic match from the full pool.
+        - STRICT 100% SFW: Only returns verified files passing IRIS QC with zero adult keywords.
         """
         is_pulse = any(k in pub_id.lower() for k in ["pulse", "cpl"])
         is_blueprint = "blueprint" in pub_id.lower()
@@ -856,96 +891,123 @@ class NewsletterManager:
         else:
             target_subfolder = "creator_media_lab"
             target_prefix = "CML_"
-        verified_names = self._load_iris_verified_filenames(require_sfw=True)
 
-        def _latest_verified(files: List[Path]) -> Optional[Path]:
-            # STRICT NSFW GUARD: drop any file with adult/boudoir keywords in filename
-            blocked = [
-                "boudoir", "nude", "naked", "nsfw", "topless", "lingerie", "porn", "explicit",
-                "erotic", "charlette", "margo", "melissa"
-            ]
-            clean_files = [f for f in files if not any(b in f.name.lower() for b in blocked)]
-            verified_files = [f for f in clean_files if f.name in verified_names]
-            if not verified_files:
-                return None
-            verified_files.sort(key=lambda x: x.stat().st_mtime, reverse=True)
-            return verified_files[0]
+        records_map = self._load_iris_verified_records(require_sfw=True)
+        verified_names = set(records_map.keys())
 
-        # 1. Dedicated brand folder
+        blocked_names = [
+            "boudoir", "nude", "naked", "nsfw", "topless", "lingerie", "porn", "explicit",
+            "erotic", "charlette", "margo", "melissa"
+        ]
+
+        # Gather all candidate files
+        candidate_files: List[Path] = []
         brand_dir = self.workspace / "brand_assets" / target_subfolder
         if brand_dir.exists():
-            files = [f for f in brand_dir.iterdir() if f.is_file() and f.suffix.lower() in [".png", ".jpg", ".jpeg", ".webp"]]
-            picked = _latest_verified(files)
-            if picked:
-                return picked
+            for f in brand_dir.iterdir():
+                if f.is_file() and f.suffix.lower() in [".png", ".jpg", ".jpeg", ".webp"]:
+                    if f.name in verified_names and not any(b in f.name.lower() for b in blocked_names):
+                        candidate_files.append(f)
 
-        # 2. General comfy_renders filtered by brand prefix
         renders_dir = self.workspace / "brand_assets" / "comfy_renders"
         if renders_dir.exists():
-            filtered = [
-                f for f in renders_dir.iterdir()
-                if f.is_file() and f.name.startswith(target_prefix) and f.suffix.lower() in [".png", ".jpg", ".jpeg", ".webp"]
-            ]
-            picked = _latest_verified(filtered)
-            if picked:
-                return picked
+            for f in renders_dir.iterdir():
+                if f.is_file() and f.name.startswith(target_prefix) and f.suffix.lower() in [".png", ".jpg", ".jpeg", ".webp"]:
+                    if f.name in verified_names and not any(b in f.name.lower() for b in blocked_names):
+                        if f.name not in {cf.name for cf in candidate_files}:
+                            candidate_files.append(f)
 
-        # 3. For creator_blueprint, also check for verified workstation/asset renders across brand folders
-        if is_blueprint:
-            audit_log = self.workspace / "comfy_qc_audit.json"
-            if audit_log.exists():
-                try:
-                    with open(audit_log, "r", encoding="utf-8") as f:
-                        records = json.load(f)
-                    workstation_names = set()
-                    ws_keywords = [
-                        "workstation", "workspace", "dashboard", "tablet", "dual monitor",
-                        "editing suite", "macbook", "ipad", "console", "monitors", "flat-lay"
-                    ]
-                    for r in records:
-                        if r.get("passed") and r.get("is_sfw") is not False and not r.get("nudity_or_nsfw") and r.get("filename"):
-                            p = (r.get("prompt") or "").lower()
-                            if any(w in p for w in ws_keywords):
-                                workstation_names.add(r["filename"])
-                    candidate_dirs = [
-                        self.workspace / "brand_assets" / "creator_media_lab",
-                        self.workspace / "brand_assets" / "creator_pulse_lab",
-                        renders_dir,
-                    ]
-                    ws_files = []
-                    seen_names = set()
-                    for cdir in candidate_dirs:
-                        if cdir.exists():
-                            for f in cdir.iterdir():
-                                if f.is_file() and f.name in workstation_names and f.name not in seen_names:
-                                    ws_files.append(f)
-                                    seen_names.add(f.name)
-                    # Prefer a workstation visual distinct from creator_pulse / studio_wire's current lead image
-                    other_leads = set()
-                    for other_pub in ("creator_pulse", "studio_wire"):
-                        other_vis = self.get_latest_comfy_visual(other_pub)
-                        if other_vis:
-                            other_leads.add(other_vis.name)
-                    distinct_ws = [f for f in ws_files if f.name not in other_leads]
-                    picked = _latest_verified(distinct_ws) or _latest_verified(ws_files)
-                    if picked:
-                        return picked
-                except Exception:
-                    pass
-            # No matching workstation image found -> return None to use clean IMG_CREATOR_FLYWHEEL
+        # For creator_blueprint, also check for verified workstation/asset renders
+        if is_blueprint and renders_dir.exists():
+            ws_keywords = [
+                "workstation", "workspace", "dashboard", "tablet", "dual monitor",
+                "editing suite", "macbook", "ipad", "console", "monitors", "flat-lay"
+            ]
+            for fn, rec in records_map.items():
+                p = (rec.get("prompt") or "").lower()
+                if any(w in p for w in ws_keywords):
+                    for check_dir in [self.workspace / "brand_assets" / "creator_media_lab", self.workspace / "brand_assets" / "creator_pulse_lab", renders_dir]:
+                        p_file = check_dir / fn
+                        if p_file.exists() and p_file not in candidate_files:
+                            candidate_files.append(p_file)
+
+        if not candidate_files:
             return None
 
-        # 4. Fallback for photography studio wire: IRIS-verified SFW render matching CML
-        if renders_dir.exists():
-            filtered_cml = [
-                f for f in renders_dir.iterdir()
-                if f.is_file() and f.name.startswith("CML_") and f.suffix.lower() in [".png", ".jpg", ".jpeg", ".webp"]
-            ]
-            picked = _latest_verified(filtered_cml)
-            if picked:
-                return picked
+        # Filter out recently posted files
+        exclude = set(exclude_filenames or [])
+        unseen_files = [f for f in candidate_files if f.name not in exclude]
 
-        return None
+        # If all candidate files have been posted recently, reset and use all candidates
+        pool_to_search = unseen_files if unseen_files else candidate_files
+
+        if topic_text and len(topic_text.strip()) >= 5:
+            topic_lower = topic_text.lower()
+            stopwords = {"this", "that", "with", "from", "your", "what", "have", "more", "about", "into", "some", "them", "then", "just", "will", "when"}
+            topic_tokens = set(re.findall(r"\b[a-z0-9]{4,}\b", topic_lower)) - stopwords
+
+            scored: List[Tuple[float, Path]] = []
+            for f in pool_to_search:
+                rec = records_map.get(f.name, {})
+                prompt_lower = (rec.get("prompt") or "").lower()
+                fname_lower = f.name.lower()
+                score = 0.0
+
+                for tok in topic_tokens:
+                    if tok in prompt_lower:
+                        score += 2.0
+                    if tok in fname_lower:
+                        score += 1.5
+
+                # Semantic thematic affinities
+                if any(k in topic_lower for k in ["console", "loupedeck", "tourbox", "stream deck", "dial", "keyboard"]):
+                    if any(k in prompt_lower for k in ["console", "dial", "loupedeck", "display", "controller", "station"]):
+                        score += 6.0
+                if any(k in topic_lower for k in ["iphone", "phone", "portrait mode", "mobile"]):
+                    if any(k in prompt_lower for k in ["iphone", "phone", "mobile", "smart", "gimbal"]):
+                        score += 6.0
+                if any(k in topic_lower for k in ["color", "grade", "portra", "film", "hsl", "curve", "preset", "lut"]):
+                    if any(k in prompt_lower for k in ["color", "grade", "portra", "cinestill", "curve", "hsl", "davinci", "film"]):
+                        score += 5.0
+                if any(k in topic_lower for k in ["lighting", "softbox", "feather", "rembrandt", "key light", "reflector", "strobe"]):
+                    if any(k in prompt_lower for k in ["softbox", "lighting", "rembrandt", "beauty dish", "reflector", "strobe", "c-stand"]):
+                        score += 5.0
+                if any(k in topic_lower for k in ["retouch", "skin", "texture", "pore", "frequency"]):
+                    if any(k in prompt_lower for k in ["retouch", "skin", "texture", "pore", "beauty"]):
+                        score += 5.0
+                if any(k in topic_lower for k in ["monetiz", "pricing", "dollar", "revenue", "tier", "funnel", "storefront", "etsy", "sales"]):
+                    if any(k in prompt_lower for k in ["monetiz", "revenue", "ipad", "laptop", "dashboard", "analytics", "storefront", "sales"]):
+                        score += 5.0
+                if any(k in topic_lower for k in ["facebook", "instagram", "tiktok", "youtube", "social"]):
+                    if any(k in prompt_lower for k in ["analytics", "social", "studio", "creator", "display"]):
+                        score += 3.0
+
+                # Recency tiebreaker
+                mtime_bonus = f.stat().st_mtime / 1e12
+                scored.append((score + mtime_bonus, f))
+
+            scored.sort(key=lambda x: x[0], reverse=True)
+            return scored[0][1]
+
+        # No topic_text: sort by mtime descending and return newest eligible
+        pool_to_search.sort(key=lambda x: x.stat().st_mtime, reverse=True)
+        return pool_to_search[0]
+
+    def get_latest_comfy_visual(
+        self,
+        pub_id: str = "creator_pulse",
+        exclude_filenames: Optional[Set[str]] = None,
+        topic_text: Optional[str] = None
+    ) -> Optional[Path]:
+        """
+        Retrieves the latest IRIS-QC-verified visual render for the SPECIFIC brand.
+        Delegates to get_topic_matched_comfy_visual with deduplication and topic matching.
+        """
+        return self.get_topic_matched_comfy_visual(
+            pub_id=pub_id,
+            topic_text=topic_text,
+            exclude_filenames=exclude_filenames
+        )
 
     def _warn_if_visual_stale(self, pub_id: str, visual_path: Path) -> None:
         """Logs a (once-per-day-per-publication) incident when the newsletter's embedded

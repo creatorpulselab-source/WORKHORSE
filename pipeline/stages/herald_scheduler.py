@@ -15,8 +15,8 @@ import asyncio
 import logging
 import random
 from pathlib import Path
-from datetime import datetime, date
-from typing import Dict, Any, List, Optional, Union
+from datetime import datetime, date, timedelta
+from typing import Dict, Any, List, Optional, Union, Set
 
 sys.path.insert(0, "F:/WORKHORSE")
 from pipeline.stages.twitter_poster import TwitterPoster
@@ -384,6 +384,44 @@ class HeraldScheduler:
         self._save_state()
         return pool[chosen_idx]
 
+    def _record_posted_media(self, file_path: Union[str, Path], handle: str, slot_id: str) -> None:
+        """Records a posted media path to ensure 7-day non-repetition across X and Pinterest."""
+        if not file_path:
+            return
+        p = Path(file_path)
+        recent_media = self.state.setdefault("recent_posted_media", [])
+        if not isinstance(recent_media, list):
+            recent_media = []
+            self.state["recent_posted_media"] = recent_media
+
+        cutoff = (datetime.now() - timedelta(days=14)).isoformat()
+        cleaned = [
+            m for m in recent_media
+            if isinstance(m, dict) and m.get("posted_at", "") >= cutoff
+        ]
+        cleaned.append({
+            "path": str(p),
+            "filename": p.name,
+            "posted_at": datetime.now().isoformat(),
+            "handle": handle,
+            "slot_id": slot_id
+        })
+        self.state["recent_posted_media"] = cleaned
+        self._save_state()
+
+    def _get_recent_media_filenames(self, max_days: int = 7) -> Set[str]:
+        """Returns set of filenames posted within max_days."""
+        recent_media = self.state.get("recent_posted_media", [])
+        if not isinstance(recent_media, list):
+            return set()
+        cutoff = (datetime.now() - timedelta(days=max_days)).isoformat()
+        filenames = set()
+        for m in recent_media:
+            if isinstance(m, dict) and m.get("filename"):
+                if m.get("posted_at", "") >= cutoff:
+                    filenames.add(m["filename"])
+        return filenames
+
     def _craft_topic_visual_prompt(self, brand_key: str, topic_text: Optional[str] = None, variant_seed: int = 0) -> str:
         """
         Dynamically crafts an on-brand, high-fidelity visual prompt that DIRECTLY MATCHES
@@ -392,15 +430,35 @@ class HeraldScheduler:
         non-human scenes (macro flat-lays, camera rigs, editing suites), and diverse flattering wardrobes
         across the 5 approved commercial moods (Sexy/Alluring, Playful, Cute, Cozy, High-Fashion).
         variant_seed allows generating multiple distinct creative interpretations of the same topic.
+        100% SFW: tastefull commercial fashion, zero nudity or boudoir.
         """
-        if not topic_text or len(topic_text.strip()) < 8:
+        if not topic_text or len(topic_text.strip()) < 5:
             return self._pick_image_prompt(brand_key)
 
         txt_lower = topic_text.lower()
 
-        # 1. Monitor Calibration / Display Screen Tuning / 120 cd/m² / Dim Lighting
-        # (Placed BEFORE generic lighting so 'editing in dim lighting' never misfires as flash equipment!)
-        if any(k in txt_lower for k in ["calibrat", "monitor", "120 cd", "display", "screen", "spyder", "colorchecker", "gamma"]):
+        # 1. Hardware Editing Consoles, Controllers, Dials & Color Workstations
+        if any(k in txt_lower for k in ["console", "loupedeck", "tourbox", "stream deck", "controller", "knob", "dial", "jog wheel", "editing desk", "workstation"]):
+            variants = [
+                "Commercial photo studio editing suite: stylish creator adjusting brass tactile dials and jog wheels on a Loupedeck color console, dual Apple Studio Displays glowing with RAW tone curves, warm studio desk lamp, 50mm f/1.4 lens, 8k resolution",
+                "Close-up commercial shot of hands with neat manicure turning custom weighted dials on an editing surface controller, scopes glowing on ultrawide monitors, modern oak desk setup, 35mm prime",
+                "Creator in a chic satin blouse actively editing photo batches at an illuminated console desk, Loupedeck and Wacom tablet in line of sight, warm studio ambient glow, 50mm lens",
+                "Aesthetic midnight editing workstation setup: Loupedeck console, high-res color grading monitors, studio monitor speakers, and ceramic mug on dark walnut desk, soft cyan edge lighting, 35mm lens"
+            ]
+            return variants[variant_seed % len(variants)]
+
+        # 2. iPhone & Mobile Photography & Portrait Mode
+        elif any(k in txt_lower for k in ["iphone", "smartphone", "portrait mode", "mobile photo", "phone camera", "telephoto", "mobile photography", "handheld"]):
+            variants = [
+                "Aesthetic behind-the-scenes shot: stylish photographer holding an iPhone 16 Pro in a sleek aluminum mobile cage, capturing a studio portrait in Portrait Mode, warm softbox light catching her profile, 35mm lens",
+                "Creative editorial shoot: photographer holding a smartphone framing an artistic portrait through the camera viewfinder app, soft blurred studio background, natural window light, 50mm f/1.8",
+                "Commercial flat-lay of modern mobile creator gear: iPhone with telephoto lens attachment in cage, compact magnetic LED light, mini tripod, and wireless mic on marble studio table, 50mm macro",
+                "Photographer in a cute linen crop top using a smartphone gimbal to shoot vertical video in a bright sunlit studio loft, smiling confident energy, 35mm prime"
+            ]
+            return variants[variant_seed % len(variants)]
+
+        # 3. Monitor Calibration / Display Screen Tuning / 120 cd/m² / Dim Lighting
+        elif any(k in txt_lower for k in ["calibrat", "monitor", "120 cd", "display", "screen", "spyder", "colorchecker", "gamma"]):
             variants = [
                 "Atmospheric night studio session, creator in a comfortable soft camisole and draped knit cardigan holding a monitor calibrator against an Apple Studio Display, dim ambient warm desk lamp, 120 cd/m² calibration, 35mm lens, photorealistic commercial aesthetic",
                 "Professional creative director in an alluring silk wrap blouse refining display color calibration and gamma curves at an ultrawide monitor in a moody night editing suite, warm amber lamp, city skyline lights outside, 50mm f/1.4",
@@ -409,7 +467,7 @@ class HeraldScheduler:
             ]
             return variants[variant_seed % len(variants)]
 
-        # 2. Color Science / Portra / Cinestill / Lightroom / Tone Curve / HSL / Presets / LUTs
+        # 4. Color Science / Portra / Cinestill / Lightroom / Tone Curve / HSL / Presets / LUTs
         elif any(k in txt_lower for k in ["portra", "cinestill", "tone curve", "hsl", "lightroom", "color grade", "preset", "color science", "palette", "lut", "saturation"]):
             variants = [
                 "Attractive photographer wearing a chic emerald satin cowl-neck slip dress actively adjusting DaVinci color wheels and tone curves at an Apple Studio Display editing station, warm studio glow, vivid film tones on screen, professional 85mm portrait, 8k resolution",
@@ -419,38 +477,18 @@ class HeraldScheduler:
             ]
             return variants[variant_seed % len(variants)]
 
-        # 3. Retouching / Frequency Separation / Dodge & Burn / Skin Pores
-        elif any(k in txt_lower for k in ["retouch", "frequency separation", "dodge", "burn", "skin pore", "skin texture", "pore", "texture", "blemish"]):
+        # 5. Camera Bodies, Lenses, Sensors & Optics
+        elif any(k in txt_lower for k in ["camera", "lens", "85mm", "50mm", "35mm", "prime", "aperture", "sony", "canon", "nikon", "fujifilm", "mirrorless", "shutter", "bokeh"]):
             variants = [
-                "High-fashion beauty close-up, gorgeous model in an attractive low-cut satin camisole, authentic natural skin texture with visible pores, radiant eye catchlights, soft beauty dish lighting, clean direct sightline, 105mm macro",
-                "Digital retoucher's hands using a Wacom stylus pen sculpting light and shadow on a high-res beauty portrait on a Cintiq display, split frequency separation visible on screen, warm desk lamp, 50mm prime",
-                "Radiant creator in a cute ribbed tank top smiling into a vanity mirror ring light, glowing authentic skin highlight roll-off, delicate gold chain, clean modern dressing room backdrop, 85mm lens"
-            ]
-            return variants[variant_seed % len(variants)]
-
-        # 4. Digital Product Monetization / Pricing Tiers ($19, $49, $149) / Value Ladders / Micro-Assets / Checkout Pages / Revenue
-        elif any(k in txt_lower for k in ["monetiz", "pricing", "$19", "$49", "$149", "ladder", "micro-asset", "checkout", "revenue", "tier", "storefront", "sales", "passive income", "funnel", "offer", "etsy"]):
-            variants = [
-                "Sun-drenched luxury creator lifestyle, attractive creator wearing a chic metallic gold string bikini lounging on a teak sunlounger beside an infinity pool, smiling while reviewing daily Stripe sales analytics on an iPad, sparkling turquoise water backdrop, 85mm commercial lens",
-                "Radiant creator in a cute white ribbed tank top and denim shorts holding up sleek digital template download cards at a modern sunlit agency desk, smiling proudly, dual editing screens showing revenue growth, 50mm prime",
-                "Cozy creator in an oversized chunky oat cable-knit off-shoulder sweater curled up on a sunlit window seat with a warm ceramic coffee mug, laughing while reviewing creator revenue dashboard on a MacBook, 35mm film aesthetic",
-                "Modern creative flat-lay: iPad Pro displaying digital asset value ladder pricing tiers ($19, $49, $149), Sony mirrorless camera, revenue blueprint notebook, and cold brew coffee on white marble desk, 50mm macro"
-            ]
-            return variants[variant_seed % len(variants)]
-
-        # 5. Video Editing / Loops / 4K 60fps / Motion Teasers / Vertical Cuts / TikTok & Reels / Hardware Encoding
-        elif any(k in txt_lower for k in ["video", "loop", "60fps", "teaser", "9:16", "reel", "tiktok", "cut", "encode", "nvenc", "trailer", "motion", "clip"]):
-            variants = [
-                "Dynamic cinematic motion shot, alluring creator wearing a sculpted open-back halter dress walking fluidly along an oceanfront boardwalk during golden hour, cinematic breeze moving hair, camera tracking smoothly, 50mm prime",
-                "Playful creator in a cute cropped baby tee and vintage cutoffs smiling and filming dynamic vertical video reels with a smartphone gimbal on a sunlit city rooftop terrace, 35mm lens",
-                "Late-night video editing bay, creative editor at an ultrawide curved monitor editing a fast-paced 60fps dynamic timeline with purple and cyan ambient rim glow, hands on jog-wheel controller, 50mm lens",
-                "Close-up of professional cinema camera rig with follow-focus on an electronic gimbal catching golden lens flares at sunset, high production value commercial shot, 85mm f/1.4"
+                "Commercial still of a professional Sony mirrorless camera with high-end 85mm f/1.4 GM prime lens mounted on a studio tripod, warm studio backlight creating stunning optical lens flare, shallow focus, 50mm macro",
+                "Photographer in stylish casual studio attire adjusting the focus ring on a high-end prime lens in a bright modern studio loft, candid working-artist energy, 35mm prime",
+                "Clean flat-lay of premium camera primes: 35mm, 50mm, and 85mm lenses standing on an oak work surface, glass elements reflecting clean studio softbox light, 50mm f/2.8 macro",
+                "Photographer holding a medium format camera up to eye level in a sun-drenched industrial studio space, wearing a chic fitted top, focused artistic expression, 85mm lens"
             ]
             return variants[variant_seed % len(variants)]
 
         # 6. Studio Lighting Modifiers & Flash Gear (Softbox / Beauty Dish / Rembrandt / Feathering)
-        # Note: 'lighting' is guarded by specific modifiers so ambient phrases like 'dim lighting' don't misfire
-        elif any(k in txt_lower for k in ["feather", "45", "softbox", "beauty dish", "rembrandt", "key light", "modifier", "studio lighting", "clamshell", "reflector fill", "c-stand"]):
+        elif any(k in txt_lower for k in ["feather", "45", "softbox", "beauty dish", "rembrandt", "key light", "modifier", "studio lighting", "clamshell", "reflector fill", "c-stand", "strobe", "ratio"]):
             variants = [
                 "Alluring creator in a sculpted black strapless sweetheart mini dress posing in a photo studio, dramatic 45-degree feathered key light from a large parabolic softbox casting soft dimensional shadows across her shoulder, 85mm f/1.4 lens",
                 "Photographer in a cute tie-front linen crop top actively positioning a 48-inch softbox on a C-stand in a professional studio, clear line of sight, warm backlight glow, candid working-artist energy, 50mm prime",
@@ -459,19 +497,53 @@ class HeraldScheduler:
             ]
             return variants[variant_seed % len(variants)]
 
-        # 7. 3D Photogrammetry / Neural Mesh / PBR / AR
-        elif any(k in txt_lower for k in ["3d", "pbr", "mesh", "photogrammetry", "neural", "turntable", "glb", "obj"]):
+        # 7. Retouching / Frequency Separation / Dodge & Burn / Skin Pores
+        elif any(k in txt_lower for k in ["retouch", "frequency separation", "dodge", "burn", "skin pore", "skin texture", "pore", "texture", "blemish", "clipping"]):
             variants = [
-                "Creator in a cute fitted athletic tank top holding a mirrorless camera scanning a physical product on an automated rotating turntable, ultrawide studio display showing real-time 3D PBR wireframe, 35mm lens",
-                "Sleek high-tech studio visual: 3D textured asset turntable rotating on an aesthetic pedestal with studio rim lighting, holographic material maps visible, modern creative lab aesthetic, 50mm lens"
+                "High-fashion beauty close-up, gorgeous model in an attractive low-cut satin camisole, authentic natural skin texture with visible pores, radiant eye catchlights, soft beauty dish lighting, clean direct sightline, 105mm macro",
+                "Digital retoucher's hands using a Wacom stylus pen sculpting light and shadow on a high-res beauty portrait on a Cintiq display, split frequency separation visible on screen, warm desk lamp, 50mm prime",
+                "Radiant creator in a cute ribbed tank top smiling into a vanity mirror ring light, glowing authentic skin highlight roll-off, delicate gold chain, clean modern dressing room backdrop, 85mm lens",
+                "Beauty portrait masterclass: split-screen view on studio monitor showing RAW unretouched portrait next to non-destructive dodging and burning result, 50mm prime"
             ]
             return variants[variant_seed % len(variants)]
 
-        # 8. Flywheel / Repurposing / Shoot Once
-        elif any(k in txt_lower for k in ["flywheel", "repurpos", "shoot once", "distribute", "workflow", "system"]):
+        # 8. Digital Product Monetization / Pricing Tiers ($19, $49, $149) / Value Ladders / Storefronts
+        elif any(k in txt_lower for k in ["monetiz", "pricing", "$19", "$49", "$149", "ladder", "micro-asset", "checkout", "revenue", "tier", "storefront", "sales", "passive income", "funnel", "offer", "etsy", "product"]):
             variants = [
-                "Creative agency founder in an attractive low-cut linen wrap top organizing multi-channel storyboards and video clips on a whiteboard and iPad in a modern sunny loft atelier, 50mm prime",
-                "Behind-the-scenes multi-camera production setup around an alluring model in a chic yellow sundress, showing the multi-format content asset flywheel in action, 35mm lens"
+                "Aesthetic creator workspace in a bright modern loft: sleek MacBook displaying digital storefront analytics with rising revenue charts, cold brew coffee, and leather notebook on white marble desk, 35mm film aesthetic",
+                "Confident creator sitting at an aesthetic sunlit studio desk reviewing digital product sales analytics and customer growth on an iPad Pro, smiling proudly, modern clean creative agency vibe, 50mm prime",
+                "Modern creative flat-lay: iPad Pro displaying digital asset value ladder pricing tiers ($19, $49, $149), Sony mirrorless camera, revenue blueprint notebook, and cold brew coffee on white marble desk, 50mm macro",
+                "Cozy creator in an oversized chunky oat cable-knit off-shoulder sweater curled up on a sunlit window seat with a warm ceramic coffee mug, laughing while reviewing creator revenue dashboard on a MacBook, 35mm film aesthetic"
+            ]
+            return variants[variant_seed % len(variants)]
+
+        # 9. Social Platform Strategy, Reach & Algorithms (Facebook, Instagram, YouTube, TikTok)
+        elif any(k in txt_lower for k in ["facebook", "instagram", "tiktok", "youtube", "meta", "algorithm", "reach", "subscriber", "audience", "platform", "bonus", "influencer"]):
+            variants = [
+                "Modern creator media studio: creator in stylish attire reviewing multi-platform social media analytics and audience engagement graphs on dual ultrawide displays, warm ambient studio lighting, 35mm lens",
+                "Professional podcast & content recording desk: Shure SM7B microphone on boom arm, sound-absorbing wood slat wall, ring light soft glow, laptop open with creator metrics, 50mm prime",
+                "Aesthetic content creator filming a vertical video on a smartphone mounted to a desktop ring light in a tasteful sunny loft apartment, professional lighting, 50mm f/1.8",
+                "Creative strategist presenting audience retention and growth charts on a wall-mounted studio screen in a bright minimalist agency loft, 35mm lens"
+            ]
+            return variants[variant_seed % len(variants)]
+
+        # 10. Video Editing / Loops / 4K 60fps / Motion Teasers / Vertical Cuts
+        elif any(k in txt_lower for k in ["video", "loop", "60fps", "teaser", "9:16", "reel", "cut", "encode", "nvenc", "trailer", "motion", "clip", "timeline"]):
+            variants = [
+                "Dynamic cinematic motion shot, alluring creator wearing a sculpted open-back halter dress walking fluidly along an oceanfront boardwalk during golden hour, cinematic breeze moving hair, camera tracking smoothly, 50mm prime",
+                "Playful creator in a cute cropped baby tee and vintage cutoffs smiling and filming dynamic vertical video reels with a smartphone gimbal on a sunlit city rooftop terrace, 35mm lens",
+                "Late-night video editing bay, creative editor at an ultrawide curved monitor editing a fast-paced 60fps dynamic timeline with purple and cyan ambient rim glow, hands on jog-wheel controller, 50mm lens",
+                "Close-up of professional cinema camera rig with follow-focus on an electronic gimbal catching golden lens flares at sunset, high production value commercial shot, 85mm f/1.4"
+            ]
+            return variants[variant_seed % len(variants)]
+
+        # 11. 3D Meshes, SVG Cut Files, STL & Crafting
+        elif any(k in txt_lower for k in ["3d", "pbr", "mesh", "photogrammetry", "neural", "turntable", "glb", "obj", "stl", "svg", "laser", "craft"]):
+            variants = [
+                "Creator in a cute fitted athletic tank top holding a mirrorless camera scanning a physical product on an automated rotating turntable, ultrawide studio display showing real-time 3D PBR wireframe, 35mm lens",
+                "Creative design workshop: 3D printer actively fabricating a sleek geometric vase prototype next to a laptop displaying 3D wireframe mesh, clean modern maker studio, 50mm prime",
+                "Clean flat-lay of artisan laser-cut wooden keychains and acrylic crafts on white marble background, precision craft tools, soft natural studio light, 50mm macro",
+                "Sleek high-tech studio visual: 3D textured asset turntable rotating on an aesthetic pedestal with studio rim lighting, holographic material maps visible, modern creative lab aesthetic, 50mm lens"
             ]
             return variants[variant_seed % len(variants)]
 
@@ -486,16 +558,22 @@ class HeraldScheduler:
         """Selects a video motion/camera-movement prompt that matches the topic and action."""
         if topic_text:
             txt_lower = topic_text.lower()
-            if any(k in txt_lower for k in ["monitor", "calibrat", "screen", "display", "gamma"]):
+            if any(k in txt_lower for k in ["console", "loupedeck", "tourbox", "dial", "keyboard"]):
+                return "hands smoothly turning tactile Loupedeck dials, soft studio display light reflecting, cinematic 24fps"
+            elif any(k in txt_lower for k in ["iphone", "phone", "portrait mode", "mobile"]):
+                return "slow push-in on photographer adjusting mobile camera framing, subtle natural breathing, cinematic 24fps"
+            elif any(k in txt_lower for k in ["camera", "lens", "85mm", "50mm", "prime"]):
+                return "photographer smoothly adjusting lens focus ring, subtle rack focus movement, warm rim light, cinematic 24fps"
+            elif any(k in txt_lower for k in ["monitor", "calibrat", "screen", "display", "gamma"]):
                 return "gentle cinematic slow push-in toward creator focused on calibrating monitor screen, ambient warm desk glow, 24fps"
-            elif any(k in txt_lower for k in ["video", "loop", "motion", "reel", "60fps", "teaser", "clip"]):
-                return "smooth cinematic gimbal tracking move, subject gracefully moving with natural breeze in hair, radiant confident expression, 24fps"
             elif any(k in txt_lower for k in ["feather", "softbox", "beauty dish", "rembrandt", "key light", "studio lighting"]):
                 return "slow cinematic push-in on subject framed by softbox key light, subtle confident eye contact, warm rim light shift, 24fps"
             elif any(k in txt_lower for k in ["color", "grade", "portra", "film", "hsl", "curve", "edit"]):
                 return "creator gently adjusting dials on color console, screen light reflecting softly, natural breathing, cinematic 24fps"
-            elif any(k in txt_lower for k in ["monetiz", "pricing", "revenue", "pool", "resort"]):
-                return "gentle breeze moving hair, golden sunlight rippling on pool water, relaxing happy smile toward camera, cinematic slow motion"
+            elif any(k in txt_lower for k in ["monetiz", "pricing", "revenue", "dashboard", "storefront", "sales"]):
+                return "subtle slow dolly move past laptop displaying rising analytics chart, soft ambient daylight drift, 24fps"
+            elif any(k in txt_lower for k in ["video", "loop", "motion", "reel", "60fps", "teaser", "clip"]):
+                return "smooth cinematic gimbal tracking move, subject gracefully moving with natural breeze in hair, radiant confident expression, 24fps"
             elif any(k in txt_lower for k in ["cozy", "sweater", "coffee", "morning"]):
                 return "taking a sip from ceramic mug, relaxing back with warm natural smile, soft morning light drift, cinematic motion"
 
@@ -509,21 +587,23 @@ class HeraldScheduler:
         Generates a FRESH, on-brand image that MATCHES the specific post topic (each account
         has its own distinct vibe/audience) rather than reusing a leftover render. The render
         goes through the standard Iris QC gate; only a passed image is ever returned.
-        Falls back to the latest already-verified render for this brand if ComfyUI is
-        offline or the fresh generation fails/fails QC - never returns an unverified file.
-        Passes multiple alternative topic variants so if attempt 1 fails Iris QC, it restarts
-        with a fresh prompt instead of repeating the failed prompt.
+        Falls back to a topic-matched IRIS-verified render for this brand that has NOT been
+        posted in the last 7 days.
         """
         is_pulse = "pulse" in handle.lower()
         brand_key = "creator_pulse_lab" if is_pulse else "creator_media_lab"
         pub_key = "creator_pulse" if is_pulse else "studio_wire"
         vibe = BRAND_VIBES[brand_key]
 
+        recent_used_names = self._get_recent_media_filenames(max_days=7)
+        # Compute dynamic seed from date + handle + topic
+        seed = (date.today().toordinal() * 11 + abs(hash(f"{handle}:{topic_text or ''}")) % 97)
+
         try:
             from pipeline.stages.comfyui_bridge import comfy_bridge
-            prompt = self._craft_topic_visual_prompt(brand_key, topic_text, variant_seed=0)
+            prompt = self._craft_topic_visual_prompt(brand_key, topic_text, variant_seed=seed)
             alt_prompts = [
-                self._craft_topic_visual_prompt(brand_key, topic_text, variant_seed=i)
+                self._craft_topic_visual_prompt(brand_key, topic_text, variant_seed=seed + i)
                 for i in range(1, 4)
             ]
             gen_res = comfy_bridge.generate_and_audit(
@@ -535,15 +615,18 @@ class HeraldScheduler:
                 prompt_alternatives=alt_prompts
             )
             if gen_res.get("success") and gen_res.get("qc_audit", {}).get("passed") and gen_res.get("qc_audit", {}).get("is_sfw", False):
-                print(f"[Herald Scheduler] Fresh on-brand visual generated for @{handle}: {gen_res.get('filename')}")
-                return gen_res.get("file_path")
-            print(f"[Herald Scheduler] Fresh visual for @{handle} did not pass Iris QC / SFW gate, falling back to last verified render.")
+                fn = gen_res.get("filename")
+                if fn and fn not in recent_used_names:
+                    print(f"[Herald Scheduler] Fresh on-brand visual generated for @{handle}: {fn}")
+                    return gen_res.get("file_path")
+            print(f"[Herald Scheduler] Fresh visual for @{handle} did not pass Iris QC / SFW gate or collided with recent ledger, selecting from verified pool.")
         except Exception as e:
-            print(f"[Herald Scheduler] Fresh visual generation unavailable for @{handle} ({e}), falling back to last verified render.")
+            print(f"[Herald Scheduler] Fresh visual generation unavailable for @{handle} ({e}), selecting from verified pool.")
 
-        # Safety net: last known IRIS-verified render for this brand (never an unaudited file)
-        vis_path = self.newsletter.get_latest_comfy_visual(pub_key)
+        # Safety net: topic-matched, Iris-verified historical render that has NOT been posted in the last 7 days
+        vis_path = self.newsletter.get_topic_matched_comfy_visual(pub_key, topic_text=topic_text, exclude_filenames=recent_used_names)
         return str(vis_path) if vis_path else None
+
 
     def _verify_media_is_strictly_sfw(self, file_path: Union[str, Path]) -> bool:
         """
@@ -844,10 +927,20 @@ Rules:
 """
             raw = ai.call_ollama_text(prompt, system_prompt="Return valid JSON only.", json_mode=True, num_predict=1024)
             parsed = parse_llm_json(raw)
-            if parsed and isinstance(parsed.get("tweets"), list) and len(parsed["tweets"]) >= 2:
-                return [str(t).strip() for t in parsed["tweets"] if str(t).strip()]
+            if parsed and isinstance(parsed.get("tweets"), list) and len(parsed["tweets"]) >= 3:
+                tw_cand = [str(t).strip() for t in parsed["tweets"] if str(t).strip()]
+                if tw_cand[0].startswith("1/") and tw_cand[1].startswith("2/") and len(tw_cand[1]) >= 60:
+                    return tw_cand
+            # If Ollama didn't produce a full 3-tweet thread with answers, use the deep educational synthesizer
+            if articles:
+                return trend_researcher._synthesize_educational_thread(handle, articles[0], 0)
         except Exception as e:
             print(f"[Herald Scheduler] On-demand non-duplicate synthesis notice for @{handle}: {e}")
+            try:
+                if articles:
+                    return trend_researcher._synthesize_educational_thread(handle, articles[0], 0)
+            except Exception:
+                pass
         return None
 
     def dispatch_slot(self, slot_id: str) -> Dict[str, Any]:
@@ -957,6 +1050,9 @@ Rules:
                     if post_res.get("success"):
                         already_done_handles.add(handle)
                         slot_done_map[slot_id] = sorted(already_done_handles)
+                        if media_paths:
+                            for mp in media_paths:
+                                self._record_posted_media(mp, handle, slot_id)
                     else:
                         all_succeeded = False
                     print(f"[Herald Scheduler] Posted {slot_id} to @{handle} (media={bool(media_paths)}): {post_res.get('success')}")
@@ -1012,7 +1108,7 @@ Rules:
 
         vis_path = None
         try:
-            vis_path = self._get_brand_visual_for_post("TheCreatorAsset")
+            vis_path = self._get_brand_visual_for_post("TheCreatorAsset", topic_text=content.get("title"))
         except Exception as e:
             print(f"[Herald Scheduler] Pinterest visual lookup notice: {e}")
 
@@ -1037,6 +1133,8 @@ Rules:
                 content_type="general"
             )
             result = {"status": "ok" if post_res.get("success") else "error", "content": content, "result": post_res}
+            if post_res.get("success") and vis_path:
+                self._record_posted_media(vis_path, "TheCreatorAsset", "pinterest_daily")
             print(f"[Herald Scheduler] Pinterest daily pin dispatched: {post_res.get('success')} ({post_res.get('status', post_res.get('pin_url'))})")
 
         # Only mark today's pin as done if it actually posted - an error (ComfyUI
