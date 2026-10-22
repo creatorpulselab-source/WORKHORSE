@@ -116,8 +116,9 @@ this.currentBay = initHash || 'command-center';
     } else if (bayId === 'inspiration-lab') {
       this.refreshInspirationVault();
     } else if (bayId === 'etsy-empire') {
-      if (!document.getElementById('etsy-metadata-pre')?.innerText.includes('LISTING TITLE')) {
-        this.bundleEtsy('all');
+      this.loadEtsyOrders();
+      if (!this.craftyPackages) {
+        this.loadCraftyMyiaCatalog();
       }
     } else if (bayId === 'fiverr-bot') {
       if (!this.fiverrGigs) {
@@ -1321,6 +1322,142 @@ this.currentBay = initHash || 'command-center';
     window.openWorkspaceFolder('F:/WORKHORSE/workspace/etsy_bundles', 'Etsy Digital Bundles');
   }
 
+  openCraftyMyiaFolder() {
+    window.openWorkspaceFolder('F:/WORKHORSE/workspace/etsy_listings', 'CraftyMyia Listings');
+  }
+
+  filterEtsyShop(shop) {
+    this.activeEtsyShop = shop;
+    document.querySelectorAll('#btn-etsy-filter-all, #btn-etsy-filter-crafty, #btn-etsy-filter-creator').forEach(btn => btn.classList.remove('active'));
+    if (shop === 'all') document.getElementById('btn-etsy-filter-all')?.classList.add('active');
+    else if (shop === 'CraftyMyia') document.getElementById('btn-etsy-filter-crafty')?.classList.add('active');
+    else if (shop === 'CreatorMediaLab') document.getElementById('btn-etsy-filter-creator')?.classList.add('active');
+    this.loadEtsyOrders();
+  }
+
+  switchEtsyCatalogTab(tab) {
+    const craftyView = document.getElementById('craftymyia-catalog-view');
+    const creatorView = document.getElementById('creatormedia-catalog-view');
+    const btnCrafty = document.getElementById('btn-catalog-crafty');
+    const btnCreator = document.getElementById('btn-catalog-creator');
+
+    if (tab === 'craftymyia') {
+      if (craftyView) craftyView.style.display = 'block';
+      if (creatorView) creatorView.style.display = 'none';
+      btnCrafty?.classList.add('active');
+      btnCreator?.classList.remove('active');
+      if (!this.craftyPackages) {
+        this.loadCraftyMyiaCatalog();
+      }
+    } else {
+      if (craftyView) craftyView.style.display = 'none';
+      if (creatorView) creatorView.style.display = 'block';
+      btnCrafty?.classList.remove('active');
+      btnCreator?.classList.add('active');
+    }
+  }
+
+  filterCraftyCat(cat) {
+    this.activeCraftyCat = cat;
+    document.querySelectorAll('#crafty-cat-all, #crafty-cat-stl, #crafty-cat-svg, #crafty-cat-sub').forEach(btn => btn.classList.remove('active'));
+    document.getElementById(`crafty-cat-${cat}`)?.classList.add('active');
+    this.renderCraftyMyiaCatalog();
+  }
+
+  async loadCraftyMyiaCatalog() {
+    const grid = document.getElementById('craftymyia-products-grid');
+    if (grid) grid.innerHTML = '<div style="text-align:center; color:var(--text-dim); padding:20px;">Loading 33 CraftyMyia packages...</div>';
+    try {
+      const res = await fetch('/api/etsy/craftymyia/catalog');
+      const data = await res.json();
+      this.craftyPackages = data.packages || [];
+      this.renderCraftyMyiaCatalog();
+      if (this.craftyPackages.length) {
+        this.selectCraftyMyiaPackage(this.craftyPackages[0].folder);
+      }
+    } catch (e) {
+      if (grid) grid.innerHTML = `<div style="text-align:center; color:red; padding:20px;">Failed to load catalog: ${e.message}</div>`;
+    }
+  }
+
+  renderCraftyMyiaCatalog() {
+    const grid = document.getElementById('craftymyia-products-grid');
+    if (!grid || !this.craftyPackages) return;
+
+    const cat = this.activeCraftyCat || 'all';
+    let filtered = this.craftyPackages;
+    if (cat === 'stl') {
+      filtered = this.craftyPackages.filter(p => p.folder.includes('stl'));
+    } else if (cat === 'svg') {
+      filtered = this.craftyPackages.filter(p => p.folder.includes('svg') && !p.folder.includes('stl'));
+    } else if (cat === 'sub') {
+      filtered = this.craftyPackages.filter(p => !p.folder.includes('stl') && !p.folder.includes('svg'));
+    }
+
+    grid.innerHTML = filtered.map(p => {
+      const isStl = p.folder.includes('stl');
+      const isSvg = p.folder.includes('svg') && !isStl;
+      const typeBadge = isStl ? '🖨️ STL' : (isSvg ? '✂️ SVG' : '🎨 PNG');
+      const typeColor = isStl ? '#00f2fe' : (isSvg ? '#ffd166' : '#f72585');
+      const escFolder = p.folder.replace(/"/g, '&quot;');
+      const escTitle = p.title.replace(/"/g, '&quot;');
+
+      return `
+        <div class="etsy-card" style="border-color: rgba(255,255,255,0.08); background: rgba(0,0,0,0.25); display: flex; flex-direction: column; justify-content: space-between;">
+          <div>
+            <div class="etsy-card-header" style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
+              <div style="font-size:12px; font-weight:700; color:#fff; line-height:1.3;">${escTitle}</div>
+              <span class="etsy-price-badge" style="font-size:11px; padding:2px 6px;">$${Number(p.price_usd).toFixed(2)}</span>
+            </div>
+            <div style="margin-top:6px; display:flex; gap:6px; align-items:center;">
+              <span style="font-size:9px; font-weight:800; color:${typeColor}; border:1px solid ${typeColor}; padding:1px 5px; border-radius:3px;">${typeBadge}</span>
+              <span style="font-size:10px; color:var(--text-dim);">${p.images_count} Mockups &middot; ${p.upload_files.length} Files</span>
+            </div>
+          </div>
+          <div style="margin-top:10px; display:flex; gap:6px;">
+            <button class="btn-cyber" onclick="window.workBaysManager.selectCraftyMyiaPackage('${escFolder}')" style="flex:1; justify-content:center; font-size:10px; padding:5px; border-color:#00f2fe; color:#00f2fe;">
+              📋 View SEO Kit
+            </button>
+            <button class="btn-cyber" onclick="window.openWorkspaceFolder('F:/WORKHORSE/workspace/etsy_listings/${escFolder}/images', 'Mockups')" style="font-size:10px; padding:5px 8px; border-color:var(--amber-warm); color:var(--amber-warm);" title="Open mockup images">
+              🖼️
+            </button>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  selectCraftyMyiaPackage(folder) {
+    const pkg = this.craftyPackages?.find(p => p.folder === folder);
+    if (!pkg) return;
+    const metaPre = document.getElementById('etsy-metadata-pre');
+    if (!metaPre) return;
+
+    const lines = [
+      `============================================================`,
+      `CRAFTYMYIA ETSY LISTING KIT: ${pkg.title}`,
+      `============================================================\n`,
+      `[PRICE]: $${Number(pkg.price_usd).toFixed(2)} (${pkg.sale_hint || 'Set base price and run Etsy sale'})`,
+      `[CATEGORY]: ${pkg.category}`,
+      `[MATERIALS]: ${pkg.materials}`,
+      `[TYPE]: Digital Download (Auto-fulfillment)\n`,
+      `------------------------------------------------------------`,
+      `13 SEO TAGS (COPY & PASTE INTO ETSY TAGS INPUT):`,
+      `------------------------------------------------------------`,
+      pkg.tags.join(', '),
+      `\n------------------------------------------------------------`,
+      `DIGITAL FILES TO ATTACH (${pkg.upload_files.length} Files):`,
+      `------------------------------------------------------------`,
+      pkg.upload_files.map(f => `- ${f.name} (${f.mb} MB)`).join('\n'),
+      `\n------------------------------------------------------------`,
+      `FULL LISTING DESCRIPTION:`,
+      `------------------------------------------------------------`,
+      pkg.description
+    ];
+
+    metaPre.innerText = lines.join('\n');
+  }
+
   copyEtsyMetadata() {
     const text = document.getElementById('etsy-metadata-pre')?.innerText || '';
     navigator.clipboard.writeText(text);
@@ -1513,16 +1650,17 @@ this.currentBay = initHash || 'command-center';
     }
   }
 
-  async simulateEtsyOrder() {
+  async simulateEtsyOrder(shop = 'craftymyia') {
     try {
       const res = await fetch('/api/radar/simulate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ platform: 'etsy' })
+        body: JSON.stringify({ platform: 'etsy', shop: shop })
       });
       const data = await res.json();
       if (data.status === 'simulated') {
-        alert(`⚡ Simulated incoming Etsy order created:\n${data.order.title}\nBuyer: ${data.order.buyer} (${data.order.amount})`);
+        const sName = data.order.shop || 'Etsy';
+        alert(`⚡ Simulated incoming ${sName} order created:\n${data.order.title}\nBuyer: ${data.order.buyer} (${data.order.amount})`);
         this.loadEtsyOrders();
       }
     } catch (e) {
@@ -1627,17 +1765,26 @@ this.currentBay = initHash || 'command-center';
     const container = document.getElementById('etsy-live-orders-container');
     const pill = document.getElementById('etsy-orders-count-pill');
     const navBadge = document.getElementById('etsy-nav-badge');
+    const badgeAll = document.getElementById('etsy-badge-all');
+    const badgeCrafty = document.getElementById('etsy-badge-crafty');
+    const badgeCreator = document.getElementById('etsy-badge-creator');
+
     try {
-      const res = await fetch('/api/etsy/orders');
+      const shopFilter = this.activeEtsyShop || 'all';
+      const res = await fetch(`/api/etsy/orders?shop=${shopFilter}`);
       if (!res.ok) return;
       const data = await res.json();
       const orders = data.orders || [];
+
       if (pill) pill.textContent = `${orders.length} Order${orders.length === 1 ? '' : 's'}`;
       if (navBadge) navBadge.textContent = `${data.pending || orders.length} ORDERS`;
+      if (badgeAll) badgeAll.textContent = data.total ?? orders.length;
+      if (badgeCrafty) badgeCrafty.textContent = data.by_shop?.CraftyMyia ?? 0;
+      if (badgeCreator) badgeCreator.textContent = data.by_shop?.CreatorMediaLab ?? 0;
 
       if (!container) return;
       if (!orders.length) {
-        container.innerHTML = '<div style="text-align: center; color: var(--text-dim); font-size: 11px; padding: 18px;">No incoming Etsy orders yet. Click "⚡ Simulate Test Order" or "🔄 Sync Inbox" above.</div>';
+        container.innerHTML = `<div style="text-align: center; color: var(--text-dim); font-size: 11px; padding: 18px;">No incoming orders found for ${shopFilter === 'all' ? 'any shop' : shopFilter}. Click "⚡ Simulate CraftyMyia" or "🔄 Sync Inbox" above.</div>`;
         return;
       }
 
@@ -1649,18 +1796,24 @@ this.currentBay = initHash || 'command-center';
         const escTitle = (o.title || o.raw_subject || 'Etsy Digital Order').replace(/"/g, '&quot;');
         const escBuyer = (o.buyer || 'Customer').replace(/"/g, '&quot;');
         const escId = (o.id || '').replace(/"/g, '&quot;');
+        const shopName = o.shop || (o.title?.includes('STL') || o.title?.includes('SVG') ? 'CraftyMyia' : 'CreatorMediaLab');
+        const shopColor = shopName === 'CraftyMyia' ? '#00f2fe' : '#ffd166';
+        const downloadUrl = (shopName === 'CraftyMyia' && o.fulfilled_bundle) 
+          ? `/api/download/craftymyia/${o.fulfilled_bundle}/${o.fulfilled_file || 'package.zip'}`
+          : `/api/download/etsy/${o.fulfilled_bundle || 'all'}`;
 
         return `
           <div style="background: rgba(0,0,0,0.35); border: 1px solid ${isPending ? 'rgba(255, 209, 102, 0.4)' : 'rgba(255,255,255,0.08)'}; border-radius: 6px; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;">
             <div style="min-width: 0; flex: 1;">
               <div style="display: flex; align-items: center; gap: 8px;">
                 <span style="font-size: 12px; font-weight: 800; color: #fff; font-family: var(--font-mono);">${escId}</span>
+                <span style="font-size: 9px; font-weight: 800; color: ${shopColor}; background: rgba(255,255,255,0.06); padding: 2px 6px; border-radius: 4px; border: 1px solid ${shopColor};">${shopName.toUpperCase()}</span>
                 <span style="font-size: 9px; font-weight: 800; color: ${statusColor}; background: rgba(255,255,255,0.05); padding: 2px 6px; border-radius: 4px; border: 1px solid ${statusColor};">${statusLabel}</span>
-                <span style="font-size: 11px; font-weight: 700; color: #ffd166;">${o.amount || '$24.99'}</span>
+                <span style="font-size: 11px; font-weight: 700; color: #ffd166;">${o.amount || '$4.99'}</span>
                 ${dateStr ? `<span style="font-size: 10px; color: var(--text-dim);">${dateStr}</span>` : ''}
               </div>
               <div style="font-size: 11px; color: #e2e8f0; margin-top: 3px; font-weight: 600;">${escTitle}</div>
-              <div style="font-size: 10px; color: var(--text-muted); margin-top: 2px;">Buyer: <strong style="color: #ffd166;">${escBuyer}</strong> &middot; Product: ${o.package || 'Master Digital Pack'} &middot; Delivery: ${o.deadline || 'Digital'}</div>
+              <div style="font-size: 10px; color: var(--text-muted); margin-top: 2px;">Shop: <strong style="color: ${shopColor};">${shopName}</strong> &middot; Buyer: <strong style="color: #ffd166;">${escBuyer}</strong> &middot; Delivery: ${o.deadline || 'Instant Digital Delivery'}</div>
             </div>
             <div style="display: flex; gap: 6px; align-items: center; flex-shrink: 0;">
               ${isPending ? `
@@ -1668,7 +1821,7 @@ this.currentBay = initHash || 'command-center';
                   ⚡ 1-Click Fulfill & Deliver
                 </button>
               ` : `
-                <button class="btn-cyber" onclick="window.location.href='/api/download/etsy/${o.fulfilled_bundle || 'all'}'" style="font-size: 10px; padding: 4px 8px; border-color: var(--amber-warm); color: var(--amber-warm);" title="Download customer ZIP bundle">
+                <button class="btn-cyber" onclick="window.location.href='${downloadUrl}'" style="font-size: 10px; padding: 4px 8px; border-color: var(--amber-warm); color: var(--amber-warm);" title="Download customer digital deliverables">
                   📦 Download Bundle
                 </button>
               `}

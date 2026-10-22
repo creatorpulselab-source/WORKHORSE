@@ -203,8 +203,19 @@
         "engine": "ltx2.3",
         "duration_seconds": 8
       }
+    },
+    "craftymyia_brand": {
+      "name": "CraftyMyia",
+      "focus": "Premium SVG Cut Files, 3D Print STL Files, Laser Vectors & Digital Crafting Bundles",
+      "etsy_url": "https://www.etsy.com/shop/CraftyMyia",
+      "shop_name": "CraftyMyia",
+      "categories": [
+        "3D Print STL Files",
+        "SVG Cut Files & Bundles",
+        "Sublimation & Clipart"
+      ],
+      "digital_catalog_dir": "F:/WORKHORSE/workspace/etsy_listings"
     }
-
   },
   "comfyui": {
     "enabled": true,

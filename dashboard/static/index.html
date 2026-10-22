@@ -529,6 +529,7 @@
             <a href="https://twitter.com/TheCreatorAsset" target="_blank" class="s-link" title="Main Studio on X">𝕏 Studio</a>
             <a href="https://twitter.com/creatorpulselab" target="_blank" class="s-link adult" title="Adult Creator on X">𝕏 Pulse</a>
             <a href="https://digitalcreatorassets-source.github.io/creatormedialab/" target="_blank" class="s-link portal" title="Public Portal">🌐 Portal</a>
+            <a href="https://www.etsy.com/shop/CraftyMyia" target="_blank" class="s-link" style="color: #ffd166;" title="CraftyMyia Etsy Shop (SVG & STL)">✂️ CraftyMyia</a>
           </div>
         </div>
 
@@ -2335,36 +2336,87 @@
   <!-- ======================================================================
        BAY 5: ETSY DIGITAL EMPIRE (THE MULTI-THOUSAND DOLLAR WORKAROUND)
        ====================================================================== -->
-  <div class="bay-view-panel" id="view-etsy-empire">
-    <div style="background: rgba(255, 209, 102, 0.08); border: 1px solid rgba(255, 209, 102, 0.3); border-radius: var(--radius-md); padding: 14px 20px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
-      <div>
-        <h3 style="font-size: 15px; font-weight: 800; color: var(--amber-warm); text-transform: uppercase; margin: 0 0 4px 0;">
-          👑 The Multi-Thousand Dollar Workaround: Digital Products for Creators
-        </h3>
-        <div style="font-size: 12px; color: var(--text-muted); line-height: 1.5;">
-          Etsy is a multi-million dollar marketplace for digital tools used by adult performers, glamour models, and boudoir photographers. 
-          Etsy handles 100% automated instant file delivery upon payment. WORKHORSE automatically generates the presets, legal contracts, 50 posing cards, promo graphics, cinematic 3D LUTs, AI prompt bible, and listing metadata!
+    <div class="bay-view-panel" id="view-etsy-empire">
+    <!-- Dual Shop Header Bar -->
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 20px;">
+      <!-- Shop 1: CraftyMyia -->
+      <div style="background: rgba(0, 242, 254, 0.08); border: 1px solid rgba(0, 242, 254, 0.35); border-radius: var(--radius-md); padding: 14px 18px; display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 16px;">✂️</span>
+            <h3 style="font-size: 14px; font-weight: 800; color: #00f2fe; text-transform: uppercase; margin: 0;">
+              CraftyMyia
+            </h3>
+            <span class="bay-pill" style="color: #00f2fe; border-color: #00f2fe; font-size: 9px;">26 LIVE &bull; 33 IN VAULT</span>
+          </div>
+          <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px; line-height: 1.4;">
+            SVG Cut Files (Cricut/Silhouette), 3D Print STLs, Laser Vectors & Sublimation.
+          </div>
+          <div style="margin-top: 8px; display: flex; gap: 8px;">
+            <a href="https://www.etsy.com/shop/CraftyMyia" target="_blank" class="btn-cyber" style="padding: 3px 10px; font-size: 10px; text-decoration: none; color: #00f2fe; border-color: #00f2fe;">
+              🛒 Visit CraftyMyia Shop &rarr;
+            </a>
+            <button class="btn-cyber" onclick="window.workBaysManager.openCraftyMyiaFolder()" style="padding: 3px 10px; font-size: 10px; color: #00f2fe; border-color: #00f2fe;">
+              📂 Open Listings
+            </button>
+          </div>
         </div>
       </div>
-      <button class="btn-cyber" onclick="window.workBaysManager.openEtsyFolder()" style="padding: 6px 14px; font-size: 11px; border-color: var(--amber-warm); color: var(--amber-warm); flex-shrink: 0; margin-left: 16px;">
-        📂 Open Etsy Bundles Folder
-      </button>
+
+      <!-- Shop 2: CreatorMediaLab -->
+      <div style="background: rgba(255, 209, 102, 0.08); border: 1px solid rgba(255, 209, 102, 0.35); border-radius: var(--radius-md); padding: 14px 18px; display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 16px;">👑</span>
+            <h3 style="font-size: 14px; font-weight: 800; color: #ffd166; text-transform: uppercase; margin: 0;">
+              CreatorMediaLab
+            </h3>
+            <span class="bay-pill" style="color: #ffd166; border-color: #ffd166; font-size: 9px;">7 MASTER PACKS</span>
+          </div>
+          <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px; line-height: 1.4;">
+            Mobile Lightroom Presets (.XMP), 3D LUTs (.cube), Posing Cards & Legal Contracts.
+          </div>
+          <div style="margin-top: 8px; display: flex; gap: 8px;">
+            <a href="https://www.etsy.com/shop/CreatorMediaLab" target="_blank" class="btn-cyber" style="padding: 3px 10px; font-size: 10px; text-decoration: none; color: #ffd166; border-color: #ffd166;">
+              🛒 Visit CreatorMedia Shop &rarr;
+            </a>
+            <button class="btn-cyber" onclick="window.workBaysManager.openEtsyFolder()" style="padding: 3px 10px; font-size: 10px; color: #ffd166; border-color: #ffd166;">
+              📂 Open Bundles
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
 
-    <!-- Live Etsy Incoming Orders Queue (Auto-Updating) -->
+    <!-- Live Multi-Shop Incoming Orders Queue -->
     <div class="glass-panel" style="padding: 16px 20px; margin-bottom: 20px; border-color: rgba(255, 209, 102, 0.35);">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
-        <div style="display: flex; align-items: center; gap: 8px;">
+        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
           <span class="pulse-dot" style="background: #ffd166;"></span>
           <h3 style="font-size: 14px; font-weight: 800; color: #fff; text-transform: uppercase; margin: 0;">
             📦 Live Incoming Etsy Orders Queue
           </h3>
           <span class="bay-pill" id="etsy-orders-count-pill" style="color: #ffd166; border-color: #ffd166;">0 Orders</span>
+
+          <!-- Shop Filter Tabs -->
+          <div style="display: flex; gap: 4px; margin-left: 10px;">
+            <button class="btn-cyber active" id="btn-etsy-filter-all" onclick="window.workBaysManager.filterEtsyShop('all')" style="padding: 2px 8px; font-size: 10px; border-color: #ffd166; color: #ffd166;">
+              All (<span id="etsy-badge-all">0</span>)
+            </button>
+            <button class="btn-cyber" id="btn-etsy-filter-crafty" onclick="window.workBaysManager.filterEtsyShop('CraftyMyia')" style="padding: 2px 8px; font-size: 10px; border-color: #00f2fe; color: #00f2fe;">
+              ✂️ CraftyMyia (<span id="etsy-badge-crafty">0</span>)
+            </button>
+            <button class="btn-cyber" id="btn-etsy-filter-creator" onclick="window.workBaysManager.filterEtsyShop('CreatorMediaLab')" style="padding: 2px 8px; font-size: 10px; border-color: #ffd166; color: #ffd166;">
+              👑 CreatorMedia (<span id="etsy-badge-creator">0</span>)
+            </button>
+          </div>
         </div>
-        <div style="display: flex; gap: 8px; align-items: center;">
+
+        <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
           <span style="font-size: 10px; color: var(--text-dim); font-family: var(--font-mono);">Auto-updating (15s)</span>
-          <button class="btn-cyber" onclick="window.workBaysManager.syncOrderInbox()" style="padding: 4px 10px; font-size: 10.5px; border-color: #ffd166; color: #ffd166;" title="Scan digitalcreatorassets@gmail.com IMAP for new Etsy order emails">🔄 Sync Inbox</button>
-          <button class="btn-cyber" onclick="window.workBaysManager.simulateEtsyOrder()" style="padding: 4px 10px; font-size: 10.5px; border-color: var(--cyan-glow); color: var(--cyan-glow);" title="Inject a simulated test Etsy order to test the pipeline">⚡ Simulate Test Order</button>
+          <button class="btn-cyber" onclick="window.workBaysManager.syncOrderInbox()" style="padding: 4px 10px; font-size: 10.5px; border-color: #ffd166; color: #ffd166;" title="Scan Gmail IMAP for new Etsy order emails">🔄 Sync Inbox</button>
+          <button class="btn-cyber" onclick="window.workBaysManager.simulateEtsyOrder('craftymyia')" style="padding: 4px 10px; font-size: 10.5px; border-color: #00f2fe; color: #00f2fe;" title="Inject a test CraftyMyia SVG/STL order">⚡ Simulate CraftyMyia</button>
+          <button class="btn-cyber" onclick="window.workBaysManager.simulateEtsyOrder('creatormedialab')" style="padding: 4px 10px; font-size: 10.5px; border-color: #ffd166; color: #ffd166;" title="Inject a test CreatorMediaLab Presets order">⚡ Simulate CreatorMedia</button>
         </div>
       </div>
       <div id="etsy-live-orders-container" style="display: flex; flex-direction: column; gap: 8px; max-height: 260px; overflow-y: auto;">
@@ -2372,124 +2424,151 @@
       </div>
     </div>
 
+    <!-- Dual Catalog Switcher Tabs -->
+    <div style="display: flex; gap: 8px; margin-bottom: 14px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px;">
+      <button class="btn-cyber active" id="btn-catalog-crafty" onclick="window.workBaysManager.switchEtsyCatalogTab('craftymyia')" style="font-size: 12px; font-weight: 700; border-color: #00f2fe; color: #00f2fe; padding: 6px 14px;">
+        ✂️ CraftyMyia Catalog (33 Ready Packages)
+      </button>
+      <button class="btn-cyber" id="btn-catalog-creator" onclick="window.workBaysManager.switchEtsyCatalogTab('creatormedialab')" style="font-size: 12px; font-weight: 700; border-color: #ffd166; color: #ffd166; padding: 6px 14px;">
+        👑 CreatorMediaLab Tools (7 Master Packs)
+      </button>
+    </div>
+
     <div class="bay-2col-grid">
 
       <!-- Left Column: Digital Product Catalog & Bundlers -->
       <div>
-        <div class="etsy-grid">
-
-          <!-- Product 1: Lightroom Presets -->
-          <div class="etsy-card">
-            <div>
-              <div class="etsy-card-header">
-                <div class="etsy-card-title">🎨 Boudoir & Glamour 1-Click Mobile Presets</div>
-                <span class="etsy-price-badge">$12.99</span>
-              </div>
-              <div class="etsy-card-desc">
-                5 Adobe Camera Raw / Lightroom .xmp presets (Moody Boudoir, Golden Hour Glow, Cyber Neon, B&W Noir, 35mm Film) + iOS/Android/Desktop install guide.
-              </div>
-            </div>
-            <button class="btn-cyber" onclick="window.workBaysManager.bundleEtsy('presets')" style="width: 100%; justify-content: center; font-size: 11px; padding: 8px; border-color: var(--amber-warm); color: var(--amber-warm);">
-              📦 Bundle Presets ZIP
-            </button>
+        <!-- CRAFTYMYIA VIEW (Default) -->
+        <div id="craftymyia-catalog-view">
+          <div style="display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap;">
+            <button class="btn-cyber active" id="crafty-cat-all" onclick="window.workBaysManager.filterCraftyCat('all')" style="font-size: 10px; padding: 2px 8px;">All (33)</button>
+            <button class="btn-cyber" id="crafty-cat-stl" onclick="window.workBaysManager.filterCraftyCat('stl')" style="font-size: 10px; padding: 2px 8px; color: #00f2fe;">🖨️ 3D Print STL (7)</button>
+            <button class="btn-cyber" id="crafty-cat-svg" onclick="window.workBaysManager.filterCraftyCat('svg')" style="font-size: 10px; padding: 2px 8px; color: #ffd166;">✂️ SVG Cut Files (16)</button>
+            <button class="btn-cyber" id="crafty-cat-sub" onclick="window.workBaysManager.filterCraftyCat('sub')" style="font-size: 10px; padding: 2px 8px; color: #f72585;">🎨 Sublimation & Clipart (10)</button>
           </div>
-
-          <!-- Product 2: Legal Contracts -->
-          <div class="etsy-card">
-            <div>
-              <div class="etsy-card-header">
-                <div class="etsy-card-title">⚖️ Model Release & Shoot Legal Contract Kit</div>
-                <span class="etsy-price-badge">$19.99</span>
-              </div>
-              <div class="etsy-card-desc">
-                Adult Model Release Agreement, 18 U.S.C. 2257 Record-Keeping Compliance Form, and Property Shoot Location Release Agreement.
-              </div>
-            </div>
-            <button class="btn-cyber" onclick="window.workBaysManager.bundleEtsy('contracts')" style="width: 100%; justify-content: center; font-size: 11px; padding: 8px; border-color: var(--amber-warm); color: var(--amber-warm);">
-              📦 Bundle Legal Kit ZIP
-            </button>
+          <div class="etsy-grid" id="craftymyia-products-grid" style="max-height: 580px; overflow-y: auto; padding-right: 4px;">
+            <div style="text-align: center; color: var(--text-dim); font-size: 11px; padding: 20px;">Loading CraftyMyia packages...</div>
           </div>
-
-          <!-- Product 3: 50 Posing Cards -->
-          <div class="etsy-card">
-            <div>
-              <div class="etsy-card-header">
-                <div class="etsy-card-title">💃 50 Boudoir Posing Cards (Lookbook)</div>
-                <span class="etsy-price-badge">$14.99</span>
-              </div>
-              <div class="etsy-card-desc">
-                50 elite studio-tested poses across Standing, Silk/Bed, Floor, Chairs, and Macro portraits. Includes spine posture, hand placement & lighting setups.
-              </div>
-            </div>
-            <button class="btn-cyber" onclick="window.workBaysManager.bundleEtsy('posing')" style="width: 100%; justify-content: center; font-size: 11px; padding: 8px; border-color: var(--amber-warm); color: var(--amber-warm);">
-              📦 Bundle Posing Guide ZIP
-            </button>
-          </div>
-
-          <!-- Product 4: Social Promo Templates -->
-          <div class="etsy-card">
-            <div>
-              <div class="etsy-card-header">
-                <div class="etsy-card-title">🖼️ Canva / Social Media Promo Templates</div>
-                <span class="etsy-price-badge">$14.99</span>
-              </div>
-              <div class="etsy-card-desc">
-                OnlyFans/Fansly welcome banners (16:9), tip menu promo flyers (4:5), and VIP schedule cards designed to drive subscriptions.
-              </div>
-            </div>
-            <button class="btn-cyber" onclick="window.workBaysManager.bundleEtsy('templates')" style="width: 100%; justify-content: center; font-size: 11px; padding: 8px; border-color: var(--amber-warm); color: var(--amber-warm);">
-              📦 Bundle Promo Graphics ZIP
-            </button>
-          </div>
-
-          <!-- Product 5: Cinematic 3D LUTs -->
-          <div class="etsy-card">
-            <div>
-              <div class="etsy-card-header">
-                <div class="etsy-card-title">🎬 Cinematic 3D LUT Video Pack (.cube)</div>
-                <span class="etsy-price-badge">$14.99</span>
-              </div>
-              <div class="etsy-card-desc">
-                7 Genuine .cube LUT matrices (Kodak Portra 400, Cinestill 800T, Teal & Orange, Provia 100F, Golden Hour, B&W Noir, Cyber Neon) for Premiere, DaVinci, CapCut & OBS.
-              </div>
-            </div>
-            <button class="btn-cyber" onclick="window.workBaysManager.bundleEtsy('luts')" style="width: 100%; justify-content: center; font-size: 11px; padding: 8px; border-color: var(--amber-warm); color: var(--amber-warm);">
-              📦 Bundle 3D LUTs ZIP
-            </button>
-          </div>
-
-          <!-- Product 6: Prompt Engineering Bible -->
-          <div class="etsy-card">
-            <div>
-              <div class="etsy-card-header">
-                <div class="etsy-card-title">📖 FLUX.1 & Midjourney Prompt Bible</div>
-                <span class="etsy-price-badge">$17.99</span>
-              </div>
-              <div class="etsy-card-desc">
-                150+ Master Prompts with dark-mode interactive HTML lookbook, 1-click copy buttons, lens formulas (24mm-105mm), and studio lighting diagrams for photorealism.
-              </div>
-            </div>
-            <button class="btn-cyber" onclick="window.workBaysManager.bundleEtsy('prompts')" style="width: 100%; justify-content: center; font-size: 11px; padding: 8px; border-color: var(--amber-warm); color: var(--amber-warm);">
-              📦 Bundle Prompt Bible ZIP
-            </button>
-          </div>
-
         </div>
 
-        <!-- Master Empire Bundle Card (Product 7) -->
-        <div class="glass-panel" style="padding: 20px; border-color: var(--amber-warm); background: linear-gradient(135deg, rgba(255,209,102,0.1), rgba(14,21,38,0.9));">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-            <div>
-              <h4 style="font-size: 16px; font-weight: 800; color: #fff; margin: 0;">👑 Complete Creator Studio Digital Empire Bundle</h4>
-              <div style="font-size: 12px; color: var(--amber-warm); margin-top: 2px;">Includes all 6 digital product lines in one mega-bundle for maximum Etsy revenue</div>
+        <!-- CREATORMEDIALAB VIEW (Existing 7 Packs) -->
+        <div id="creatormedia-catalog-view" style="display: none;">
+          <div class="etsy-grid">
+
+            <!-- Product 1: Lightroom Presets -->
+            <div class="etsy-card">
+              <div>
+                <div class="etsy-card-header">
+                  <div class="etsy-card-title">🎨 Boudoir & Glamour 1-Click Mobile Presets</div>
+                  <span class="etsy-price-badge">$12.99</span>
+                </div>
+                <div class="etsy-card-desc">
+                  5 Adobe Camera Raw / Lightroom .xmp presets (Moody Boudoir, Golden Hour Glow, Cyber Neon, B&W Noir, 35mm Film) + install guide.
+                </div>
+              </div>
+              <button class="btn-cyber" onclick="window.workBaysManager.bundleEtsy('presets')" style="width: 100%; justify-content: center; font-size: 11px; padding: 8px; border-color: var(--amber-warm); color: var(--amber-warm);">
+                📦 Bundle Presets ZIP
+              </button>
             </div>
-            <span class="etsy-price-badge" style="font-size: 13px; padding: 4px 12px;">$49.99</span>
+
+            <!-- Product 2: Legal Contracts -->
+            <div class="etsy-card">
+              <div>
+                <div class="etsy-card-header">
+                  <div class="etsy-card-title">⚖️ Model Release & Shoot Legal Contract Kit</div>
+                  <span class="etsy-price-badge">$19.99</span>
+                </div>
+                <div class="etsy-card-desc">
+                  Adult Model Release Agreement, 18 U.S.C. 2257 Record-Keeping Form, and Property Shoot Location Release Agreement.
+                </div>
+              </div>
+              <button class="btn-cyber" onclick="window.workBaysManager.bundleEtsy('contracts')" style="width: 100%; justify-content: center; font-size: 11px; padding: 8px; border-color: var(--amber-warm); color: var(--amber-warm);">
+                📦 Bundle Legal Kit ZIP
+              </button>
+            </div>
+
+            <!-- Product 3: 50 Posing Cards -->
+            <div class="etsy-card">
+              <div>
+                <div class="etsy-card-header">
+                  <div class="etsy-card-title">💃 50 Boudoir Posing Cards (Lookbook)</div>
+                  <span class="etsy-price-badge">$14.99</span>
+                </div>
+                <div class="etsy-card-desc">
+                  50 studio-tested poses across Standing, Bed, Floor, Chairs, and Macro portraits. Includes spine posture & lighting setups.
+                </div>
+              </div>
+              <button class="btn-cyber" onclick="window.workBaysManager.bundleEtsy('posing')" style="width: 100%; justify-content: center; font-size: 11px; padding: 8px; border-color: var(--amber-warm); color: var(--amber-warm);">
+                📦 Bundle Posing Guide ZIP
+              </button>
+            </div>
+
+            <!-- Product 4: Social Promo Templates -->
+            <div class="etsy-card">
+              <div>
+                <div class="etsy-card-header">
+                  <div class="etsy-card-title">🖼️ Canva / Social Media Promo Templates</div>
+                  <span class="etsy-price-badge">$14.99</span>
+                </div>
+                <div class="etsy-card-desc">
+                  OnlyFans/Fansly welcome banners (16:9), tip menu promo flyers (4:5), and VIP schedule cards designed to drive subscriptions.
+                </div>
+              </div>
+              <button class="btn-cyber" onclick="window.workBaysManager.bundleEtsy('templates')" style="width: 100%; justify-content: center; font-size: 11px; padding: 8px; border-color: var(--amber-warm); color: var(--amber-warm);">
+                📦 Bundle Promo Graphics ZIP
+              </button>
+            </div>
+
+            <!-- Product 5: Cinematic 3D LUTs -->
+            <div class="etsy-card">
+              <div>
+                <div class="etsy-card-header">
+                  <div class="etsy-card-title">🎬 Cinematic 3D LUT Video Pack (.cube)</div>
+                  <span class="etsy-price-badge">$14.99</span>
+                </div>
+                <div class="etsy-card-desc">
+                  7 Genuine .cube LUT matrices (Kodak Portra, Cinestill, Teal & Orange, Provia, Golden Hour, B&W, Cyber Neon) for DaVinci & CapCut.
+                </div>
+              </div>
+              <button class="btn-cyber" onclick="window.workBaysManager.bundleEtsy('luts')" style="width: 100%; justify-content: center; font-size: 11px; padding: 8px; border-color: var(--amber-warm); color: var(--amber-warm);">
+                📦 Bundle 3D LUTs ZIP
+              </button>
+            </div>
+
+            <!-- Product 6: Prompt Engineering Bible -->
+            <div class="etsy-card">
+              <div>
+                <div class="etsy-card-header">
+                  <div class="etsy-card-title">📖 FLUX.1 & Midjourney Prompt Bible</div>
+                  <span class="etsy-price-badge">$17.99</span>
+                </div>
+                <div class="etsy-card-desc">
+                  150+ Master Prompts with dark-mode interactive HTML lookbook, 1-click copy buttons, lens formulas, and studio lighting diagrams.
+                </div>
+              </div>
+              <button class="btn-cyber" onclick="window.workBaysManager.bundleEtsy('prompts')" style="width: 100%; justify-content: center; font-size: 11px; padding: 8px; border-color: var(--amber-warm); color: var(--amber-warm);">
+                📦 Bundle Prompt Bible ZIP
+              </button>
+            </div>
+
           </div>
-          <button class="btn-launch-run" onclick="window.workBaysManager.bundleEtsy('all')" style="width: 100%; justify-content: center; padding: 12px; font-size: 13px; background: linear-gradient(135deg, #ffd166, #f72585); box-shadow: 0 0 25px rgba(255,209,102,0.35);">
-            ⚡ Generate Complete Master Digital Empire ZIP (All 6 Packs)
-          </button>
-          <div id="etsy-bundle-status" style="font-size: 11px; color: var(--amber-warm); font-family: var(--font-mono); margin-top: 10px; text-align: center;"></div>
+
+          <!-- Master Empire Bundle Card (Product 7) -->
+          <div class="glass-panel" style="padding: 16px; border-color: var(--amber-warm); background: linear-gradient(135deg, rgba(255,209,102,0.1), rgba(14,21,38,0.9)); margin-top: 14px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+              <div>
+                <h4 style="font-size: 15px; font-weight: 800; color: #fff; margin: 0;">👑 Complete Creator Studio Digital Empire Bundle</h4>
+                <div style="font-size: 11px; color: var(--amber-warm); margin-top: 2px;">Includes all 6 digital product lines in one mega-bundle</div>
+              </div>
+              <span class="etsy-price-badge" style="font-size: 13px; padding: 4px 12px;">$49.99</span>
+            </div>
+            <button class="btn-launch-run" onclick="window.workBaysManager.bundleEtsy('all')" style="width: 100%; justify-content: center; padding: 10px; font-size: 12px; background: linear-gradient(135deg, #ffd166, #f72585); box-shadow: 0 0 25px rgba(255,209,102,0.35);">
+              ⚡ Generate Complete Master Digital Empire ZIP (All 6 Packs)
+            </button>
+            <div id="etsy-bundle-status" style="font-size: 11px; color: var(--amber-warm); font-family: var(--font-mono); margin-top: 8px; text-align: center;"></div>
+          </div>
         </div>
+
       </div>
 
       <!-- Right Column: Etsy SEO & Listing Optimizer -->
@@ -2505,7 +2584,7 @@
             📋 Copy Listing Kit
           </button>
         </div>
-        <pre class="code-display-pre" id="etsy-metadata-pre" style="max-height: 540px; color: #fef08a;">Click any product on the left to generate its listing bundle...</pre>
+        <pre class="code-display-pre" id="etsy-metadata-pre" style="max-height: 560px; color: #fef08a; overflow-y: auto; white-space: pre-wrap; font-size: 11px; line-height: 1.5;">Click any product on the left to inspect its complete Etsy listing kit and files...</pre>
       </section>
 
     </div>
@@ -3255,8 +3334,11 @@
               <button type="button" class="btn-dock-action" onclick="window.workBaysManager.switchBay('etsy-empire')" style="flex: 1; border-color: rgba(255, 209, 102, 0.4); color: #ffd166;">
                 <span>👑 Open Etsy Bay</span>
               </button>
-              <a href="https://www.etsy.com/shop/CreatorMediaLab" target="_blank" class="btn-dock-action" style="flex: 1; text-align: center; text-decoration: none; border-color: rgba(255, 209, 102, 0.4); color: #ffd166; display: flex; align-items: center; justify-content: center;">
-                <span>🛒 View Shop</span>
+              <a href="https://www.etsy.com/shop/CraftyMyia" target="_blank" class="btn-dock-action" style="flex: 1; text-align: center; text-decoration: none; border-color: rgba(255, 209, 102, 0.4); color: #ffd166; display: flex; align-items: center; justify-content: center;" title="CraftyMyia Etsy Shop">
+                <span>✂️ CraftyMyia</span>
+              </a>
+              <a href="https://www.etsy.com/shop/CreatorMediaLab" target="_blank" class="btn-dock-action" style="flex: 1; text-align: center; text-decoration: none; border-color: rgba(255, 209, 102, 0.4); color: #ffd166; display: flex; align-items: center; justify-content: center;" title="CreatorMediaLab Etsy Shop">
+                <span>🛒 CreatorMedia</span>
               </a>
             </div>
           </div>

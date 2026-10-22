@@ -61,6 +61,9 @@ class OrderRadar:
             "auto_check": False,
             "sound_alerts": True,
             "last_checked": None,
+            "monitored_shops": ["CreatorMediaLab", "CraftyMyia"],
+            "secondary_email": "",
+            "secondary_app_password": "",
             # Pipe 1 - Webhook Auto-Fulfillment (Stripe / Gumroad). Left blank until the
             # Commander creates real seller accounts - webhooks return "awaiting_setup"
             # until these are filled in via update_config(), same pattern as app_password.
@@ -109,6 +112,17 @@ class OrderRadar:
 
     def load_orders(self) -> List[Dict[str, Any]]:
         self.orders = safe_read_json(self.orders_file, default=[])
+        modified = False
+        for o in self.orders:
+            if o.get("platform") == "etsy" and "shop" not in o:
+                t = (o.get("title") or "").lower()
+                if any(w in t for w in ["stl", "svg", "cricut", "cookie", "planter", "caddy", "cup", "keychain", "laser"]):
+                    o["shop"] = "CraftyMyia"
+                else:
+                    o["shop"] = "CreatorMediaLab"
+                modified = True
+        if modified:
+            self.save_orders()
         return self.orders
 
     def save_orders(self):
@@ -130,7 +144,9 @@ class OrderRadar:
     def update_config(self, app_password: Optional[str] = None, auto_check: Optional[bool] = None,
                        stripe_webhook_secret: Optional[str] = None, gumroad_seller_id: Optional[str] = None,
                        webhook_product_map: Optional[Dict[str, str]] = None,
-                       public_download_base_url: Optional[str] = None) -> Dict[str, Any]:
+                       public_download_base_url: Optional[str] = None,
+                       secondary_email: Optional[str] = None,
+                       secondary_app_password: Optional[str] = None) -> Dict[str, Any]:
         if app_password is not None:
             self.config["app_password"] = app_password.replace(" ", "").strip()
         if auto_check is not None:
@@ -143,6 +159,10 @@ class OrderRadar:
             self.config["webhook_product_map"] = webhook_product_map
         if public_download_base_url is not None:
             self.config["public_download_base_url"] = public_download_base_url.strip()
+        if secondary_email is not None:
+            self.config["secondary_email"] = secondary_email.strip()
+        if secondary_app_password is not None:
+            self.config["secondary_app_password"] = secondary_app_password.replace(" ", "").strip()
         self.save_config()
         return self.get_redacted_config()
 
@@ -165,108 +185,172 @@ class OrderRadar:
             "gumroad_seller_id": self.config.get("gumroad_seller_id", ""),
             "webhook_product_map": self.config.get("webhook_product_map", {}),
             "public_download_base_url": self.config.get("public_download_base_url", ""),
+            "monitored_shops": self.config.get("monitored_shops", ["CreatorMediaLab", "CraftyMyia"]),
+            "secondary_email": self.config.get("secondary_email", ""),
+            "has_secondary_app_password": bool(self.config.get("secondary_app_password")),
         }
 
+    def _extract_body_text(self, msg) -> str:
+        body = ""
+        try:
+            if msg.is_multipart():
+                for part in msg.walk():
+                    ctype = part.get_content_type()
+                    cdisp = str(part.get("Content-Disposition", ""))
+                    if ctype in ("text/plain", "text/html") and "attachment" not in cdisp:
+                        payload = part.get_payload(decode=True)
+                        if payload:
+                            body += " " + payload.decode("utf-8", errors="ignore")
+            else:
+                payload = msg.get_payload(decode=True)
+                if payload:
+                    body = payload.decode("utf-8", errors="ignore")
+        except Exception:
+            pass
+        return body
+
+    def _detect_etsy_shop(self, subject: str, body: str) -> str:
+        corpus = (subject + " " + body).lower()
+        if "craftymyia" in corpus:
+            return "CraftyMyia"
+        if "creatormedialab" in corpus:
+            return "CreatorMediaLab"
+        
+        crafty_keywords = [
+            "stl", "svg", "3d print", "cricut", "silhouette", "cut file", "cookie cutter",
+            "pencil cup", "pencil holder", "planter", "caddy", "keychain", "shadow box",
+            "monogram", "tumbler", "sublimation", "dxf", "laser cut", "earring", "woodland"
+        ]
+        creator_keywords = [
+            "preset", "presets", "xmp", "posing", "lut", "luts", "cube", "boudoir",
+            "model release", "2257", "compliance", "prompt bible", "glamour"
+        ]
+        
+        c_score = sum(1 for kw in crafty_keywords if kw in corpus)
+        m_score = sum(1 for kw in creator_keywords if kw in corpus)
+        
+        if c_score > m_score:
+            return "CraftyMyia"
+        return "CreatorMediaLab"
+
+    def _extract_etsy_amount(self, subject: str, body: str, shop: str) -> str:
+        corpus = subject + " " + body
+        match = re.search(r'\$\s*(\d+(?:\.\d{2})?)', corpus)
+        if match:
+            try:
+                val = float(match.group(1))
+                if 0.50 <= val <= 500.00:
+                    return f"${val:.2f}"
+            except Exception:
+                pass
+        return "$4.99" if shop == "CraftyMyia" else "$24.99"
+
     def check_inbox(self) -> Dict[str, Any]:
-        """Connect to Gmail via IMAP and scan for incoming Fiverr or Etsy orders."""
-        user_email = self.config.get("email", "digitalcreatorassets@gmail.com")
-        app_pw = self.config.get("app_password", "")
+        """Connect to Gmail via IMAP and scan for incoming Fiverr or Etsy orders across all monitored shops."""
         self.config["last_checked"] = datetime.now().isoformat()
         self.save_config()
 
-        if not app_pw:
-            return {
-                "status": "awaiting_app_password",
-                "email": user_email,
-                "message": "Enter your 16-character Google App Password to enable live inbox sync.",
-                "orders_found": 0,
-                "active_orders": self.orders
-            }
+        mailboxes_to_check = [
+            (self.config.get("email", "digitalcreatorassets@gmail.com"), self.config.get("app_password", ""))
+        ]
+        sec_email = (self.config.get("secondary_email") or "").strip()
+        sec_pw = (self.config.get("secondary_app_password") or "").strip()
+        if sec_email and sec_pw:
+            mailboxes_to_check.append((sec_email, sec_pw))
 
-        try:
-            mail = imaplib.IMAP4_SSL(self.config.get("imap_server", "imap.gmail.com"), self.config.get("imap_port", 993))
-            mail.login(user_email, app_pw)
-            mail.select("INBOX")
+        total_new_orders = 0
+        err_messages = []
 
-            status, messages = mail.search(None, '(OR FROM "fiverr" FROM "etsy")')
-            if status != "OK":
+        for user_email, app_pw in mailboxes_to_check:
+            if not app_pw:
+                continue
+            try:
+                mail = imaplib.IMAP4_SSL(self.config.get("imap_server", "imap.gmail.com"), self.config.get("imap_port", 993))
+                mail.login(user_email, app_pw)
+                mail.select("INBOX")
+
+                status, messages = mail.search(None, '(OR (OR FROM "fiverr" FROM "etsy") (OR SUBJECT "etsy" SUBJECT "fiverr"))')
+                if status != "OK":
+                    mail.logout()
+                    continue
+
+                msg_ids = messages[0].split()
+                for mid in msg_ids[-15:]:
+                    res, data = mail.fetch(mid, "(RFC822)")
+                    if res != "OK":
+                        continue
+                    raw_email = data[0][1]
+                    msg = email.message_from_bytes(raw_email)
+
+                    subject_header = decode_header(msg.get("Subject", ""))[0]
+                    subject = subject_header[0]
+                    if isinstance(subject, bytes):
+                        try:
+                            subject = subject.decode(subject_header[1] or "utf-8", errors="ignore")
+                        except Exception:
+                            subject = subject.decode("utf-8", errors="ignore")
+
+                    sender = msg.get("From", "")
+                    sender_lower = sender.lower()
+                    # Exclude marketing newsletters and seller community digests
+                    if any(bad in sender_lower for bad in ["seller.etsy.com", "news@etsy.com", "newsletter", "marketing@", "announce.fiverr.com"]):
+                        continue
+
+                    platform = "fiverr" if "fiverr" in sender_lower or "fiverr" in subject.lower() else "etsy"
+                    subj_lower = subject.lower()
+                    
+                    # Strict validation to ensure this is an actual buyer transaction, not general account tips
+                    is_fiverr_order = platform == "fiverr" and any(k in subj_lower for k in ["new order", "order #", "custom offer", "gig purchased"])
+                    is_etsy_order = platform == "etsy" and (
+                        any(k in subj_lower for k in ["order #", "you made a sale", "your shop made a sale", "payment confirmed", "bought your item", "new order from", "order confirmed"])
+                        or bool(re.search(r'#\d{8,12}', subject))
+                    )
+                    if not (is_fiverr_order or is_etsy_order):
+                        continue
+
+                    body_text = self._extract_body_text(msg)
+                    order_id = self._extract_order_id(subject, platform, body_text)
+                    if any(o.get("id") == order_id for o in self.orders):
+                        continue
+
+                    shop = self._detect_etsy_shop(subject, body_text) if platform == "etsy" else None
+                    amount = self._extract_etsy_amount(subject, body_text, shop) if platform == "etsy" else "$35.00"
+
+                    new_order = {
+                        "id": order_id,
+                        "platform": platform,
+                        "buyer": self._extract_buyer(subject, platform, body_text),
+                        "title": subject,
+                        "amount": amount,
+                        "received_at": datetime.now().isoformat(),
+                        "status": "pending",
+                        "raw_subject": subject,
+                        "sender": sender
+                    }
+                    if shop:
+                        new_order["shop"] = shop
+                    self.orders.insert(0, new_order)
+                    total_new_orders += 1
+
                 mail.logout()
-                return {"status": "ok", "message": "No order messages found", "new_orders": 0, "active_orders": self.orders}
+            except imaplib.IMAP4.error as e:
+                err_messages.append(f"{user_email} IMAP auth failed: {e}")
+            except Exception as e:
+                err_messages.append(f"{user_email} error: {e}")
 
-            msg_ids = messages[0].split()
-            new_orders_count = 0
+        self.save_orders()
+        return {
+            "status": "connected" if total_new_orders or not err_messages else "warning",
+            "email": self.config.get("email"),
+            "new_orders": total_new_orders,
+            "total_orders": len(self.orders),
+            "orders": self.orders,
+            "monitored_shops": self.config.get("monitored_shops", ["CreatorMediaLab", "CraftyMyia"]),
+            "errors": err_messages if err_messages else None,
+            "last_checked": self.config["last_checked"]
+        }
 
-            for mid in msg_ids[-10:]:
-                res, data = mail.fetch(mid, "(RFC822)")
-                if res != "OK":
-                    continue
-                raw_email = data[0][1]
-                msg = email.message_from_bytes(raw_email)
-
-                subject_header = decode_header(msg["Subject"])[0]
-                subject = subject_header[0]
-                if isinstance(subject, bytes):
-                    try:
-                        subject = subject.decode(subject_header[1] or "utf-8", errors="ignore")
-                    except Exception:
-                        subject = subject.decode("utf-8", errors="ignore")
-
-                sender = msg.get("From", "")
-                platform = "fiverr" if "fiverr" in sender.lower() or "fiverr" in subject.lower() else "etsy"
-                
-                # Verify subject actually indicates an order/purchase rather than general account notices
-                subj_lower = subject.lower()
-                order_keywords = ["order", "sale", "bought", "purchased", "sold", "payment", "receipt", "booked", "gig"]
-                if not any(k in subj_lower for k in order_keywords):
-                    continue
-
-                order_id = self._extract_order_id(subject, platform)
-
-                if any(o.get("id") == order_id for o in self.orders):
-                    continue
-
-                new_order = {
-                    "id": order_id,
-                    "platform": platform,
-                    "buyer": self._extract_buyer(subject, platform),
-                    "title": subject,
-                    "amount": "$35.00" if platform == "fiverr" else "$24.99",
-                    "received_at": datetime.now().isoformat(),
-                    "status": "pending",
-                    "raw_subject": subject,
-                    "sender": sender
-                }
-                self.orders.insert(0, new_order)
-                new_orders_count += 1
-
-            mail.logout()
-            self.save_orders()
-
-            return {
-                "status": "connected",
-                "email": user_email,
-                "new_orders": new_orders_count,
-                "total_orders": len(self.orders),
-                "orders": self.orders,
-                "last_checked": self.config["last_checked"]
-            }
-
-        except imaplib.IMAP4.error as e:
-            return {
-                "status": "auth_error",
-                "email": user_email,
-                "error": f"IMAP authentication failed: {str(e)}. Please check your Google App Password.",
-                "active_orders": self.orders
-            }
-        except Exception as e:
-            return {
-                "status": "error",
-                "email": user_email,
-                "error": f"Connection error: {str(e)}",
-                "active_orders": self.orders
-            }
-
-    def simulate_order(self, platform: str = "fiverr") -> Dict[str, Any]:
+    def simulate_order(self, platform: str = "fiverr", shop: str = "auto") -> Dict[str, Any]:
         """Simulate an incoming order so the user can test UI alerts and fulfillment without waiting for buyers."""
         order_num = random.randint(10000, 99999)
         if platform == "fiverr":
@@ -294,21 +378,53 @@ class OrderRadar:
                 "raw_subject": f"New Order from {buyer} (Order #FO-{order_num})"
             }
         else:
-            buyers = ["photographer_mark", "boudoir_studio_nyc", "amber_creates", "glamour_lens_uk"]
-            buyer = random.choice(buyers)
-            order_data = {
-                "id": f"ETSY-{order_num}",
-                "platform": "etsy",
-                "gig_id": "etsy_bundle",
-                "buyer": buyer,
-                "title": "Boudoir Lightroom Presets & 50 Posing Guide Cards Bundle",
-                "package": "Master Digital Pack",
-                "amount": "$29.99",
-                "received_at": datetime.now().isoformat(),
-                "status": "pending",
-                "deadline": "Digital Download Delivery",
-                "raw_subject": f"Etsy Order #{order_num} from {buyer} — Payment Confirmed"
-            }
+            chosen_shop = (shop or "auto").lower()
+            if chosen_shop == "auto" or chosen_shop not in ("craftymyia", "creatormedialab"):
+                chosen_shop = random.choice(["craftymyia", "creatormedialab"])
+            
+            if chosen_shop == "craftymyia":
+                crafty_gigs = [
+                    ("cute_animal_pencil_cups_stl_3mf_glb", "Cute Animal Pencil Holder STL", "8 Kawaii Desk Organizer Cups (STL 3MF GLB)", "$4.99"),
+                    ("coffee_lover_quotes_svg_png_bundle", "Coffee SVG Bundle (231 Cut Files)", "Funny Coffee Quotes & Mug SVG PNG DXF", "$4.99"),
+                    ("can_holders_stl", "Can Holder STL Bundle", "8 Drink Holders & 4-Cup Caddy 3D Print Files", "$4.99"),
+                    ("cute_animal_faces_layered_svg_cut_files", "Cute Animal Faces Layered SVG Bundle", "20 Layered Animal Faces (60 Cut Files)", "$5.99"),
+                    ("geometric_planters_stl_3mf_glb", "Geometric Planter STL Pack", "8 Faceted Succulent Pots with Saucers", "$5.99"),
+                    ("cute_laser_cut_keychains_and_earrings_svg_bundle", "Laser Cut Keychain & Earring SVG Bundle", "40 Wood & Acrylic Cut Files for Laser", "$4.99"),
+                    ("christmas_cookie_cutters_stl", "Christmas Cookie Cutter STL Bundle", "10 Holiday Shapes x 2 Sizes with Press Plates", "$4.99")
+                ]
+                gig = random.choice(crafty_gigs)
+                buyer = random.choice(["cricut_maker_jen", "crafty_sarah_stl", "3dprint_hobbyist", "maker_mom_crafts", "glowforge_artisan"])
+                order_data = {
+                    "id": f"ETSY-{order_num}",
+                    "platform": "etsy",
+                    "shop": "CraftyMyia",
+                    "gig_id": gig[0],
+                    "buyer": buyer,
+                    "title": gig[1],
+                    "package": gig[2],
+                    "amount": gig[3],
+                    "received_at": datetime.now().isoformat(),
+                    "status": "pending",
+                    "deadline": "Instant Digital Delivery (CraftyMyia)",
+                    "raw_subject": f"Etsy Order #{order_num} from {buyer} — Payment Confirmed (CraftyMyia)"
+                }
+            else:
+                buyers = ["photographer_mark", "boudoir_studio_nyc", "amber_creates", "glamour_lens_uk"]
+                buyer = random.choice(buyers)
+                order_data = {
+                    "id": f"ETSY-{order_num}",
+                    "platform": "etsy",
+                    "shop": "CreatorMediaLab",
+                    "gig_id": "etsy_bundle",
+                    "buyer": buyer,
+                    "title": "Boudoir Lightroom Presets & 50 Posing Guide Cards Bundle",
+                    "package": "Master Digital Pack",
+                    "amount": "$29.99",
+                    "received_at": datetime.now().isoformat(),
+                    "status": "pending",
+                    "deadline": "Digital Download Delivery",
+                    "raw_subject": f"Etsy Order #{order_num} from {buyer} — Payment Confirmed"
+                }
 
         self.orders.insert(0, order_data)
         self.save_orders()
@@ -318,17 +434,23 @@ class OrderRadar:
             "total_orders": len(self.orders)
         }
 
-    def _extract_order_id(self, subject: str, platform: str) -> str:
-        match = re.search(r'#?([A-Z0-9]{5,10})', subject)
+    def _extract_order_id(self, subject: str, platform: str, body: str = "") -> str:
+        match = re.search(r'#?([0-9]{8,12})', subject)
+        if not match:
+            match = re.search(r'#?([A-Z0-9]{5,12})', subject)
+        if not match and body:
+            match = re.search(r'Order\s*#?\s*([0-9]{8,12})', body, re.IGNORECASE)
         if match:
             return match.group(1)
         return f"{platform.upper()}_{datetime.now().strftime('%m%d%H%M')}"
 
-    def _extract_buyer(self, subject: str, platform: str) -> str:
+    def _extract_buyer(self, subject: str, platform: str, body: str = "") -> str:
         match = re.search(r'from\s+([A-Za-z0-9_\-]+)', subject, re.IGNORECASE)
+        if not match and body:
+            match = re.search(r'Buyer:\s*([A-Za-z0-9_\-]+)', body, re.IGNORECASE)
         if match:
             return match.group(1)
-        return "CreatorClient"
+        return "CraftyClient" if platform == "etsy" else "CreatorClient"
 
     def mark_fulfilled(self, order_id: str) -> bool:
         for o in self.orders:

@@ -940,13 +940,24 @@ async def download_etsy_bundle(bundle_name: str):
     return FileResponse(zip_path, filename=zip_path.name, media_type="application/zip")
 
 @app.get("/api/etsy/orders")
-async def get_etsy_orders():
-    etsy_orders = [o for o in order_radar.orders if o.get("platform") == "etsy"]
+async def get_etsy_orders(shop: Optional[str] = None):
+    all_etsy = [o for o in order_radar.orders if o.get("platform") == "etsy"]
+    crafty_count = sum(1 for o in all_etsy if o.get("shop") == "CraftyMyia")
+    creator_count = sum(1 for o in all_etsy if (o.get("shop") or "CreatorMediaLab") == "CreatorMediaLab")
+    
+    filtered_orders = all_etsy
+    if shop and shop.lower() != "all":
+        filtered_orders = [o for o in all_etsy if (o.get("shop") or "CreatorMediaLab").lower() == shop.lower()]
+        
     return {
         "status": "ok",
-        "orders": etsy_orders,
-        "total": len(etsy_orders),
-        "pending": sum(1 for o in etsy_orders if o.get("status") in ("pending", "unfulfilled"))
+        "orders": filtered_orders,
+        "total": len(filtered_orders),
+        "pending": sum(1 for o in filtered_orders if o.get("status") in ("pending", "unfulfilled")),
+        "by_shop": {
+            "CraftyMyia": crafty_count,
+            "CreatorMediaLab": creator_count
+        }
     }
 
 @app.post("/api/etsy/fulfill-order/{order_id}")
@@ -960,8 +971,49 @@ async def fulfill_etsy_order_endpoint(order_id: str):
     if not target_order:
         raise HTTPException(status_code=404, detail=f"Etsy order '{order_id}' not found")
         
-    product_type = "all"
     title_lower = (target_order.get("title") or "").lower()
+    gig_id = target_order.get("gig_id") or ""
+    order_shop = target_order.get("shop")
+
+    # Check if this order is for CraftyMyia (or matches any folder in workspace/etsy_listings)
+    etsy_listings_dir = BASE_DIR / "workspace" / "etsy_listings"
+    matched_listing_folder = None
+
+    if gig_id and (etsy_listings_dir / gig_id).is_dir():
+        matched_listing_folder = gig_id
+    elif etsy_listings_dir.exists():
+        for folder in etsy_listings_dir.iterdir():
+            if folder.is_dir():
+                clean_name = folder.name.replace("_", " ").lower()
+                folder_words = [w for w in folder.name.split("_") if len(w) > 3 and w not in ("bundle", "files", "quotes")]
+                if folder.name.lower() in title_lower or any(w in title_lower for w in folder_words):
+                    matched_listing_folder = folder.name
+                    break
+
+    if matched_listing_folder:
+        pkg_dir = etsy_listings_dir / matched_listing_folder
+        upload_dir = pkg_dir / "etsy_upload"
+        upload_files = [f.name for f in upload_dir.glob("*")] if upload_dir.exists() else []
+        order_radar.mark_fulfilled(order_id)
+        target_order["fulfilled_bundle"] = matched_listing_folder
+        target_order["shop"] = "CraftyMyia"
+        order_radar.save_orders()
+        primary_file = upload_files[0] if upload_files else ""
+        bundle_res = {
+            "bundle_name": matched_listing_folder,
+            "shop": "CraftyMyia",
+            "upload_files": upload_files,
+            "download_url": f"/api/download/craftymyia/{matched_listing_folder}/{primary_file}" if primary_file else ""
+        }
+        return {
+            "status": "ok",
+            "order_id": order_id,
+            "shop": "CraftyMyia",
+            "bundle": bundle_res,
+            "message": f"CraftyMyia Order {order_id} fulfilled with {matched_listing_folder}"
+        }
+
+    product_type = "all"
     if "preset" in title_lower:
         product_type = "presets"
     elif "contract" in title_lower or "legal" in title_lower or "release" in title_lower or "2257" in title_lower:
@@ -978,13 +1030,50 @@ async def fulfill_etsy_order_endpoint(order_id: str):
     bundle_res = etsy_store.bundle_etsy_product(product_type=product_type)
     order_radar.mark_fulfilled(order_id)
     target_order["fulfilled_bundle"] = bundle_res.get("bundle_name")
+    target_order["shop"] = target_order.get("shop") or "CreatorMediaLab"
+    order_radar.save_orders()
     
     return {
         "status": "ok",
         "order_id": order_id,
+        "shop": "CreatorMediaLab",
         "bundle": bundle_res,
         "message": f"Order {order_id} fulfilled with {bundle_res.get('bundle_name', 'bundle')}"
     }
+
+@app.get("/api/download/craftymyia/{package_name}/{file_name}")
+async def download_craftymyia_file(package_name: str, file_name: str):
+    file_path = BASE_DIR / "workspace" / "etsy_listings" / package_name / "etsy_upload" / file_name
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="CraftyMyia deliverable file not found")
+    return FileResponse(file_path, filename=file_path.name, media_type="application/octet-stream")
+
+@app.get("/api/etsy/craftymyia/catalog")
+async def get_craftymyia_catalog():
+    etsy_listings_dir = BASE_DIR / "workspace" / "etsy_listings"
+    packages = []
+    if etsy_listings_dir.exists():
+        for d in sorted(etsy_listings_dir.iterdir()):
+            if d.is_dir():
+                lj = d / "listing.json"
+                if lj.exists():
+                    try:
+                        data = safe_read_json(lj, default={})
+                        packages.append({
+                            "folder": d.name,
+                            "title": data.get("title", d.name),
+                            "price_usd": data.get("price_usd", 4.99),
+                            "sale_hint": data.get("sale_hint", ""),
+                            "tags": data.get("tags", []),
+                            "category": data.get("category", "Digital"),
+                            "materials": data.get("materials", "Digital files"),
+                            "description": data.get("description", ""),
+                            "upload_files": data.get("upload_files", []),
+                            "images_count": len(data.get("images_in_upload_order", []))
+                        })
+                    except Exception:
+                        pass
+    return {"status": "ok", "shop": "CraftyMyia", "count": len(packages), "packages": packages}
 
 # =========================================================================
 # FIVERR DELIVERY PACKAGER APIS
@@ -1594,9 +1683,13 @@ async def check_radar_inbox():
 @app.post("/api/radar/simulate")
 async def simulate_radar_order(payload: Dict[str, Any] = None):
     platform = "fiverr"
-    if payload and "platform" in payload:
-        platform = payload["platform"]
-    return order_radar.simulate_order(platform=platform)
+    shop = "auto"
+    if payload:
+        if "platform" in payload:
+            platform = payload["platform"]
+        if "shop" in payload:
+            shop = payload["shop"]
+    return order_radar.simulate_order(platform=platform, shop=shop)
 
 @app.post("/api/radar/fulfill/{order_id}")
 async def fulfill_radar_order(order_id: str):
