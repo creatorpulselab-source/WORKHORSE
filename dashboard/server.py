@@ -194,6 +194,11 @@ async def lifespan(app: FastAPI):
     comfy_health_task = asyncio.create_task(comfy_health_monitor_loop())
     remediation_task = asyncio.create_task(auto_remediation_loop())
     dropzone_task = asyncio.create_task(dropzone_watcher_loop())
+    try:
+        from pipeline.stages.creator_community_hub import get_community_daemon
+        get_community_daemon().start()
+    except Exception as _ce:
+        print(f"[WORKHORSE] Community daemon init note: {_ce}")
     # Logs today's health snapshot immediately on startup instead of waiting for the
     # first 10-minute auto-remediation cycle (run_daily_health_check is a no-op if
     # today's entry already exists, so this is safe to call on every restart).
@@ -223,8 +228,8 @@ SESSION_COOKIE = "workhorse_session"
 # The Stripe/Gumroad webhooks and order-download link are also unauthenticated since they're
 # called by external services/buyers who have no WORKHORSE login - protected instead by
 # Stripe signature verification, Gumroad seller_id matching, and an unguessable download token.
-PUBLIC_PATHS = {"/login", "/api/login", "/setup", "/api/setup", "/favicon.ico", "/subscribe", "/api/newsletter/subscribe", "/api/newsletter/unsubscribe", "/api/radar/webhook/stripe", "/api/radar/webhook/gumroad", "/api/monitor/agents-active"}
-PUBLIC_PREFIXES = ("/static/", "/api/download/order/")
+PUBLIC_PATHS = {"/login", "/api/login", "/setup", "/api/setup", "/favicon.ico", "/subscribe", "/api/newsletter/subscribe", "/api/newsletter/unsubscribe", "/api/radar/webhook/stripe", "/api/radar/webhook/gumroad", "/api/radar/webhook/whop", "/api/monitor/agents-active"}
+PUBLIC_PREFIXES = ("/static/", "/api/download/order/", "/api/vault/stream/", "/craftymyia", "/creatormediastudio", "/charlettewebb")
 
 
 def _load_secrets() -> Dict[str, Any]:
@@ -429,6 +434,9 @@ app.mount("/static", StaticFiles(directory=str(BASE_DIR / "dashboard" / "static"
 brand_assets_dir = BASE_DIR / "workspace" / "brand_assets"
 brand_assets_dir.mkdir(parents=True, exist_ok=True)
 app.mount("/brand_assets", StaticFiles(directory=str(brand_assets_dir)), name="brand_assets")
+app.mount("/craftymyia", StaticFiles(directory=str(BASE_DIR / "workspace" / "craftymyia_site"), html=True), name="craftymyia")
+app.mount("/creatormediastudio", StaticFiles(directory=str(BASE_DIR / "workspace" / "creatormediastudio_site"), html=True), name="creatormediastudio")
+app.mount("/charlettewebb", StaticFiles(directory=str(BASE_DIR / "workspace" / "charlettewebb_site"), html=True), name="charlettewebb")
 
 @app.get("/favicon.ico")
 async def favicon():
@@ -2576,6 +2584,109 @@ async def prune_staging_endpoint(hours: int = 48):
     bounded_hours = max(1, int(hours)) if hours is not None else 48
     res = await asyncio.to_thread(vram_manager.prune_old_staging_files, max_age_hours=bounded_hours)
     return res
+
+
+# ─── Creator Discord + Telegram Community Hub & Fiverr Template Engine ───
+@app.get("/api/community/profiles")
+async def api_get_community_profiles():
+    from pipeline.stages.creator_community_hub import load_community_profiles
+    return {"status": "ok", "profiles": load_community_profiles()}
+
+
+@app.post("/api/community/build-discord")
+async def api_build_creator_discord(payload: Dict[str, Any]):
+    from pipeline.stages.creator_community_hub import build_creator_discord_server
+    client_id = payload.get("client_id", "charlette_webb")
+    bot_token = payload.get("bot_token")
+    guild_id = payload.get("guild_id")
+    wipe_existing = bool(payload.get("wipe_existing", True))
+    return await build_creator_discord_server(
+        client_id=client_id,
+        bot_token=bot_token,
+        guild_id=guild_id,
+        wipe_existing=wipe_existing,
+    )
+
+
+@app.post("/api/community/setup-telegram")
+async def api_setup_creator_telegram(payload: Dict[str, Any]):
+    from pipeline.stages.creator_community_hub import setup_creator_telegram_channel
+    client_id = payload.get("client_id", "charlette_webb")
+    telegram_bot_token = payload.get("telegram_bot_token")
+    channel_id = payload.get("channel_id")
+    discord_invite_url = payload.get("discord_invite_url")
+    return await setup_creator_telegram_channel(
+        client_id=client_id,
+        telegram_bot_token=telegram_bot_token,
+        channel_id=channel_id,
+        discord_invite_url=discord_invite_url,
+    )
+
+
+@app.post("/api/community/go-live")
+async def api_community_go_live(payload: Dict[str, Any]):
+    from pipeline.stages.creator_community_hub import blast_live_on_cam_alert
+    client_id = payload.get("client_id", "charlette_webb")
+    custom_message = payload.get(
+        "custom_message",
+        "I'm LIVE right now across all cam sites (8PM–3AM EST)! Come hang out, vibe, and control my toys 💕💦",
+    )
+    res = await blast_live_on_cam_alert(client_id=client_id, custom_message=custom_message)
+    return {"status": "ok", "results": res}
+
+
+@app.post("/api/community/post-poll")
+async def api_community_post_poll(payload: Dict[str, Any]):
+    from pipeline.stages.creator_community_hub import post_outfit_poll
+    client_id = payload.get("client_id", "charlette_webb")
+    return await post_outfit_poll(client_id=client_id)
+
+
+@app.post("/api/community/configure-whop")
+async def api_community_configure_whop(payload: Dict[str, Any]):
+    from pipeline.stages.creator_community_hub import configure_whop_store
+    return await configure_whop_store(
+        client_id=payload.get("client_id", "charlette_webb"),
+        whop_store_url=payload.get("whop_store_url", "https://whop.com/charlette-webb-vip/"),
+        whop_api_key=payload.get("whop_api_key", ""),
+    )
+
+
+@app.post("/api/radar/webhook/whop")
+async def api_whop_webhook(payload: Dict[str, Any]):
+    from pipeline.stages.creator_community_hub import handle_whop_webhook
+    client_id = payload.get("client_id", "charlette_webb")
+    return await handle_whop_webhook(payload=payload, client_id=client_id)
+
+
+@app.get("/api/vault/stream/{client_id}")
+async def api_anti_scrape_vault_stream(client_id: str, file: str = "", expires: int = 0, sig: str = ""):
+    from pipeline.stages.creator_community_hub import verify_signed_vault_token
+    if not verify_signed_vault_token(client_id, file, expires, sig):
+        raise HTTPException(status_code=403, detail="Expired or invalid HMAC Anti-Scrape Vault signature.")
+    vault_dir = BASE_DIR / "workspace" / "media_vault" / client_id
+    cand = vault_dir / Path(file).name
+    if not cand.exists():
+        raise HTTPException(status_code=404, detail="Vault item not found.")
+    return FileResponse(
+        cand,
+        headers={
+            "Cache-Control": "no-store, no-cache, must-revalidate, private",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
+
+
+@app.post("/api/community/telegram-stars-ppv")
+async def api_telegram_stars_ppv(payload: Dict[str, Any]):
+    from pipeline.stages.creator_community_hub import send_telegram_stars_ppv
+    return await send_telegram_stars_ppv(
+        client_id=payload.get("client_id", "charlette_webb"),
+        star_count=int(payload.get("star_count", 250)),
+        caption=payload.get("caption", "🔥 Exclusive Uncensored PPV Drop — Tap below to unlock with Telegram Stars!"),
+        photo_path=payload.get("photo_path"),
+    )
+
 
 if __name__ == "__main__":
     # Pass the already-constructed `app` object directly rather than the string

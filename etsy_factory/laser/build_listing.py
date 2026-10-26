@@ -126,7 +126,7 @@ def make_01_cover(out_path: Path, thumbs_dir: Path, catalog: Dict):
             py = cy + 30 + (card_h - 190 - th.height) // 2
             im.paste(th, (px, py), th)
         d.text((cx + card_w // 2, cy + card_h - 80), title, fill=WALNUT, font=f_card_t, anchor="mm")
-        d.text((cx + card_w // 2, cy + card_h - 38), "Clean Burn Edges • Pre-Tested Cut Paths", fill=MUTED, font=f_card_sub, anchor="mm")
+        d.text((cx + card_w // 2, cy + card_h - 38), "Clean Burn Edges • Verified Closed Cut Paths", fill=MUTED, font=f_card_sub, anchor="mm")
 
     # Bottom Banner
     d.rectangle([0, H - 160, W, H], fill=WALNUT)
@@ -348,7 +348,7 @@ def make_07_mockup_laser_workshop(out_path: Path):
     f_bd = get_font(FONT_BOLD, 36)
     f_sm = get_font(FONT_REG, 26)
     d.text((140, 115), "CRAFT STUDIO LASER WORKSHOP", fill=WALNUT, font=f_bd)
-    d.text((140, 160), "Pre-Tested for Glowforge, xTool, OMTech & Diode Lasers", fill=MUTED, font=f_sm)
+    d.text((140, 160), "Color-Coded for Glowforge, xTool, OMTech & Diode Lasers", fill=MUTED, font=f_sm)
 
     im.save(out_path, quality=95)
     print(f"Generated {out_path.name}")
@@ -559,8 +559,8 @@ def build_listing_deck():
     desc = (
         "Laser Cut Keychain and Earring SVG Bundle - 40 Complete Laser Ready Designs for Glowforge, xTool, OMTech, and LightBurn.\n\n"
         "Create high-margin wooden and acrylic keychains, bag tags, and dangle earrings for your handmade shop or craft fair booth! "
-        "Every single design has been engineered with pre-tested laser color coding (Red=Cut, Blue=Score, Black=Engrave), "
-        "watertight cut lines, and reinforced hardware hanging holes.\n\n"
+        "Every single design has been engineered with standard laser color coding (Red=Cut, Blue=Score, Black=Engrave), "
+        "watertight closed cut lines, and reinforced hardware hanging holes.\n\n"
         "WHAT MAKES THIS BUNDLE SPECIAL:\n"
         "- 40 COMPLETE DESIGNS: 20 Keychains / Bag Tags + 20 Matching Dangle Earring Pairs.\n"
         "- PRE-NESTED MASTER CUTTING SHEETS: Includes pre-arranged 12x20 inch (Glowforge bed) and 12x12 inch (craft bed) master sheet SVGs "
@@ -592,7 +592,12 @@ def build_listing_deck():
         "- Small business commercial use is included up to 500 physical units per design.\n"
         "- You may sell physical keychains, earrings, and crafts made with these files.\n"
         "- You MAY NOT resell, share, redistribute, or upload digital cut files.\n\n"
-        "DIGITAL DOWNLOAD - No physical product will be shipped. Files are available for instant download upon purchase."
+        "DESIGN & CREATION TRANSPARENCY:\n"
+        "- Original color-coded laser vector cut, score, and engrave paths procedurally engineered by CraftyMyia with verified closed geometry.\n"
+        "- Listing photos include digital 3D renders and AI-assisted studio lifestyle mockups to illustrate how the finished wood and acrylic pieces look.\n\n"
+        "DIGITAL DOWNLOAD & COMPATIBILITY NOTICE:\n"
+        "- DIGITAL DOWNLOAD ONLY — no physical product will be shipped. Files are available for instant download upon purchase.\n"
+        "- All machine, software, and brand names (including Glowforge, xTool, OMTech, LightBurn, Silhouette, Cricut, Adobe, and Corel) are trademarks of their respective owners; CraftyMyia is an independent studio and is not affiliated with or endorsed by them."
     )
 
     data = lst.write_listing(

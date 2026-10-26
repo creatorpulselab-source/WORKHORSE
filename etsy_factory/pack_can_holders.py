@@ -37,7 +37,7 @@ pages = [
         "# What is in your download",
         "- Can_Holders_STL.zip: 8 Watertight STL Files.",
         "- Printable PDF setup guide and lifetime commercial print license.",
-        "# Included 3D Models (100% Watertight & Slicer Tested)",
+        "# Included 3D Models (100% Watertight & Slicer Verified)",
         "01. QuadGrip 4-Cup Drink Caddy (189 x 189 x 165 mm) - Fits coffee cups and takeout drinks with bridge carry handle.",
         "02. DuoCaddy Twin Carrier (162 x 76 x 138 mm) - Compact 2-can carrier with ergonomic center finger loop.",
         "03. HexaCool Can Cooler (79 x 79 x 98 mm) - Fits standard 12oz cans with diamond tactile knurling.",

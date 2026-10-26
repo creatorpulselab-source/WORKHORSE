@@ -575,7 +575,7 @@ def make_card_08() -> Image.Image:
         accent=ACCENT,
         ink=INK,
         bg=BG_COLOR,
-        footer="Tested on Bambu Lab, Prusa, Creality Ender, and Anycubic FDM printers."
+        footer="Compatible with Bambu Lab, Prusa, Creality Ender, and Anycubic FDM printers."
     )
     return Image.open(out_p).convert("RGB")
 

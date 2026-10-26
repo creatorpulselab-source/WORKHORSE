@@ -199,6 +199,8 @@ def build(key: str, mockups: bool = True) -> Dict:
     title = niche.title.format(n=n)
     if len(title) > 140:
         title = title[:140].rsplit(" ", 1)[0].rstrip(",")
+    non_affil = ("\n- Independent family vacation & travel designs; not affiliated with or endorsed by any theme park or entertainment company."
+                 if key == "vacation" else "")
     desc = (f"{niche.intro}\n\nWHAT YOU GET\n- {n} original {niche.short.lower()} quote designs\n"
             "- Every design in 6 formats: SVG, DXF, EPS, black PNG, white PNG and full-color PNG (300 dpi, transparent)\n"
             "- PDF quick-start guide and commercial license\n\n"
@@ -206,7 +208,12 @@ def build(key: str, mockups: bool = True) -> Dict:
             "Glowforge, xTool, Brother ScanNCut, Inkscape, Illustrator, CorelDRAW, and sublimation printers.\n\n"
             "COMMERCIAL USE\nUse the designs on physical products you sell, up to 500 units per design, no credit needed. "
             "You may not resell or share the digital files.\n\n"
-            "DIGITAL DOWNLOAD - nothing is shipped. Files are available instantly after purchase. Colors on screen may vary slightly from print.")
+            "DESIGN & CREATION TRANSPARENCY\n"
+            "- Original typography compositions and welded vector cut paths procedurally engineered by CraftyMyia using licensed commercial fonts and custom vector ornaments.\n"
+            f"- Listing photos show digital 3D renders and AI-assisted lifestyle mockups to illustrate how the designs look when cut or printed.{non_affil}\n\n"
+            "DIGITAL DOWNLOAD & COMPATIBILITY NOTICE\n"
+            "- DIGITAL DOWNLOAD ONLY — no physical product will be shipped. Files are available instantly after purchase. Colors on screen may vary slightly from print.\n"
+            "- All machine, software, and brand names (including Cricut, Silhouette, Glowforge, xTool, Brother, Adobe, and Corel) are trademarks of their respective owners; CraftyMyia is an independent studio and is not affiliated with or endorsed by them.")
     data = lst.write_listing(root, title=title, tags=niche.tags, description=desc, price_usd=niche.price,
                              sale_hint=f"list ${niche.list_price:.2f}, run a sale to show the discount", category="Craft Supplies & Tools > Patterns & How To > Digital",
                              materials="digital files", whats_in_the_files=[f"{n} designs x 6 formats (SVG, DXF, EPS, PNG black/white/color)", "PDF guide and license"])

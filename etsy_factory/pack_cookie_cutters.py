@@ -49,7 +49,7 @@ pages = [
         "- Christmas_Cookie_Cutters_STL.zip: 30 Watertight STL Files (20 cutters + 10 press plates).",
         "- Christmas_Cookie_Cutters_3MF.zip: 10 Pre-arranged multi-part 3MF plates for Bambu Studio / OrcaSlicer.",
         "- Printable PDF setup guide and lifetime commercial print license.",
-        "# Included Holiday Designs (100% Watertight & Slicer Tested)",
+        "# Included Holiday Designs (100% Watertight & Slicer Verified)",
         "01. Christmas Tree (60mm & 80mm + Press Plate)",
         "02. Golden Star (60mm & 80mm + Press Plate)",
         "03. Intricate Snowflake (60mm & 80mm + Press Plate)",

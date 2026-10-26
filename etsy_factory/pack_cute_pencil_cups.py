@@ -104,6 +104,13 @@ GOOD TO KNOW
 LICENSE
 Personal use included, and you may sell PHYSICAL cups you print from these files (craft fairs, your own shop). You may not resell, share or redistribute the digital files. All designs are original - no licensed characters.
 
+DESIGN & CREATION TRANSPARENCY
+- Original 3D designs created by CraftyMyia using AI-assisted 3D concept modeling and procedural CAD engineering in Blender (watertight voxel remeshing, planar base leveling, and manifold verification).
+- Listing photos show 3D renders and AI-assisted studio scene backdrops for display.
+
+COMPATIBILITY & TRADEMARK NOTICE
+- Compatible with Bambu Lab, Prusa, Creality, Anycubic, and standard FDM slicers. All printer and slicer brand names are trademarks of their respective owners; CraftyMyia is an independent studio and is not affiliated with or endorsed by them.
+
 Questions? Message the shop."""
         return dict(title=title, tags=tags, description=desc, price_usd=4.99,
                     sale_hint="set base price $4.99, then run an Etsy Sale so the strike-through shows",

@@ -330,7 +330,7 @@ def build_guide_pdf(guide_path: Path, catalog: Dict, thumbs_dir: Path) -> Path:
         "✖ You MAY NOT resell, share, or redistribute the digital files in any format.\n"
         "✖ You MAY NOT upload these files to Print-On-Demand (POD) websites.\n\n"
         "100% QUALITY GUARANTEE:\n"
-        "Every file has been tested for watertight laser cutting and smooth burn contours.\n"
+        "Every file has been verified for watertight closed laser paths and smooth contours.\n"
         "If you have questions about LightBurn or Glowforge setup, message our shop!"
     )
     d3.rounded_rectangle([140, cur_y, W - 140, cur_y + 540], radius=24, fill=(245, 250, 248), outline=(180, 215, 195), width=3)

@@ -64,12 +64,12 @@ Running on *sparkle and snacks*
 Running on *snacks and sparkle*
 Fueled by *magic*
 Fueled by *magic and snacks*
-Pixie *dust* and sunshine
-Pixie *dust* and good vibes
-Pixie dust and *happy hearts*
-Spreading *pixie dust*
-Sprinkle *pixie dust*
-Sprinkled with *pixie dust*
+Fairy *dust* and sunshine
+Fairy *dust* and good vibes
+Starlight and *happy hearts*
+Spreading *vacation magic*
+Sprinkle *some sparkle*
+Sprinkled with *starlight*
 Sparkle *more*
 Sparkle more *worry less*
 Sparkle all the *way*

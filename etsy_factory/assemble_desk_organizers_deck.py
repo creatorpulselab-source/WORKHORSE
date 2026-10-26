@@ -136,7 +136,7 @@ def make_card_01() -> Image.Image:
         ("STL", "100% Watertight\nZero Errors", TEAL),
         ("PRINT", "100% Support-Free\nFlat Bed Base", ACCENT),
         ("CAD", "Millimeter\nAccurate Fit", PURPLE),
-        ("TESTED", "Bambu Prusa\nCreality", GREEN),
+        ("SLICER", "Bambu Prusa\nCreality Ready", GREEN),
         ("COMM", "Commercial License\nIncluded", (255, 183, 3))
     ]
 
@@ -478,14 +478,14 @@ def make_card_07() -> Image.Image:
             "title": "OPTIMIZED WALL RIGIDITY",
             "kicker": "Heavy-duty 2.4mm to 3.2mm perimeters",
             "desc": "Thick outer walls provide rugged structural integrity, impact protection, and weighted desktop presence. Models will never feel flimsy or crush under daily office use.",
-            "checks": ["Solid 4-6 perimeter wall shell", "Drop-tested durability", "Substantial weighted feel"]
+            "checks": ["Solid 4-6 perimeter wall shell", "Reinforced wall durability", "Substantial weighted feel"]
         },
         {
             "num": "04",
             "title": "FITS STANDARD 220MM BEDS",
             "kicker": "Universal build plate compatibility",
             "desc": "Even the largest 196mm Pen Tray fits comfortably inside a standard 220 x 220 mm build plate. Compatible with Ender 3, Bambu Lab A1 / P1 / X1, Prusa MK3 / MK4, and Anycubic.",
-            "checks": ["196mm max footprint fits 220x220 beds", "Bambu Lab & Prusa tested", "Standard 0.4mm nozzle optimized"]
+            "checks": ["196mm max footprint fits 220x220 beds", "Bambu Lab & Prusa compatible", "Standard 0.4mm nozzle optimized"]
         }
     ]
 
@@ -576,7 +576,7 @@ def make_card_08() -> Image.Image:
         accent=ACCENT,       # Vibrant Warm Terracotta / Coral
         ink=INK,             # Deep Midnight Ink
         bg=BG_COLOR,
-        footer="Tested on Bambu Lab X1C/P1S/A1, Prusa MK3/MK4, Creality Ender, and Anycubic."
+        footer="Compatible with Bambu Lab X1C/P1S/A1, Prusa MK3/MK4, Creality Ender, and Anycubic."
     )
     return Image.open(out_p).convert("RGB")
 

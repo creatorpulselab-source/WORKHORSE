@@ -376,8 +376,12 @@ def build(key: str, mockups: bool = True, drop: Tuple[str, ...] = ()) -> Dict:
             "For sublimation, mirror the design in your print software and press on polyester or coated blanks (white or light colors work best).\n\n"
             "COMMERCIAL USE\nUse the designs on physical products you sell, up to 500 units per design, no credit needed. "
             "You may not resell or share the digital files.\n\n"
-            "AI DISCLOSURE\nThese illustrations were created with AI image-generation tools and then selected, cleaned up and prepared by the shop.\n\n"
-            "DIGITAL DOWNLOAD - nothing is shipped. Files are available instantly after purchase. Colors on screen may vary slightly from print.")
+            "DESIGN & CREATION TRANSPARENCY\n"
+            "- Original designs created by CraftyMyia using AI-assisted illustration tools (ComfyUI) combined with custom selection, background removal, edge refinement, and 300 DPI print preparation.\n"
+            "- Listing photos show digital lifestyle mockups to illustrate how the artwork looks on physical blanks.\n\n"
+            "DIGITAL DOWNLOAD & COMPATIBILITY NOTICE\n"
+            "- DIGITAL DOWNLOAD ONLY — no physical product will be shipped. Files are available instantly after purchase. Colors on screen may vary slightly from print.\n"
+            "- Compatible with Cricut Design Space, Silhouette Studio, and standard sublimation/DTF software. All machine and software names are trademarks of their respective owners; CraftyMyia is an independent studio and is not affiliated with or endorsed by them.")
     data = lst.write_listing(root, title=title, tags=pack.tags, description=desc, price_usd=pack.price,
                              sale_hint=f"list ${pack.list_price:.2f}, run a sale to show the discount",
                              category="Art & Collectibles > Drawing & Illustration > Digital (or the closest digital clipart category)",

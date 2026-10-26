@@ -34,7 +34,7 @@ CHIP_COLS = [
     ("STL", (29, 99, 184)),       # Royal Blue
     ("3D PRINT", (212, 92, 36)),  # Terracotta
     ("NO SUP", (46, 125, 114)),   # Slate Teal
-    ("TESTED", (123, 82, 148)),   # Royal Violet
+    ("READY", (123, 82, 148)),   # Royal Violet
     ("COMMERCIAL", (200, 140, 30))# Honey Gold
 ]
 
@@ -357,7 +357,7 @@ def make_card_04() -> Image.Image:
             "High-detail anatomical skull sculpt with textured teeth",
             "Fabric folds and knot detailing on pirate bandana",
             "Thick 4.2mm keyring loop anchored into crown of skull",
-            "Tested and optimized for multi-color or single-color PLA"
+            "Engineered and optimized for multi-color or single-color PLA"
         ]),
     ]
 
@@ -599,7 +599,7 @@ def make_card_08() -> Image.Image:
         accent=ACCENT,
         ink=INK,
         bg=BG_COLOR,
-        footer="Tested on Bambu Lab X1C/P1S/A1, Prusa MK3/MK4, Creality Ender, and Anycubic."
+        footer="Compatible with Bambu Lab X1C/P1S/A1, Prusa MK3/MK4, Creality Ender, and Anycubic."
     )
     return Image.open(out_p).convert("RGB")
 

@@ -25,7 +25,7 @@ new_c1 = """def make_card_01() -> Image.Image:
         ('STL', '100% Watertight\\nZero Errors', (46, 125, 114)),
         ('PRINT', '100% Support-Free\\nFlat Bed Base', (212, 92, 36)),
         ('CAD', 'Fits 12oz & Slim\\nCar Consoles', (44, 120, 68)),
-        ('TESTED', 'Bambu Prusa\\nCreality', (123, 82, 148)),
+        ('SLICER', 'Bambu Prusa\\nCreality Ready', (123, 82, 148)),
         ('COMM', 'Commercial License\\nIncluded', (200, 140, 30))
     ]
     cover2.vibrant(

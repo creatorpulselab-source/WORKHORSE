@@ -46,7 +46,7 @@ CHIP_COLS = [
     ("3MF", (46, 125, 114)),      # Slate Teal
     ("GLB", (217, 148, 38)),      # Honey Gold
     ("NO SUP", (123, 82, 148)),   # Royal Violet
-    ("TESTED", (46, 125, 50))     # Forest Green
+    ("READY", (46, 125, 50))      # Forest Green
 ]
 
 ANIMALS = [
@@ -326,7 +326,7 @@ def make_card_03() -> Image.Image:
                 "Silk Ivory body + Slate Black ears",
                 "Pre-painted Bambu AMS multi-color",
                 "Smooth interior wipes clean easily",
-                "Tested upright 100mm height"
+                "Standard upright 100mm height"
             ]
         }
     ]
@@ -402,7 +402,7 @@ def make_card_04() -> Image.Image:
     base = Image.new("RGBA", (SIZE, SIZE), BG_COLOR + (255,))
     d = ImageDraw.Draw(base)
 
-    top = draw_header(d, "DESK BUDDIES: PIG * OWL * CHICK * DINO", "Tested and optimized for zero-support 3D printing", 70)
+    top = draw_header(d, "DESK BUDDIES: PIG * OWL * CHICK * DINO", "Engineered and optimized for zero-support 3D printing", 70)
 
     group = [
         {
@@ -410,7 +410,7 @@ def make_card_04() -> Image.Image:
             "bullets": [
                 "Blossom Pink PLA filament shade",
                 "Embossed pig snout & folded ears",
-                "Thick 3.2mm drop-tested walls",
+                "Thick 3.2mm reinforced walls",
                 "Smooth interior wipes clean in seconds"
             ]
         },
@@ -659,7 +659,7 @@ def make_card_07() -> Image.Image:
     base = Image.new("RGBA", (SIZE, SIZE), BG_COLOR + (255,))
     d = ImageDraw.Draw(base)
 
-    top = draw_header(d, "ENGINEERED FOR 3D PRINTING", "Clean CAD geometry, zero support waste, and drop-tested durability", 70)
+    top = draw_header(d, "ENGINEERED FOR 3D PRINTING", "Clean CAD geometry, zero support waste, and reinforced durability", 70)
 
     features = [
         {
@@ -674,7 +674,7 @@ def make_card_07() -> Image.Image:
             "title": "3.2MM REINFORCED WALLS",
             "kicker": "Substantial durability & drop resistance",
             "desc": "Thick, robust perimeter walls ensure rugged structure. Sturdy against accidental desk knocks and drops; prints with a satisfying, premium heavy feel in hand.",
-            "checks": ["3 perimeter loops (1.2mm shell)", "Optimized for 15-20% gyroid infill", "Drop-tested anti-tip stability"]
+            "checks": ["3 perimeter loops (1.2mm shell)", "Optimized for 15-20% gyroid infill", "Reinforced anti-tip stability"]
         },
         {
             "num": "03",
@@ -832,7 +832,7 @@ def make_card_08() -> Image.Image:
 
     # Left Bottom Box Content
     d_l.text((x_l + gw // 2, box_y + 45), "FILAMENT & SCALING FLEXIBILITY", font=M.anton(40), fill=ACCENT, anchor="mm")
-    d_l.text((x_l + gw // 2, box_y + 90), "Tested across standard materials & scale ranges", font=M.poppins_x(26), fill=INK + (200,), anchor="mm")
+    d_l.text((x_l + gw // 2, box_y + 90), "Designed for standard materials & scale ranges", font=M.poppins_x(26), fill=INK + (200,), anchor="mm")
     d_l.line([(x_l + 80, box_y + 125), (x_l + gw - 80, box_y + 125)], fill=ACCENT + (100,), width=2)
 
     mat_items = [
@@ -868,7 +868,7 @@ def make_card_08() -> Image.Image:
         ("Top / Bottom Layers", "4 top solid layers, 3 bottom solid layers"),
         ("Support Material", "NONE (0% supports needed - prints 100% clean)"),
         ("Build Plate Adhesion", "Skirt only (Textured PEI bed, no brim needed)"),
-        ("Tested Slicers", "Bambu Studio, PrusaSlicer, Orca, Cura, Creality")
+        ("Compatible Slicers", "Bambu Studio, PrusaSlicer, Orca, Cura, Creality")
     ]
 
     sy = top + 230
@@ -881,7 +881,7 @@ def make_card_08() -> Image.Image:
 
     # Right Bottom Box Content
     d_r.text((x_r + gw // 2, box_y + 45), "PRO 3D PRINTING & FINISHING TIPS", font=M.anton(40), fill=ACCENT, anchor="mm")
-    d_r.text((x_r + gw // 2, box_y + 90), "Field-tested recommendations for flawless first prints", font=M.poppins_x(26), fill=INK + (200,), anchor="mm")
+    d_r.text((x_r + gw // 2, box_y + 90), "Recommended settings for flawless first prints", font=M.poppins_x(26), fill=INK + (200,), anchor="mm")
     d_r.line([(x_r + 80, box_y + 125), (x_r + gw - 80, box_y + 125)], fill=ACCENT + (100,), width=2)
 
     tip_items = [

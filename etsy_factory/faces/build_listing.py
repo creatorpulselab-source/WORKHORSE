@@ -211,8 +211,12 @@ def build(mockups: bool = True) -> Dict:
             "Brother ScanNCut, Inkscape, Illustrator and CorelDRAW.\n\n"
             "COMMERCIAL USE\nUse the designs on physical products you sell, up to 500 units per design, no credit needed. "
             "You may not resell or share the digital files.\n\n"
-            "DIGITAL DOWNLOAD - nothing is shipped. Files are available instantly after purchase. Colors on screen may vary slightly from cut materials. "
-            "Shirt and tote photos are mockups for illustration only.")
+            "DESIGN & CREATION TRANSPARENCY\n"
+            "- Original layered animal vector cut paths procedurally engineered by CraftyMyia from mathematical geometry.\n"
+            "- Listing photos show digital 3D renders and AI-assisted blank-product lifestyle mockups for illustration only.\n\n"
+            "DIGITAL DOWNLOAD & COMPATIBILITY NOTICE\n"
+            "- DIGITAL DOWNLOAD ONLY — no physical product will be shipped. Files are available instantly after purchase. Colors on screen may vary slightly from cut materials.\n"
+            "- All machine, software, and brand names (including Cricut, Silhouette, Glowforge, xTool, Brother, Adobe, and Corel) are trademarks of their respective owners; CraftyMyia is an independent studio and is not affiliated with or endorsed by them.")
     up = sorted((root / "etsy_upload").glob("*"))
     data = lst.write_listing(root, title=title, tags=TAGS, description=desc, price_usd=PRICE,
                              sale_hint=f"list ${LIST_PRICE:.2f}, run a sale to show the discount",

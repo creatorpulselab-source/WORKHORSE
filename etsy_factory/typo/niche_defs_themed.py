@@ -56,7 +56,7 @@ MORE3: Dict[str, Niche] = {
         tags=["family vacation svg", "magical vacation svg", "family trip svg", "vacation shirt png", "castle svg", "matching shirts svg", "theme park svg",
               "girls trip svg", "cricut cut files", "svg bundle", "sublimation png", "vacation svg bundle", "commercial use svg"],
         price=4.99, list_price=7.99,
-        intro="Magical family vacation typography - first trips, birthday trips, girls trips, matching family crews, castle days, pixie dust and fireworks - "
+        intro="Magical family vacation typography - first trips, birthday trips, girls trips, matching family crews, castle days, sparkle, sunshine and fireworks - "
               "composed with matched fonts and castle, wand, balloon and sparkle flourishes, ready to cut or press.",
         uses="Matching family vacation T-shirts, sweatshirts, tumblers, mugs, tote bags, birthday trip shirts, girls trip and cousin crew shirts, travel gifts",
         seo=["family vacation", "magical", "castle", "theme park"]),

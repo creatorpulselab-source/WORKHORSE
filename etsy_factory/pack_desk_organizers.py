@@ -37,7 +37,7 @@ pages = [
         "# What is in your download",
         "- Desk_Organizers_STL.zip: 10 Watertight STL Files.",
         "- Printable PDF setup guide and lifetime commercial print license.",
-        "# Included 3D Models (100% Watertight & Slicer Tested)",
+        "# Included 3D Models (100% Watertight & Slicer Verified)",
         "01. Round Pen Cup (80 x 80 x 95 mm) - Fluted lip, heavy base, fits 20+ pens and pencils.",
         "02. Hex Pen Cup (94 x 82 x 95 mm) - Faceted hexagonal walls, modern geometric aesthetic.",
         "03. Square Pencil Holder (80 x 80 x 100 mm) - 100mm deep minimalist block for tall brushes & markers.",

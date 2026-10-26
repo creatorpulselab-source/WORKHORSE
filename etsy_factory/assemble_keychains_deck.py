@@ -37,7 +37,7 @@ CHIP_COLS = [
     ("STL", (29, 99, 184)),       # EDC Blue
     ("3D PRINT", (212, 92, 36)),  # Terracotta
     ("NO SUP", (46, 125, 114)),   # Slate Teal
-    ("TESTED", (123, 82, 148)),   # Royal Violet
+    ("READY", (123, 82, 148)),    # Royal Violet
     ("COMMERCIAL", (200, 140, 30))# Honey Gold
 ]
 

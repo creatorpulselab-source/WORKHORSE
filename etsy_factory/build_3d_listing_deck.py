@@ -56,7 +56,7 @@ def make_thumbs_from_renders(meta: List[Dict], renders_dir: Path, thumbs_dir: Pa
 
 
 def grid_cover_3d(meta: List[Dict], thumbs_dir: Path, out: Path, n: int, kicker: str, sub: str, accent, ink, bg,
-                  strip_text: str = "100% WATERTIGHT  *  ZERO SUPPORTS  *  FDM TESTED  *  COMMERCIAL USE",
+                  strip_text: str = "100% WATERTIGHT  *  ZERO SUPPORTS  *  SLICER READY  *  COMMERCIAL USE",
                   cols: int = 5, rows: int = 2) -> Path:
     S = SIZE
     base = Image.new("RGBA", (S, S), bg + (255,))
@@ -208,7 +208,7 @@ def build_desk_organizers_exact():
         ("STL", "100% Watertight\nZero Errors", (0, 168, 180)),
         ("PRINT", "100% Support-Free\nFlat Bed Base", (255, 90, 45)),
         ("CAD", "Millimeter\nAccurate Fit", (123, 82, 180)),
-        ("TESTED", "Bambu Prusa\nCreality", (46, 160, 90)),
+        ("SLICER", "Bambu Prusa\nCreality Ready", (46, 160, 90)),
         ("COMM", "Commercial License\nIncluded", (255, 183, 3))
     ]
 
@@ -314,7 +314,7 @@ def build_desk_organizers_exact():
         accent=accent,
         ink=ink,
         bg=bg,
-        footer="Tested on Bambu Lab X1C/P1S/A1, Prusa MK3/MK4, Creality Ender, and Anycubic.",
+        footer="Compatible with Bambu Lab X1C/P1S/A1, Prusa MK3/MK4, Creality Ender, and Anycubic.",
         pill_colors=multi_pill_colors
     )
 
@@ -407,7 +407,7 @@ def build_can_holders_exact():
         ("STL", "100% Watertight\nZero Errors", (0, 168, 230)),
         ("PRINT", "100% Support-Free\nFlat Bed Base", (255, 110, 40)),
         ("FIT", "Standard & Slim Cans\n12oz & 16oz", (123, 82, 180)),
-        ("TESTED", "Bambu Prusa\nCreality", (46, 160, 90)),
+        ("SLICER", "Bambu Prusa\nCreality Ready", (46, 160, 90)),
         ("COMM", "Commercial License\nIncluded", (255, 183, 3))
     ]
 
@@ -498,7 +498,7 @@ def build_can_holders_exact():
         rows=[
             ("NOZZLE", "0.4 mm standard brass or hardened steel nozzle"),
             ("LAYER HEIGHT", "0.20 mm standard / 0.28 mm draft for rapid prints"),
-            ("WALL LOOPS", "4 to 6 perimeters (2.4mm) for rugged drop-tested durability"),
+            ("WALL LOOPS", "4 to 6 perimeters (2.4mm) for rugged structural durability"),
             ("INFILL", "15% to 20% Gyroid pattern for maximum impact resistance"),
             ("ZERO SUPPORTS", "100% self-supporting geometry - flat planar bed contact at Z=0"),
             ("MATERIALS", "PETG recommended for automotive/outdoor heat; PLA for desk use")
@@ -506,7 +506,7 @@ def build_can_holders_exact():
         accent=accent,
         ink=ink,
         bg=bg,
-        footer="Tested on Bambu Lab X1C/P1S/A1, Prusa MK3/MK4, Creality Ender, and Anycubic.",
+        footer="Compatible with Bambu Lab X1C/P1S/A1, Prusa MK3/MK4, Creality Ender, and Anycubic.",
         pill_colors=multi_pill_colors
     )
 
@@ -596,7 +596,7 @@ def build_keychains_exact():
     badges = [
         ("STL", "100% Watertight\nZero Errors", (0, 168, 180)),
         ("PRINT", "Built-In Eyelet\nFlat Bed Base", (255, 64, 129)),
-        ("FDM", "Tested On Bambu\nPrusa Creality", (123, 82, 180)),
+        ("FDM", "Bambu Prusa\nCreality Ready", (123, 82, 180)),
         ("SMOOTH", "Ultra Clean Mesh\nZero Artifacts", (46, 160, 90)),
         ("COMM", "Commercial License\nIncluded", (255, 183, 3))
     ]
@@ -699,7 +699,7 @@ def build_keychains_exact():
         accent=accent,
         ink=ink,
         bg=bg,
-        footer="Tested on Bambu Lab X1C/P1S/A1, Prusa MK3/MK4, Creality Ender, and Anycubic.",
+        footer="Compatible with Bambu Lab X1C/P1S/A1, Prusa MK3/MK4, Creality Ender, and Anycubic.",
         pill_colors=multi_pill_colors
     )
 
@@ -895,7 +895,7 @@ def build_christmas_cookie_cutters_exact():
         accent=accent,
         ink=ink,
         bg=bg,
-        footer="Tested on Bambu Lab X1C/P1S/A1, Prusa MK3/MK4, Creality Ender, and Anycubic.",
+        footer="Compatible with Bambu Lab X1C/P1S/A1, Prusa MK3/MK4, Creality Ender, and Anycubic.",
         pill_colors=multi_pill_colors
     )
 

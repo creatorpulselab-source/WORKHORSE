@@ -37,7 +37,7 @@ CHIP_COLS = [
     ("STL", (44, 98, 62)),        # Forest Green
     ("3D PRINT", (212, 92, 36)),  # Terracotta
     ("NO SUP", (46, 125, 114)),   # Slate Teal
-    ("TESTED", (123, 82, 148)),   # Royal Violet
+    ("READY", (123, 82, 148)),   # Royal Violet
     ("COMMERCIAL", (200, 140, 30))# Honey Gold
 ]
 
@@ -241,7 +241,7 @@ def make_card_02() -> Image.Image:
     base = Image.new("RGBA", (SIZE, SIZE), BG_COLOR + (255,))
     d = ImageDraw.Draw(base)
 
-    top = draw_header(d, "8 PRINT-READY DRINK HOLDERS", "Original 3D printable designs - tested and support-free", 70)
+    top = draw_header(d, "8 PRINT-READY DRINK HOLDERS", "Original 3D printable designs - watertight and support-free", 70)
 
     cols, rows = 4, 2
     pad_x = 70
@@ -640,7 +640,7 @@ def make_card_08() -> Image.Image:
         accent=ACCENT,
         ink=INK,
         bg=BG_COLOR,
-        footer="Tested on Bambu Lab X1C/P1S/A1, Prusa MK3/MK4, Creality Ender, and Anycubic."
+        footer="Compatible with Bambu Lab X1C/P1S/A1, Prusa MK3/MK4, Creality Ender, and Anycubic."
     )
     return Image.open(out_p).convert("RGB")
 

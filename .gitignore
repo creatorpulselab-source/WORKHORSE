@@ -45,3 +45,12 @@ LLM training/*.webp
 LLM training/**/*.zip
 LLM training/**/*.webp
 *.stl
+
+# Video and Cam Show Output Folders (large media binaries kept local)
+cam_shows/
+*.mp4
+*.aac
+*.mkv
+*.mov
+*.edl
+*.cutlist.json

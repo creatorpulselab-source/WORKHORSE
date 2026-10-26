@@ -586,9 +586,9 @@ def make_10_whats_included_and_license(out_path: Path):
         "✖ Upload to Print-on-Demand (POD) sites\n"
         "✖ Claim vector artwork as your own\n\n"
         "100% CRAFTER GUARANTEE:\n"
-        "Every file is thoroughly tested on Cricut &\n"
-        "Silhouette. If you need any assistance, we\n"
-        "are here to help promptly!"
+        "Every file is verified for welded compound\n"
+        "paths and clean cutting. If you need any\n"
+        "assistance, we are here to help promptly!"
     )
     d.multiline_text((W // 2 + 80, 480), license_text, fill=CHARCOAL, font=f_body, spacing=16)
 
@@ -661,7 +661,12 @@ def build_listing_deck():
         "- Small business commercial use is included up to 500 physical units per design.\n"
         "- You may sell physical items created with these cut files.\n"
         "- You MAY NOT resell, share, redistribute, or upload the raw digital files to Print-On-Demand sites.\n\n"
-        "DIGITAL DOWNLOAD - No physical product will be shipped. Your files will be available for instant download upon payment confirmation."
+        "DESIGN & CREATION TRANSPARENCY:\n"
+        "- Original split and botanical monogram vector cut paths procedurally engineered by CraftyMyia with welded compound geometry.\n"
+        "- Listing photos include digital 3D renders and AI-assisted lifestyle mockups to illustrate how the monograms look on finished crafts.\n\n"
+        "DIGITAL DOWNLOAD & COMPATIBILITY NOTICE:\n"
+        "- DIGITAL DOWNLOAD ONLY — no physical product will be shipped. Your files will be available for instant download upon payment confirmation.\n"
+        "- All machine, software, and brand names (including Cricut, Silhouette, Glowforge, Brother, Adobe, and Corel) are trademarks of their respective owners; CraftyMyia is an independent studio and is not affiliated with or endorsed by them."
     )
 
     data = lst.write_listing(

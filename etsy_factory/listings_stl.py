@@ -137,6 +137,13 @@ GOOD TO KNOW
 LICENSE
 Personal use included, and you may sell PHYSICAL items you print from these files. You may not resell, share or redistribute the digital files. All designs are original.
 
+DESIGN & CREATION TRANSPARENCY
+- Original 3D meshes procedurally CAD-modeled and manifold-verified by CraftyMyia in Python/Blender (100% watertight solid geometry).
+- Listing photos show 3D renders of the actual STL files composited on AI-assisted studio scene backdrops for display.
+
+COMPATIBILITY & TRADEMARK NOTICE
+- Compatible with Bambu Lab, Prusa, Creality, Anycubic, and standard FDM slicers. All printer and slicer brand names are trademarks of their respective owners; CraftyMyia is an independent studio and is not affiliated with or endorsed by them.
+
 Questions? Message the shop - happy to help with any print issue."""
         return dict(title=title, tags=tags, description=desc, price_usd=4.99,
                     sale_hint="set base price $4.99, then run an Etsy Sale (e.g. 30% off); similar functional bundles list at roughly $1.50-$7",
@@ -217,6 +224,13 @@ GOOD TO KNOW
 LICENSE
 Personal use included, and you may sell PHYSICAL items you print from these files. You may not resell, share or redistribute the digital files. All designs are original.
 
+DESIGN & CREATION TRANSPARENCY
+- Original 3D meshes procedurally CAD-modeled and manifold-verified by CraftyMyia in Python/Blender (100% watertight solid geometry).
+- Listing photos show 3D renders of the actual STL files composited on AI-assisted studio scene backdrops for display.
+
+COMPATIBILITY & TRADEMARK NOTICE
+- Compatible with Bambu Lab, Prusa, Creality, Anycubic, and standard FDM slicers. All printer, slicer, and drinkware brand names are trademarks of their respective owners; CraftyMyia is an independent studio and is not affiliated with or endorsed by them.
+
 Questions? Message the shop."""
         return dict(title=title, tags=tags, description=desc, price_usd=4.99,
                     sale_hint="set base price $4.99, then run an Etsy Sale; comparable can-holder files list around $1.50-$6",
@@ -285,6 +299,13 @@ GOOD TO KNOW
 
 LICENSE
 Personal use included, and you may sell PHYSICAL keychains you print from these files (craft fairs, your own shop). You may not resell, share or redistribute the digital files. All designs are original - no licensed characters.
+
+DESIGN & CREATION TRANSPARENCY
+- Original 3D designs created by CraftyMyia using AI-assisted 3D concept modeling and procedural CAD engineering in Blender (watertight voxel remeshing, planar base leveling, and manifold verification).
+- Listing photos show 3D renders and AI-assisted studio scene backdrops for display.
+
+COMPATIBILITY & TRADEMARK NOTICE
+- Compatible with Bambu Lab, Prusa, Creality, Anycubic, and standard FDM slicers. All printer and slicer brand names are trademarks of their respective owners; CraftyMyia is an independent studio and is not affiliated with or endorsed by them.
 
 Questions? Message the shop."""
         return dict(title=title, tags=tags, description=desc, price_usd=3.99,
@@ -396,6 +417,13 @@ GOOD TO KNOW
 
 LICENSE
 Personal use included, and you may sell PHYSICAL planters you print from these files. You may not resell, share or redistribute the digital files. All designs are original.
+
+DESIGN & CREATION TRANSPARENCY
+- Original 3D meshes procedurally CAD-modeled and manifold-verified by CraftyMyia in Python/Blender (100% watertight solid geometry).
+- Listing photos show 3D renders of the actual STL/3MF/GLB files composited on AI-assisted studio scene backdrops for display.
+
+COMPATIBILITY & TRADEMARK NOTICE
+- Compatible with Bambu Lab, Prusa, Creality, Anycubic, and standard FDM slicers. All printer and slicer brand names are trademarks of their respective owners; CraftyMyia is an independent studio and is not affiliated with or endorsed by them.
 
 Questions? Message the shop."""
         return dict(title=title, tags=tags, description=desc, price_usd=5.99,

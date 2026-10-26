@@ -577,7 +577,12 @@ def build(mockups: bool = True) -> Dict:
         "- Small business commercial use is included up to 500 physical printed sticker units per design.\n"
         "- You may sell physical printed sticker sheets, die-cut stickers, and handmade crafts.\n"
         "- You MAY NOT resell, share, redistribute the digital files, or upload them to Print-On-Demand (POD) websites.\n\n"
-        "DIGITAL DOWNLOAD - No physical product will be shipped. Files are available immediately upon purchase."
+        "DESIGN & CREATION TRANSPARENCY:\n"
+        "- Original designs created by CraftyMyia combining AI-assisted kawaii character illustrations (ComfyUI) with custom vector die-cut contour paths, printable sheet layouts, and Silhouette masks.\n"
+        "- Listing photos include digital lifestyle mockups to illustrate how the stickers look when printed and applied.\n\n"
+        "DIGITAL DOWNLOAD & COMPATIBILITY NOTICE:\n"
+        "- DIGITAL DOWNLOAD ONLY — no physical product will be shipped. Files are available immediately upon purchase.\n"
+        "- All machine, app, and brand names (including Cricut, Silhouette, GoodNotes, Notability, Penly, and HydroFlask) are trademarks of their respective owners; CraftyMyia is an independent studio and is not affiliated with or endorsed by them."
     )
 
     data = lst.write_listing(

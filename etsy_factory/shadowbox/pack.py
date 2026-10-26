@@ -296,7 +296,7 @@ def build_assembly_guide_pdf(guide_path: Path, catalog: Dict, thumbs_dir: Path) 
         "✖ You MAY NOT resell, share, redistribute, or giveaway the digital SVG/DXF/PDF/PNG files.\n"
         "✖ You MAY NOT upload raw or modified cut files to print-on-demand sites.\n\n"
         "100% SATISFACTION GUARANTEE:\n"
-        "Every layer geometry is tested and verified watertight for clean, tear-free machine cutting.\n"
+        "Every layer geometry is mathematically verified watertight for clean machine cutting.\n"
         "If you have questions about machine settings or frame sizing, message us on Etsy!"
     )
     d3.rounded_rectangle([140, cur_y, W - 140, cur_y + 540], radius=24, fill=(245, 250, 248), outline=(180, 215, 195), width=3)

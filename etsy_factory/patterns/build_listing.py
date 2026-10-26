@@ -275,8 +275,12 @@ def build(mockups: bool = True, samples: int = 96) -> Dict:
             "HOW IT WORKS\nThe files arrive as zip parts - download and unzip them all into one folder. For sublimation, mirror the wrap in your print software, "
             "print at 100% scale on sublimation paper and press on white polyester or coated blanks.\n\n"
             "COMMERCIAL USE\nUse the patterns on physical products you sell, up to 500 units per design, no credit needed. You may not resell or share the digital files.\n\n"
-            "DIGITAL DOWNLOAD - nothing is shipped. Files are available instantly after purchase. Colors on screen may vary slightly from print. "
-            "Tumbler mockup photos are 3D renders for illustration only; the tumbler is not included.")
+            "DESIGN & CREATION TRANSPARENCY\n"
+            "- Original seamless patterns procedurally engineered by CraftyMyia from mathematical geometric shapes and curated color palettes.\n"
+            "- Listing photos show 3D digital tumbler renders and lifestyle mockups for illustration only; no physical tumbler is included.\n\n"
+            "DIGITAL DOWNLOAD & COMPATIBILITY NOTICE\n"
+            "- DIGITAL DOWNLOAD ONLY — no physical product will be shipped. Files are available instantly after purchase. Colors on screen may vary slightly from print.\n"
+            "- All software and brand names mentioned are trademarks of their respective owners; CraftyMyia is an independent studio and is not affiliated with or endorsed by them.")
     data = lst.write_listing(root, title=title, tags=TAGS, description=desc, price_usd=PRICE,
                              sale_hint=f"list ${LIST_PRICE:.2f}, run a sale to show the discount",
                              category="Craft Supplies & Tools > Patterns & How To > Digital (or Art & Collectibles > Prints > Digital Prints)",

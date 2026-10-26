@@ -213,7 +213,7 @@ def generate_shop_banner():
     pills = [
         ("INSTANT DIGITAL DOWNLOAD", ACCENT_TEAL),
         ("COMMERCIAL USE INCLUDED", ACCENT_CORAL),
-        ("WATERTIGHT PRINT TESTED", (60, 130, 80))
+        ("WATERTIGHT SLICER READY", (60, 130, 80))
     ]
     
     f_pill = get_font("BebasNeue-Regular.ttf", 34)
@@ -248,4 +248,5 @@ def generate_shop_banner():
 
 if __name__ == "__main__":
     generate_shop_icon()
+    generate_shop_banner()
     generate_shop_banner()

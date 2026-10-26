@@ -550,9 +550,9 @@ def make_10_whats_included_and_license(out_path: Path):
         "✖ Upload cut files to Print-On-Demand sites\n"
         "✖ Claim vector geometry as your own\n\n"
         "100% CRAFTER GUARANTEE:\n"
-        "Every single layer is tested for watertight\n"
-        "cut paths. If you need any assistance with\n"
-        "file sizing or cutting, message us on Etsy!"
+        "Every single layer is verified for watertight\n"
+        "closed cut paths. If you need any assistance\n"
+        "with file sizing or cutting, message us!"
     )
     d.multiline_text((W // 2 + 80, 475), license_text, fill=CHARCOAL, font=f_body, spacing=14)
 
@@ -599,7 +599,7 @@ def build_listing_deck():
         "3. Dreamy Nursery Hot Air Balloon: Sleeping crescent moon, cloud banks, and an adorable hot air balloon floating among the stars.\n"
         "4. Under the Sea & Gentle Whales: Humpback whale & calf, swimming sea turtle, rising bubbles, coral reef arch, and kelp forest.\n\n"
         "KEY DESIGN FEATURES:\n"
-        "- 100% WATERTIGHT CUT PATHS: Every layer is pre-tested with closed compound paths—no stray nodes or double cut lines.\n"
+        "- 100% WATERTIGHT CUT PATHS: Every layer is verified with closed compound paths—no stray nodes or double cut lines.\n"
         "- BUILT-IN 15MM SPACER BORDER: Each layer includes a solid outer perimeter designed specifically for double-sided foam tape adhesive.\n"
         "- SCALABLE 8x8 INCH SIZE: Pre-sized to 8.0 x 8.0 inches (20x20 cm), perfectly compatible with standard 8x8 and 9x9 inch shadow box frames "
         "(such as IKEA Sannahed and IKEA Ribba frames with deep internal spacer).\n"
@@ -626,7 +626,12 @@ def build_listing_deck():
         "- Small business commercial use is included up to 500 physical assembled units per design.\n"
         "- You may sell physical shadow boxes and framed paper art.\n"
         "- You MAY NOT resell, share, or redistribute the digital cut files.\n\n"
-        "DIGITAL DOWNLOAD - No physical product will be shipped. Files are available for instant download upon payment."
+        "DESIGN & CREATION TRANSPARENCY:\n"
+        "- Original multi-layer 3D shadow box vector cut paths procedurally engineered by CraftyMyia with verified closed compound geometry.\n"
+        "- Listing photos include digital 3D layered renders and AI-assisted room mockups to illustrate how the assembled light boxes look when framed.\n\n"
+        "DIGITAL DOWNLOAD & COMPATIBILITY NOTICE:\n"
+        "- DIGITAL DOWNLOAD ONLY — no physical product will be shipped. Files are available for instant download upon payment.\n"
+        "- All machine, software, and brand names (including Cricut, Silhouette, Brother, Glowforge, xTool, LightBurn, and IKEA) are trademarks of their respective owners; CraftyMyia is an independent studio and is not affiliated with or endorsed by them."
     )
 
     data = lst.write_listing(

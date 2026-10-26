@@ -45,7 +45,7 @@ pages = [
         "- Keychains_STL_Part2.zip: Geometric French Bulldog, Pirate Skull Keychain.",
         "- Keychains_STL_Part3.zip: Retro High-Top Sneaker, Lucky Maneki Neko, Chibi Astronaut.",
         "- Printable PDF setup guide and lifetime commercial print license.",
-        "# Included 3D Models (100% Watertight & Slicer Tested)",
+        "# Included 3D Models (100% Watertight & Slicer Verified)",
         "01. Baby Crystal Dragon Keychain (52 x 42 x 34 mm) - Folded wings, faceted horns, and sleek tapered tail.",
         "02. Chubby Kawaii Axolotl Keychain (48 x 56 x 42 mm) - 6 layered external frill gills, cute cheeks, flat seated bed base.",
         "03. Kawaii Baby Octopus Keychain (46 x 44 x 42 mm) - Curled tentacles create a natural stable bed contact plane.",
@@ -120,9 +120,15 @@ DOWNLOAD STRUCTURE (Split for Fast Delivery):
 - Print_Guide_and_License.pdf
 
 GOOD TO KNOW:
-- DIGITAL DOWNLOAD ONLY - no physical item will be shipped.
+- DIGITAL DOWNLOAD ONLY - no physical item will be shipped. Listing photos show 3D renders and AI-assisted studio lifestyle mockups for illustration.
 - Every STL file is 100% watertight (0 non-manifold edges, 0 boundary holes, exactly 1 solid monolithic shell).
 - Lifetime commercial license included to sell 3D printed physical items.
+
+DESIGN & CREATION TRANSPARENCY:
+- Original 3D designs created by CraftyMyia using AI-assisted 3D concept modeling and procedural CAD engineering in Blender (watertight voxel remeshing, planar base leveling, and manifold verification), with AI-assisted studio scene backdrops used for display mockups.
+
+COMPATIBILITY & TRADEMARK NOTICE:
+- Compatible with Bambu Lab, Prusa, Creality, Anycubic, and standard FDM slicers. All printer and slicer brand names are trademarks of their respective owners; CraftyMyia is an independent studio and is not affiliated with or endorsed by them.
 
 Questions? Message the shop anytime!"""
 
