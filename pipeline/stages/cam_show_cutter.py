@@ -18,15 +18,22 @@ DaVinci Resolve Integration:
 - Generates CMX 3600 .EDL and .JSON cutlist as portable fallbacks
 """
 
+import sys
+import os
+import pathlib
+
+# Ensure F:\WORKHORSE is on sys.path
+WORKHORSE_ROOT = pathlib.Path(r"F:\WORKHORSE")
+if str(WORKHORSE_ROOT) not in sys.path:
+    sys.path.insert(0, str(WORKHORSE_ROOT))
+
 import argparse
 import base64
 import json
 import logging
-import os
-import pathlib
 import subprocess
-import sys
 import time
+import urllib.request
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import cv2
@@ -101,12 +108,26 @@ def probe_video(video_path: pathlib.Path) -> Dict[str, Any]:
 def scan_motion_energy(
     video_path: pathlib.Path,
     sample_fps: float = 1.0,
-    motion_threshold: float = 0.12,
+    motion_threshold: float = 0.08,
     progress_callback: Optional[Callable[[float, str], None]] = None,
 ) -> List[Dict[str, Any]]:
     """Fast scan of the entire video at sample_fps (default 1 frame per second).
-    Computes frame difference and active motion area to separate sitting/talking from show movement.
+    Computes optical flow pixel difference and active motion area across the timeline.
+    Uses diff > 15 for high sensitivity across both close-ups and wide-angle room setups.
     """
+    processing_dir = pathlib.Path(r"F:\WORKHORSE\cam_shows\processing")
+    processing_dir.mkdir(parents=True, exist_ok=True)
+    cache_file = processing_dir / f"{video_path.stem}.motion.json"
+    if cache_file.exists():
+        try:
+            logger.info(f"Loading cached motion profile from {cache_file.name}...")
+            cached_pts = json.loads(cache_file.read_text(encoding="utf-8"))
+            if len(cached_pts) > 100:
+                logger.info(f"Loaded {len(cached_pts)} cached motion points in 0.1s!")
+                return cached_pts
+        except Exception as ce:
+            logger.warning(f"Error reading motion cache ({ce}), re-scanning...")
+
     logger.info(f"Scanning motion energy at {sample_fps} fps on {video_path.name}...")
     cap = cv2.VideoCapture(str(video_path))
     if not cap.isOpened():
@@ -130,24 +151,34 @@ def scan_motion_energy(
         gray = cv2.cvtColor(small, cv2.COLOR_BGR2GRAY)
         gray = cv2.GaussianBlur(gray, (5, 5), 0)
 
+        # Performer human skin tone presence filter (HSV + YCrCb combined)
+        hsv = cv2.cvtColor(small, cv2.COLOR_BGR2HSV)
+        ycrcb = cv2.cvtColor(small, cv2.COLOR_BGR2YCrCb)
+        m_hsv = cv2.inRange(hsv, np.array([0, 45, 60]), np.array([18, 255, 255]))
+        m_ycrcb = cv2.inRange(ycrcb, np.array([0, 135, 80]), np.array([255, 175, 125]))
+        skin_mask = cv2.bitwise_and(m_hsv, m_ycrcb)
+        skin_pct = float(np.count_nonzero(skin_mask) / skin_mask.size)
+        has_performer = (skin_pct >= 0.020)
+
         motion_energy = 0.0
         motion_area_pct = 0.0
 
         if prev_gray is not None:
             diff = cv2.absdiff(prev_gray, gray)
             motion_energy = float(np.mean(diff) / 255.0)
-            active_pixels = np.count_nonzero(diff > 25)
+            active_pixels = np.count_nonzero(diff > 15)
             motion_area_pct = float(active_pixels / (320 * 180))
 
         timestamp = round(frame_idx / fps, 2)
-        is_active_motion = motion_area_pct >= motion_threshold or motion_energy >= 0.08
 
         timeline_points.append({
             "time_sec": timestamp,
             "frame": frame_idx,
             "motion_energy": round(motion_energy, 4),
             "motion_area": round(motion_area_pct, 4),
-            "is_motion_active": is_active_motion,
+            "skin_pct": round(skin_pct, 4),
+            "has_performer": has_performer,
+            "is_motion_active": (motion_area_pct >= motion_threshold or motion_energy >= 0.04) and has_performer,
         })
 
         prev_gray = gray
@@ -171,6 +202,12 @@ def scan_motion_energy(
             break
 
     cap.release()
+    try:
+        cache_file.write_text(json.dumps(timeline_points), encoding="utf-8")
+        logger.info(f"Cached {len(timeline_points)} motion sample points to {cache_file.name}")
+    except Exception as ce:
+        logger.warning(f"Could not save motion cache: {ce}")
+
     logger.info(f"Motion scan complete: {len(timeline_points)} sample points analyzed.")
     return timeline_points
 
@@ -183,7 +220,10 @@ def extract_and_scan_audio(
     device_index: int = 1,
 ) -> Dict[str, Any]:
     """Extracts audio to AAC/WAV and runs GPU 1 Faster-Whisper to profile speech blocks and musical cues."""
-    temp_audio = video_path.with_name(f"{video_path.stem}_audio.aac")
+    processing_dir = pathlib.Path(r"F:\WORKHORSE\cam_shows\processing")
+    processing_dir.mkdir(parents=True, exist_ok=True)
+    temp_audio = processing_dir / f"{video_path.stem}_audio.aac"
+
     if not temp_audio.exists() or temp_audio.stat().st_size < 1000:
         logger.info(f"Extracting audio stream to {temp_audio.name}...")
         cmd = [
@@ -191,6 +231,19 @@ def extract_and_scan_audio(
             "-vn", "-acodec", "copy", str(temp_audio)
         ]
         subprocess.run(cmd, capture_output=True, timeout=120)
+
+    if not temp_audio.exists() or temp_audio.stat().st_size < 1000:
+        # Fallback re-encode to clean AAC
+        logger.info(f"Fallback re-encoding audio to {temp_audio.name}...")
+        cmd_fallback = [
+            "ffmpeg", "-y", "-i", str(video_path),
+            "-vn", "-c:a", "aac", "-b:a", "128k", str(temp_audio)
+        ]
+        subprocess.run(cmd_fallback, capture_output=True, timeout=180)
+
+    if not temp_audio.exists() or temp_audio.stat().st_size < 100:
+        logger.warning(f"Could not extract audio for {video_path.name}, proceeding without audio profiling.")
+        return {"all_speech": [], "guitar_segments": [], "music_segments": []}
 
     logger.info(f"Loading Faster-Whisper on GPU {device_index} for audio speech & music profiling...")
     import faster_whisper
@@ -201,12 +254,16 @@ def extract_and_scan_audio(
         model = faster_whisper.WhisperModel("tiny.en", device="cpu", compute_type="int8")
 
     logger.info(f"Running high-speed speech density & musical scan on {temp_audio.name}...")
-    segments, info = model.transcribe(
-        str(temp_audio),
-        beam_size=1,
-        vad_filter=True,
-        vad_parameters=dict(min_silence_duration_ms=500),
-    )
+    try:
+        segments, info = model.transcribe(
+            str(temp_audio),
+            beam_size=1,
+            vad_filter=True,
+            vad_parameters=dict(min_silence_duration_ms=500),
+        )
+    except Exception as te:
+        logger.warning(f"Whisper transcribe warning ({te}), proceeding with empty speech profile.")
+        return {"all_speech": [], "guitar_segments": [], "music_segments": []}
 
     all_speech = []
     music_segments = []
@@ -239,18 +296,336 @@ def extract_and_scan_audio(
 
 
 # ----------------------------------------------------------------------
-# 4. Stage 3: Multi-Modal Classification (Motion + Speech + Music)
+# 4. Stage 3: Vision AI Verification & Multi-Modal Classification
 # ----------------------------------------------------------------------
+REFINED_PROMPT = (
+    "You are an expert adult webcam show video editor and curator. Strictly classify this video frame with an intensity score (0 to 5) and action description.\n\n"
+    "CRITICAL RULES:\n"
+    "1. CASUAL IDLE/CHAT IS ALWAYS LEVEL 0:\n"
+    "   - Drinking from a cup, mug, glass, water bottle, or can is strictly LEVEL 0 (CASUAL_CHAT).\n"
+    "   - Standing in front of the camera casually talking, gesturing, or chatting with viewers is strictly LEVEL 0 (CASUAL_CHAT).\n"
+    "   - Sitting in a gaming chair talking, typing, holding or checking phone, or resting is strictly LEVEL 0 (CASUAL_CHAT).\n"
+    "   - Sitting or posing casually in lingerie/clothing with hand on chin, hand on leg, or looking at camera without active intimate stimulation is strictly LEVEL 0 (CASUAL_CHAT).\n"
+    "   - Getting up, standing up from bed or chair after an act is strictly LEVEL 0 (CASUAL_CHAT).\n"
+    "   - Pulling up underwear, panties, shorts, robe, or fixing/adjusting outfit after a show is strictly LEVEL 0 (CASUAL_CHAT).\n"
+    "   - Walking around the room or adjusting webcam is strictly LEVEL 0 (CASUAL_CHAT).\n"
+    "   - Sitting quietly in chair while tips/Lovense vibrates is strictly LEVEL 0 (CASUAL_CHAT).\n\n"
+    "2. LEVEL 1 (MUSIC / GUITAR ONLY):\n"
+    "   - Playing electric/acoustic guitar, strumming, singing (lowest priority).\n\n"
+    "3. LEVEL 2 (ACTIVE STRIPTEASE / UNCLOTHING ONLY):\n"
+    "   - Performer is actively removing/peeling off lingerie, unhooking bra, or pulling underwear aside to expose private parts.\n"
+    "   - (NOTE: Simply sitting or standing wearing lingerie while talking or drinking is LEVEL 0!).\n\n"
+    "4. LEVEL 3 (ACTIVE INTIMATE TEASING):\n"
+    "   - Active hands-on intimate touching: pinching bare nipples/breasts, hand between legs/groin, mask/costume toy play, sensual body caress.\n\n"
+    "5. LEVEL 4 (PENETRATION & ACTIVE ORAL PLAY):\n"
+    "   - Dildo insertion, active pumping & thrusting, sucking/licking dildo, oral play with saliva strings, floor/bed spread play.\n\n"
+    "6. LEVEL 5 (PEAK CLIMAX & VISIBLE FLUIDS - HIGHEST PRIORITY):\n"
+    "   - Pullout from wet pussy with legs spread, deep pumping, visible dripping wetness/moisture reflections, squirt, glistening body oil.\n\n"
+    "Respond in valid JSON only:\n"
+    "{\n"
+    "  \"classification\": \"ACTIVE_SHOW\" or \"CASUAL_CHAT\",\n"
+    "  \"intensity\": 0 to 5,\n"
+    "  \"action\": \"concise descriptive action tag\",\n"
+    "  \"wetness_detected\": true or false\n"
+    "}"
+)
+
+
+def verify_candidate_with_vision(
+    cap: cv2.VideoCapture,
+    cand: Dict[str, Any],
+    all_speech: Optional[List[Dict[str, Any]]] = None,
+    guitar_sessions: Optional[List[Tuple[float, float]]] = None,
+    ollama_api: str = OLLAMA_API,
+    model: str = VISION_MODEL,
+) -> List[Dict[str, Any]]:
+    """Subdivides motion candidates into discrete time windows, evaluates speech density
+    and GPU 0 Vision AI, and prunes casual chat, drinking, standing, and post-act dress adjustments.
+    Returns a list of verified, cohesive show segments with action moments and peak action timestamps.
+    """
+    start_sec = cand["start_sec"]
+    end_sec = cand["end_sec"]
+    dur = cand["duration_sec"]
+
+    if all_speech is None:
+        all_speech = []
+    if guitar_sessions is None:
+        guitar_sessions = []
+
+    # Subdivide candidate into discrete sub-windows (~35.0s target)
+    step = 35.0
+    if dur <= 45.0:
+        sub_windows = [(start_sec, end_sec)]
+    else:
+        sub_windows = []
+        cur = start_sec
+        while cur < end_sec:
+            w_end = min(end_sec, cur + step)
+            sub_windows.append((cur, w_end))
+            cur = w_end
+
+    kept_sub_blocks = []
+
+    for s_st, s_et in sub_windows:
+        s_dur = s_et - s_st
+        mid = (s_st + s_et) / 2.0
+
+        # Check speech metrics in this sub-window
+        overlapping_speech = [
+            sp for sp in all_speech
+            if max(s_st, sp["start"]) < min(s_et, sp["end"])
+        ]
+        sp_dur = sum(min(s_et, sp["end"]) - max(s_st, sp["start"]) for sp in overlapping_speech)
+        sp_words = sum(sp.get("words", 0) for sp in overlapping_speech)
+        wpm = (sp_words / (s_dur / 60.0)) if s_dur > 0 else 0.0
+        coverage = (sp_dur / s_dur) if s_dur > 0 else 0.0
+        is_continuous_talk = (wpm >= 65.0 and coverage >= 0.40) or (wpm >= 85.0 and coverage >= 0.30)
+
+        # Check guitar performance context
+        has_guitar_audio = any(
+            (gs[0] <= s_st <= gs[1]) or (gs[0] <= s_et <= gs[1]) or (s_st <= gs[0] and s_et >= gs[1])
+            for gs in guitar_sessions
+        )
+
+        # Query Vision AI on keyframe at center of sub-window
+        cap.set(cv2.CAP_PROP_POS_MSEC, mid * 1000.0)
+        ret, frame = cap.read()
+        if not ret:
+            continue
+
+        small = cv2.resize(frame, (960, 540))
+        _, buf = cv2.imencode('.jpg', small, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
+        b64 = base64.b64encode(buf).decode('utf-8')
+
+        payload = {
+            'model': model,
+            'prompt': REFINED_PROMPT,
+            'images': [b64],
+            'stream': False,
+            'options': {'num_ctx': 4096, 'temperature': 0.1}
+        }
+
+        cls = "CASUAL_CHAT"
+        intensity = 0
+        action = "casual chat"
+        wet = False
+
+        try:
+            req = urllib.request.Request(
+                f'{ollama_api}/api/generate',
+                data=json.dumps(payload).encode('utf-8'),
+                headers={'Content-Type': 'application/json'}
+            )
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                res = json.loads(resp.read().decode('utf-8'))
+            txt = res.get('response', '')
+            if '```' in txt:
+                txt = txt.split('```')[1]
+                if txt.startswith('json'):
+                    txt = txt[4:]
+            data = json.loads(txt.strip())
+            cls = data.get('classification', 'CASUAL_CHAT')
+            intensity = int(data.get('intensity', 0))
+            action = data.get('action', '')
+            wet = bool(data.get('wetness_detected', False))
+        except Exception as e:
+            logger.warning(f"Vision API query notice at {mid:.1f}s ({e})")
+
+        act_lower = action.lower()
+
+        # Discard casual chat, sitting, drinking, adjusting clothes
+        if cls == "CASUAL_CHAT" or intensity == 0:
+            logger.info(f"    PRUNE [{s_st:>6.1f}s-{s_et:>6.1f}s]: Score 0 ({action})")
+            continue
+
+        # If talking continuously and not extreme action (Score < 4), prune as chat
+        if is_continuous_talk and intensity < 4:
+            logger.info(f"    PRUNE [{s_st:>6.1f}s-{s_et:>6.1f}s]: High speech chatting ({wpm:.0f} WPM, {coverage*100:.0f}% talk) | {action}")
+            continue
+
+        # Guitar handling (strictly lowest priority Level 1)
+        is_guitar = has_guitar_audio or ("guitar" in act_lower) or ("strum" in act_lower)
+        if intensity == 1:
+            if is_guitar:
+                kept_sub_blocks.append({
+                    "start_sec": s_st,
+                    "end_sec": s_et,
+                    "intensity": 1,
+                    "action": action,
+                    "wetness": False,
+                    "mid": mid,
+                    "category": "guitar"
+                })
+                logger.info(f"    KEEP  [{s_st:>6.1f}s-{s_et:>6.1f}s]: Score 1 Music ({action})")
+            else:
+                logger.info(f"    PRUNE [{s_st:>6.1f}s-{s_et:>6.1f}s]: Score 1 non-guitar ({action})")
+            continue
+
+        # Level 2 handling: must be active striptease / reveal
+        if intensity == 2:
+            strip_keywords = ["strip", "reveal", "undress", "unhook", "pulling aside", "peeling", "slide off"]
+            if any(k in act_lower for k in strip_keywords):
+                kept_sub_blocks.append({
+                    "start_sec": s_st,
+                    "end_sec": s_et,
+                    "intensity": 2,
+                    "action": action,
+                    "wetness": wet,
+                    "mid": mid,
+                    "category": "active_show"
+                })
+                logger.info(f"    KEEP  [{s_st:>6.1f}s-{s_et:>6.1f}s]: Score 2 Striptease ({action})")
+            else:
+                logger.info(f"    PRUNE [{s_st:>6.1f}s-{s_et:>6.1f}s]: Score 2 casual lingerie posing ({action})")
+            continue
+
+        # Level 3, 4, 5: genuine active performance acts
+        kept_sub_blocks.append({
+            "start_sec": s_st,
+            "end_sec": s_et,
+            "intensity": intensity,
+            "action": action,
+            "wetness": wet,
+            "mid": mid,
+            "category": "active_show"
+        })
+        logger.info(f"    KEEP  [{s_st:>6.1f}s-{s_et:>6.1f}s]: Score {intensity}/5 Active Show ({action}, wet={wet})")
+
+    # Merge adjacent kept sub-blocks (gap <= 6.0s and same category)
+    if not kept_sub_blocks:
+        return []
+
+    merged_clips = []
+    curr_clip = None
+
+    for b in kept_sub_blocks:
+        if curr_clip is None:
+            curr_clip = {
+                "start_sec": b["start_sec"],
+                "end_sec": b["end_sec"],
+                "intensity": b["intensity"],
+                "action": b["action"],
+                "wetness_detected": b["wetness"],
+                "peak_action_sec": b["mid"],
+                "category": b["category"],
+                "action_moments": [{
+                    "time_sec": b["mid"],
+                    "intensity": b["intensity"],
+                    "action": b["action"],
+                    "wet": b["wetness"]
+                }] if b["intensity"] >= 3 else []
+            }
+            continue
+
+        gap = b["start_sec"] - curr_clip["end_sec"]
+        same_cat = (b["category"] == curr_clip["category"])
+
+        if gap <= 6.0 and same_cat:
+            curr_clip["end_sec"] = b["end_sec"]
+            if b["wetness"]:
+                curr_clip["wetness_detected"] = True
+            if b["intensity"] > curr_clip["intensity"]:
+                curr_clip["intensity"] = b["intensity"]
+                curr_clip["action"] = b["action"]
+                curr_clip["peak_action_sec"] = b["mid"]
+            elif b["intensity"] == curr_clip["intensity"] and len(b["action"]) > len(curr_clip["action"]):
+                curr_clip["action"] = b["action"]
+                curr_clip["peak_action_sec"] = b["mid"]
+
+            if b["intensity"] >= 3:
+                curr_clip["action_moments"].append({
+                    "time_sec": b["mid"],
+                    "intensity": b["intensity"],
+                    "action": b["action"],
+                    "wet": b["wetness"]
+                })
+        else:
+            curr_clip["duration_sec"] = round(curr_clip["end_sec"] - curr_clip["start_sec"], 2)
+            if curr_clip["category"] == "guitar":
+                curr_clip["label"] = f"Music [1/5]: {curr_clip['action'][:24]}"
+                curr_clip["marker_color"] = "Yellow"
+            else:
+                curr_clip["label"] = f"Show [{curr_clip['intensity']}/5]: {curr_clip['action'][:26]}"
+                curr_clip["marker_color"] = "Red" if curr_clip["intensity"] == 5 else "Purple"
+            merged_clips.append(curr_clip)
+
+            curr_clip = {
+                "start_sec": b["start_sec"],
+                "end_sec": b["end_sec"],
+                "intensity": b["intensity"],
+                "action": b["action"],
+                "wetness_detected": b["wetness"],
+                "peak_action_sec": b["mid"],
+                "category": b["category"],
+                "action_moments": [{
+                    "time_sec": b["mid"],
+                    "intensity": b["intensity"],
+                    "action": b["action"],
+                    "wet": b["wetness"]
+                }] if b["intensity"] >= 3 else []
+            }
+
+    if curr_clip is not None:
+        curr_clip["duration_sec"] = round(curr_clip["end_sec"] - curr_clip["start_sec"], 2)
+        if curr_clip["category"] == "guitar":
+            curr_clip["label"] = f"Music [1/5]: {curr_clip['action'][:24]}"
+            curr_clip["marker_color"] = "Yellow"
+        else:
+            curr_clip["label"] = f"Show [{curr_clip['intensity']}/5]: {curr_clip['action'][:26]}"
+            curr_clip["marker_color"] = "Red" if curr_clip["intensity"] == 5 else "Purple"
+        merged_clips.append(curr_clip)
+
+    return merged_clips
+
+
 def group_and_classify_segments(
     points: List[Dict[str, Any]],
     audio_profile: Dict[str, Any],
     fps: float = 30.0,
     video_duration: float = 0.0,
-    min_window_sec: float = 6.0,
+    video_path: Optional[pathlib.Path] = None,
+    min_window_sec: float = 5.0,
     max_gap_sec: float = 4.0,
 ) -> List[Dict[str, Any]]:
-    """Combines optical flow motion windows with speech density and music cues to eliminate talking downtime."""
-    # 1. Group raw motion points into continuous motion candidate windows
+    """Combines adaptive optical flow motion windows with GPU 0 Vision AI and Faster-Whisper music cues.
+    Eliminates casual chatting and sitting downtime while preserving 100% of active shows and guitar performances.
+    """
+    if not points:
+        return []
+
+    # 0. Global Performer Presence Gate: verify that a human performer is actually in the stream
+    performer_pts = [p for p in points if p.get("has_performer", False) or p.get("skin_pct", 0.0) >= 0.020]
+    stream_performer_pct = (len(performer_pts) / max(1, len(points))) * 100.0
+    if stream_performer_pct < 4.0:
+        logger.warning(
+            f"Standby Stream Detected: Performer visible in only {stream_performer_pct:.1f}% of frames. "
+            f"Camera was left streaming on an empty room/chair. Suppressing false cuts and thumbnails."
+        )
+        return []
+
+    # 1. Compute Adaptive Motion Baseline & Thresholds for this specific recording
+    areas = np.array([p["motion_area"] for p in points])
+    energies = np.array([p["motion_energy"] for p in points])
+
+    base_area = float(np.percentile(areas, 20))
+    p50_area = float(np.percentile(areas, 50))
+    p75_area = float(np.percentile(areas, 75))
+    p85_area = float(np.percentile(areas, 85))
+    max_area = float(np.max(areas))
+
+    base_energy = float(np.percentile(energies, 20))
+    p85_energy = float(np.percentile(energies, 85))
+
+    area_thresh = max(0.0035, base_area + 0.08 * (p85_area - base_area))
+    energy_thresh = max(0.0018, base_energy + 0.08 * (p85_energy - base_energy))
+    high_motion_mark = base_area + 0.50 * (p85_area - base_area)
+
+    logger.info(
+        f"Adaptive Motion Calibration: base_area={base_area:.4f}, p75={p75_area:.4f}, p85={p85_area:.4f}, max={max_area:.4f} "
+        f"-> Active Thresholds: area>={area_thresh:.4f} or energy>={energy_thresh:.4f} (High Motion mark>={high_motion_mark:.4f})"
+    )
+
+    # 2. Group raw motion points into continuous motion candidate windows
     candidates = []
     current_start = None
     last_active_time = None
@@ -258,7 +633,8 @@ def group_and_classify_segments(
 
     for pt in points:
         t = pt["time_sec"]
-        is_active = pt["is_motion_active"]
+        performer_in_frame = pt.get("has_performer", True) or (pt.get("skin_pct", 0.0) >= 0.015)
+        is_active = ((pt["motion_area"] >= area_thresh) or (pt["motion_energy"] >= energy_thresh)) and performer_in_frame
 
         if is_active:
             if current_start is None:
@@ -290,49 +666,62 @@ def group_and_classify_segments(
                 "avg_motion_area": round(float(np.mean(accum_energy)), 4) if accum_energy else 0.0,
             })
 
-    # 2. Correlate with Audio Speech Density and Guitar/Music Events
+    # 3. Cluster Guitar Performance Cues into Discrete Song Sessions
     all_speech = audio_profile.get("all_speech", [])
     guitar_cues = audio_profile.get("guitar_segments", [])
 
-    # Identify guitar performance time window
-    guitar_windows = []
+    guitar_sessions = []
     if guitar_cues:
-        g_start = min(g["start"] for g in guitar_cues) - 15.0
-        g_end = max(g["end"] for g in guitar_cues) + 15.0
-        guitar_windows.append((g_start, g_end))
+        sorted_cues = sorted(guitar_cues, key=lambda x: x["start"])
+        curr_g_start = max(0.0, sorted_cues[0]["start"] - 10.0)
+        curr_g_end = sorted_cues[0]["end"] + 10.0
 
-    # Evaluate each motion candidate against speech density
+        for cue in sorted_cues[1:]:
+            if cue["start"] <= curr_g_end + 45.0:
+                curr_g_end = max(curr_g_end, cue["end"] + 10.0)
+            else:
+                if (curr_g_end - curr_g_start) >= 8.0:
+                    guitar_sessions.append((curr_g_start, curr_g_end))
+                curr_g_start = max(0.0, cue["start"] - 10.0)
+                curr_g_end = cue["end"] + 10.0
+        if (curr_g_end - curr_g_start) >= 8.0:
+            guitar_sessions.append((curr_g_start, curr_g_end))
+
+    logger.info(f"Identified {len(guitar_sessions)} discrete guitar performance sessions.")
+
+    # 4. Open video for GPU 0 Vision AI verification
+    cap = None
+    if video_path and video_path.exists():
+        cap = cv2.VideoCapture(str(video_path))
+        logger.info(f"Loaded video for GPU 0 Vision AI Verification across {len(candidates)} candidate clips...")
+
     kept_segments = []
 
-    # Rule 0: Always keep opening outfit showcase at start (0.0s to 15.0s)
-    kept_segments.append({
-        "start_sec": 0.0,
-        "end_sec": 15.0,
-        "duration_sec": 15.0,
-        "category": "outfit_intro",
-        "label": "Intro Outfit Showcase",
-        "marker_color": "Cyan",
-    })
-
-    for cand in candidates:
+    for idx, cand in enumerate(candidates, 1):
         s_start = cand["start_sec"]
         s_end = cand["end_sec"]
         dur = cand["duration_sec"]
+        avg_area = cand.get("avg_motion_area", 0.0)
 
-        # Check if segment falls inside detected guitar performance window
-        is_guitar = any(gw[0] <= s_start <= gw[1] or gw[0] <= s_end <= gw[1] for gw in guitar_windows)
-        if is_guitar:
-            cand["category"] = "guitar"
-            cand["label"] = "Guitar Performance"
-            cand["marker_color"] = "Yellow"
-            kept_segments.append(cand)
+        # Check if audio detected guitar performance context
+        has_guitar_audio = any(
+            (gs[0] <= s_start <= gs[1]) or (gs[0] <= s_end <= gs[1]) or (s_start <= gs[0] and s_end >= gs[1])
+            for gs in guitar_sessions
+        )
+
+        # Vision AI verification gate on GPU 0
+        if cap and cap.isOpened():
+            logger.info(f"[{idx:03d}/{len(candidates):03d}] Evaluating motion candidate {s_start:>6.1f}s - {s_end:>6.1f}s ({dur:>4.1f}s)...")
+            sub_clips = verify_candidate_with_vision(cap, cand, all_speech, guitar_sessions)
+            if sub_clips:
+                for sc in sub_clips:
+                    kept_segments.append(sc)
+                    logger.info(f"    -> KEPT SHOW (Score {sc['intensity']}/5): {sc['start_sec']:>6.1f}s - {sc['end_sec']:>6.1f}s ({sc['duration_sec']:>4.1f}s) | {sc['action']}")
+            else:
+                logger.info(f"    -> PRUNED ENTIRE CANDIDATE: {s_start:>6.1f}s - {s_end:>6.1f}s ({dur:>4.1f}s)")
             continue
 
-        # Skip pre-show setup / makeup prep (first 25 minutes)
-        if s_start < 25.0 * 60:
-            continue
-
-        # Compute speech density (Words Per Minute) during this segment
+        # Fallback to speech/motion heuristic if Vision AI is unavailable
         seg_words = 0
         seg_speech_sec = 0.0
         for sp in all_speech:
@@ -343,22 +732,33 @@ def group_and_classify_segments(
                 seg_words += sp.get("words", 0)
 
         wpm = (seg_words / (dur / 60.0)) if dur > 0 else 0
+        speech_coverage_pct = (seg_speech_sec / dur) if dur > 0 else 0.0
 
-        # Discard conversational chat (talking to viewers while sitting, even if nude)
-        if wpm >= 75.0:
+        if avg_area >= high_motion_mark:
+            cand["category"] = "active_show"
+            cand["label"] = f"Performance Segment #{len(kept_segments) + 1}"
+            cand["marker_color"] = "Purple"
+            cand["intensity"] = 3
+            cand["action_moments"] = []
+            kept_segments.append(cand)
             continue
 
-        # Discard brief chat snippets
-        if dur < 25.0 and wpm > 35.0:
+        if wpm >= 85.0 and speech_coverage_pct >= 0.50:
+            continue
+        if dur < 20.0 and wpm >= 60.0 and speech_coverage_pct >= 0.50:
             continue
 
-        # Active show performance (physical action, toy play, dancing, striptease)
         cand["category"] = "active_show"
         cand["label"] = f"Performance Segment #{len(kept_segments) + 1}"
         cand["marker_color"] = "Purple"
+        cand["intensity"] = 3
+        cand["action_moments"] = []
         kept_segments.append(cand)
 
-    # 3. Smooth merge adjacent segments of the same type (gap <= 4.0s)
+    if cap:
+        cap.release()
+
+    # 5. Smooth merge adjacent segments of the same category (gap <= 6.0s)
     merged = []
     current = None
     for s in kept_segments:
@@ -369,12 +769,23 @@ def group_and_classify_segments(
         gap = s["start_sec"] - current["end_sec"]
         same_cat = (current["marker_color"] == s["marker_color"])
 
-        if gap <= 4.0 and same_cat:
+        if gap <= 6.0 and same_cat:
             current["end_sec"] = s["end_sec"]
             current["duration_sec"] = round(current["end_sec"] - current["start_sec"], 2)
+            if s.get("wetness_detected"):
+                current["wetness_detected"] = True
+            if s.get("intensity", 0) > current.get("intensity", 0):
+                current["intensity"] = s["intensity"]
+                current["action"] = s["action"]
+                current["peak_action_sec"] = s.get("peak_action_sec", current.get("peak_action_sec", 0.0))
+            if "action_moments" in s:
+                current.setdefault("action_moments", []).extend(s["action_moments"])
         else:
             merged.append(current)
             current = dict(s)
+
+    if current is not None:
+        merged.append(current)
 
     if current:
         merged.append(current)
@@ -385,7 +796,7 @@ def group_and_classify_segments(
         seg["end_frame"] = int(round(seg["end_sec"] * fps))
         seg["duration_frames"] = seg["end_frame"] - seg["start_frame"]
 
-    logger.info(f"Classification complete: {len(merged)} show segments preserved (Downtime & talking purged).")
+    logger.info(f"Classification complete: {len(merged)} show segments preserved across stream.")
     return merged
 
 
@@ -516,9 +927,14 @@ def format_tc(seconds: float, fps: float = 30.0) -> str:
     return f"{hh:02d}:{mm:02d}:{ss:02d}:{ff:02d}"
 
 
-def export_edl(video_path: pathlib.Path, segments: List[Dict[str, Any]], fps: float = 30.0) -> pathlib.Path:
+def export_edl(
+    video_path: pathlib.Path,
+    segments: List[Dict[str, Any]],
+    fps: float = 30.0,
+    output_file: Optional[pathlib.Path] = None,
+) -> pathlib.Path:
     """Exports a standard CMX 3600 EDL file for universal import into any NLE."""
-    edl_path = video_path.with_suffix(".edl")
+    edl_path = output_file if output_file is not None else video_path.with_suffix(".edl")
     lines = [f"TITLE: {video_path.stem[:30]}_ACTIVE_CUTS", "FCM: NON-DROP FRAME", ""]
 
     rec_in = 0.0
@@ -546,9 +962,10 @@ def export_edl(video_path: pathlib.Path, segments: List[Dict[str, Any]], fps: fl
 def process_cam_video(
     video_path: pathlib.Path,
     sample_fps: float = 1.0,
-    motion_threshold: float = 0.12,
+    motion_threshold: float = 0.04,
     enable_audio_ai: bool = True,
     create_resolve_timeline: bool = True,
+    output_dir: Optional[pathlib.Path] = None,
 ) -> Dict[str, Any]:
     """Runs the full multi-modal active show detection and DaVinci Resolve assembly pipeline."""
     video_path = pathlib.Path(video_path)
@@ -572,12 +989,13 @@ def process_cam_video(
     if enable_audio_ai:
         audio_profile = extract_and_scan_audio(video_path, device_index=1)
 
-    # 4. Stage 3: Multi-Modal Classification (Motion + Speech + Music)
+    # 4. Stage 3: Multi-Modal Classification (Motion + Speech + Music + Vision AI)
     final_segments = group_and_classify_segments(
         points=points,
         audio_profile=audio_profile,
         fps=fps,
         video_duration=duration,
+        video_path=video_path,
     )
 
     total_active_sec = sum(s["duration_sec"] for s in final_segments)
@@ -587,7 +1005,8 @@ def process_cam_video(
     logger.info(f"Original: {round(duration / 60, 2)} mins -> Cutdown: {round(total_active_sec / 60, 2)} mins (Kept {cut_ratio_pct}% active performance)")
 
     # 5. Save JSON Cutlist & EDL
-    cutlist_json_path = video_path.with_suffix(".cutlist.json")
+    target_out_dir = output_dir if output_dir is not None else pathlib.Path(r"F:\WORKHORSE\cam_shows\processing")
+    target_out_dir.mkdir(parents=True, exist_ok=True)
     cutlist_data = {
         "source_video": str(video_path),
         "original_duration_seconds": duration,
@@ -597,8 +1016,18 @@ def process_cam_video(
         "compression_percentage": cut_ratio_pct,
         "segments": final_segments,
     }
-    cutlist_json_path.write_text(json.dumps(cutlist_data, indent=2), encoding="utf-8")
-    edl_path = export_edl(video_path, final_segments, fps=fps)
+    cutlist_json_path = target_out_dir / f"{video_path.stem}.cutlist.json"
+    edl_path = target_out_dir / f"{video_path.stem}.edl"
+    try:
+        cutlist_json_path.write_text(json.dumps(cutlist_data, indent=2), encoding="utf-8")
+        export_edl(video_path, final_segments, fps=fps, output_file=edl_path)
+    except Exception as e:
+        logger.warning(f"Could not save cutlist/EDL directly to {target_out_dir} ({e}), writing to processing dir")
+        processing_dir = pathlib.Path(r"F:\WORKHORSE\cam_shows\processing")
+        processing_dir.mkdir(parents=True, exist_ok=True)
+        cutlist_json_path = processing_dir / f"{video_path.stem}.cutlist.json"
+        cutlist_json_path.write_text(json.dumps(cutlist_data, indent=2), encoding="utf-8")
+        edl_path = export_edl(video_path, final_segments, fps=fps, output_file=processing_dir / f"{video_path.stem}.edl")
 
     # 6. Stage 4: DaVinci Resolve Direct Assembly
     resolve_res = None
@@ -625,7 +1054,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="WORKHORSE Cam Show AI Cutter & DaVinci Resolve Auto-Editor")
     parser.add_argument("video", help="Path to raw video file (.mp4, .mkv, .mov)")
     parser.add_argument("--sample-fps", type=float, default=1.0, help="Frame sampling rate for motion scan (default: 1.0 fps)")
-    parser.add_argument("--motion-threshold", type=float, default=0.12, help="Motion area threshold (default: 0.12)")
+    parser.add_argument("--motion-threshold", type=float, default=0.04, help="Motion area threshold (default: 0.04)")
     parser.add_argument("--no-audio", action="store_true", help="Disable Whisper speech density & acoustic music scan")
     parser.add_argument("--no-resolve", action="store_true", help="Do not create timeline in DaVinci Resolve")
     args = parser.parse_args()

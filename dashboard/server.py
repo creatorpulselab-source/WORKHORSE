@@ -184,6 +184,55 @@ async def dropzone_watcher_loop():
         except Exception as e:
             print(f"[DROPZONE WATCHER ERROR] {e}")
 
+async def cam_show_watcher_loop():
+    """Polls F:\\WORKHORSE\\cam_shows\\inbox for dropped raw adult cam shows, tracks real-time progress
+    across Vanguard, Iris, Echo, Aura, Forge, and Apex, and auto-packages them sequentially."""
+    from pipeline.stages.cam_show_packager import INBOX_DIR, PROCESSING_DIR, ARCHIVE_DIR, package_cam_show
+    from pipeline.stages.ai_operator import active_task_tracker
+    loop = asyncio.get_event_loop()
+    print("[CAM SHOW WATCHER] Active and monitoring F:\\WORKHORSE\\cam_shows\\inbox...")
+    seen_sizes = {}
+    while True:
+        try:
+            await asyncio.sleep(4)
+            if not INBOX_DIR.exists():
+                continue
+            raw_files = [f for f in INBOX_DIR.iterdir() if f.suffix.lower() in [".mp4", ".mkv", ".mov"] and not f.name.startswith(".")]
+            if raw_files and not active_task_tracker.get_all_active_tasks():
+                active_task_tracker.start_task(
+                    agent="synapse",
+                    sub_agent="vanguard",
+                    task_desc=f"Synapse [100 Fm]: Cam Show Queue — {len(raw_files)} shows waiting in inbox ({raw_files[0].name})...",
+                    task_id="cam_show_queue",
+                    progress=5
+                )
+
+            for item in raw_files:
+                current_size = item.stat().st_size
+                if item.name in seen_sizes and seen_sizes[item.name] == current_size:
+                    print(f"[CAM SHOW WATCHER] Processing stable file: {item.name} ({round(current_size/(1024**3), 2)} GB)")
+                    target_proc = PROCESSING_DIR / item.name
+                    shutil.move(item, target_proc)
+                    seen_sizes.pop(item.name, None)
+                    active_task_tracker.finish_task("cam_show_queue")
+
+                    try:
+                        await loop.run_in_executor(None, package_cam_show, target_proc)
+                        ARCHIVE_DIR.mkdir(parents=True, exist_ok=True)
+                        dest_arch = ARCHIVE_DIR / item.name
+                        if target_proc.exists():
+                            shutil.move(target_proc, dest_arch)
+                            print(f"[CAM SHOW WATCHER] Archived raw stream to: {dest_arch.name}")
+                    except Exception as e:
+                        print(f"[CAM SHOW WATCHER ERROR] {item.name}: {e}")
+                    break
+                else:
+                    seen_sizes[item.name] = current_size
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            print(f"[CAM SHOW WATCHER ERROR] {e}")
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global main_loop
@@ -194,14 +243,12 @@ async def lifespan(app: FastAPI):
     comfy_health_task = asyncio.create_task(comfy_health_monitor_loop())
     remediation_task = asyncio.create_task(auto_remediation_loop())
     dropzone_task = asyncio.create_task(dropzone_watcher_loop())
+    cam_show_task = asyncio.create_task(cam_show_watcher_loop())
     try:
         from pipeline.stages.creator_community_hub import get_community_daemon
         get_community_daemon().start()
     except Exception as _ce:
         print(f"[WORKHORSE] Community daemon init note: {_ce}")
-    # Logs today's health snapshot immediately on startup instead of waiting for the
-    # first 10-minute auto-remediation cycle (run_daily_health_check is a no-op if
-    # today's entry already exists, so this is safe to call on every restart).
     main_loop.run_in_executor(None, ai_operator.run_daily_health_check)
     try:
         yield
@@ -211,6 +258,7 @@ async def lifespan(app: FastAPI):
         comfy_health_task.cancel()
         remediation_task.cancel()
         dropzone_task.cancel()
+        cam_show_task.cancel()
 
 app = FastAPI(title="WORKHORSE AI Command Center", version="1.2.0", lifespan=lifespan)
 
@@ -228,7 +276,7 @@ SESSION_COOKIE = "workhorse_session"
 # The Stripe/Gumroad webhooks and order-download link are also unauthenticated since they're
 # called by external services/buyers who have no WORKHORSE login - protected instead by
 # Stripe signature verification, Gumroad seller_id matching, and an unguessable download token.
-PUBLIC_PATHS = {"/login", "/api/login", "/setup", "/api/setup", "/favicon.ico", "/subscribe", "/api/newsletter/subscribe", "/api/newsletter/unsubscribe", "/api/radar/webhook/stripe", "/api/radar/webhook/gumroad", "/api/radar/webhook/whop", "/api/monitor/agents-active"}
+PUBLIC_PATHS = {"/login", "/api/login", "/setup", "/api/setup", "/favicon.ico", "/subscribe", "/api/newsletter/subscribe", "/api/newsletter/unsubscribe", "/api/radar/webhook/stripe", "/api/radar/webhook/gumroad", "/api/radar/webhook/whop", "/api/monitor/agents-active", "/api/cam-shows/queue"}
 PUBLIC_PREFIXES = ("/static/", "/api/download/order/", "/api/vault/stream/", "/craftymyia", "/creatormediastudio", "/charlettewebb")
 
 
@@ -1350,6 +1398,11 @@ async def cancel_job_endpoint(job_id: str):
 @app.get("/api/pipeline/jobs-active")
 async def get_active_jobs_endpoint():
     return {"status": "ok", "active_jobs": orchestrator.get_active_jobs()}
+
+@app.get("/api/cam-shows/queue")
+async def get_cam_shows_queue():
+    from pipeline.stages.cam_show_packager import get_cam_show_queue_status
+    return get_cam_show_queue_status()
 
 _comfy_queue_cache = {"busy": False, "expires": 0.0}
 

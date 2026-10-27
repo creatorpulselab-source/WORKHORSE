@@ -421,7 +421,7 @@ async def build_creator_discord_server(
                         },
                         {
                             "type": 2,
-                            "style": 2,
+                            "style": 4,
                             "label": "🔥 Toggle New Content Alerts",
                             "custom_id": "wh_role_drop_alerts",
                         },
@@ -1486,7 +1486,26 @@ class CreatorCommunityDaemon:
                             await _discord_req(client, token, "DELETE", f"/channels/{chan_id}/messages/{msg_id}")
                         return
 
-        # 2. 24/7 Local AI Concierge Trigger (in Tickets, or when mentioning the bot / using ?concierge / asking pricing)
+        # 2. Auto-archive creator uploads from #📤・creator-vault-drops into permanent local media vault
+        creator_upload_cid = (prof.get("discord", {}).get("channels", {}) or {}).get("creator_upload", "")
+        if chan_id == creator_upload_cid and msg.get("attachments"):
+            vault_dir = BASE_DIR / "workspace" / "media_vault" / client_id
+            vault_dir.mkdir(parents=True, exist_ok=True)
+            async with httpx.AsyncClient(timeout=60.0) as dl_client:
+                for att in msg.get("attachments", []):
+                    fname = att.get("filename")
+                    url = att.get("url")
+                    if fname and url:
+                        dest = vault_dir / fname
+                        try:
+                            dl_r = await dl_client.get(url)
+                            if dl_r.status_code == 200:
+                                dest.write_bytes(dl_r.content)
+                                print(f"[CreatorCommunityDaemon] Auto-archived uploaded file: {fname}")
+                        except Exception as e:
+                            print(f"[CreatorCommunityDaemon] Vault auto-archive error for {fname}: {e}")
+
+        # 3. 24/7 Local AI Concierge Trigger (in Tickets, or when mentioning the bot / using ?concierge / asking pricing)
         is_mention = any((m or {}).get("bot") for m in (msg.get("mentions") or [])) or content.startswith(("?ai", "?menu", "?price", "?c2c", "?schedule", "?vault", "charlette bot"))
         if is_mention and token and chan_id:
             async with httpx.AsyncClient() as client:
@@ -2109,7 +2128,7 @@ async def handle_extended_community_interaction(
                                 },
                                 {
                                     "type": 2,
-                                    "style": 2,
+                                    "style": 1,
                                     "label": "🎲 Roll Spin Prize (Admin)",
                                     "custom_id": "wh_roll_wheel_prize",
                                 },
@@ -2691,7 +2710,7 @@ async def upgrade_live_server_with_crm_and_games(client_id: str = "charlette_web
                                 },
                                 {
                                     "type": 2,
-                                    "style": 2,
+                                    "style": 3,
                                     "label": "🏆 Draw Raffle Winner",
                                     "custom_id": "wh_admin_draw_raffle",
                                 },
@@ -3264,7 +3283,7 @@ async def deploy_pro_tier_infrastructure(client_id: str = "charlette_webb") -> D
                                 },
                                 {
                                     "type": 2,
-                                    "style": 2,
+                                    "style": 4,
                                     "label": "🎟️ Open Private Order Ticket",
                                     "custom_id": "wh_open_order_ticket",
                                 },
