@@ -50,6 +50,53 @@ for d in [INBOX_DIR, PROCESSING_DIR, OUTPUT_DIR, ARCHIVE_DIR]:
     d.mkdir(parents=True, exist_ok=True)
 
 
+def enhance_thumbnail_image(img_path: pathlib.Path, upscale: bool = True) -> bool:
+    """Enhances a thumbnail image with edge-preserving bilateral denoising,
+    LAB dynamic range contrast lift, vibrance boost, and 2X 4K Ultra-HD Lanczos-4 upscaling.
+    """
+    try:
+        img = cv2.imread(str(img_path))
+        if img is None:
+            return False
+        h, w = img.shape[:2]
+
+        # 1. Edge-preserving Bilateral denoise (removes webcam sensor noise & grain)
+        denoised = cv2.bilateralFilter(img, d=5, sigmaColor=28, sigmaSpace=28)
+
+        # 2. Dynamic range and contrast enhancement via LAB CLAHE
+        lab = cv2.cvtColor(denoised, cv2.COLOR_BGR2LAB)
+        l, a, b = cv2.split(lab)
+        clahe = cv2.createCLAHE(clipLimit=1.2, tileGridSize=(8, 8))
+        cl = clahe.apply(l)
+        l_enh = cv2.addWeighted(l, 0.45, cl, 0.55, 0)
+        bgr_enh = cv2.cvtColor(cv2.merge([l_enh, a, b]), cv2.COLOR_LAB2BGR)
+
+        # 3. Flattering skin radiance & vibrance boost (+8% sat, slight gamma lift)
+        hsv = cv2.cvtColor(bgr_enh, cv2.COLOR_BGR2HSV).astype(np.float32)
+        hsv[:, :, 1] = np.clip(hsv[:, :, 1] * 1.08, 0, 255)
+        hsv[:, :, 2] = np.clip(hsv[:, :, 2] * 1.02, 0, 255)
+        color_boosted = cv2.cvtColor(hsv.astype(np.uint8), cv2.COLOR_HSV2BGR)
+
+        if upscale and w < 3800:
+            # 4. 2X 4K Ultra-HD Upscale with Lanczos-4
+            target_w = w * 2
+            target_h = h * 2
+            upscaled = cv2.resize(color_boosted, (target_w, target_h), interpolation=cv2.INTER_LANCZOS4)
+
+            # 5. Contrast-Adaptive Micro-texture Sharpening
+            blurred = cv2.GaussianBlur(upscaled, (0, 0), sigmaX=1.3)
+            final_img = cv2.addWeighted(upscaled, 1.30, blurred, -0.30, 0)
+        else:
+            blurred = cv2.GaussianBlur(color_boosted, (0, 0), sigmaX=1.0)
+            final_img = cv2.addWeighted(color_boosted, 1.25, blurred, -0.25, 0)
+
+        cv2.imwrite(str(img_path), final_img, [int(cv2.IMWRITE_JPEG_QUALITY), 96])
+        return True
+    except Exception as e:
+        logger.warning(f"Failed to enhance thumbnail {img_path.name}: {e}")
+        return False
+
+
 def extract_thumbnails(
     video_path: pathlib.Path,
     clips: List[Dict[str, Any]],
@@ -213,6 +260,8 @@ def extract_thumbnails(
                     except Exception:
                         pass
                     continue
+                # Apply 4K Super-Resolution, Bilateral Denoising, Micro-Texture Sharpening & Radiance Boost
+                enhance_thumbnail_image(out_f, upscale=True)
             extracted.append({"filename": fname, "timestamp_sec": sec, "label": lbl})
 
     logger.info(f"Generated {len(extracted)} curated peak highlight preview thumbnails in {output_thumbs_dir.name}")
@@ -368,7 +417,8 @@ def generate_highlight_teaser(
                 "ffmpeg", "-y", "-ss", f"{s_start:.2f}", "-i", str(source_video),
                 "-t", f"{slice_len:.2f}",
                 "-map", "0:v:0", "-map", "0:a:0?",
-                "-c:v", "h264_nvenc", "-gpu", "1", "-preset", "p5", "-b:v", "8M",
+                "-vf", "hqdn3d=4.0:3.0:6.0:4.5,cas=0.55,eq=contrast=1.05:saturation=1.12:gamma=1.02",
+                "-c:v", "h264_nvenc", "-gpu", "1", "-preset", "p5", "-b:v", "10M",
                 "-c:a", "aac", "-b:a", "192k",
                 str(out_slice)
             ]
@@ -415,7 +465,7 @@ def generate_highlight_teaser(
             "-filter_complex", filter_str,
             "-map", "[v_out]",
             "-map", "[a_out]",
-            "-c:v", "h264_nvenc", "-gpu", "1", "-preset", "p5", "-b:v", "8M",
+            "-c:v", "h264_nvenc", "-gpu", "1", "-preset", "p5", "-b:v", "10M",
             "-c:a", "aac", "-b:a", "192k",
             "-t", str(target_duration),
             "-movflags", "+faststart",
@@ -432,7 +482,7 @@ def generate_highlight_teaser(
             list_file.write_text("\n".join([f"file '{p.resolve()}'" for p in rendered_slices]), encoding="utf-8")
             cmd_fallback = [
                 "ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", str(list_file),
-                "-c:v", "h264_nvenc", "-gpu", "1", "-preset", "p5", "-b:v", "8M",
+                "-c:v", "h264_nvenc", "-gpu", "1", "-preset", "p5", "-b:v", "10M",
                 "-c:a", "aac", "-b:a", "192k",
                 "-t", str(target_duration),
                 "-movflags", "+faststart",
