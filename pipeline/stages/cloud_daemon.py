@@ -784,18 +784,88 @@ class CloudCommunityDaemon:
         links = prof["links"]
         
         async with httpx.AsyncClient() as client:
-            # 1. 18+ Verification Gate
+            # 1. 18+ Verification Gate + Welcome Gift Teaser Lead Magnet
             if cid == "wh_verify_18":
                 v_role = roles.get("verified_18")
                 if v_role and gid and uid:
                     await _discord_req(client, tok, "PUT", f"/guilds/{gid}/members/{uid}/roles/{v_role}")
+
+                # Mint free welcome gift teaser link (Bunny CDN)
+                welcome_teaser = generate_bunny_signed_url(
+                    "charlette_webb",
+                    "shows/2026-10-27_live-with-restream-Oct-15-2026-restream/live-with-restream-Oct-15-2026-restream_Highlight_Teaser.mp4",
+                    ttl_seconds=86400
+                )
+                if not welcome_teaser:
+                    welcome_teaser = links["manyvids_videos"]
+
+                # Attempt personalized Direct Message gift delivery
+                dm_sent = False
+                try:
+                    dm_chan_res = await _discord_req(client, tok, "POST", "/users/@me/channels", json_body={"recipient_id": uid})
+                    dm_ch_id = dm_chan_res.get("id")
+                    if dm_ch_id:
+                        await _discord_req(
+                            client,
+                            tok,
+                            "POST",
+                            f"/channels/{dm_ch_id}/messages",
+                            json_body={
+                                "content": f"🎁 **A Special Welcome Gift from Charlette Webb!** 💕",
+                                "embeds": [
+                                    {
+                                        "title": "💋 Welcome to My Private VIP Lounge!",
+                                        "description": (
+                                            f"Hey {uname}! Thank you for verifying (18+) in my server! 💕\n\n"
+                                            f"As a thank you, here is a **FREE 30-Second Highlight Teaser** from my latest cam marathon:\n"
+                                            f"👉 **[▶️ Stream Your Free Welcome Teaser]({welcome_teaser})**\n\n"
+                                            f"✨ **Want to unlock my full 700+ video vault or book a 1-on-1 private C2C cam session?**\n"
+                                            f"Tap the buttons below to explore my VIP perks!"
+                                        ),
+                                        "color": 0xEC4899,
+                                        "footer": {"text": "Charlette Webb Official VIP Lounge • Powered by WORKHORSE & Bunny.net"}
+                                    }
+                                ],
+                                "components": [
+                                    {
+                                        "type": 1,
+                                        "components": [
+                                            {"type": 2, "style": 5, "label": "▶️ Watch Free Teaser", "url": welcome_teaser},
+                                            {"type": 2, "style": 1, "label": "👑 Unlock Full Vault (VIP)", "custom_id": "wh_open_order_ticket"},
+                                            {"type": 2, "style": 4, "label": "📹 Book Private C2C", "custom_id": "wh_book_c2c"},
+                                            {"type": 2, "style": 3, "label": "💋 Ask AI Concierge", "custom_id": "wh_ask_ai_concierge"},
+                                        ]
+                                    }
+                                ]
+                            }
+                        )
+                        dm_sent = True
+                except Exception as e:
+                    logger.warning(f"Could not deliver welcome DM to {uid}: {e}")
+
+                # Ephemeral response in-channel
                 await client.post(
                     f"{DISCORD_API}/interactions/{inter_id}/{inter_token}/callback",
                     json={
                         "type": 4,
                         "data": {
-                            "content": f"🔞 **Welcome {uname}! You are verified (18+).** Full access unlocked!",
+                            "content": (
+                                f"🔞 **Welcome {uname}! You are now 18+ Verified.** Full access unlocked!\n\n"
+                                f"🎁 **FREE WELCOME GIFT:** Tap below to watch your free 30s teaser clip:\n"
+                                f"👉 **[▶️ Watch Free Welcome Teaser]({welcome_teaser})**"
+                                + ("\n*(I also sent a copy to your Direct Messages!)*" if dm_sent else "")
+                            ),
                             "flags": 64,
+                            "components": [
+                                {
+                                    "type": 1,
+                                    "components": [
+                                        {"type": 2, "style": 5, "label": "▶️ Watch Free Teaser", "url": welcome_teaser},
+                                        {"type": 2, "style": 1, "label": "👑 Unlock VIP Vault", "custom_id": "wh_open_order_ticket"},
+                                        {"type": 2, "style": 4, "label": "📹 Book 1-on-1 C2C", "custom_id": "wh_book_c2c"},
+                                    ]
+                                }
+                            ]
                         },
                     },
                 )
@@ -1014,6 +1084,89 @@ class CloudCommunityDaemon:
                 await client.post(
                     f"{DISCORD_API}/interactions/{inter_id}/{inter_token}/callback",
                     json={"type": 4, "data": {"content": f"🎟️ Private ticket opened: <#{tid}>", "flags": 64}},
+                )
+
+            # 9. Flash Deal Claim Tickets
+            elif cid in ("wh_claim_flash_15", "wh_claim_flash_350"):
+                deal_title = "🎬 $15 1080p Show Cutdown Flash Deal" if cid == "wh_claim_flash_15" else "💎 $350 Lifetime Vault + FREE C2C Cam Show Voucher"
+                overwrites = [
+                    {"id": gid, "type": 0, "allow": "0", "deny": str(PERM_VIEW_CHANNEL)},
+                    {"id": uid, "type": 1, "allow": str(PERM_VIEW_CHANNEL | PERM_SEND_MESSAGES | PERM_ATTACH_FILES | PERM_READ_HISTORY), "deny": "0"},
+                ]
+                for rk in ("queen", "mod"):
+                    if roles.get(rk):
+                        overwrites.append({"id": roles[rk], "type": 0, "allow": str(PERM_VIEW_CHANNEL | PERM_SEND_MESSAGES | PERM_ATTACH_FILES | PERM_READ_HISTORY), "deny": "0"})
+                t_chan = await _discord_req(
+                    client,
+                    tok,
+                    "POST",
+                    f"/guilds/{gid}/channels",
+                    json_body={
+                        "name": f"⚡-flash-{uname}",
+                        "type": 0,
+                        "nsfw": True,
+                        "topic": f"Flash Deal Claim: {deal_title} for {uname} (UID:{uid})",
+                        "permission_overwrites": overwrites,
+                    },
+                )
+                tid = t_chan.get("id", "")
+                if tid:
+                    await _discord_req(
+                        client,
+                        tok,
+                        "POST",
+                        f"/channels/{tid}/messages",
+                        json_body={
+                            "content": (
+                                f"⚡ **Welcome <@{uid}>! You've locked in the Flash Deal:**\n"
+                                f"👉 **{deal_title}**\n\n"
+                                f"• **Payment Tag**: CashApp [`$CharletteWebb`](https://cash.app/$CharletteWebb)\n"
+                                f"• **Next Step**: Drop your CashApp payment confirmation screenshot below, and our team will deliver your Bunny.net HD streaming links and schedule your free session immediately!"
+                            ),
+                        },
+                    )
+                await client.post(
+                    f"{DISCORD_API}/interactions/{inter_id}/{inter_token}/callback",
+                    json={"type": 4, "data": {"content": f"⚡ Flash deal ticket opened: <#{tid}>! Head over to finalize your claim.", "flags": 64}},
+                )
+
+            # 10. Outfit Poll Voting
+            elif cid.startswith("wh_vote_outfit_"):
+                outfit_map = {
+                    "wh_vote_outfit_1": "👗 Red Lace Bodysuit",
+                    "wh_vote_outfit_2": "🎀 Schoolgirl Velvet Set",
+                    "wh_vote_outfit_3": "✨ Silk Robe & Stockings",
+                    "wh_vote_outfit_4": "💧 Oil Show + Lush Marathon"
+                }
+                choice = outfit_map.get(cid, "Tonight's Cam Outfit")
+                await client.post(
+                    f"{DISCORD_API}/interactions/{inter_id}/{inter_token}/callback",
+                    json={
+                        "type": 4,
+                        "data": {
+                            "content": f"✨ **Vote Recorded!** You voted for **{choice}**! Charlette will see the results before going live at 8:00 PM EST.",
+                            "flags": 64
+                        }
+                    }
+                )
+
+            # 11. Community Goal Details
+            elif cid == "wh_goal_details":
+                await client.post(
+                    f"{DISCORD_API}/interactions/{inter_id}/{inter_token}/callback",
+                    json={
+                        "type": 4,
+                        "data": {
+                            "content": (
+                                f"🎯 **Community Crowdfund Challenge Details:**\n\n"
+                                f"• **Target**: $200 Community Pool\n"
+                                f"• **Unlocked Reward**: Brand new **3-Minute Uncensored Shower Teaser Video + 10 4K Stills** unlocked for EVERYONE in `#💬-lounge-chat`!\n"
+                                f"• **How to Contribute**: Tap **`[💸 Chip In via CashApp]`** or send to `$CharletteWebb` with note 'Community Goal'!\n\n"
+                                f"*Every contribution moves the bar. When it hits 100%, the drop fires instantly!*"
+                            ),
+                            "flags": 64
+                        }
+                    }
                 )
 
     async def _handle_discord_message(self, prof: Dict[str, Any], msg: Dict[str, Any]):
