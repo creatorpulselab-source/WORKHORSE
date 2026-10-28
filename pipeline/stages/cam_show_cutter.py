@@ -338,6 +338,7 @@ def verify_candidate_with_vision(
     guitar_sessions: Optional[List[Tuple[float, float]]] = None,
     ollama_api: str = OLLAMA_API,
     model: str = VISION_MODEL,
+    is_produced_clip: bool = False,
 ) -> List[Dict[str, Any]]:
     """Subdivides motion candidates into discrete time windows, evaluates speech density
     and GPU 0 Vision AI, and prunes casual chat, drinking, standing, and post-act dress adjustments.
@@ -438,8 +439,8 @@ def verify_candidate_with_vision(
             logger.info(f"    PRUNE [{s_st:>6.1f}s-{s_et:>6.1f}s]: Score 0 ({action})")
             continue
 
-        # If talking continuously and not extreme action (Score < 4), prune as chat
-        if is_continuous_talk and intensity < 4:
+        # If talking continuously and not extreme action (Score < 4), prune as chat (only for live streams)
+        if not is_produced_clip and is_continuous_talk and intensity < 4:
             logger.info(f"    PRUNE [{s_st:>6.1f}s-{s_et:>6.1f}s]: High speech chatting ({wpm:.0f} WPM, {coverage*100:.0f}% talk) | {action}")
             continue
 
@@ -586,6 +587,7 @@ def group_and_classify_segments(
     video_path: Optional[pathlib.Path] = None,
     min_window_sec: float = 5.0,
     max_gap_sec: float = 4.0,
+    is_produced_clip: bool = False,
 ) -> List[Dict[str, Any]]:
     """Combines adaptive optical flow motion windows with GPU 0 Vision AI and Faster-Whisper music cues.
     Eliminates casual chatting and sitting downtime while preserving 100% of active shows and guitar performances.
@@ -712,7 +714,7 @@ def group_and_classify_segments(
         # Vision AI verification gate on GPU 0
         if cap and cap.isOpened():
             logger.info(f"[{idx:03d}/{len(candidates):03d}] Evaluating motion candidate {s_start:>6.1f}s - {s_end:>6.1f}s ({dur:>4.1f}s)...")
-            sub_clips = verify_candidate_with_vision(cap, cand, all_speech, guitar_sessions)
+            sub_clips = verify_candidate_with_vision(cap, cand, all_speech, guitar_sessions, is_produced_clip=is_produced_clip)
             if sub_clips:
                 for sc in sub_clips:
                     kept_segments.append(sc)
@@ -989,6 +991,13 @@ def process_cam_video(
     if enable_audio_ai:
         audio_profile = extract_and_scan_audio(video_path, device_index=1)
 
+    # Auto-detect format: Produced Scene / Standalone Clip (10-60m) vs Multi-Hour Live Stream
+    stem_lower = video_path.stem.lower()
+    is_live_stream = ("live-with-restream" in stem_lower) or ("camshow" in stem_lower) or (duration > 4200.0)
+    is_produced_clip = not is_live_stream
+    if is_produced_clip:
+        logger.info(f"Detected Produced Clip / Scene Video ({round(duration / 60, 1)}m) — preserving spoken dialogue & dirty talk.")
+
     # 4. Stage 3: Multi-Modal Classification (Motion + Speech + Music + Vision AI)
     final_segments = group_and_classify_segments(
         points=points,
@@ -996,6 +1005,7 @@ def process_cam_video(
         fps=fps,
         video_duration=duration,
         video_path=video_path,
+        is_produced_clip=is_produced_clip,
     )
 
     total_active_sec = sum(s["duration_sec"] for s in final_segments)
