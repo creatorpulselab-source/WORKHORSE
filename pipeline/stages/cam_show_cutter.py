@@ -883,6 +883,24 @@ def build_davinci_resolve_timeline(
         for i in range(0, len(to_append), chunk_size):
             media_pool.AppendToTimeline(to_append[i:i + chunk_size])
 
+        # Apply professional ASC-CDL Color Grade to each clip in DaVinci Resolve
+        graded_count = 0
+        try:
+            video_items = timeline.GetItemListInTrack("video", 1) or []
+            cdl_map = {
+                "NodeIndex": "1",
+                "Slope": "1.06 1.00 0.94",
+                "Offset": "0.015 0.000 -0.015",
+                "Power": "1.08 1.05 1.08",
+                "Saturation": "1.08",
+            }
+            for v_item in video_items:
+                if v_item.SetCDL(cdl_map):
+                    graded_count += 1
+            logger.info(f"DaVinci Resolve ASC-CDL Color Grade applied across {graded_count} timeline clips.")
+        except Exception as cdl_err:
+            logger.warning(f"Could not apply DaVinci CDL grade to clips: {cdl_err}")
+
         # Color-coded markers for each performance segment
         current_record_frame = 0
         markers_count = 0

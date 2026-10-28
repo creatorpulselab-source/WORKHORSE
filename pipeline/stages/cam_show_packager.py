@@ -521,6 +521,7 @@ def render_full_cutdown_video(
                 "ffmpeg", "-y", "-ss", str(c["start_sec"]), "-i", str(video_path),
                 "-t", str(dur),
                 "-map", "0:v:0", "-map", "0:a:0?",
+                "-vf", "hqdn3d=3.0:2.5:4.5:3.5,cas=0.45,eq=contrast=1.04:saturation=1.08:gamma=1.01",
                 "-c:v", "h264_nvenc", "-gpu", "1", "-preset", "p4", "-cq", "21",
                 "-c:a", "aac", "-b:a", "192k",
                 str(c_file)
