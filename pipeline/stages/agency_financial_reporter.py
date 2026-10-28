@@ -98,7 +98,7 @@ class AgencyAccountingLedger:
     def generate_weekly_report(
         self,
         days: int = 7,
-        manager_cashtag: str = "$YourCashtag"
+        manager_cashtag: str = "$CareyPphoto"
     ) -> Dict[str, Any]:
         """Calculates weekly profit and loss, split breakdown, and 1-tap settlement links."""
         cutoff = datetime.now() - timedelta(days=days)
@@ -215,5 +215,5 @@ async def post_weekly_financial_statement(
 if __name__ == "__main__":
     ledger = AgencyAccountingLedger()
     print("Agency Accounting Ledger Initialized.")
-    report = ledger.generate_weekly_report(days=7, manager_cashtag="$YourCashtag")
+    report = ledger.generate_weekly_report(days=7, manager_cashtag="$CareyPphoto")
     print(f"Sample Report Generated: Gross ${report['gross_revenue']} | Agency 20%: ${report['agency_cut_20']}")
