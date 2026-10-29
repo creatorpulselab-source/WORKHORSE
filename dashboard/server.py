@@ -58,6 +58,19 @@ from pipeline.stages.herald_scheduler import herald_scheduler
 
 main_loop = None
 connected_websockets: List[WebSocket] = []
+connected_stackchan_websockets: Dict[str, List[WebSocket]] = {"synapse": [], "muse": []}
+
+def broadcast_stackchan(robot_name: str, packet: Dict[str, Any]):
+    """Broadcasts a telemetry packet or speech command to connected M5Stack-chan robot."""
+    robot_key = robot_name.lower().strip()
+    sockets = connected_stackchan_websockets.get(robot_key, [])
+    payload = json.dumps(packet)
+    for ws in list(sockets):
+        try:
+            if main_loop and main_loop.is_running():
+                asyncio.run_coroutine_threadsafe(ws.send_text(payload), main_loop)
+        except Exception:
+            pass
 
 CONFIG_FILE = BASE_DIR / "config.json"
 orchestrator = WorkhorseOrchestrator(str(CONFIG_FILE))
@@ -277,7 +290,7 @@ SESSION_COOKIE = "workhorse_session"
 # called by external services/buyers who have no WORKHORSE login - protected instead by
 # Stripe signature verification, Gumroad seller_id matching, and an unguessable download token.
 PUBLIC_PATHS = {"/login", "/api/login", "/setup", "/api/setup", "/favicon.ico", "/subscribe", "/api/newsletter/subscribe", "/api/newsletter/unsubscribe", "/api/radar/webhook/stripe", "/api/radar/webhook/gumroad", "/api/radar/webhook/whop", "/api/monitor/agents-active", "/api/cam-shows/queue"}
-PUBLIC_PREFIXES = ("/static/", "/api/download/order/", "/api/vault/stream/", "/craftymyia", "/creatormediastudio", "/charlettewebb")
+PUBLIC_PREFIXES = ("/static/", "/api/download/order/", "/api/vault/stream/", "/craftymyia", "/creatormediastudio", "/charlettewebb", "/ws/stackchan/", "/api/stackchan/")
 
 
 def _load_secrets() -> Dict[str, Any]:
@@ -2061,6 +2074,55 @@ async def websocket_telemetry(websocket: WebSocket):
     except Exception:
         if websocket in connected_websockets:
             connected_websockets.remove(websocket)
+
+
+@app.websocket("/ws/stackchan/{robot_id}")
+async def websocket_stackchan(websocket: WebSocket, robot_id: str):
+    robot_key = robot_id.lower().strip()
+    if robot_key not in connected_stackchan_websockets:
+        connected_stackchan_websockets[robot_key] = []
+    await websocket.accept()
+    connected_stackchan_websockets[robot_key].append(websocket)
+    print(f"[STACKCHAN] Robot connected via WebSocket: {robot_key.upper()}")
+    try:
+        welcome_pkt = {
+            "type": "handshake",
+            "robot": robot_key,
+            "status": "connected",
+            "system": "WORKHORSE AI Command Center",
+            "message": f"Welcome online, {robot_key.capitalize()}!"
+        }
+        await websocket.send_text(json.dumps(welcome_pkt))
+        while True:
+            data = await websocket.receive_text()
+            try:
+                msg = json.loads(data)
+                print(f"[STACKCHAN:{robot_key}] Received: {msg}")
+            except Exception:
+                pass
+    except WebSocketDisconnect:
+        if websocket in connected_stackchan_websockets[robot_key]:
+            connected_stackchan_websockets[robot_key].remove(websocket)
+    except Exception:
+        if websocket in connected_stackchan_websockets[robot_key]:
+            connected_stackchan_websockets[robot_key].remove(websocket)
+
+@app.post("/api/stackchan/test-alert")
+async def test_stackchan_alert(payload: Dict[str, Any]):
+    robot = payload.get("robot", "synapse").lower().strip()
+    alert_type = payload.get("type", "ping")
+    text = payload.get("text", "Test alert from WORKHORSE command center.")
+    expression = payload.get("expression", "happy")
+    pkt = {
+        "type": "event",
+        "name": alert_type,
+        "expression": expression,
+        "text": text,
+        "sound": payload.get("sound", "ding"),
+        "theme_color": "#00f2fe" if robot == "synapse" else "#ff007f"
+    }
+    broadcast_stackchan(robot, pkt)
+    return {"status": "dispatched", "robot": robot, "packet": pkt}
 
 
 # ==============================================================================

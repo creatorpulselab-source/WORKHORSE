@@ -13,13 +13,25 @@ import logging
 import asyncio
 from typing import Dict, Any, List, Optional
 import httpx
+from pathlib import Path
 
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-try:
-    from stages.cloud_daemon import load_secrets, generate_bunny_signed_url
-except ImportError:
-    from cloud_daemon import load_secrets, generate_bunny_signed_url
+
+def get_secrets() -> Dict[str, Any]:
+    """Resolves secrets.json across Windows WORKHORSE root and Linux VPS paths."""
+    candidates = [
+        Path("F:/WORKHORSE/secrets.json"),
+        Path(__file__).resolve().parents[2] / "secrets.json",
+        Path("/opt/charlette-daemon/secrets.json")
+    ]
+    for p in candidates:
+        if p.exists():
+            try:
+                return json.loads(p.read_text(encoding="utf-8"))
+            except Exception:
+                pass
+    return {}
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("manyvids_vault_sync")
@@ -59,10 +71,15 @@ async def stream_video_to_bunny(
                 logger.error(f"Failed to fetch source video '{video_title}': HTTP {source_resp.status_code}")
                 return False
             
-            # Use streaming upload to Bunny Storage
+            # Use streaming upload to Bunny Storage with explicit Content-Length
+            req_headers = dict(bunny_headers)
+            content_len = source_resp.headers.get("content-length")
+            if content_len:
+                req_headers["Content-Length"] = str(content_len)
+
             upload_resp = await client.put(
                 bunny_upload_url,
-                headers=bunny_headers,
+                headers=req_headers,
                 content=source_resp.aiter_bytes(),
                 timeout=600.0
             )
@@ -79,7 +96,7 @@ async def stream_video_to_bunny(
 
 async def ingest_catalog(manifest_path: str, max_concurrent: int = 3, max_videos: Optional[int] = None):
     """Parses manifest and uploads videos to Bunny.net under /workhorse-vault/charlette_webb/legacy_vault/"""
-    sec = load_secrets()
+    sec = get_secrets()
     vault_cfg = sec.get("creator_vault", {})
     storage_pwd = vault_cfg.get("bunny_storage_password", "")
     zone = vault_cfg.get("bunny_storage_zone", "workhorse-vault")
@@ -104,10 +121,10 @@ async def ingest_catalog(manifest_path: str, max_concurrent: int = 3, max_videos
         orig = dl_info.get("original") or {}
         trans = dl_info.get("transcoded") or {}
         
-        # Pick original if available, else transcoded
-        file_url = orig.get("file_url") or trans.get("file_url")
-        file_ext = orig.get("file_ext") or trans.get("file_ext") or "mp4"
-        file_size = orig.get("file_size") or trans.get("file_size") or "unknown"
+        # Prioritize transcoded MP4 for instant web streaming and 50% storage footprint
+        file_url = trans.get("file_url") or orig.get("file_url")
+        file_ext = trans.get("file_ext") or orig.get("file_ext") or "mp4"
+        file_size = trans.get("file_size") or orig.get("file_size") or "unknown"
         
         if not file_url:
             continue
