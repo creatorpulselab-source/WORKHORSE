@@ -112,6 +112,36 @@ class PinterestPoster:
             print(f"[PinterestPoster] Token refresh error: {e}")
             return access_token or None
 
+    def exchange_auth_code(self, code: str, redirect_uri: str = "https://craftymyia.com") -> Dict[str, Any]:
+        """Exchanges an authorization code for access_token and permanent refresh_token."""
+        creds = self._load_credentials()
+        app_id = (creds.get("app_id") or "").strip()
+        app_secret = (creds.get("app_secret") or "").strip()
+        if not (app_id and app_secret):
+            return {"success": False, "error": "app_id and app_secret must be set in secrets.json"}
+        try:
+            resp = requests.post(
+                "https://api.pinterest.com/v5/oauth/token",
+                auth=(app_id, app_secret),
+                data={
+                    "grant_type": "authorization_code",
+                    "code": code.strip(),
+                    "redirect_uri": redirect_uri.strip()
+                },
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+                timeout=15
+            )
+            if resp.status_code == 200:
+                tok = resp.json()
+                creds["access_token"] = tok.get("access_token", "")
+                creds["refresh_token"] = tok.get("refresh_token", "")
+                creds["token_expires_at"] = time.time() + tok.get("expires_in", 3600)
+                self._save_credentials(creds)
+                return {"success": True, "token_data": tok}
+            return {"success": False, "status_code": resp.status_code, "error": resp.text}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
     def verify_credentials(self) -> Dict[str, Any]:
         """Check if Pinterest credentials are configured and the token is valid."""
         token = self._ensure_fresh_token()
