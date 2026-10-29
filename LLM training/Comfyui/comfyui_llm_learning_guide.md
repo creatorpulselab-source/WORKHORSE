@@ -656,6 +656,101 @@ In advanced workflows (using `LoraLoaderBlockWeight` or `LoraLoaderAdvanced`), w
 
 ---
 
+### 13.6 End-to-End LoRA Training Pipeline (Dataset Curation, Disentanglement, Local RTX 5070 Ti Hyperparameters & ComfyUI Validation)
+
+While loading LoRAs is standard inference, generating custom, expert-grade photorealistic LoRAs locally requires a disciplined 4-phase training pipeline. 
+
+#### The Core Mental Model: The Tugboat Principle
+A foundation diffusion model (e.g., FLUX.1 [dev], SDXL, Wan 2.2, Qwen Image) acts as a massive cargo ship carrying billions of parameters of general visual knowledge. A LoRA acts as a specialized high-torque tugboat latching onto the ship's attention projections, pulling its generations toward a precise subject, likeness, or aesthetic without rewriting or degrading the ship itself.
+
+```
+[Foundation Model Cargo Ship] (Billions of weights: anatomy, lighting, physics, lenses)
+             ▲
+             │ (Injected low-rank delta: W = W0 + (alpha/r) * B·A)
+             ▼
+      [LoRA Tugboat] (Specialized character likeness / client identity / artistic style)
+```
+
+#### Phase 1: Dataset Curation & Synthetic Multiplier Engineering
+The primary failure mode in character likeness training is **identity-environment entanglement** (e.g., if a subject wears a black jacket in every training photo, the model fuses the jacket into the person's permanent bodily identity).
+
+1. **Target Volume**: 15 to 30 high-resolution, uncompressed source images.
+   * *Distribution*: 50% tight headshots/portraits (facial geometry, eye color, pores, micro-expressions), 30% waist-up medium shots, 20% full-body compositions.
+2. **The Cartesian Multiplier Matrix**:
+   Force the training optimizer to isolate the facial structure by varying all non-identity variables across a Cartesian product of conditions:
+   * **Lighting**: Golden hour, harsh directional strobe, soft diffused daylight, moody neon backlight.
+   * **Backgrounds**: Outdoor nature, urban street, minimalist neutral studio backdrop, indoor bedroom.
+   * **Camera Perspectives**: Direct eye-level, low-angle heroic, high-angle candid, 45-degree three-quarter profile, side profile.
+3. **Synthetic Variation via Video Diffusion (Wan 2.2 + VHS)**:
+   When working with limited reference photos of a client or model, feed the base reference image into a video foundation model like **Wan 2.2** (running dual High and Low noise passes). Use the **Video Helper Suite (VHS)** node to extract still frames at 2 frames per second (fps). This automatically yields natural head-turns, subtle smile transitions, and realistic micro-angle variations without synthetic warping.
+4. **Wardrobe Disentanglement via Inpainting (Qwen Image Edit / SAM 2)**:
+   Mask clothing regions on the base images and execute inpainting with **Qwen Image Edit** to synthesize completely distinct outfits (e.g., casual t-shirt, formal blazer, swimwear, sportswear). This guarantees the character can be generated in any future outfit without clothing bias.
+5. **High-Fidelity Upscaling (ByteDance SeedVR via WAS Node Suite)**:
+   Do not upscale raw images early in the pipeline (which bogs down video and inpainting nodes). Upscale only the final curated dataset to **2K (2048px)** using **SeedVR** via the WAS Node Suite batch loader right before training to preserve crisp micro-textures, lashes, and pore structure.
+
+#### Phase 2: Disentanglement Captioning & Trigger Word Strategy
+1. **Local Vision Auto-Captioning (Qwen2.5-VL / Florence-2)**:
+   Execute automated captioning locally using high-precision vision LLMs (`Qwen2.5-VL-7B` or `Florence-2-large`) to generate paired `.txt` files for every image in the dataset.
+2. **Nonsensical Unique Trigger Tokens**:
+   Assign a rare, non-dictionary trigger token that has zero pre-existing semantic associations in the CLIP / T5 text encoders:
+   * *Good*: `chrltte26`, `mlssa26`, `pxr_artstyle`
+   * *Bad*: `charlette`, `blonde_girl`, `model_woman` (these trigger strong base model priors that fight the LoRA).
+3. **Exclusionary Disentanglement Captioning**:
+   Explicitly describe all contextual elements you do **NOT** want the LoRA to permanently encode into the trigger word:
+   * *Formula*: `[trigger_word], [shot_type], [exact hair styling], wearing [detailed clothing], [expression], [background elements], [lighting type]`
+   * *Example*: `chrltte26, close-up portrait, wavy blonde hair over shoulders, wearing a forest green ribbed turtleneck sweater, subtle smile, standing against a blurred bokeh coffee shop interior, warm incandescent lighting`
+   * *Why this works*: The cross-attention loss assigns the sweater and coffee shop features to the text prompt tokens, leaving *only* the unique facial contours, bone structure, and eye shape to bind to `chrltte26`.
+
+#### Phase 3: Hardware & Hyperparameter Execution (Local RTX 5070 Ti vs. Cloud)
+
+##### A. Local Production Training (AI Toolkit / OneTrainer / Kohya_ss on RTX 5070 Ti 16GB)
+The 16 GB VRAM on an **NVIDIA RTX 5070 Ti** is the optimal sweet spot for professional local LoRA creation:
+* **Precision**: `bf16` (bfloat16) for FLUX and SDXL to maintain dynamic range without gradient underflow.
+* **Optimizer**: **`AdamW8bit`** (crucial for staying within the 16 GB boundary while training 1024x1024 resolutions).
+* **VRAM Mitigations**:
+  * `gradient_checkpointing: true` (slashes peak memory by 40%).
+  * `batch_size: 1` with `gradient_accumulation_steps: 1` or `2`.
+  * Multi-aspect ratio bucketing enabled (512 to 1024px).
+* **Rank & Alpha Architecture**:
+  * **Rank (Dim)**: `16` or `32` (16 is lean and fast for faces; 32 allows complex accessories and intricate hair).
+  * **Alpha ($lpha$)**: Set to $rac{	ext{Rank}}{2}$ (e.g., Rank 16 -> Alpha 8; Rank 32 -> Alpha 16) for maximum gradient stability.
+* **Learning Rates**:
+  * UNet / Transformer Learning Rate: `1e-4` (`0.0001`).
+  * Text Encoder Learning Rate (if training CLIP/T5): `5e-5` (`0.00005`) or frozen for FLUX.
+  * LR Scheduler: `cosine_with_restarts` or `constant_with_warmup` (warmup = 5-10% of total steps).
+* **Step Count**: **1,500 to 3,000 steps** total (~25 to 45 minutes on the RTX 5070 Ti).
+
+##### B. Cloud Burst Training (Fal.ai / Replicate)
+* When the studio RTX 5070 Ti is busy rendering heavy production queues, offload style or fast character LoRAs to cloud endpoints:
+* **Steps**: 700 steps for character likeness, 1,000 steps for complex styles.
+* **Speed & Cost**: ~8 minutes runtime, costing approximately ~$3.00.
+
+#### Phase 4: ComfyUI Integration, Architecture Conversion & Validation
+1. **Architecture & Format Conversion (Krea Lora Converter - Pixaroma)**:
+   LoRAs trained on diffusers-based cloud platforms (like Fal.ai) often use different state dictionary key mappings. Drop the `.safetensors` into `ComfyUI/models/loras/` and run it once through the **`Krea Lora Converter` (Pixaroma node)** to convert keys into native ComfyUI-compatible tensors.
+2. **Directory Nesting Ergonomics (`rgthree`)**:
+   Enable `"Auto Nest Subdirectories in Menus"` inside the `rgthree` settings. Organize the folder structure into:
+   ```
+   ComfyUI/models/loras/
+   ├── clients/
+   │   ├── charlette/
+   │   │   ├── charlette_v1_r16.safetensors
+   │   │   └── charlette_v2_r32.safetensors
+   │   └── melissa/
+   └── styles/
+       └── editorial_boudoir/
+   ```
+3. **Quantitative Strength Evaluation (XY Plot - Pixaroma)**:
+   Never deploy a new LoRA blindly. Connect an **`XY Plot` (Pixaroma node)** directly to the KSampler:
+   * Set X-Axis to: **`Lora Strength`**
+   * Input Test Values: `[0.0, 0.2, 0.5, 0.75, 1.0, 1.25]`
+   * **Acceptance Criteria**:
+     * At **0.0**: Base foundation likeness (zero LoRA influence).
+     * At **0.8 – 1.0**: Perfect client facial likeness with crisp skin pores, natural eye highlights, and full styling flexibility.
+     * At **1.25**: No pixel burn, high-contrast over-saturation, or plastic skin artifacts (proof that the model was not overtrained).
+
+---
+
 ## Module 14: Advanced Frontier Architectures & Optimization Pipelines
 
 To transition from intermediate workflow generation to production-grade mastery, an LLM must understand eight advanced engineering frontiers that solve multi-character token bleed, VRAM bottlenecks, resolution limits, and zero-shot identity preservation.

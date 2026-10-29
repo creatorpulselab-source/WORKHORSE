@@ -34,7 +34,7 @@ TOPIC_MODULES = (
     (("pixaroma", "composer", "image_name", "compare", "notify", "3d builder"), (22, 4)),
     (("inpaint", "outpaint", "mask", "sam2", "segment anything"), (8, 9, 19)),
     (("relight", "ic-light"), (10,)),
-    (("lora", "adapter"), (13,)),
+    (("lora", "adapter", "training", "train", "dataset", "caption", "ai-toolkit", "ai toolkit", "disentanglement", "tugboat", "seedvr", "krea", "xy plot"), (13,)),
     (("upscal", "hi-res", "hires", "controlnet", "regional", "faceid", "gguf", "fp8", "freeu", "pag", "wildcard", "liveportrait", "in-graph"), (14,)),
     (("ltx", "video", "wan", "svd", "animate", "motion"), (12, 21, 11, 6, 3)),
     (("img2img", "image-to-image", "i2i"), (7, 19)),
@@ -57,6 +57,7 @@ SECTION_TOPICS = {
         "13.3": ("identity", "style", "acceleration"),
         "13.4": ("chain", "stack", "lora"),
         "13.5": ("block",),
+        "13.6": ("training", "train", "dataset", "caption", "ai toolkit", "ai-toolkit", "tugboat", "disentanglement", "wan", "seedvr", "krea", "converter", "xy plot", "hyperparameter", "rank 16", "rank 32", "adamw8bit"),
     },
     14: {
         "14.1": ("upscal", "hi-res", "hires", "tiled"),

@@ -1,0 +1,49 @@
+The Complete ComfyUI LoRA Training Guide
+
+The Core Concept: The Tugboat
+A base diffusion model (like Flux2, Krea2, or Qwen Image 2.1) is a massive cargo ship of general visual knowledge. A LoRA (Low-Rank Adaptation) acts as a specialized tugboat that latches onto the ship, pulling its generations toward a specific subject, character, or artistic style without rewriting the entire base model.
+
+Phase 1: Dataset Curation and Generation
+The golden rule of character training is isolating the subject's face from their environment. If your character is wearing the same outfit in every image, the AI bakes that clothing into their permanent identity.
+
+Target Size: 15 to 30 high-quality images. Prioritize close-up portraits for facial likeness, supplemented by waist-up and full-body shots.
+
+The Cartesian Approach: Multiply prompts across different poses, lighting, outfits, and backgrounds to force the AI to discard background noise and learn only the character.
+
+Extracting Variations: Feed a base reference image into a video model like Wan 2.2 (using High and Low noise passes). Use the Video Helper Suite (VHS) node to extract still frames (e.g., extracting 2 frames per second) to easily generate natural zooms and head-turns.
+
+Inpainting Outfits: Use Qwen Image Edit to mask the character's clothing and generate entirely new outfits to ensure dataset variety.
+
+Upscaling: Use SeedVR (by ByteDance) via the WAS Node Suite batch loader to upscale the final curated dataset to 2K (2048px) just before training. Do not upscale earlier, as heavy images slow down image-to-video generation nodes.
+
+Phase 2: Captioning and Trigger Words
+
+Auto-Captioning: Use a local vision model like Qwen2.5-VL to quickly generate .txt files corresponding to each image.
+
+Trigger Words: Assign a highly unique, nonsensical trigger word (e.g., mlssa26 or Pixirl) in every caption.
+
+Exclusionary Captioning: Describe the elements you do not want the LoRA to permanently learn (e.g., "pink sweater," "forest background"). This instructs the model to separate temporary elements from the core character identity (like specific tattoo placements or piercings).
+
+Phase 3: Execution (Local vs. Cloud)
+
+Local Training (AI Toolkit): Ideal for complex character likenesses and maximum control.
+
+Hardware: With a 16 GB VRAM GPU like the RTX 5070 Ti, enable gradient checkpointing, use an 8-bit optimizer (AdamW8bit), and keep the batch size to 1 to prevent out-of-memory errors at 1024x1024 resolutions.
+
+Parameters: Use a Rank (Dim) of 16 or 32, with Alpha set to half the Rank. Set the UNet learning rate to 1e-4 (0.0001).
+
+Steps: 1,500 to 3,000 total steps.
+
+Cloud Training (e.g., Fal.ai): Ideal for quick style LoRAs or fast iterations without locking up your primary desktop.
+
+Parameters: Upload images (no zip required). Set steps to 700 for characters or 1,000 for styles. Select the highest available resolution and manually set the learning rate to 0.001 or 0.0001.
+
+Cost/Time: A 1,000-step training run typically takes about 8 minutes and costs roughly $3.
+
+Phase 4: ComfyUI Integration and Testing
+
+Format Conversion (Fal.ai Only): LoRAs trained on fal.ai are locked to their architecture. Place the downloaded .safetensors file in your ComfyUI/models/loras folder. Run it through the Krea Lora Converter Pixaroma node once to make it ComfyUI-compatible.
+
+Organization: If using rgthree nodes, enable auto nest subdirectories in menus in the settings to automatically organize your LoRA list into clean folders.
+
+Strength Evaluation: Connect an XY Plot Pixaroma node after your VAE Decode. Set the X value to Lora Strength and input variables (e.g., 0, 0.2, 0.5, 0.75, 1, 1.25) to generate a visual grid. A well-trained LoRA maintains strong likeness at 0.8 to 1.0 without destroying the base model's flexibility.
