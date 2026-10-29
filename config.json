@@ -214,7 +214,13 @@
         "SVG Cut Files & Bundles",
         "Sublimation & Clipart"
       ],
-      "digital_catalog_dir": "F:/WORKHORSE/workspace/etsy_listings"
+      "digital_catalog_dir": "F:/WORKHORSE/workspace/etsy_listings",
+      "pinterest": {
+        "enabled": true,
+        "default_board_id": "",
+        "daily_slot_time": "12:00",
+        "strict_etsy_products_only": true
+      }
     }
   },
   "comfyui": {

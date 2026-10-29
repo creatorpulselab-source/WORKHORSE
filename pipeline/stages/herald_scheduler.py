@@ -1111,47 +1111,76 @@ Rules:
         except Exception as e:
             return {"status": "error", "message": f"Failed to read config.json: {e}"}
 
-        pin_cfg = cfg.get("marketing_channels", {}).get("main_brand", {}).get("pinterest", {})
+        # Check Crafty Myia brand first, falling back to main brand
+        pin_cfg = cfg.get("marketing_channels", {}).get("craftymyia_brand", {}).get("pinterest", {})
         if not pin_cfg.get("enabled"):
-            return {"status": "skipped", "reason": "pinterest_disabled", "message": "Pinterest publishing is disabled in config.json (marketing_channels.main_brand.pinterest.enabled)."}
+            pin_cfg = cfg.get("marketing_channels", {}).get("main_brand", {}).get("pinterest", {})
+        if not pin_cfg.get("enabled"):
+            return {"status": "skipped", "reason": "pinterest_disabled", "message": "Pinterest publishing is disabled in config.json."}
 
         board_id = pin_cfg.get("default_board_id", "").strip()
         if not board_id:
-            return {"status": "skipped", "reason": "no_board_id", "message": "No default_board_id configured under marketing_channels.main_brand.pinterest."}
+            # Auto-detect boards from account if not explicitly set
+            boards_res = self.pinterest.list_boards()
+            if boards_res.get("success") and boards_res.get("boards"):
+                board_id = str(boards_res["boards"][0]["id"])
+            else:
+                return {"status": "skipped", "reason": "no_board_id", "message": "No board_id configured and no boards found on Pinterest account."}
 
-        day_index = date.today().toordinal() % len(PINTEREST_DAILY_CONTENT)
-        content = PINTEREST_DAILY_CONTENT[day_index]
+        # STRICT CONTENT POLICY: Pinterest content MUST strictly and exclusively be about
+        # products on the Crafty Myia Etsy page (https://www.etsy.com/shop/CraftyMyia).
+        catalog_file = Path("F:/WORKHORSE/workspace/craftymyia_site/catalog_data.json")
+        etsy_catalog = []
+        if catalog_file.exists():
+            try:
+                with open(catalog_file, "r", encoding="utf-8") as f:
+                    etsy_catalog = json.load(f)
+            except Exception:
+                etsy_catalog = []
 
+        if not etsy_catalog:
+            return {"status": "error", "message": "Crafty Myia Etsy catalog not found. Pinterest posting is restricted exclusively to Etsy products."}
+
+        # Daily rotation across authentic Etsy listings
+        day_index = date.today().toordinal() % len(etsy_catalog)
+        product = etsy_catalog[day_index]
+
+        title = (product.get("short_title") or product.get("title", ""))[:100]
+        summary = product.get("summary", "")
+        formats = ", ".join(product.get("formats", ["SVG", "PNG"]))
+        tags = " ".join([f"#{t.replace(' ', '')}" for t in product.get("tags", [])[:5]])
+        description = f"{summary}\n\nIncludes: {formats}. Perfect for Cricut, Silhouette, Laser, and 3D printing!\n\n{tags} #craftymyia #etsy"[:500]
+        link = product.get("url") or "https://www.etsy.com/shop/CraftyMyia"
+
+        slug = product.get("slug", "")
         vis_path = None
-        try:
-            vis_path = self._get_brand_visual_for_post("TheCreatorAsset", topic_text=content.get("title"))
-        except Exception as e:
-            print(f"[Herald Scheduler] Pinterest visual lookup notice: {e}")
+        img_candidates = [
+            Path(f"F:/WORKHORSE/workspace/craftymyia_site/assets/products/{slug}.jpg"),
+            Path(f"F:/WORKHORSE/workspace/craftymyia_site/assets/products/{slug}.png"),
+            Path(f"F:/WORKHORSE/workspace/etsy_listings/{slug}/mockup_1.jpg"),
+            Path(f"F:/WORKHORSE/workspace/etsy_listings/{slug}/preview.jpg")
+        ]
+        for c in img_candidates:
+            if c.exists():
+                vis_path = str(c)
+                break
 
-        if not vis_path or not Path(vis_path).exists():
-            result = {"status": "error", "message": "No verified brand visual available for Pinterest pin (ComfyUI unavailable and no fallback render found)."}
+        if not vis_path:
+            result = {"status": "error", "message": f"No product mockup image found for Etsy listing '{slug}'."}
         else:
-            # STRICT SFW FILTER: Pinterest cannot receive non-SFW media
-            if not self._verify_media_is_strictly_sfw(vis_path):
-                print(f"[Herald Safety Alert] Suppressed non-compliant visual from Pinterest pin: {vis_path}")
-                vis_path = None
-
-            if not vis_path:
-                result = {"status": "error", "message": "Filtered non-compliant visual from Pinterest pin."}
-                return result
-
             post_res = self.pinterest.create_pin(
                 board_id=board_id,
-                title=content["title"],
-                description=content["description"],
-                link=content.get("link", ""),
+                title=title,
+                description=description,
+                link=link,
                 image_path=vis_path,
                 content_type="general"
             )
+            content = {"title": title, "description": description, "link": link, "product_slug": slug}
             result = {"status": "ok" if post_res.get("success") else "error", "content": content, "result": post_res}
             if post_res.get("success") and vis_path:
-                self._record_posted_media(vis_path, "TheCreatorAsset", "pinterest_daily")
-            print(f"[Herald Scheduler] Pinterest daily pin dispatched: {post_res.get('success')} ({post_res.get('status', post_res.get('pin_url'))})")
+                self._record_posted_media(vis_path, "CraftyMyia", "pinterest_daily")
+            print(f"[Herald Scheduler] Crafty Myia Etsy Pinterest pin dispatched: {post_res.get('success')} ({post_res.get('status', post_res.get('pin_url'))})")
 
         # Only mark today's pin as done if it actually posted - an error (ComfyUI
         # unavailable, expired token, Pinterest API error) must stay retryable instead
