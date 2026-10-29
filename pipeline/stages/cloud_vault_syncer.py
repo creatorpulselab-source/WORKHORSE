@@ -88,16 +88,16 @@ def fetch_fresh_video_download(video_id: int):
 
 
 def upload_via_curl(local_path: Path, remote_url: str, storage_pwd: str) -> bool:
-    """Uses curl for zero-overhead streaming upload directly to Bunny.net."""
+    """Uses curl for zero-overhead streaming upload directly to Bunny.net via -T (avoids RAM buffering)."""
     cmd = [
         "curl", "-s", "-w", "\n%{http_code}",
         "-X", "PUT", remote_url,
         "-H", f"AccessKey: {storage_pwd}",
         "-H", "Content-Type: application/octet-stream",
-        "--data-binary", f"@{local_path}"
+        "-T", str(local_path)
     ]
     try:
-        res = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+        res = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
         lines = res.stdout.strip().split("\n")
         code = lines[-1].strip() if lines else ""
         if code in ("200", "201"):
@@ -111,12 +111,12 @@ def upload_via_curl(local_path: Path, remote_url: str, storage_pwd: str) -> bool
 
 
 def generate_stills_and_teaser(video_path: Path, output_dir: Path):
-    """Extracts 3 stills and 15s teaser using ffmpeg."""
+    """Extracts 3 stills and 15s teaser using ffmpeg with resilient timeouts."""
     output_dir.mkdir(parents=True, exist_ok=True)
     
     probe_cmd = ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", str(video_path)]
     try:
-        duration = float(subprocess.check_output(probe_cmd, timeout=10).decode().strip())
+        duration = float(subprocess.check_output(probe_cmd, timeout=15).decode().strip())
     except Exception:
         duration = 600.0
 
@@ -125,20 +125,26 @@ def generate_stills_and_teaser(video_path: Path, output_dir: Path):
         still_file = output_dir / f"still_{i+1}.jpg"
         ts = max(5.0, duration * ratio)
         cmd = ["ffmpeg", "-y", "-ss", str(ts), "-i", str(video_path), "-vframes", "1", "-q:v", "2", str(still_file)]
-        subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=20)
-        if still_file.exists():
-            stills.append(still_file)
+        try:
+            subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=30)
+            if still_file.exists() and still_file.stat().st_size > 0:
+                stills.append(still_file)
+        except Exception as e:
+            log(f"    ⚠️ FFmpeg still {i+1} notice: {e}")
 
     teaser_file = output_dir / "teaser_15s.mp4"
     teaser_start = max(10.0, duration * 0.35)
     t_cmd = [
         "ffmpeg", "-y", "-ss", str(teaser_start), "-i", str(video_path), "-t", "15",
-        "-vf", "scale=-2:720", "-c:v", "libx264", "-preset", "fast", "-crf", "23",
-        "-c:a", "aac", "-b:a", "128k", str(teaser_file)
+        "-vf", "scale=-2:720", "-c:v", "libx264", "-preset", "veryfast", "-crf", "24",
+        "-threads", "2", "-c:a", "aac", "-b:a", "128k", str(teaser_file)
     ]
-    subprocess.run(t_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=45)
+    try:
+        subprocess.run(t_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=180)
+    except Exception as e:
+        log(f"    ⚠️ FFmpeg teaser notice (using stills fallback): {e}")
 
-    return stills, teaser_file if teaser_file.exists() else None
+    return stills, teaser_file if teaser_file.exists() and teaser_file.stat().st_size > 0 else None
 
 
 def run_sync():
